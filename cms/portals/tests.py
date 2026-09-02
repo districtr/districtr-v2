@@ -66,6 +66,7 @@ def make_document(public_id, **overrides):
 def mock_response(status_code=200, json_body=None):
     response = mock.Mock()
     response.status_code = status_code
+    response.ok = status_code < 400
     response.json.return_value = json_body if json_body is not None else []
     response.text = str(json_body)
     return response
@@ -482,3 +483,74 @@ class MetricsProxyTests(TestCase):
             request.side_effect = _route
             response = self.client.get(self._row_url(7))
         self.assertEqual(response.status_code, 502)
+
+
+class PortalAddMapTests(TestCase):
+    """Retroactive add-to-portal: the CMS parses the ref and relays; the
+    backend owns enforcement (scoping, existence, duplicate 409) and its
+    detail message must reach the operator."""
+
+    def setUp(self):
+        create_mirror_tables_for_form_config()
+        make_portal("midwest-portal", title="Midwest Portal")
+        self.url = reverse("portals_add_map", args=["midwest-portal"])
+        reviewer = make_admin_user(email="reviewer@districtr.org", group_name="partner")
+        make_team("Review Team", members=[reviewer])
+        make_form_config("midwest-portal", admin_teams=["review-team"])
+        self.client.login(username="reviewer@districtr.org", password=PASSWORD)
+
+    def test_get_not_allowed(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_posts_public_id_to_backend(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                status_code=201, json_body={"id": 5, "submission_id": "u"}
+            )
+            response = self.client.post(self.url, {"map_ref": "123"})
+        self.assertRedirects(
+            response,
+            reverse("portals_gallery", args=["midwest-portal"]),
+            fetch_redirect_response=False,
+        )
+        args, kwargs = request.call_args
+        self.assertEqual(args[0], "POST")
+        self.assertIn("/api/submissions/admin/add", args[1])
+        self.assertEqual(
+            kwargs["json"], {"portal_id": "midwest-portal", "map_public_id": 123}
+        )
+
+    def test_pasted_link_resolves_to_trailing_id(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                status_code=201, json_body={"id": 5, "submission_id": "u"}
+            )
+            self.client.post(
+                self.url, {"map_ref": "https://districtr.org/map/456?utm=x"}
+            )
+        self.assertEqual(request.call_args.kwargs["json"]["map_public_id"], 456)
+
+    def test_unparseable_ref_never_reaches_backend(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            # The follow-through gallery render calls the backend list —
+            # only the ADD endpoint must not have been hit.
+            request.return_value = mock_response(json_body=[])
+            response = self.client.post(self.url, {"map_ref": "not a map"}, follow=True)
+        self.assertFalse(
+            any("/admin/add" in call.args[1] for call in request.call_args_list)
+        )
+        self.assertContains(response, "public ID")
+
+    def test_backend_conflict_detail_surfaces(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                status_code=409, json_body={"detail": "already has a submission"}
+            )
+            response = self.client.post(self.url, {"map_ref": "123"}, follow=True)
+        self.assertContains(response, "already has a submission")
+
+    def test_inaccessible_portal_denied(self):
+        response = self.client.post(
+            reverse("portals_add_map", args=["not-a-portal"]), {"map_ref": "123"}
+        )
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
