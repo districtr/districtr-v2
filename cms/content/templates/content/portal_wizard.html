@@ -2,89 +2,154 @@
 {% block titletag %}New portal{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Pick a preset, make two decisions, publish when ready" icon="tag" %}
+    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Answer a few questions — the page is generated for you" icon="tag" %}
 
     <div class="nice-padding">
         <p>
-            This creates a <strong>draft</strong> portal page from a preset
-            plus the portal's submission settings. Everything can be adjusted
+            This creates a <strong>draft</strong> portal page and its
+            submission settings from your answers. Everything can be adjusted
             afterwards — the page in the page editor, the form in
             <em>Portal forms</em>. Staff review the page before it goes live;
             submissions themselves are public on arrival.
         </p>
-        <form action="" method="POST" novalidate>
+        <form action="" method="POST" novalidate id="portal-wizard">
             {% csrf_token %}
             {% include "wagtailadmin/shared/non_field_errors.html" %}
-            <ul class="fields">
-                {% for field in form %}
+
+            <fieldset class="wizard-step" data-step-title="About the portal">
+                <legend><h2>About the portal</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.title %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.slug %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.admin_teams %}</li>
+                </ul>
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step-title="Maps">
+                <legend><h2>Maps</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.collection_mode %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.map_modules %}</li>
+                </ul>
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step-title="The submission form">
+                <legend><h2>The submission form</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.fields %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.required_fields %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.require_email_confirm %}</li>
                     <li>
-                        {% include "wagtailadmin/shared/field.html" with field=field %}
-                        {% if field.name == "preset" %}
-                            <p class="help" id="preset-description" style="min-height: 2.5em;"></p>
-                        {% endif %}
+                        <h3>Custom questions</h3>
+                        <p class="help">
+                            Extra questions beyond the standard fields (short
+                            answer or paragraph). Answers are PUBLIC and cannot
+                            be made private — do not ask for email, phone, or
+                            address here (the standard email field is the
+                            private channel, never shown publicly). Only used
+                            when submitters fill a form. Leave a row blank to
+                            skip it.
+                        </p>
+                        {{ question_formset.management_form }}
+                        <table class="listing" style="max-width: 48rem;">
+                            <thead><tr><th>Question</th><th>Type</th><th>Required</th></tr></thead>
+                            <tbody id="question-rows">
+                                {% for qform in question_formset %}
+                                    <tr>
+                                        <td>{{ qform.label }}</td>
+                                        <td>{{ qform.field_type }}</td>
+                                        <td>{{ qform.required }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <template id="question-row-template">
+                            <tr>
+                                <td>{{ question_formset.empty_form.label }}</td>
+                                <td>{{ question_formset.empty_form.field_type }}</td>
+                                <td>{{ question_formset.empty_form.required }}</td>
+                            </tr>
+                        </template>
+                        <button type="button" class="button button-small button-secondary" id="add-question">
+                            Add another question
+                        </button>
                     </li>
-                {% endfor %}
-                <li>
-                    <h3>Custom questions</h3>
-                    <p class="help">
-                        Extra questions beyond the standard fields (short
-                        answer or paragraph). Answers are PUBLIC and cannot
-                        be made private — do not ask for email, phone, or
-                        address here (the standard email field is the
-                        private channel, never shown publicly). Only used by
-                        the prompt-to-submit and manual-form modes. Leave a
-                        row blank to skip it.
-                    </p>
-                    {{ question_formset.management_form }}
-                    <table class="listing" style="max-width: 48rem;">
-                        <thead><tr><th>Question</th><th>Type</th><th>Required</th></tr></thead>
-                        <tbody>
-                            {% for qform in question_formset %}
-                                <tr>
-                                    <td>{{ qform.label }}</td>
-                                    <td>{{ qform.field_type }}</td>
-                                    <td>{{ qform.required }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </li>
-            </ul>
-            <button type="submit" class="button">Create portal</button>
+                </ul>
+            </fieldset>
+
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem;">
+                <button type="button" class="button button-secondary" id="wizard-back">Back</button>
+                <button type="button" class="button" id="wizard-next">Next</button>
+                <button type="submit" class="button" id="wizard-submit">Create portal</button>
+                <span class="help" id="wizard-progress"></span>
+            </div>
         </form>
     </div>
 
-    {{ preset_data|json_script:"preset-data" }}
     <script>
-        // Preset prefill: selecting a preset sets the collection mode, field
-        // checkboxes, and email-confirm toggle, and shows its description.
-        // The server trusts the POSTed values — this is convenience only.
         (function () {
-            const presets = JSON.parse(document.getElementById('preset-data').textContent);
-            const description = document.getElementById('preset-description');
-            const applyPreset = (name, prefill) => {
-                const spec = presets[name];
-                if (!spec) return;
-                description.textContent = spec.description;
-                if (!prefill) return;
-                document.querySelectorAll('input[name="collection_mode"]').forEach(el => {
-                    el.checked = el.value === spec.collection_mode;
-                });
-                document.querySelectorAll('input[name="fields"]').forEach(el => {
-                    el.checked = spec.fields.includes(el.value);
-                });
-                document.querySelectorAll('input[name="required_fields"]').forEach(el => {
-                    el.checked = spec.required_fields.includes(el.value);
-                });
-                const confirm = document.querySelector('input[name="require_email_confirm"]');
-                if (confirm) confirm.checked = spec.require_email_confirm;
-            };
-            const radios = document.querySelectorAll('input[name="preset"]');
-            radios.forEach(el => {
-                el.addEventListener('change', () => applyPreset(el.value, true));
+            // Unlimited custom questions: clone the empty-form template,
+            // renumber __prefix__, bump the management form's TOTAL_FORMS.
+            const total = document.querySelector('input[name="questions-TOTAL_FORMS"]');
+            document.getElementById('add-question').addEventListener('click', () => {
+                const index = parseInt(total.value, 10);
+                const html = document.getElementById('question-row-template')
+                    .innerHTML.replaceAll('__prefix__', index);
+                document.getElementById('question-rows')
+                    .insertAdjacentHTML('beforeend', html);
+                total.value = index + 1;
             });
-            const checked = document.querySelector('input[name="preset"]:checked');
-            if (checked) applyPreset(checked.value, false);
+
+            // Pagination: one step at a time, all steps at once on an error
+            // re-render (the server validates the whole form in one POST).
+            const paginate = {{ paginate|yesno:"true,false" }};
+            const steps = Array.from(document.querySelectorAll('.wizard-step'));
+            const back = document.getElementById('wizard-back');
+            const next = document.getElementById('wizard-next');
+            const submit = document.getElementById('wizard-submit');
+            const progress = document.getElementById('wizard-progress');
+            if (!paginate) {
+                back.remove();
+                next.remove();
+                progress.remove();
+                return;
+            }
+            // Auto-collected portals never show a submitter form, so the
+            // form step is skipped (the server ignores its answers too).
+            const formStep = steps[steps.length - 1];
+            const activeSteps = () => {
+                const mode = document.querySelector('input[name="collection_mode"]:checked');
+                return mode && ['internal', 'auto_public'].includes(mode.value)
+                    ? steps.filter(step => step !== formStep) : steps;
+            };
+            let current = 0;
+            const show = (index) => {
+                const active = activeSteps();
+                current = Math.min(index, active.length - 1);
+                steps.forEach(step => { step.hidden = true; });
+                active[current].hidden = false;
+                back.hidden = current === 0;
+                next.hidden = current === active.length - 1;
+                submit.hidden = current !== active.length - 1;
+                progress.textContent =
+                    `Step ${current + 1} of ${active.length}: ${active[current].dataset.stepTitle}`;
+            };
+            back.addEventListener('click', () => show(current - 1));
+            next.addEventListener('click', () => show(current + 1));
+            // Picking an auto mode on the Maps step turns it into the last
+            // step — refresh the Next/Create buttons in place.
+            document.querySelectorAll('input[name="collection_mode"]').forEach(radio => {
+                radio.addEventListener('change', () => show(current));
+            });
+            // Enter mid-wizard advances instead of submitting a half-read form.
+            document.getElementById('portal-wizard').addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA'
+                    && current < activeSteps().length - 1) {
+                    event.preventDefault();
+                    show(current + 1);
+                }
+            });
+            show(0);
         })();
     </script>
 {% endblock %}
