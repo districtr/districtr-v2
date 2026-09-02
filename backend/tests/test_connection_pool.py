@@ -14,24 +14,24 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.comments.moderation import moderate_comment_by_id
+from app.district_notes import moderate_note_by_id
 from app.thumbnails.main import generate_thumbnail
 
 
 @pytest.fixture(autouse=True)
 def no_external_moderation(monkeypatch):
     # Keep moderation off the network: score the text locally without calling OpenAI.
-    monkeypatch.setattr("app.comments.moderation.score_text", lambda _text: 0.0)
+    monkeypatch.setattr("app.submissions.moderation.score_text", lambda _text: 0.0)
 
 
 def test_self_owned_moderation_returns_connection():
-    """moderate_comment_by_id opens its own ``with Session(engine)`` and commits.
+    """moderate_note_by_id opens its own ``with Session(engine)`` and commits.
 
-    The comment id need not exist (the UPDATE simply affects 0 rows); the point is
+    The note id need not exist (the UPDATE simply affects 0 rows); the point is
     that the connection it checks out is returned to the pool afterward.
     """
     checked_out_before = engine.pool.checkedout()
-    moderate_comment_by_id(2_000_000_000, "regression check")
+    moderate_note_by_id(2_000_000_000, "regression check")
     assert engine.pool.checkedout() == checked_out_before
 
 

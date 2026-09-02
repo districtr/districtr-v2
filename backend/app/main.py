@@ -19,7 +19,7 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text, or_
+from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from sqlalchemy.sql import and_, exists
@@ -57,7 +57,6 @@ from app.core.security import (
 import app.admin_ops.main as admin_ops
 import app.cms.main as cms
 import app.exports.main as exports
-import app.comments.main as comments
 from app.district_notes import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
@@ -91,11 +90,6 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
-)
-from app.comments.models import (
-    DocumentComment as FormDocumentComment,
-    Tag,
-    CommentTag,
 )
 from app.save_share.models import DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
@@ -144,7 +138,6 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(admin_ops.router)
 app.include_router(cms.router)
 app.include_router(exports.router)
-app.include_router(comments.router)
 app.include_router(submissions.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
@@ -1440,22 +1433,8 @@ async def get_document_list(
     )
 
     if len(tags) > 0:
-        # Transitional dual read: legacy tagged form comments AND the new
-        # submissions rows both qualify a document for the tag gallery. The
-        # legacy half goes away with the comment tables.
-        legacy_tagged = exists(
-            select(literal(1))
-            .select_from(FormDocumentComment)
-            .join(CommentTag, CommentTag.comment_id == FormDocumentComment.comment_id)
-            .join(Tag, Tag.id == CommentTag.tag_id)
-            .where(
-                and_(
-                    FormDocumentComment.document_id == Document.document_id,
-                    col(Tag.slug).in_(tags),
-                )
-            )
-            .correlate(Document)
-        )
+        # A document is in a tag's gallery when a visible submission carries
+        # it.
         submission_tagged = exists(
             select(literal(1))
             .select_from(Submission)
@@ -1475,9 +1454,11 @@ async def get_document_list(
             )
             .correlate(Document)
         )
-        stmt = stmt.where(or_(legacy_tagged, submission_tagged))
+        stmt = stmt.where(submission_tagged)
         # Tagged listings only surface maps past scratch: moving a map to
-        # in_progress or ready_to_share is what "submits" it to the gallery.
+        # in_progress or ready_to_share is what "submits" it to the gallery
+        # (deliberate submissions are frozen clones at ready_to_share;
+        # auto-collected ones are live maps whose status this reflects).
         if len(draft_status) == 0:
             draft_status = [
                 DocumentDraftStatus.in_progress,

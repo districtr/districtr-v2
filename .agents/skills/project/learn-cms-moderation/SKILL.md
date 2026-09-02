@@ -20,9 +20,9 @@ CMS authoring/review flows, TipTap extension expectations, and moderation/review
 - `app/src/app/store/cmsFormStore.ts`
 - `backend/app/cms/main.py`
 - `backend/app/cms/models.py`
-- `backend/app/comments/main.py`
-- `backend/app/comments/models.py`
-- `backend/app/comments/moderation.py`
+- `backend/app/submissions/main.py`
+- `backend/app/submissions/models.py`
+- `backend/app/submissions/moderation.py`
 
 ## Hard Invariants
 - CMS content authoring and publishing must preserve role/scope boundaries.
@@ -33,7 +33,7 @@ CMS authoring/review flows, TipTap extension expectations, and moderation/review
 
 ## Preferred Patterns
 - Reuse existing API handlers/store actions for CMS CRUD + publish flows.
-- Keep moderation and review behavior centralized in backend comments module.
+- Keep moderation behavior centralized in the backend submissions module.
 - Keep admin filtering behavior aligned with backend query params.
 - Add tests when changing moderation/review behavior.
 
@@ -51,7 +51,7 @@ CMS authoring/review flows, TipTap extension expectations, and moderation/review
 5. Confirm admin review filters still map to backend behavior.
 
 ## Validation Commands
-- `cd backend && pytest -v tests/test_comments.py tests/test_cms.py`
+- `cd backend && pytest -v tests/test_submissions.py tests/test_cms.py`
 - `cd app && bun run build`
 
 ## See Also

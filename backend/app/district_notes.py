@@ -7,7 +7,7 @@ with written testimony; that coupling is what made the comment tables hard to
 replace. This table is theirs alone.
 
 Moderation is automatic-only: a background task scores the text (OpenAI with
-a profanity-list fallback, see app.comments.moderation.score_text) and sets
+a profanity-list fallback, see app.submissions.moderation.score_text) and sets
 `nsfw`; the public read path shows a placeholder for nsfw notes while edit
 access always sees the real text. There is no human review surface — the CMS
 moderation UI never exposed district comments.
@@ -108,7 +108,7 @@ def moderate_note_by_id(
 
     When ``session`` is None (the background-task case) a dedicated session is
     opened — the request-scoped session is closed by the time background tasks
-    run (see app.comments.moderation._moderate).
+    run (see app.submissions.moderation).
     """
     from app.submissions.moderation import MODERATION_THRESHOLD, score_text
 
