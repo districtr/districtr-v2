@@ -26,6 +26,7 @@ from authapi.tests import fastapi_style_verify
 def mock_response(status_code=200, json_body=None):
     response = mock.Mock()
     response.status_code = status_code
+    response.ok = status_code < 400
     response.json.return_value = json_body if json_body is not None else []
     response.text = str(json_body)
     return response

@@ -51,6 +51,19 @@
             <a class="button button-secondary" href="{% url 'portals_gallery' portal.slug %}">Clear</a>
         </form>
 
+        <form method="post" action="{% url 'portals_add_map' portal.slug %}" novalidate style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+            {% csrf_token %}
+            <label>Add an existing map
+                <input type="text" name="map_ref" placeholder="Map public ID or link" required>
+            </label>
+            <button type="submit" class="button">Add to portal</button>
+        </form>
+        <p class="help">
+            Adds the live map to this portal (a map can belong to several
+            portals). It appears publicly once its status is in progress or
+            ready to share; hide it here like any other entry.
+        </p>
+
         <hr />
 
         {% if error %}

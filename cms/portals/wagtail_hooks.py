@@ -45,6 +45,11 @@ def register_portals_admin_urls():
             name="portals_metrics_row",
         ),
         path(
+            "portals/<slug:slug>/add-map/",
+            views.portal_add_map,
+            name="portals_add_map",
+        ),
+        path(
             "portals/action/",
             views.submission_action,
             name="portals_submission_action",

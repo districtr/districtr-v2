@@ -16,6 +16,7 @@ re-checks everything.
 """
 
 import logging
+import re
 import time
 
 from django.conf import settings
@@ -377,6 +378,34 @@ def _next_url(request):
     ):
         return next_url
     return reverse("portals_index")
+
+
+@group_required(PORTAL_EDITOR_GROUPS)
+def portal_add_map(request, slug):
+    """Retroactively put an existing map in this portal's gallery.
+
+    Takes the map's public ID; a pasted map link works too (the trailing
+    number is the ID). The backend does the real enforcement — team scoping,
+    existence, duplicate 409 — and its detail message surfaces on failure.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    portal, denied = _get_portal_or_denied(request, slug)
+    if denied:
+        return denied
+    match = re.search(r"(\d+)\D*$", request.POST.get("map_ref", ""))
+    if not match:
+        messages.error(request, "Enter the map's public ID (or paste its link).")
+        return redirect(reverse("portals_gallery", args=[slug]))
+    public_id = int(match.group(1))
+    try:
+        services.add_submission(request.user, slug, public_id)
+    except (BackendAPIError, RequestException) as exc:
+        logger.exception("Add map to portal failed")
+        messages.error(request, f"Add failed: {exc}")
+    else:
+        messages.success(request, f"Map {public_id} added to '{portal.title}'.")
+    return redirect(reverse("portals_gallery", args=[slug]))
 
 
 @group_required(PORTAL_EDITOR_GROUPS)
