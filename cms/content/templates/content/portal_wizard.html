@@ -2,6 +2,13 @@
 {% block titletag %}New portal{% endblock %}
 
 {% block content %}
+    <style>
+        /* The module list can be long; keep it scannable and scrollable. */
+        #id_map_modules {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+    </style>
     {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Answer a few questions — the page is generated for you" icon="tag" %}
 
     <div class="nice-padding">
