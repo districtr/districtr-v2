@@ -369,6 +369,13 @@ class FlagSubmissionRequest(BaseModel):
     id: int
 
 
+class SubmissionAdminAdd(BaseModel):
+    """Body for retroactively associating an existing map with a portal."""
+
+    portal_id: str
+    map_public_id: int
+
+
 class NsfwUpdate(BaseModel):
     nsfw: bool
 
