@@ -1,17 +1,13 @@
-"""The portal creation wizard: pick a preset, make two decisions, done.
+"""The portal creation wizard: answer a few questions, get a portal.
 
 Creating a portal by hand takes four disconnected steps (add a TagPage under
 the Tags index, remember the body blocks, create a matching FormConfig row,
 get the slugs to agree). The wizard does all of it in one transaction from a
-PRESET: a draft TagPage with a starter body, the FormConfig (collection mode,
-form fields), and any custom questions. The page lands as a draft in the page
-editor for staff review before publishing — pages keep review; submissions
-don't.
-
-The two real decisions (per the product spec):
-1. How are map submissions collected? (collection_mode)
-2. What information does the form ask for? (registry fields + custom
-   questions — only relevant for the prompt/form modes)
+short, paginated questionnaire: title, URL, how maps are collected, which map
+modules to offer, and the submission form's fields (including unlimited
+custom questions). The templated page body is generated from those answers —
+a draft TagPage in the page editor for staff review before publishing.
+Pages keep review; submissions don't.
 
 Gated by PORTAL_EDITOR_GROUPS (portals/views.py); team-scoped members
 get their teams' map modules as choices and their teams preselected as
@@ -37,7 +33,6 @@ from authapi.teams import (
 )
 from content.forms import _map_choices
 from datastore.models import (
-    COLLECTION_MODE_CHOICES,
     SUBMISSION_FIELD_CHOICES,
     DistrictrMap,
     FormConfig,
@@ -55,74 +50,38 @@ DEFAULT_FIELDS = [
     "zip_code",
 ]
 DEFAULT_REQUIRED = ["first_name", "email", "title", "comment"]
-ALL_FIELDS = [choice for choice, _label in SUBMISSION_FIELD_CHOICES]
 
-# The preset table: each pre-fills the collection mode, form fields, and
-# starter body. Presets are a starting point — the posted values win, and
-# everything stays editable afterwards (page editor / Portal forms snippet).
-PORTAL_PRESETS = {
-    "educational": {
-        "label": "Educational",
-        "description": (
-            "Workshops and classrooms: participants draw maps from the portal "
-            "and organizers watch them come in on an internal gallery. "
-            "Nothing is published."
-        ),
-        "collection_mode": "internal",
-        "fields": [],
-        "required_fields": [],
-        "require_email_confirm": False,
-        "body": "maps_only",
-    },
-    "competition": {
-        "label": "Competition",
-        "description": (
-            "Map contests: entrants are prompted to submit when they mark "
-            "their map ready to share, filling a short entry form. Submitted "
-            "snapshots are frozen."
-        ),
-        "collection_mode": "prompt",
-        "fields": DEFAULT_FIELDS,
-        "required_fields": DEFAULT_REQUIRED,
-        "require_email_confirm": False,
-        "body": "map_collection",
-    },
-    "public_engagement": {
-        "label": "Public engagement",
-        "description": (
-            "Open participation: every map drawn from the portal appears in "
-            "the public gallery as soon as it is in progress or ready to "
-            "share. No form to fill."
-        ),
-        "collection_mode": "auto_public",
-        "fields": [],
-        "required_fields": [],
-        "require_email_confirm": False,
-        "body": "auto_gallery",
-    },
-    "state_commission": {
-        "label": "State commission",
-        "description": (
-            "Formal testimony: a full submission form (all standard fields, "
-            "email confirmation) with an optional map attachment, plus a "
-            "gallery of written submissions."
-        ),
-        "collection_mode": "form",
-        "fields": ALL_FIELDS,
-        "required_fields": DEFAULT_REQUIRED,
-        "require_email_confirm": True,
-        "body": "testimony",
-    },
-    "custom": {
-        "label": "Custom",
-        "description": "Start from a plain testimony portal and adjust everything below.",
-        "collection_mode": "prompt",
-        "fields": DEFAULT_FIELDS,
-        "required_fields": DEFAULT_REQUIRED,
-        "require_email_confirm": False,
-        "body": "testimony",
-    },
-}
+# Wizard-facing framing of FormConfig.collection_mode: "are maps collected,
+# and if so how?" Values are the COLLECTION_MODE_CHOICES values verbatim.
+MAP_COLLECTION_CHOICES = [
+    (
+        "prompt",
+        "Yes — mapmakers are asked to submit their map with a short entry "
+        "form when they mark it ready to share. Submitted snapshots are "
+        "frozen.",
+    ),
+    (
+        "auto_public",
+        "Yes, automatically — every map drawn from the portal appears in the "
+        "public gallery as soon as it is in progress or ready to share. No "
+        "form.",
+    ),
+    (
+        "internal",
+        "Yes, but privately — maps are collected automatically and shown "
+        "only in the admin gallery, never publicly.",
+    ),
+    (
+        "form",
+        "No — visitors submit written testimony through a form on the page "
+        "(with an optional map link). Maps are not collected automatically.",
+    ),
+]
+# Modes where mapmaking is the point: the portal must offer map modules.
+MAP_COLLECTING_MODES = {"prompt", "auto_public", "internal"}
+# Modes where submitters never see a form: the wizard skips the form step
+# and ignores any form answers rather than requiring them.
+AUTO_COLLECTED_MODES = {"internal", "auto_public"}
 
 INTRO_PLACEHOLDER = (
     "<p>Introduce your portal here: what you are collecting, who should "
@@ -130,37 +89,31 @@ INTRO_PLACEHOLDER = (
 )
 
 
-def _starter_body(
-    body_kind: str, *, title: str, slug: str, map_slug: str, map_name: str
-):
-    """Starter StreamField body per preset body kind, as raw block data."""
-    header = {"type": "section_header", "value": {"title": title}}
-    intro = {"type": "rich_text", "value": INTRO_PLACEHOLDER}
-    map_buttons = {
-        "type": "map_create_buttons",
-        "value": {
-            "views": [{"name": map_name, "districtr_map_slug": map_slug}],
-            "type": "cards",
-        },
-    }
-    form_block = {
-        "type": "form",
-        "value": {"mandatoryTags": [], "allowListModules": []},
-    }
+def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
+    """The templated StreamField body, generated from the answers.
+
+    Map modules render as a create-buttons card grid (there is no
+    single-map block anymore — portals routinely offer several modules).
+    """
+    body = [
+        {"type": "section_header", "value": {"title": title}},
+        {"type": "rich_text", "value": INTRO_PLACEHOLDER},
+    ]
+    if views:
+        body.append(
+            {"type": "map_create_buttons", "value": {"views": views, "type": "cards"}}
+        )
+    if mode in ("prompt", "form"):
+        body.append(
+            {"type": "form", "value": {"mandatoryTags": [], "allowListModules": []}}
+        )
     # tags=[slug]: with no curated ids these galleries list entries tagged
     # with the portal's own tag — submissions appear automatically.
-    plan_gallery = {"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}}
-    comment_gallery = {"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}}
-
-    if body_kind == "maps_only":
-        # Internal collection: no form, no public gallery on the page.
-        return [header, intro, map_buttons]
-    if body_kind == "auto_gallery":
-        return [header, intro, map_buttons, plan_gallery]
-    if body_kind == "map_collection":
-        return [header, intro, map_buttons, form_block, plan_gallery]
-    # testimony
-    return [header, intro, form_block, comment_gallery]
+    if mode in ("prompt", "auto_public"):
+        body.append({"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}})
+    elif mode == "form":
+        body.append({"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}})
+    return body
 
 
 class CustomQuestionForm(forms.Form):
@@ -173,28 +126,32 @@ class CustomQuestionForm(forms.Form):
     required = forms.BooleanField(required=False)
 
 
-CustomQuestionFormSet = formset_factory(CustomQuestionForm, extra=3)
+# extra=1: the template's "Add question" button clones empty_form, so the
+# number of questions is unbounded.
+CustomQuestionFormSet = formset_factory(CustomQuestionForm, extra=1)
 
 
 class PortalWizardForm(forms.Form):
-    preset = forms.ChoiceField(
-        choices=[(key, spec["label"]) for key, spec in PORTAL_PRESETS.items()],
-        initial="custom",
-        widget=forms.RadioSelect,
-        label="What kind of portal is this?",
-    )
     title = forms.CharField(max_length=255, help_text="The portal page's title.")
     slug = forms.SlugField(
         required=False,
-        help_text="URL slug (also the portal's tag). Left blank, it is "
-        "derived from the title.",
+        label="URL",
+        help_text="The portal's web address: districtr.org/portal/<this>. "
+        "Letters, numbers, and dashes. Left blank, it is derived from the "
+        "title.",
     )
-    districtr_map_slug = forms.ChoiceField(label="Map module")
     collection_mode = forms.ChoiceField(
-        choices=COLLECTION_MODE_CHOICES,
+        choices=MAP_COLLECTION_CHOICES,
         initial="prompt",
         widget=forms.RadioSelect,
-        label="How are map submissions collected?",
+        label="Are maps collected from this portal? If so, how?",
+    )
+    map_modules = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Map modules",
+        help_text="Each module gets a 'draw a map' card on the portal page. "
+        "Required unless the portal only collects written testimony.",
     )
     fields = forms.MultipleChoiceField(
         choices=SUBMISSION_FIELD_CHOICES,
@@ -202,8 +159,8 @@ class PortalWizardForm(forms.Form):
         initial=DEFAULT_FIELDS,
         required=False,
         label="Form fields",
-        help_text="Which fields the submission form shows — only used by the "
-        "prompt-to-submit and manual-form modes.",
+        help_text="Which fields the submission form shows — only used when "
+        "submitters fill a form (the prompt and written-testimony answers).",
     )
     required_fields = forms.MultipleChoiceField(
         choices=SUBMISSION_FIELD_CHOICES,
@@ -230,7 +187,7 @@ class PortalWizardForm(forms.Form):
         # get empty map/team choices (fail closed) rather than admin reach.
         restricted = not user_is_unscoped_admin(user)
         user_teams = team_slugs_for_user(user)
-        self.fields["districtr_map_slug"].choices = [("", "---------")] + _map_choices(
+        self.fields["map_modules"].choices = _map_choices(
             limit_to=districtr_map_slugs_for_user(user) if restricted else None
         )
         if restricted:
@@ -246,7 +203,7 @@ class PortalWizardForm(forms.Form):
         cleaned = super().clean()
         slug = cleaned.get("slug") or slugify(cleaned.get("title") or "")
         if not slug:
-            self.add_error("slug", "A slug is required.")
+            self.add_error("slug", "A URL is required.")
             return cleaned
         cleaned["slug"] = slug
 
@@ -257,9 +214,25 @@ class PortalWizardForm(forms.Form):
             )
         cleaned["parent"] = parent
         if parent.get_children().filter(slug=slug).exists():
-            self.add_error("slug", f"A portal with slug '{slug}' already exists.")
+            self.add_error("slug", f"A portal at '{slug}' already exists.")
         if FormConfig.objects.filter(portal_id=slug).exists():
             self.add_error("slug", f"A form config for portal '{slug}' already exists.")
+
+        if cleaned.get("collection_mode") in MAP_COLLECTING_MODES and not cleaned.get(
+            "map_modules"
+        ):
+            self.add_error(
+                "map_modules",
+                "Pick at least one map module — this portal collects maps.",
+            )
+
+        # Auto-collected portals never show a form, so form answers are
+        # neither required nor kept — whatever the (skipped) step held is
+        # cleared rather than validated.
+        if cleaned.get("collection_mode") in AUTO_COLLECTED_MODES:
+            cleaned["fields"] = []
+            cleaned["required_fields"] = []
+            cleaned["require_email_confirm"] = False
 
         extra = set(cleaned.get("required_fields") or []) - set(
             cleaned.get("fields") or []
@@ -334,27 +307,15 @@ def portal_wizard(request):
     question_formset = CustomQuestionFormSet(request.POST or None, prefix="questions")
 
     def _render():
-        # data-* payload for the tiny prefill script in the template. Passed
-        # as a DICT: json_script does its own json.dumps, so pre-serializing
-        # would embed a JSON *string literal* and silently kill the prefill
-        # (every preset would fall back to prompt mode).
-        preset_data = {
-            key: {
-                "description": spec["description"],
-                "collection_mode": spec["collection_mode"],
-                "fields": spec["fields"],
-                "required_fields": spec["required_fields"],
-                "require_email_confirm": spec["require_email_confirm"],
-            }
-            for key, spec in PORTAL_PRESETS.items()
-        }
         return render(
             request,
             "content/portal_wizard.html",
             {
                 "form": form,
                 "question_formset": question_formset,
-                "preset_data": preset_data,
+                # A POST re-render means errors somewhere: show every step at
+                # once so nothing stays hidden behind the stepper.
+                "paginate": request.method != "POST",
             },
         )
 
@@ -363,31 +324,35 @@ def portal_wizard(request):
 
         data = form.cleaned_data
         slug = data["slug"]
-        preset = PORTAL_PRESETS[data["preset"]]
-        question_rows = _question_rows(question_formset)
+        question_rows = (
+            []
+            if data["collection_mode"] in AUTO_COLLECTED_MODES
+            else _question_rows(question_formset)
+        )
         if question_formset.non_form_errors():
             return _render()
-        # The display name, not the choice label ("Name (slug)") — the label
-        # would leak into the starter page's visible button text.
-        map_name = (
-            DistrictrMap.objects.filter(districtr_map_slug=data["districtr_map_slug"])
-            .values_list("name", flat=True)
-            .first()
-            or data["districtr_map_slug"]
+        # Display names, not choice labels ("Name (slug)") — labels would
+        # leak into the page's visible card text. Order follows the choices.
+        names = dict(
+            DistrictrMap.objects.filter(
+                districtr_map_slug__in=data["map_modules"]
+            ).values_list("districtr_map_slug", "name")
         )
+        views = [
+            {"name": names.get(map_slug) or map_slug, "districtr_map_slug": map_slug}
+            for map_slug in data["map_modules"]
+        ]
         body = _starter_body(
-            preset["body"],
-            title=data["title"],
-            slug=slug,
-            map_slug=data["districtr_map_slug"],
-            map_name=map_name,
+            data["collection_mode"], title=data["title"], slug=slug, views=views
         )
         try:
             with transaction.atomic():
+                # districtr_map_slug (the single-map field) is deliberately
+                # left blank: portals often offer several modules, so the
+                # create-buttons block is the module surface now.
                 page = TagPage(
                     title=data["title"],
                     slug=slug,
-                    districtr_map_slug=data["districtr_map_slug"],
                     body=json.dumps(body),
                     live=False,
                 )

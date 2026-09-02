@@ -1305,10 +1305,9 @@ class PortalWizardTests(TestCase):
 
     def _payload(self, **overrides):
         data = {
-            "preset": "competition",
             "title": "River Portal",
             "slug": "river-portal",
-            "districtr_map_slug": "chi_wards",
+            "map_modules": ["chi_wards"],
             "collection_mode": "prompt",
             "fields": ["first_name", "email", "title", "comment"],
             "required_fields": ["title", "comment"],
@@ -1323,6 +1322,10 @@ class PortalWizardTests(TestCase):
         }
         data.update(overrides)
         return data
+
+    def test_wizard_renders(self):
+        # Template smoke only — the paginated steps are client-side.
+        self.assertEqual(self.client.get(self.url).status_code, 200)
 
     def test_creates_draft_page_and_config(self):
         from content.models import TagPage
@@ -1347,56 +1350,121 @@ class PortalWizardTests(TestCase):
         self.assertEqual(config.collection_mode, "prompt")
         self.assertEqual(config.required_fields, ["title", "comment"])
 
-    def test_presets_shape_mode_and_body(self):
+    def test_collection_mode_shapes_the_generated_body(self):
         from content.models import TagPage
         from datastore.models import FormConfig
 
         cases = {
-            "educational": (
-                "internal",
+            "internal": (
+                ["chi_wards"],
                 {"map_create_buttons"},
-                {"form", "plan_gallery"},
+                {"form", "plan_gallery", "comment_gallery"},
             ),
-            "public_engagement": (
-                "auto_public",
+            "auto_public": (
+                ["chi_wards"],
                 {"map_create_buttons", "plan_gallery"},
-                {"form"},
-            ),
-            "state_commission": (
-                "form",
                 {"form", "comment_gallery"},
-                {"map_create_buttons"},
+            ),
+            "form": (
+                [],  # written testimony: no modules required, no buttons
+                {"form", "comment_gallery"},
+                {"map_create_buttons", "plan_gallery"},
             ),
         }
-        for preset, (mode, expected, absent) in cases.items():
-            slug = f"preset-{preset.replace('_', '-')}"
+        for mode, (modules, expected, absent) in cases.items():
+            slug = f"mode-{mode.replace('_', '-')}"
             response = self.client.post(
                 self.url,
                 self._payload(
-                    preset=preset, slug=slug, title=slug, collection_mode=mode
+                    slug=slug, title=slug, collection_mode=mode, map_modules=modules
                 ),
             )
+            self.assertEqual(response.status_code, 302, (mode, response.content))
             page = TagPage.objects.get(slug=slug)
-            self.assertEqual(response.status_code, 302, preset)
             body_types = set(block.block_type for block in page.body)
-            self.assertTrue(expected <= body_types, (preset, body_types))
-            self.assertFalse(absent & body_types, (preset, body_types))
+            self.assertTrue(expected <= body_types, (mode, body_types))
+            self.assertFalse(absent & body_types, (mode, body_types))
             self.assertEqual(
                 FormConfig.objects.get(portal_id=slug).collection_mode, mode
             )
 
-    def test_custom_questions_created_with_slugified_keys(self):
-        from datastore.models import FormFieldCustom
+    def test_every_chosen_module_becomes_a_create_button(self):
+        from content.models import TagPage
+        from datastore.models import DistrictrMap
+
+        DistrictrMap.objects.create(
+            name="Cook",
+            districtr_map_slug="cook_county",
+            parent_layer=self.map.parent_layer,
+        )
+        self.client.post(
+            self.url, self._payload(map_modules=["chi_wards", "cook_county"])
+        )
+        page = TagPage.objects.get(slug="river-portal")
+        buttons = next(b for b in page.body if b.block_type == "map_create_buttons")
+        self.assertEqual(
+            [view["districtr_map_slug"] for view in buttons.value["views"]],
+            ["chi_wards", "cook_county"],
+        )
+        self.assertEqual(buttons.value["views"][1]["name"], "Cook")
+        # The single-map TagPage field is deprecated for portals: the wizard
+        # leaves it blank and the buttons block is the module surface.
+        self.assertEqual(page.districtr_map_slug, "")
+
+    def test_auto_collected_modes_ignore_form_answers(self):
+        # Auto-collected portals never show a form: the wizard skips the
+        # form step, so leftover/contradictory answers (required not a
+        # subset of shown, stray custom questions) must neither block
+        # creation nor be saved.
+        from datastore.models import FormConfig, FormFieldCustom
 
         response = self.client.post(
             self.url,
             self._payload(
+                collection_mode="auto_public",
+                fields=["title"],
+                required_fields=["comment"],
+                require_email_confirm="on",
+                **{"questions-0-label": "Stray question"},
+            ),
+        )
+        self.assertEqual(response.status_code, 302, response.content)
+        config = FormConfig.objects.get(portal_id="river-portal")
+        self.assertEqual(config.fields, [])
+        self.assertEqual(config.required_fields, [])
+        self.assertFalse(config.require_email_confirm)
+        self.assertFalse(FormFieldCustom.objects.exists())
+
+    def test_map_collecting_modes_require_a_module(self):
+        from datastore.models import FormConfig
+
+        for mode in ("prompt", "auto_public", "internal"):
+            response = self.client.post(
+                self.url, self._payload(collection_mode=mode, map_modules=[])
+            )
+            self.assertContains(response, "at least one map module", msg_prefix=mode)
+        self.assertFalse(FormConfig.objects.exists())
+
+    def test_custom_questions_created_with_slugified_keys(self):
+        from datastore.models import FormFieldCustom
+
+        # 5 rows — more than the single rendered extra row: the "Add another
+        # question" path is just TOTAL_FORMS bookkeeping, so the server must
+        # accept an arbitrary count.
+        response = self.client.post(
+            self.url,
+            self._payload(
                 **{
+                    "questions-TOTAL_FORMS": "5",
                     "questions-0-label": "What neighborhood do you live in?",
                     "questions-0-field_type": "text",
                     "questions-0-required": "on",
                     "questions-1-label": "Tell us your story",
                     "questions-1-field_type": "textarea",
+                    "questions-3-label": "Third question",
+                    "questions-3-field_type": "text",
+                    "questions-4-label": "Fourth question",
+                    "questions-4-field_type": "text",
                 }
             ),
         )
@@ -1404,7 +1472,12 @@ class PortalWizardTests(TestCase):
         customs = list(FormFieldCustom.objects.filter(form_config_id="river-portal"))
         self.assertEqual(
             [c.key for c in customs],
-            ["custom_what_neighborhood_do_you_live_in", "custom_tell_us_your_story"],
+            [
+                "custom_what_neighborhood_do_you_live_in",
+                "custom_tell_us_your_story",
+                "custom_third_question",
+                "custom_fourth_question",
+            ],
         )
         self.assertTrue(customs[0].required)
         self.assertEqual(customs[1].field_type, "textarea")
@@ -1483,8 +1556,7 @@ class PortalWizardScopingTests(TestCase):
         base = {
             "title": "P",
             "slug": "p",
-            "districtr_map_slug": "my_map",
-            "preset": "custom",
+            "map_modules": ["my_map"],
             "collection_mode": "prompt",
             "fields": ["title", "comment"],
             "required_fields": ["title"],
@@ -1494,9 +1566,9 @@ class PortalWizardScopingTests(TestCase):
         return PortalWizardForm(base, user=user)
 
     def test_scoped_partner_cannot_use_other_teams_map_or_team(self):
-        form = self._form(self.partner, districtr_map_slug="their_map")
+        form = self._form(self.partner, map_modules=["their_map"])
         self.assertFalse(form.is_valid())
-        self.assertIn("districtr_map_slug", form.errors)
+        self.assertIn("map_modules", form.errors)
 
         form = self._form(self.partner, admin_teams=["other-team"])
         self.assertFalse(form.is_valid())
@@ -1552,50 +1624,23 @@ class PortalWizardAtomicityTests(TestCase):
                 {
                     "title": "River Portal",
                     "slug": "river-portal",
-                    "districtr_map_slug": "chi_wards",
-                    "template": "map_collection",
+                    "map_modules": ["chi_wards"],
+                    "collection_mode": "prompt",
                     "fields": ["title", "comment"],
                     "required_fields": ["title"],
+                    "questions-TOTAL_FORMS": "1",
+                    "questions-INITIAL_FORMS": "0",
+                    "questions-MIN_NUM_FORMS": "0",
+                    "questions-MAX_NUM_FORMS": "1000",
+                    "questions-0-label": "",
                 },
             )
+        # The mock must actually fire — an invalid payload would "pass" this
+        # test without ever exercising the rollback.
+        self.assertContains(response, "was just created")
         # Re-rendered with a form error, page rolled back with the config.
         self.assertEqual(response.status_code, 200)
         self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())
-
-
-class PortalWizardPresetPayloadTests(TestCase):
-    """The preset table drives the client-side prefill — the server saves
-    only posted values, so the payload IS the preset decision surface."""
-
-    def setUp(self):
-        from core.testing import create_mirror_tables, make_admin_user
-        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
-
-        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
-        self.client.force_login(make_admin_user(group_name="admin"))
-
-    def test_preset_payload_is_a_parseable_dict_with_the_preset_decisions(self):
-        import json as json_module
-        import re
-
-        response = self.client.get("/admin/portals/new/")
-        match = re.search(
-            r'<script id="preset-data" type="application/json">(.*?)</script>',
-            response.content.decode(),
-            re.S,
-        )
-        assert match, "preset-data json_script tag missing"
-        payload = json_module.loads(match.group(1))
-        # A pre-serialized payload would double-encode into a STRING here,
-        # silently killing the prefill (every preset -> prompt mode).
-        self.assertIsInstance(payload, dict)
-        # The preset DECISIONS (not the full field lists): each preset's
-        # collection posture is the product promise its description makes.
-        self.assertEqual(payload["educational"]["collection_mode"], "internal")
-        self.assertEqual(payload["competition"]["collection_mode"], "prompt")
-        self.assertEqual(payload["public_engagement"]["collection_mode"], "auto_public")
-        self.assertEqual(payload["state_commission"]["collection_mode"], "form")
-        self.assertTrue(payload["state_commission"]["require_email_confirm"])
 
 
 class FormModeButtonSuppressionTests(TestCase):
