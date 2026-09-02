@@ -85,20 +85,34 @@ def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
         {"type": "section_header", "value": {"title": title}},
         {"type": "rich_text", "value": INTRO_PLACEHOLDER},
     ]
+
+    # Each section opens with its own header so the generated page reads as
+    # distinct sections; editors rename or delete them like any other block.
+    def _section(header_title):
+        return {"type": "section_header", "value": {"title": header_title}}
+
     if views:
-        body.append(
-            {"type": "map_create_buttons", "value": {"views": views, "type": "cards"}}
-        )
+        body += [
+            _section("Draw a map"),
+            {"type": "map_create_buttons", "value": {"views": views, "type": "cards"}},
+        ]
     if mode in ("prompt", "form"):
-        body.append(
-            {"type": "form", "value": {"mandatoryTags": [], "allowListModules": []}}
-        )
+        body += [
+            _section("Make a submission"),
+            {"type": "form", "value": {"mandatoryTags": [], "allowListModules": []}},
+        ]
     # tags=[slug]: with no curated ids these galleries list entries tagged
     # with the portal's own tag — submissions appear automatically.
     if mode in ("prompt", "auto_public"):
-        body.append({"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}})
+        body += [
+            _section("Map gallery"),
+            {"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}},
+        ]
     elif mode == "form":
-        body.append({"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}})
+        body += [
+            _section("Submissions"),
+            {"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}},
+        ]
     return body
 
 
