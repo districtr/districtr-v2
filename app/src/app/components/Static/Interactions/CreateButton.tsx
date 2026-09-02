@@ -8,9 +8,9 @@ import {MAP_TYPES} from '@constants/document/types';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {Button} from '@radix-ui/themes';
 import {PlusIcon} from '@radix-ui/react-icons';
-import {useRouter, useSearchParams} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import {useEffect, useState} from 'react';
-import {handleCreateBlankMetadataObject} from '@/app/utils/metadata/handleCreateBlankMetadataObject';
+import {setDraftSubmission} from '@/app/utils/draftSubmissions';
 
 /**
  * Creates a new map document from a DistrictrMap and routes to the editor.
@@ -19,7 +19,7 @@ import {handleCreateBlankMetadataObject} from '@/app/utils/metadata/handleCreate
 export const useCreateMapDocument = (
   view: Partial<DistrictrMap>,
   isCommunity?: boolean,
-  createTag?: string | null
+  portalId?: string | null
 ) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
@@ -27,11 +27,6 @@ export const useCreateMapDocument = (
   const setNotification = useMapStore(stat => stat.setNotification);
   const [isCreating, setIsCreating] = useState(false);
   const shouldMakeCommunity = isCommunity ?? routeManager.mapUrlRoute === MAP_ROUTES.COI;
-  // The tag is stored in the map's metadata so tag-filtered galleries pick the
-  // map up once its draft status moves past scratch. A CMS-configured tag wins;
-  // otherwise a ?tag=... on the hosting page (e.g. a workshop portal) applies.
-  const urlTag = useSearchParams().get('tag');
-  const tag = createTag ?? urlTag;
 
   useEffect(() => {
     !userID && setUserID();
@@ -43,9 +38,17 @@ export const useCreateMapDocument = (
     const r = await createMapDocument({
       districtr_map_slug: view.districtr_map_slug,
       map_type: shouldMakeCommunity ? MAP_TYPES.COMMUNITY : view.map_type,
-      ...(tag ? {metadata: {...handleCreateBlankMetadataObject(), tags: [tag]}} : {}),
+      portal_id: portalId ?? undefined,
     });
     if (r.ok) {
+      if (portalId && r.response.submission_id) {
+        // Remember the finalize capability so flipping the map to
+        // ready-to-share can offer submitting it to the portal.
+        setDraftSubmission(r.response.document_id, {
+          submissionId: r.response.submission_id,
+          portalId,
+        });
+      }
       router.push(
         editPath(
           shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS,
@@ -70,9 +73,10 @@ export const CreateButton: React.FC<{
   view: Partial<DistrictrMap>;
   extraClasses?: string;
   isCommunity?: boolean;
-  createTag?: string | null;
-}> = ({view, extraClasses, isCommunity, createTag}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, createTag);
+  /** Portal slug: new maps get a draft submission for this portal. */
+  portalId?: string | null;
+}> = ({view, extraClasses, isCommunity, portalId}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, portalId);
 
   return (
     <Button

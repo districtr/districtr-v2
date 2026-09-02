@@ -11,9 +11,10 @@ export const MapStartCard: React.FC<{
   /** When false, omits the "Draw N districts" line — e.g. a portal grid of
    * same-kind maps where it would repeat on every card. */
   showOutcome?: boolean;
-  createTag?: string | null;
-}> = ({view, isCommunity, showOutcome = true, createTag}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, createTag);
+  /** Portal slug: new maps get a draft submission for this portal. */
+  portalId?: string | null;
+}> = ({view, isCommunity, showOutcome = true, portalId}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, portalId);
   const outcome = isCommunity
     ? 'Draw and describe your communities'
     : view.num_districts

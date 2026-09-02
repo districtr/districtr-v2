@@ -445,9 +445,18 @@ async def create_document(
     # uses to finalize (submit to the portal's gallery).
     draft_submission_id: str | None = None
     if data.portal_id is not None:
-        # Reuse the submissions module's resolver (single source of the
-        # portal-validity rule and its 404 message).
-        submissions.get_form_config(data.portal_id, session)
+        # portal_id is advisory metadata: a portal page can outlive its
+        # FormConfig (config deleted, cached page), and losing the draft
+        # must degrade to "a normal map", never "no map".
+        try:
+            submissions.get_form_config(data.portal_id, session)
+        except HTTPException:
+            logger.warning(
+                f"create_document: no form config for portal {data.portal_id!r}; "
+                "creating the map without a draft submission"
+            )
+            data.portal_id = None
+    if data.portal_id is not None:
         draft = Submission(
             portal_id=data.portal_id,
             map_public_id=new_document.public_id,

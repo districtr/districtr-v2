@@ -7,6 +7,7 @@ import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
+import {SubmitToPortalModal} from '../MapPage/SubmitToPortalModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
@@ -111,6 +112,7 @@ export const Topbar: React.FC = () => {
       {isAutoSaving && <SavingPill message="Auto-saving your map…" />}
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
+      <SubmitToPortalModal />
     </>
   );
 };
