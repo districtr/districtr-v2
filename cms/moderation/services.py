@@ -47,7 +47,7 @@ def _call(
         headers=request_headers,
         timeout=timeout,
     )
-    if response.status_code != 200:
+    if not response.ok:  # 2xx passes (admin/add returns 201)
         try:
             body = response.json()
             detail = body.get("detail") if isinstance(body, dict) else None
@@ -90,6 +90,18 @@ def set_submission_nsfw(user, submission_id: int, nsfw: bool) -> dict:
         f"/api/submissions/admin/{submission_id}/nsfw",
         json={"nsfw": nsfw},
         what="nsfw update",
+    )
+
+
+def add_submission(user, portal_id: str, map_public_id: int) -> dict:
+    """POST /api/submissions/admin/add — retroactively put an existing map
+    in a portal (team-scoped like every other admin action; 409 on dupes)."""
+    return _call(
+        user,
+        "POST",
+        "/api/submissions/admin/add",
+        json={"portal_id": portal_id, "map_public_id": map_public_id},
+        what="add to portal",
     )
 
 
