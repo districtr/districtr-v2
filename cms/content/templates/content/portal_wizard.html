@@ -29,6 +29,10 @@
                 <legend><h2>Maps</h2></legend>
                 <ul class="fields">
                     <li>{% include "wagtailadmin/shared/field.html" with field=form.collection_mode %}</li>
+                    <li>
+                        <label for="module-search">Find a map module</label>
+                        <input type="search" id="module-search" placeholder="Type to filter the modules below…" autocomplete="off" style="max-width: 24rem;">
+                    </li>
                     <li>{% include "wagtailadmin/shared/field.html" with field=form.map_modules %}</li>
                 </ul>
             </fieldset>
@@ -98,6 +102,19 @@
                 document.getElementById('question-rows')
                     .insertAdjacentHTML('beforeend', html);
                 total.value = index + 1;
+            });
+
+            // Module filter: hide non-matching checkboxes as you type.
+            // Checked modules stay visible (and stay submitted regardless),
+            // so a filter can never silently drop a selection.
+            const moduleBoxes = Array.from(document.querySelectorAll('input[name="map_modules"]'))
+                .map(input => ({row: input.closest('li') || input.parentElement, input}));
+            document.getElementById('module-search').addEventListener('input', (event) => {
+                const query = event.target.value.trim().toLowerCase();
+                moduleBoxes.forEach(({row, input}) => {
+                    row.hidden = Boolean(query) && !input.checked
+                        && !row.textContent.toLowerCase().includes(query);
+                });
             });
 
             // Pagination: one step at a time, all steps at once on an error

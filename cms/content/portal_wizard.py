@@ -54,28 +54,14 @@ DEFAULT_REQUIRED = ["first_name", "email", "title", "comment"]
 # Wizard-facing framing of FormConfig.collection_mode: "are maps collected,
 # and if so how?" Values are the COLLECTION_MODE_CHOICES values verbatim.
 MAP_COLLECTION_CHOICES = [
+    ("auto_public", "Automatically collect and publish maps."),
     (
         "prompt",
-        "Yes — mapmakers are asked to submit their map with a short entry "
-        "form when they mark it ready to share. Submitted snapshots are "
-        "frozen.",
+        "Users should be prompted to submit their map on completion, with an "
+        "optional short form.",
     ),
-    (
-        "auto_public",
-        "Yes, automatically — every map drawn from the portal appears in the "
-        "public gallery as soon as it is in progress or ready to share. No "
-        "form.",
-    ),
-    (
-        "internal",
-        "Yes, but privately — maps are collected automatically and shown "
-        "only in the admin gallery, never publicly.",
-    ),
-    (
-        "form",
-        "No — visitors submit written testimony through a form on the page "
-        "(with an optional map link). Maps are not collected automatically.",
-    ),
+    ("form", "Users must complete a form on the portal."),
+    ("internal", "Do not publish maps. Only collect an admin gallery I can see."),
 ]
 # Modes where mapmaking is the point: the portal must offer map modules.
 MAP_COLLECTING_MODES = {"prompt", "auto_public", "internal"}
@@ -144,7 +130,8 @@ class PortalWizardForm(forms.Form):
         choices=MAP_COLLECTION_CHOICES,
         initial="prompt",
         widget=forms.RadioSelect,
-        label="Are maps collected from this portal? If so, how?",
+        label="How do you want to collect and publish maps created through "
+        "this portal?",
     )
     map_modules = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
