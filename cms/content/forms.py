@@ -5,8 +5,7 @@ multi-select on PlacePage (the saved order is the display order on the
 public place page).
 
 Team scoping (authapi/teams.py): a team-scoped member's choices are narrowed
-to their teams' maps, with at least one required — the choice set itself is
-the guard. Shared PlacePages (in scope on *any* overlap) may also carry other
+to their teams' maps — the choice set itself is the guard. Shared PlacePages (in scope on *any* overlap) may also carry other
 teams' maps; those slugs are neither offered nor removable, and clean()
 re-inserts them at their original positions so saving never drops another
 team's association.
@@ -89,7 +88,10 @@ class TagPageForm(WagtailAdminPageForm):
         self.fields["districtr_map_slug"] = forms.ChoiceField(
             choices=[("", "---------")]
             + _map_choices(limit_to=scoped, ensure=[current] if scoped is None else ()),
-            required=True,
+            # Optional: portals offer their modules through the page's
+            # map_create_buttons block now (the wizard leaves this blank);
+            # the field remains for legacy tag pages that still carry it.
+            required=False,
             label=original.label,
             help_text=_SCOPED_HELP_TEXT if scoped is not None else original.help_text,
         )
