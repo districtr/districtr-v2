@@ -1,5 +1,5 @@
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
-import {Box, Button, Flex, Grid, Heading, Text, TextArea, TextField} from '@radix-ui/themes';
+import {Box, Button, Flex, Heading, Text, TextArea, TextField} from '@radix-ui/themes';
 import {MapStatusButtons} from '../../Topbar/MapStatus';
 import * as Accordion from '@radix-ui/react-accordion';
 import {useState} from 'react';
@@ -53,27 +53,16 @@ export const MapDetailsSection: React.FC<{
               </Button>
             </Accordion.AccordionTrigger>
             <Accordion.AccordionContent className="AccordionContent">
-              <Grid columns="2" gap="2">
-                <Box>
-                  <Text>Group</Text>
-                  <TextField.Root
-                    className="flex-1 w-full"
-                    value={mapMetadata.group ?? ''}
-                    placeholder="Group"
-                    disabled={!isEditing}
-                    onChange={e => onChange({group: e.target.value})}
-                  />
-                </Box>
-                <Box>
-                  <Text>Tags (coming soon)</Text>
-                  <TextField.Root
-                    className="flex-1 w-full"
-                    value={mapMetadata.tags?.join(', ') ?? ''}
-                    placeholder="Tags"
-                    disabled={true}
-                  />
-                </Box>
-              </Grid>
+              <Box>
+                <Text>Group</Text>
+                <TextField.Root
+                  className="flex-1 w-full"
+                  value={mapMetadata.group ?? ''}
+                  placeholder="Group"
+                  disabled={!isEditing}
+                  onChange={e => onChange({group: e.target.value})}
+                />
+              </Box>
               <Box>
                 <Text>Comments</Text>
                 <TextArea
