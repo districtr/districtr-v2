@@ -4,10 +4,9 @@ import {useFormState} from '@/app/store/formState';
 import {Blockquote, Box, Button, Dialog, Flex, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
-import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
-import {useLayoutEffect, useRef} from 'react';
+import {useEffect, useLayoutEffect, useRef} from 'react';
 import {FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
 
 export interface CustomFieldSpec {
@@ -74,6 +73,14 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   useLayoutEffect(() => {
     setFormRef(formRef);
   }, [formRef]);
+
+  // Editor-set block tags still ride along on the submission (for curated
+  // cross-portal galleries), just without a public tag-picker UI — portal
+  // membership itself is the submission's portal_id, not a tag.
+  const setTags = useFormState(state => state.setTags);
+  useEffect(() => {
+    mandatoryTags.forEach(tag => setTags(tag, 'add'));
+  }, [mandatoryTags, setTags]);
 
   if (!portalId || !fields) {
     // No form config for this portal (or a form block on a non-portal page).
@@ -196,16 +203,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         <Flex direction="column" gap="4">
           <ContentHeader title="Add Your Comment" />
           {submissionFields.map(renderField)}
-          <Flex
-            direction={{
-              initial: 'column',
-              md: 'row',
-            }}
-            gap="4"
-          >
-            <CommentFormTagSelector mandatoryTags={mandatoryTags} />
-            <MapSelector allowListModules={allowListModules} />
-          </Flex>
+          <MapSelector allowListModules={allowListModules} />
           {aboutFields.length > 0 && <ContentHeader title="Tell us about yourself" />}
           <Flex direction="column" gap="4" width="100%">
             {aboutFields.map(renderField)}
