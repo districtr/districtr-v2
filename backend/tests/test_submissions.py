@@ -1037,3 +1037,66 @@ class TestCustomFields:
         response = _submit(client, fields={**base, "custom_story": "x" * 5001})
         assert response.status_code == 422
         assert any("custom_story" in e for e in response.json()["detail"])
+
+
+# ---------------------------------------------------------------------------
+# Admin add-to-portal (retroactive association)
+# ---------------------------------------------------------------------------
+
+
+class TestAdminAdd:
+    """Retroactive portal membership is a Submission row: team-scoped like
+    every other admin action, duplicate-safe, and live-referenced (no clone,
+    so takedown can never demote the author's working map)."""
+
+    def _add(self, client, public_id, portal_id=PORTAL):
+        return client.post(
+            "/api/submissions/admin/add",
+            json={"portal_id": portal_id, "map_public_id": public_id},
+        )
+
+    def _public_id(self, client, document_id):
+        return client.get(f"/api/document/{document_id}").json()["public_id"]
+
+    def test_scoped_admin_adds_live_reference(
+        self, client, form_config, document_id, session
+    ):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_A_PAYLOAD)
+        response = self._add(client, public_id)
+        assert response.status_code == 201, response.json()
+        submission = session.get(Submission, response.json()["id"])
+        assert submission.status == "submitted"
+        # The LIVE map, not a snapshot: no clone row, no demotable copy.
+        assert submission.map_public_id == public_id
+        assert submission.map_is_clone is False
+        assert submission.tags == [PORTAL]
+
+    def test_one_map_can_join_multiple_portals(
+        self, client, form_config, document_id, session
+    ):
+        public_id = self._public_id(client, document_id)
+        _set_auth(UNRESTRICTED_PAYLOAD)
+        assert self._add(client, public_id).status_code == 201
+        assert self._add(client, public_id, portal_id=OTHER_PORTAL).status_code == 201
+        rows = session.exec(
+            select(Submission).where(col(Submission.map_public_id) == public_id)
+        ).all()
+        assert sorted(r.portal_id for r in rows) == sorted([PORTAL, OTHER_PORTAL])
+
+    def test_wrong_team_cannot_add(self, client, form_config, document_id):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_B_PAYLOAD)  # form_config's portal is team-a's
+        assert self._add(client, public_id).status_code == 403
+
+    def test_duplicate_add_conflicts(self, client, form_config, document_id):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_A_PAYLOAD)
+        assert self._add(client, public_id).status_code == 201
+        response = self._add(client, public_id)
+        assert response.status_code == 409
+        assert "already has" in response.json()["detail"]
+
+    def test_unknown_map_404(self, client, form_config):
+        _set_auth(TEAM_A_PAYLOAD)
+        assert self._add(client, 99999999).status_code == 404

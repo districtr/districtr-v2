@@ -67,6 +67,7 @@ from app.submissions.models import (
     NsfwUpdate,
     Submission,
     SubmissionAdmin,
+    SubmissionAdminAdd,
     SubmissionContent,
     SubmissionCreate,
     SubmissionCreated,
@@ -731,3 +732,57 @@ async def set_submission_hidden(
         )
     session.commit()
     return {"id": submission_pk, "hidden": body.hidden}
+
+
+@router.post(
+    "/admin/add", response_model=SubmissionCreated, status_code=status.HTTP_201_CREATED
+)
+async def admin_add_submission(
+    data: SubmissionAdminAdd,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+):
+    """Retroactively associate an existing map with a portal.
+
+    Portal membership is a Submission row, so one map can join any number of
+    portals — each row is hidden/blurred independently. The row references
+    the LIVE map (map_is_clone=False, like auto-collection): no snapshot is
+    taken, and takedown never demotes the author's working document. The
+    entry surfaces in the public gallery only once the map's draft_status is
+    past scratch, exactly like an auto-collected entry. No moderation task —
+    there is no text content to score, and an admin vouched for the map.
+    """
+    config = get_form_config(data.portal_id, session)
+    require_portal_admin(auth_result, config)
+    document = session.exec(
+        select(Document).where(col(Document.public_id) == data.map_public_id)
+    ).first()
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Map {data.map_public_id} not found",
+        )
+    existing = session.exec(
+        select(Submission).where(
+            col(Submission.portal_id) == config.portal_id,
+            col(Submission.map_public_id) == data.map_public_id,
+        )
+    ).first()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Map {data.map_public_id} already has a {existing.status} "
+            f"submission in portal {config.portal_id!r}",
+        )
+    submission = Submission(
+        portal_id=config.portal_id,
+        map_public_id=data.map_public_id,
+        tags=[config.portal_id],
+        status=SubmissionStatus.submitted,
+        submitted_at=datetime.now(timezone.utc),
+        map_is_clone=False,
+    )
+    session.add(submission)
+    session.commit()
+    session.refresh(submission)
+    return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
