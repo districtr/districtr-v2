@@ -128,7 +128,6 @@ itself, loaded when working in their situations:
 - [`run-api-contract-audit`](./skills/run-api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
 - [`run-pr-review`](./skills/run-pr-review/SKILL.md) - this repo's project-specific review checkpoints
 - [`run-dependency-audit`](./skills/run-dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
-- [`run-next-upgrade`](./skills/run-next-upgrade/SKILL.md) - upgrade Next.js following official guides and codemods
 
 In Claude Code, routing is automatic — each skill's description states its situation
 and the model loads it when relevant. The listing above is the map for humans and for
