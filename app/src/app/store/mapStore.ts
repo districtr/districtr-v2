@@ -1330,7 +1330,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       name: null,
       tags: null,
       description: null,
-      event_id: null,
+      eventId: null,
       group: null,
       draft_status: null,
     },

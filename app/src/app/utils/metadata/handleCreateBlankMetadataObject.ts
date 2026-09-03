@@ -8,6 +8,6 @@ export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
     tags: null,
     description: null,
     draft_status: DRAFT_STATUSES.SCRATCH,
-    event_id: null,
+    eventId: null,
   };
 };
