@@ -28,12 +28,10 @@ when syncing, and skill names must stay unique (the sync errors on collision).
 
 A description is a guess at the developer's intention at the moment of need, and the
 guess differs by content kind. For a recurring procedure it is trivial: say what the
-task does. For terminology there is no general recipe — a misleading name generates no
-lookup impulse at all — so discovery needs case-by-case judgment. Norms are the other
-hard case: a norm binds across many intentions, and none of them announces the norm's
-own category — so enumerate the intentions under which the norm binds, and write the
-description in those situations' vocabulary. Descriptions are therefore written last, as discovery
-plans for an already-fixed norm inventory (see the revision procedure).
+task does. For terminology and norms there are no general recipe — a misleading name generates no
+lookup impulse at all, and a norm/values binds across many intentions — so discovery
+needs case-by-case judgment. Since norms/values can be written at varying levels of
+abstraction, it is useful to specify these first before writing the suitable descriptions for discovery(see the revision procedure).
 
 Supporting mechanics:
 
@@ -56,7 +54,7 @@ Supporting mechanics:
 ## The content test: keep only what the code can't speak
 
 For every passage ask: could an agent recover this in a couple of minutes of
-glob/grep/read? If yes, delete it — it is a stale-prone paraphrase of ground truth.
+glob/grep/read? If yes, delete it — it is a drift-prone paraphrase of ground truth.
 Point-ablation testing here bears this out: points stating generic engineering lore,
 or content the file's own surroundings entail, produce identical agent behavior with
 the line absent; the points that change behavior are the incompressible ones.
