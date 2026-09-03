@@ -35,32 +35,13 @@ skills one level deep only, and routes to them by their frontmatter `description
 
 ## Project Skills
 
-Project skills live directly in `.agents/skills/`, in two kinds. Orientation — what
-the system is, what the words mean, how the pieces fit — is deliberately **not** in
-skills: read [`docs/overview.md`](../docs/overview.md) (the shape of the project) and
-[`docs/decisions.md`](../docs/decisions.md) (dated architectural decisions and their
-grounds) instead.
-
-**Norm skills** — project norms and vocabulary the repository can't state about
-itself, loaded when working in their situations:
-
-- [`backend-endpoints`](./skills/backend-endpoints/SKILL.md) - backend route/model/query constraints: SQLAlchemy-first, the shattered-parent contract, the document-UUID boundary
-- [`map-rendering`](./skills/map-rendering/SKILL.md) - the map-feels-synchronous value and its consequences; shatter/Break vocabulary
-- [`map-edit-sync`](./skills/map-edit-sync/SKILL.md) - the two "last updated" clocks and derived local-edit detection
-- [`performance-memory`](./skills/performance-memory/SKILL.md) - the district graph as the expensive resource
-- [`deploy-authority`](./skills/deploy-authority/SKILL.md) - live infra changes only through post-merge CI (paths-gated on `infra/**` and workflows)
-
-**Runbooks** (`run-*`) — invoke to perform a procedure:
-
-- [`run-quality-gate`](./skills/run-quality-gate/SKILL.md) - run the verification suite, scoped to the diff, expensive gates concurrent
-- [`run-map-onboarding`](./skills/run-map-onboarding/SKILL.md) - onboard a new geographic layer end to end
-- [`run-migration`](./skills/run-migration/SKILL.md) - author and validate an Alembic migration
-- [`run-api-contract-audit`](./skills/run-api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
-- [`run-dependency-audit`](./skills/run-dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
-
-In Claude Code, routing is automatic — each skill's description states its situation
-and the model loads it when relevant. The listing above is the map for humans and for
-agents (Cursor, Codex) without native skill routing.
+Skills live in `.agents/skills/`, in two kinds: **norm skills** (project norms and
+vocabulary the repository can't state about itself, loaded when working in their
+situations) and **`run-*` runbooks** (procedures, invoked when the task is the
+procedure). Each `SKILL.md`'s frontmatter description is its trigger and the
+authoritative summary — agents receive all of them at session start via their sync
+target, so there is no separate index to maintain. Orientation deliberately lives in
+`docs/`, not in skills.
 
 ## Session Completion
 
