@@ -190,9 +190,9 @@ the with/without comparison the content test calls for; covers plain project ski
 **`/skill-doctor`** (early access; usage stats and never-invoked warnings — the
 cheapest trace-evidence source), **`claude plugin validate`** (structure only). Until
 early access is enabled, run the published pattern by hand. Eval suites are
-working material, not repo content — keep them with the work order that
-justifies the edit (this repo's 2026-09 suite lives in the orchestration
-records; PR #740 names it).
+working material, not repo content — keep them with the change record that
+justifies the edit (the 2026-09 suite lives in districtr-scratchpad under
+`skill-evals/`; PR #740 links it).
 
 ## Revision procedure
 
