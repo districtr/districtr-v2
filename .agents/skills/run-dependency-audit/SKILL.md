@@ -43,5 +43,5 @@ backend pip-audit -r requirements.txt`.
 
 Triage findings by severity, actual exposure, and update cost, then file them
 (one issue per package or tightly-related group) rather than upgrading inline —
-a bump belongs in its own PR so a regression bisects to it alone. Next.js
-major bumps go through [`run-next-upgrade`](../run-next-upgrade/SKILL.md).
+a bump belongs in its own PR so a regression bisects to it alone. A Next.js
+major bump follows the official upgrade guide and codemods, one version at a time.
