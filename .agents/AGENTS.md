@@ -13,25 +13,10 @@ SessionStart hook; other agents (and humans) run `bd prime` for the same. Instal
 
 ## Skills
 
-`.agents/skills/` is the **canonical, git-tracked** source for all agent skills.
-The synced outputs (`.claude/`, `.cursor/`, `codex.md`) are **gitignored** — they are
-local-only build artifacts and must never be committed. Always edit skills in
-`.agents/skills/`, then run the sync script to distribute them. Read
-[`skills/AUTHORING.md`](./skills/AUTHORING.md) before writing or revising a skill —
-it covers how skills load, how they're individuated (one skill per concern, not per
-file surface), and what content works.
-
-```bash
-./scripts/sync-skills.sh              # Sync to all agents (Claude, Cursor, Codex)
-./scripts/sync-skills.sh --claude     # Claude Code only  → .claude/skills/
-./scripts/sync-skills.sh --cursor     # Cursor only       → .cursor/rules/skill-*.mdc
-./scripts/sync-skills.sh --codex      # Codex only        → codex.md
-./scripts/sync-skills.sh --clean      # Remove all synced files
-```
-
-Run this after adding or editing skills in `.agents/skills/`. The Claude output is
-flat (`.claude/skills/<name>/`) regardless of source grouping — Claude Code discovers
-skills one level deep only, and routes to them by their frontmatter `description`.
+`.agents/skills/` is the canonical, git-tracked source; `.claude/`, `.cursor/`, and
+`codex.md` are gitignored build artifacts. Edit skills in `.agents/skills/` only, then
+run `./scripts/sync-skills.sh` (`--help` for targets). Read
+[`skills/AUTHORING.md`](./skills/AUTHORING.md) before writing or revising a skill.
 
 ## Project Skills
 
