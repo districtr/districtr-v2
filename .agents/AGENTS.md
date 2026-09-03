@@ -11,50 +11,6 @@ sessions get the full command reference and session-close protocol injected by t
 SessionStart hook; other agents (and humans) run `bd prime` for the same. Install:
 `brew install steveyegge/beads/bd`.
 
-## Project Structure
-
-```
-/                                # Repo root
-├── app/                         # Next.js frontend (Bun runtime)
-│   ├── Dockerfile.dev
-│   ├── package.json
-│   ├── next.config.ts
-│   ├── tsconfig.json
-│   └── src/
-│       └── app/                 # Next.js app router root
-│           ├── (interactive)/   # Route group: map viewer/editor pages
-│           │   └── map/         #   /map, /map/[map_id], /map/edit/*
-│           ├── (static)/        # Route group: static content pages
-│           │   └── ...          #   /about, /guide, /places, /contact, etc.
-│           ├── admin/           # Admin panel pages (Auth0-protected)
-│           ├── components/      # React components
-│           ├── constants/       # Constants and configuration
-│           ├── hooks/           # Custom hooks
-│           ├── lib/             # Auth0 and shared libraries
-│           ├── store/           # Zustand stores, subscriptions, middleware
-│           └── utils/           # Workers, API handlers, map helpers, IDB
-├── backend/                     # FastAPI backend (Python)
-│   ├── Dockerfile.dev
-│   ├── cli.py                   # Management CLI (imports, map creation, edges)
-│   ├── requirements.txt
-│   └── app/
-│       ├── alembic/             # Alembic DB migrations
-│       ├── assignments/         # Zone assignments management
-│       ├── cms/                 # Content management endpoints
-│       ├── comments/            # Comments + moderation API
-│       ├── contiguity/          # Geographic spatial contiguity
-│       ├── core/                # DB, config, security, dependencies
-│       ├── exports/             # Export data functions
-│       ├── save_share/          # Save/share and password-protected access
-│       ├── sql/                 # Legacy UDF SQL files (do not expand)
-│       ├── thumbnails/          # Map thumbnail generation
-│       ├── models.py            # SQLModel/SQLAlchemy models
-│       └── main.py              # FastAPI entrypoint
-├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
-├── docker-compose.yml           # Orchestration
-└── .env.example                 # Root env flags (LOAD_DATA, etc.)
-```
-
 ## Skills
 
 `.agents/skills/` is the **canonical, git-tracked** source for all agent skills.
