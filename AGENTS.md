@@ -6,7 +6,7 @@ Community redistricting platform - monorepo with Next.js frontend, FastAPI backe
 
 - **Architecture**: [`docs/architecture.md`](docs/architecture.md)
 - **Orientation**: [`docs/overview.md`](docs/overview.md) (newcomer tour — project shape, name concordance) · [`docs/decisions.md`](docs/decisions.md) (dated architectural decisions)
-- **Project skills**: `.agents/skills/`
+- **Project skills**: `agent-skills/`
 - **Issue tracking**: `bd prime` or `bd ready` (beads CLI >=1.0.0, optional)
 
 ## Cross-Cutting Rules
@@ -19,7 +19,7 @@ Community redistricting platform - monorepo with Next.js frontend, FastAPI backe
 ## Quality Gates
 
 Lint, FE build, BE tests — run via the `run-quality-gate` skill
-(`.agents/skills/run-quality-gate/`), diff-scoped.
+(`agent-skills/run-quality-gate/`), diff-scoped.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->

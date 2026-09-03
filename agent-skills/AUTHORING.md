@@ -21,7 +21,7 @@ Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/
 exactly one level deep; `scripts/sync-skills.sh` therefore flattens any source grouping
 when syncing, and skill names must stay unique (the sync errors on collision).
 `references/` and `scripts/` are the bundled-directory conventions the sync script
-understands; Cursor sync inlines `references/*.md` and skips `scripts/`. `.agents/skills/` is the canonical, git-tracked source — the synced outputs
+understands; Cursor sync inlines `references/*.md` and skips `scripts/`. `agent-skills/` is the canonical, git-tracked source — the synced outputs
 (`.claude/`, `.cursor/`, `codex.md`) are gitignored build artifacts; never edit those
 copies. After any skill edit, run `./scripts/sync-skills.sh` (`--help` for targets).
 

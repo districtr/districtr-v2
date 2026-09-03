@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# sync-skills.sh — Syncs .agents/skills/ to various AI coding agent formats.
+# sync-skills.sh — Syncs agent-skills/ to various AI coding agent formats.
 #
-# .agents/skills/ is the canonical source. This script copies/converts
+# agent-skills/ is the canonical source. This script copies/converts
 # skills into the formats expected by each agent.
 #
 # Usage: ./sync-skills.sh [targets...] [options]
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-AGENTS_DIR=".agents/skills"
+AGENTS_DIR="agent-skills"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,7 +44,7 @@ list_skill_dirs() {
 }
 
 # Get the relative path of a skill directory from AGENTS_DIR.
-# e.g., ".agents/skills/project/learn-backend" → "project/learn-backend"
+# e.g., "agent-skills/project/learn-backend" → "project/learn-backend"
 skill_rel_path() {
   local skill_dir="$1"
   echo "${skill_dir#"$AGENTS_DIR"/}"
@@ -165,7 +165,7 @@ sync_codex() {
     echo ""
     echo "# Codex Instructions"
     echo ""
-    echo "This project has reusable agent skills in \`.agents/skills/\`."
+    echo "This project has reusable agent skills in \`agent-skills/\`."
     echo "When asked to perform one of the tasks below, read the corresponding"
     echo "SKILL.md file and follow its instructions."
     echo ""
@@ -178,7 +178,7 @@ sync_codex() {
       rel="$(skill_rel_path "$skill")"
       desc="$(get_field "$skill/SKILL.md" "description")"
       echo "- **${rel}** — ${desc}"
-      echo "  \`.agents/skills/${rel}/SKILL.md\`"
+      echo "  \`agent-skills/${rel}/SKILL.md\`"
     done
   } > codex.md
 
