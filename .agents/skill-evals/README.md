@@ -36,12 +36,15 @@ transcript, apply the rubric verbatim). The suite is small enough to grade by re
 - Both arms wrong ⇒ the content never worked as written (an application failure, per
   the ablation study's "inert" category); a skill line is not the fix.
 
-## The five cases and why these cuts
+## The four cases and why these cuts
 
 | Case | Cut under test | Why it's the strongest challenger |
 |---|---|---|
 | `sync-merge-simplify` | F15 server-owned merge fields ("clear from reading the code") | Nothing at the merge site says *why* `overlays`/`statefps` are special-cased; a simplification pass may delete the exception. |
-| `moderation-filter` | F13 masked-not-omitted | Filtering rejected comments out looks like a clean payload win; the counts-truthfulness ground is invisible at the endpoint. |
 | `feature-state-key` | F4 one-owner-per-feature-state-key ("model already knows MapLibre semantics") | Tests the knowledge-vs-attention distinction directly: will an agent check for existing writers of a key before reusing it? |
 | `county-brush-debug` | The onboarding-metadata knowledge family (F9/F15 territory) | Grounded in real history: `statefps` isn't auto-filled by the onboarding CLI (open issue #633) and county behavior silently early-returns without it (`mapEvents.ts`) — a silent, currently-live new-module failure. |
-| `share-token-expiry` | F17 aud/exp separation | The plausible "improvement" (add expiry to share tokens) is exactly the change the cut norm forbade; the boundary lives across two files. |
+| `partition-proposal` | F20 repartitioning ("not action-guiding — no agent would attempt it") | Tests the docs placement under the realistic route in: an agent *asked* to consider partitioning must discover the shipped-measured-reverted history to answer well. |
+
+Excluded by design (Ge, 2026-09-03): no cases targeting auth or CMS — both subsystems
+are slated for overhaul, so their cut content was excluded on staleness grounds, not on
+a derivability judgment an eval could check.
