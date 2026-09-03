@@ -1,6 +1,10 @@
 ---
 name: run-dependency-audit
-description: Surveys outdated and vulnerable dependencies across the frontend (Bun) and backend (pip/uv) toolchains and triages findings by severity and exposure. Use periodically, or when asked to check for outdated packages, security advisories, or whether a dependency needs bumping.
+description: Surveys outdated and vulnerable dependencies across the frontend (Bun) and backend (pip/uv) toolchains and triages findings by severity and exposure. Use when a dependency manifest or lockfile changes, or when asked to check for outdated packages, security advisories, or whether a dependency needs bumping.
+paths:
+  - "app/package.json"
+  - "app/bun.lock"
+  - "backend/requirements.txt"
 ---
 
 # Dependency audit
@@ -32,7 +36,10 @@ uvx pip-audit -r backend/requirements.txt          # known vulnerabilities, run 
 
 `pip list --outdated` needs the container (it reads the installed
 environment); `pip-audit` reads the lockfile directly, so `uvx` runs it on the
-host without installing anything.
+host without installing anything. If `uvx pip-audit` crashes in `ensurepip`
+(seen 2026-09-03 on macOS), run it inside the container instead:
+`docker-compose exec backend pip install -q pip-audit && docker-compose exec
+backend pip-audit -r requirements.txt`.
 
 Triage findings by severity, actual exposure, and update cost, then file them
 (one issue per package or tightly-related group) rather than upgrading inline —
