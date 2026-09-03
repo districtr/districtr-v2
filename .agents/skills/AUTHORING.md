@@ -31,9 +31,8 @@ guess differs by content kind. For a recurring procedure it is trivial: say what
 task does. For terminology there is no general recipe — a misleading name generates no
 lookup impulse at all — so discovery needs case-by-case judgment. Norms are the other
 hard case: a norm binds across many intentions, and none of them announces the norm's
-own category — an agent adding an endpoint has no reason to look up "security norms" —
-so enumerate the intentions under which the norm binds, and write the description in
-those situations' vocabulary. Descriptions are therefore written last, as discovery
+own category — so enumerate the intentions under which the norm binds, and write the
+description in those situations' vocabulary. Descriptions are therefore written last, as discovery
 plans for an already-fixed norm inventory (see the revision procedure).
 
 Supporting mechanics:
