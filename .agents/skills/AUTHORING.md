@@ -28,7 +28,8 @@ when syncing, and skill names must stay unique (the sync errors on collision).
 
 A description is a guess at the developer's intention at the moment of need, and the
 guess differs by content kind. For a recurring procedure it is trivial: say what the
-task does. For terminology, the names themselves are the trigger terms. Norms are the
+task does. For terminology there is no general recipe — a misleading name generates no
+lookup impulse at all — so discovery needs case-by-case judgment. Norms are the other
 hard case: a norm binds across many intentions, and none of them announces the norm's
 own category — an agent adding an endpoint has no reason to look up "security norms" —
 so enumerate the intentions under which the norm binds, and write the description in
