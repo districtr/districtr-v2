@@ -125,6 +125,11 @@ docker-compose exec backend python cli.py create-parent-child-edges \
 (SELECT uuid FROM districtrmap WHERE districtr_map_slug = '<slug>')` is
 nonzero and roughly matches the expected child-row count.
 
+This step is slated for retirement: PR #721 (merged to dev 2026-08-28) moved
+every runtime *reader* onto the graph, but `shatter_parent.sql` still queries
+`parentchildedges`, so edges remain required until the announced follow-up
+replaces that write path. Re-check `shatter_parent.sql` before skipping this.
+
 ### 7. End-to-end verification
 
 - `docker-compose exec backend python cli.py check-missing-graphs --skip-alert`

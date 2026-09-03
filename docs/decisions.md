@@ -4,7 +4,7 @@ Why the system is shaped the way it is, in reverse-chronological order. Each ent
 PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md)
 (the what); this file is the why.
 
-## Graphs become mmap-shared (PR #721, opened 2026-08-12 — open as of 2026-08-27)
+## Graphs become mmap-shared (PR #721, merged to dev 2026-08-28)
 
 Every uvicorn worker unpickled its own private copy of every district graph it touched
 (~500MB per worker for Pennsylvania-scale data). `DualLevelDualGraph` replaces the
@@ -15,8 +15,10 @@ across 5 workers 44.7GB → ~3GB flat; cold load 1.3–2.2s → ~0.25s; contigui
 ~5–9x faster. An `igraph` alternative was measured and set aside — its sharing depends
 on `fork()` copy-on-write surviving sustained traffic, weaker than mmap's guarantee.
 Validation method worth copying: both implementations run against 152 sampled
-production documents and diffed. The PR also migrates every runtime reader off the
-`ParentChildEdges` table, deferring the actual table drop to a follow-up.
+production documents and diffed. The PR also migrated every runtime reader off the
+`ParentChildEdges` table, deferring the actual table drop to a follow-up —
+until that follow-up lands, `shatter_parent.sql` (the interactive-shatter write
+path) still reads the table, so onboarding still creates edges.
 
 **The drop that was tried too early**: on 2026-07-17 a commit removed `ParentChildEdges`,
 its CLI commands, and the dependent UDFs outright; it was reverted on 2026-08-06 before
