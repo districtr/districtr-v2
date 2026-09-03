@@ -132,13 +132,6 @@ In Claude Code, routing is automatic — each skill's description states its sit
 and the model loads it when relevant. The listing above is the map for humans and for
 agents (Cursor, Codex) without native skill routing.
 
-### Frontend Conventions (Next.js)
-
-- Use `React.FC<Props>` syntax for reusable component declarations (pages/layouts use `export default function` as required by Next.js).
-- Runtime is **Bun** (not Node.js); production builds use `output: 'standalone'` and deploy to AWS ECS (see `infra/README.md`).
-- Map pages (`/map/*`) are almost entirely client-side — heavy `'use client'` usage is expected there.
-- Static content pages (tags, about, etc.) should be **statically rendered** at build time where possible.
-
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

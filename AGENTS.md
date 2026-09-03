@@ -17,6 +17,7 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 
 - **The document UUID is the edit capability** — possession grants edit rights; treat
   it as a secret.
+- **Frontend tooling is Bun** — `bun install` / `bun run`, never npm/npx.
 
 ## Quality Gates
 
