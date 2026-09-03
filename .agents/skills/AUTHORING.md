@@ -2,10 +2,12 @@
 
 Normative reference for writing and revising the skills in this directory. The agents
 these files serve already have general engineering capability and can recover most
-facts about the codebase by browsing it. **A skill exists for one purpose: to state
-what the repository cannot say about itself.** Everything below serves that test.
-(Synthesized from Anthropic's skill documentation, this repo's measured routing and
-ablation experiments of 2026-09-01, and a loading-mechanism study of 2026-09-03.)
+facts about the codebase by browsing it. A skill or CLAUDE.md exists for three kinds
+of content that the repository cannot say by itself: (1) recurring procedures in
+development, (2) project-specific norms and values, and (3)
+terminology seams — places where one concept has several names across code/UI/external data, one name covers several concepts, or a name misleads.
+(Principles here are grounded in Anthropic's skill documentation and this repo's own
+routing and point-ablation measurements — the experimental record lives in PR #740.)
 
 ## How skills load (mechanics)
 
@@ -19,56 +21,37 @@ model-invoked skills. Under context compaction only roughly the first 5k tokens 
 loaded SKILL.md survive — front-load the most important lines.
 
 Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
-exactly one level deep. `scripts/sync-skills.sh` therefore flattens any source grouping
-when syncing — verified empirically here on 2026-08-27, when 12 skills nested under a
-`project/` subfolder turned out to have been invisible to native routing since their
-creation. Skill names must stay unique (the sync errors on collision).
+exactly one level deep; `scripts/sync-skills.sh` therefore flattens any source grouping
+when syncing, and skill names must stay unique (the sync errors on collision).
 
-## How routing actually behaves (measured 2026-09-01)
+## Descriptions
 
-An in-house experiment (~170 fresh `claude -p` runs against this repo, hooks disabled,
-`learn-backend` as the subject, Haiku and Sonnet, 2–4 trials per cell) replaced several
-assumptions about descriptions with observations. The large effects below were consistent
-across cells; differences of one trial in four are noise. Scope: these findings describe
-Claude Code's router with those two models. The other sync targets (Cursor, Codex) deliver
-skills through different mechanisms and models, and were not measured — treat the
-principles as untested hypotheses there.
+The router matches skills against the model's own one-sentence restatement of the task,
+written in standard engineering vocabulary — so a description triggers on the model's
+nouns (backend, endpoint, data model, share link), and house terms ("conventions",
+"invariants", "territory", "concern") match nothing. Precision vs. vagueness is the
+wrong axis; *whose vocabulary* is the right one.
 
-- **Matching runs against the model's own restatement of the task.** Before its first
-  tool call the model writes a one-sentence restatement in standard engineering
-  vocabulary ("explore the backend data model…") and matches *that* against the
-  `name: description` line. So the words that trigger are the model's nouns — backend,
-  endpoint/route, API, data model, server, share link, public id — and house terms
-  ("conventions", "notes", "invariants", "territory", "concern") match nothing.
-  Precision vs. vagueness is the wrong axis; *whose vocabulary* is the right one.
-- **Grammatical phrases, never keyword lists.** The same seven words as a readable phrase
-  triggered 4/4 in every split between name and description; the same words scrambled
-  triggered 0/12. Name and description are one line: words are interchangeable between
-  them, the name is just one more phrase, and an opaque name costs nothing if the
-  description carries the phrase.
-- **Model choice dominates everything above.** Haiku invoked the skill in 3/72
-  direct-task runs regardless of description, and in 0/20 indirectly framed runs even
-  though 19 of them read files under the skill's territory — it never consults the
-  skill listing, so for Haiku a skill exists only if something else injects it. Sonnet
-  33/58 on direct tasks. Subagents almost never invoke skills (one invocation across the
-  whole experiment). Anything delegated to a subagent gets its hard invariants stated
-  in the spawn prompt, not left to routing.
-
-Writing a description: third person, stating what the skill covers and its trigger
-terms, in the plain engineering nouns a developer would say when restating a task in
-this concern — that's the vocabulary the model produces, and guessing it is normally
-enough. If a skill observably fails to load on tasks it should catch, then measure: run
-a few agents on such tasks, read each one's first planning sentence, and take the nouns
-from there.
+- Write in third person, stating what the skill covers and its trigger terms, as
+  grammatical phrases — a scrambled keyword list matches nothing. Name and description
+  act as one line: words are interchangeable between them, and an opaque name costs
+  nothing if the description carries the phrase.
+- A wrong or misleading description vetoes invocation outright; tuning a correct one
+  yields little. Spend effort on the nouns, and guess them — that is normally enough.
+  If a skill observably fails to load on tasks it should catch, then measure: run a
+  few agents on such tasks, read each one's first planning sentence, and take the
+  nouns from there.
+- Smaller models and subagents rarely consult the skill listing at all. Anything
+  delegated to a subagent gets its hard invariants stated in the spawn prompt, not
+  left to routing.
 
 ## The content test: keep only what the code can't speak
 
 For every passage ask: could an agent recover this in a couple of minutes of
 glob/grep/read? If yes, delete it — it is a stale-prone paraphrase of ground truth.
-(Ablation-tested here, 2026-09-01: randomly sampled points, skill force-loaded with and
-without the single point. Points stating generic engineering lore, or content the
-file's own surroundings entail, produced identical behavior with the line absent; the
-points that flipped behavior were the incompressible ones.)
+Point-ablation testing here bears this out: points stating generic engineering lore,
+or content the file's own surroundings entail, produce identical agent behavior with
+the line absent; the points that change behavior are the incompressible ones.
 
 What survives falls into four categories, in descending value:
 
@@ -193,8 +176,8 @@ knowledge skill as references — a symptom and an edit route through the same c
 
 ## Review checklist
 
-Four failure modes recur in skill drafts (all four were found and cut from the first
-`learn-backend` draft, 2026-08-28). Check each before committing a new or revised skill:
+Four failure modes recur in skill drafts. Check each before committing a new or revised
+skill:
 
 1. **Invented rationale.** Where the code doesn't state a *why*, don't supply a
    plausible one — it reads as authoritative and, when wrong, plants a false belief no
