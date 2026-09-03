@@ -66,7 +66,7 @@ export interface DocumentMetadata {
   group: string | null;
   tags: string | null;
   description: string | null;
-  eventId: string | null;
+  event_id: string | null;
   draft_status: DraftStatus | null;
 }
 
