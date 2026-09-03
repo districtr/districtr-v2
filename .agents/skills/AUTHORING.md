@@ -26,21 +26,29 @@ when syncing, and skill names must stay unique (the sync errors on collision).
 
 ## Descriptions
 
-The router matches skills against the model's own one-sentence restatement of the task,
-written in standard engineering vocabulary — so a description triggers on the model's
-nouns (backend, endpoint, data model, share link), and house terms ("conventions",
-"invariants", "territory", "concern") match nothing. Precision vs. vagueness is the
-wrong axis; *whose vocabulary* is the right one.
+A description is a guess at the developer's intention at the moment of need, and the
+guess differs by content kind. For a recurring procedure it is trivial: say what the
+task does. For terminology, the names themselves are the trigger terms. Norms are the
+hard case: a norm binds across many intentions, and none of them announces the norm's
+own category — an agent adding an endpoint has no reason to look up "security norms" —
+so enumerate the intentions under which the norm binds, and write the description in
+those situations' vocabulary. Descriptions are therefore written last, as discovery
+plans for an already-fixed norm inventory (see the revision procedure).
 
-- Write in third person, stating what the skill covers and its trigger terms, as
-  grammatical phrases — a scrambled keyword list matches nothing. Name and description
-  act as one line: words are interchangeable between them, and an opaque name costs
-  nothing if the description carries the phrase.
+Supporting mechanics:
+
+- The router matches against the model's own one-sentence restatement of the task,
+  written in standard engineering vocabulary — so trigger on the model's nouns
+  (backend, endpoint, data model, share link); house terms ("conventions",
+  "invariants", "territory", "concern") match nothing. Precision vs. vagueness is the
+  wrong axis; *whose vocabulary* is the right one.
+- Write in third person, as grammatical phrases — a scrambled keyword list matches
+  nothing. Name and description act as one line: words are interchangeable between
+  them, and an opaque name costs nothing if the description carries the phrase.
 - A wrong or misleading description vetoes invocation outright; tuning a correct one
-  yields little. Spend effort on the nouns, and guess them — that is normally enough.
-  If a skill observably fails to load on tasks it should catch, then measure: run a
-  few agents on such tasks, read each one's first planning sentence, and take the
-  nouns from there.
+  yields little. Guess the nouns — that is normally enough. If a skill observably
+  fails to load on tasks it should catch, then measure: run a few agents on such
+  tasks, read each one's first planning sentence, and take the nouns from there.
 - Smaller models and subagents rarely consult the skill listing at all. Anything
   delegated to a subagent gets its hard invariants stated in the spawn prompt, not
   left to routing.
@@ -65,6 +73,17 @@ What survives falls into four categories, in descending value:
    touches — read every time, where a skill loads only sometimes), put it there and cut
    the skill line; and treat path evidence that descends from the skill itself (a
    copied comment) as confirming nothing.
+
+   **State a norm at the most fundamental level that still permits inference.** "The
+   document UUID is proprietary — possession grants edit rights" reaches returning it,
+   logging it, exporting it, embedding it in a URL — situations no function-level rule
+   enumerates — and survives changes to the function inventory; a function-level rule
+   ("use X when returning documents") can steer behavior strongly and still be wrong
+   at the edges. The check against over-abstraction is inferability: an agent holding
+   the norm plus the code must be able to derive the concrete behavior. Granularity
+   also settles placement: a fundamental norm's trigger is diffuse (undetectable
+   need → CLAUDE.md, and fundamental norms are short); a situation-bound norm's
+   trigger is detectable (→ a skill).
 2. **Terminology seams** — places where one concept has several names across code, UI,
    and external data; one name covers several concepts; or a name misleads.
 3. **Reasoned absences** — things an agent would expect to exist and might reimplement
@@ -204,8 +223,13 @@ to attention). Instead:
 1. Apply the content test to everything existing; expect the first pass to be net
    deletion — if the revised files are longer than the originals, the test was
    misapplied.
-2. Re-route what survives per the placement rule.
-3. Treat the result as a floor, grown only by **trace evidence**: when an agent is
+2. Fix the norm inventory before anything else: write out the norms that survive, and
+   set each one's granularity (most fundamental level that still permits inference).
+   Skill boundaries emerge from partitioning that inventory by binding situation —
+   they are an output of this step, not an input to it.
+3. Re-route what survives per the placement rule, and only then write descriptions —
+   discovery plans for the now-fixed inventory.
+4. Treat the result as a floor, grown only by **trace evidence**: when an agent is
    observed grepping the wrong term, conflating concepts, rebuilding something that
    exists under another name, or violating a standard, add the one line that would have
    prevented it, in the right location. Bias every judgment call toward brevity: an
