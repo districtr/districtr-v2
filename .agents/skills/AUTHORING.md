@@ -131,7 +131,7 @@ memory limits), and one trigger can call for a mix of content kinds — norms an
 terminology bound to the same situations belong in the same file.
 
 - Procedure skills start with the `run-` prefix and name their task specifically
-  (`run-quality-gates`, `run-map-onboarding`), distinguishing them at a glance from
+  (`run-quality-gate`, `run-map-onboarding`), distinguishing them at a glance from
   skills with other trigger kinds; the request itself is the trigger, and the
   description just says what the task does.
 - Triggers that would always fire together are one skill: merge, and push sub-topic

@@ -1,5 +1,5 @@
 ---
-name: pr-review
+name: run-pr-review
 description: Runs this repo's project-specific pre-merge checkpoints on a diff or PR — which project skills the change falls under, migration safety, API contract drift, and quality-gate status — on top of, not instead of, the built-in code-review and security-review skills. Use when asked to review a PR or branch for this repo, or before merging a change that touches the backend schema, API surface, or auth/share flow.
 ---
 
@@ -14,10 +14,10 @@ checkpoints that are specific to this repo's architecture and history.
 ## Checkpoints
 
 1. **Which concern does this diff belong to?** Identify the touched surfaces
-   and load the matching `learn-*` skill(s) (map rendering, state sync,
-   backend/DB, map data lifecycle, performance, auth/share, CMS, infra — see
-   `.agents/AGENTS.md`'s guide selection). Check the diff against that
-   skill's stated invariants, not just for a syntax-level correctness pass.
+   and load the matching norm skill(s) (backend-endpoints, map-rendering,
+   map-edit-sync, performance-memory, deploy-authority — see
+   `.agents/AGENTS.md`). Check the diff against that skill's stated
+   constraints, not just for a syntax-level correctness pass.
 
 2. **Migration safety** — if the diff touches `backend/app/alembic/`, apply
    the dangerous-operations checklist from
@@ -38,6 +38,6 @@ checkpoints that are specific to this repo's architecture and history.
    per PR before push).
 
 5. **Auth/security surface** — if the diff touches Auth0 scopes, Turnstile
-   verification, or share/edit token handling, check it against
-   [`learn-auth-share`](../learn-auth-share/SKILL.md)'s invariants in
-   addition to running `security-review`.
+   verification, or share/edit token handling, check the auth section
+   of [`docs/overview.md`](../../../docs/overview.md) (noting its revamp
+   caveat) in addition to running `security-review`.

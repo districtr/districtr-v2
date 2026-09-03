@@ -105,46 +105,39 @@ skills one level deep only, and routes to them by their frontmatter `description
 
 ## Project Skills
 
-Project skills live directly in `.agents/skills/`, in two kinds:
+Project skills live directly in `.agents/skills/`, in two kinds. Orientation — what
+the system is, what the words mean, how the pieces fit — is deliberately **not** in
+skills: read [`docs/overview.md`](../docs/overview.md) (the shape of the project) and
+[`docs/decisions.md`](../docs/decisions.md) (dated architectural decisions and their
+grounds) instead.
 
-**Knowledge skills** (`learn-*`) — load one before working within its concern, whether
-editing or debugging. Each covers a concern (a question the agent needs answered, or a
-risk it must not trip), not a file surface; the same file can fall under different
-skills depending on why it's being edited.
+**Norm skills** — project norms and vocabulary the repository can't state about
+itself, loaded when working in their situations:
 
-- [`learn-map-frontend`](./skills/learn-map-frontend/SKILL.md) - how the interactive map renders and responds: stores/subscriptions, feature-state, paint/shatter, web workers
-- [`learn-map-data`](./skills/learn-map-data/SKILL.md) - how a map module comes to exist: GerryDB import, pipelines, shatter edges, graph linkage
-- [`learn-state-sync`](./skills/learn-state-sync/SKILL.md) - whether user work is saved, lost, or conflicted: IDB/server sync, optimistic concurrency
-- [`learn-backend`](./skills/learn-backend/SKILL.md) - server endpoints and the data model: FastAPI/SQLModel conventions, DB patterns, UDF policy
-- [`learn-performance`](./skills/learn-performance/SKILL.md) - the memory/perf constraints this system has hit, and their history (cross-cutting)
-- [`learn-auth-share`](./skills/learn-auth-share/SKILL.md) - who can do what: Auth0 scopes, share/edit tokens, Turnstile
-- [`learn-cms`](./skills/learn-cms/SKILL.md) - editorial content flows: CMS, TipTap nodes, comment moderation
-- [`learn-infra`](./skills/learn-infra/SKILL.md) - how the system is built, wired, and run: compose topology, env files, CI
+- [`backend-endpoints`](./skills/backend-endpoints/SKILL.md) - backend route/model/query constraints: SQLAlchemy-first, the shattered-parent contract, the document-UUID boundary
+- [`map-rendering`](./skills/map-rendering/SKILL.md) - the map-feels-synchronous value and its consequences; shatter/Break vocabulary
+- [`map-edit-sync`](./skills/map-edit-sync/SKILL.md) - the two "last updated" clocks and derived local-edit detection
+- [`performance-memory`](./skills/performance-memory/SKILL.md) - the district graph as the expensive resource
+- [`deploy-authority`](./skills/deploy-authority/SKILL.md) - live infra changes only through post-merge CI (paths-gated on `infra/**` and workflows)
 
-**Runbooks** — invoke to perform a procedure:
+**Runbooks** (`run-*`) — invoke to perform a procedure:
 
-- [`quality-gate`](./skills/quality-gate/SKILL.md) - run the verification suite, scoped to the diff, expensive gates concurrent
-- [`map-onboarding`](./skills/map-onboarding/SKILL.md) - onboard a new geographic layer end to end
-- [`migration-author`](./skills/migration-author/SKILL.md) - author and validate an Alembic migration
-- [`api-contract-audit`](./skills/api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
-- [`pr-review`](./skills/pr-review/SKILL.md) - this repo's project-specific review checkpoints
-- [`dependency-audit`](./skills/dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
-- [`next-upgrade`](./skills/next-upgrade/SKILL.md) - upgrade Next.js following official guides and codemods
+- [`run-quality-gate`](./skills/run-quality-gate/SKILL.md) - run the verification suite, scoped to the diff, expensive gates concurrent
+- [`run-map-onboarding`](./skills/run-map-onboarding/SKILL.md) - onboard a new geographic layer end to end
+- [`run-migration`](./skills/run-migration/SKILL.md) - author and validate an Alembic migration
+- [`run-api-contract-audit`](./skills/run-api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
+- [`run-pr-review`](./skills/run-pr-review/SKILL.md) - this repo's project-specific review checkpoints
+- [`run-dependency-audit`](./skills/run-dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
+- [`run-next-upgrade`](./skills/run-next-upgrade/SKILL.md) - upgrade Next.js following official guides and codemods
 
-In Claude Code, routing is automatic — each skill's description states its concern and
-the model loads it when relevant. The listing above is the map for humans and for
+In Claude Code, routing is automatic — each skill's description states its situation
+and the model loads it when relevant. The listing above is the map for humans and for
 agents (Cursor, Codex) without native skill routing.
-
-### Backend DB Policy Reminder
-
-- SQLAlchemy-first: prefer SQLAlchemy/SQLModel queries and set-based SQL for new backend logic.
-- No new UDFs by default; only introduce one with explicit documented justification.
-- Treat existing UDF-backed paths as legacy and prefer incremental migration away when touched.
 
 ### Frontend Conventions (Next.js)
 
 - Use `React.FC<Props>` syntax for reusable component declarations (pages/layouts use `export default function` as required by Next.js).
-- Runtime is **Bun** (not Node.js); production builds use `output: 'standalone'` and deploy to AWS ECS (see `learn-infra`).
+- Runtime is **Bun** (not Node.js); production builds use `output: 'standalone'` and deploy to AWS ECS (see `infra/README.md`).
 - Map pages (`/map/*`) are almost entirely client-side — heavy `'use client'` usage is expected there.
 - Static content pages (tags, about, etc.) should be **statically rendered** at build time where possible.
 

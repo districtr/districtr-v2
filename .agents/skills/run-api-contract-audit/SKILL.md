@@ -1,5 +1,5 @@
 ---
-name: api-contract-audit
+name: run-api-contract-audit
 description: Runs a static, name-matching heuristic diff between backend Pydantic/SQLModel response fields and the frontend's hand-written API TypeScript interfaces, to surface likely drift after either side changes. Use after editing a FastAPI endpoint's response model, a SQLModel/Pydantic schema, or the frontend's apiHandlers/types.ts — before assuming the two sides still agree on field names.
 ---
 

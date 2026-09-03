@@ -1,5 +1,5 @@
 ---
-name: dependency-audit
+name: run-dependency-audit
 description: Surveys outdated and vulnerable dependencies across the frontend (Bun) and backend (pip/uv) toolchains and triages findings by severity and exposure. Use periodically, or when asked to check for outdated packages, security advisories, or whether a dependency needs bumping.
 ---
 

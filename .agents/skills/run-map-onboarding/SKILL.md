@@ -1,5 +1,5 @@
 ---
-name: map-onboarding
+name: run-map-onboarding
 description: Walks through onboarding a new geographic layer (a state's blocks/VTDs, a new district plan's base geography, or a COI-module geography) into a usable Districtr map module — from raw GeoPackage through GerryDB import, tileset and graph generation, map-record creation, and shatter-edge wiring. Use when adding a new map/module, changing which commands or order the onboarding pipeline runs in, or debugging why a newly onboarded map won't load, shatter, or pass contiguity checks.
 ---
 
@@ -9,10 +9,10 @@ Onboarding a map module touches three CLIs — `backend/cli.py` (database
 records), `pipelines/cli.py` (tileset and graph artifacts), and no others —
 run against the containerized stack. There is no single onboarding command;
 this is a fixed sequence of CLI invocations, each producing a
-prerequisite for the next. Read
-[`learn-map-data`](../learn-map-data/SKILL.md) first for what each stage's
-output actually means (GeoPackage → GerryDB → DistrictrMap → tiles → edges →
-graph) — this skill is the *how*, that skill is the *why*.
+prerequisite for the next. Read the map-module
+section of [`docs/overview.md`](../../../docs/overview.md) first for what each
+stage's output actually means (GeoPackage → GerryDB → DistrictrMap → tiles →
+edges → graph) — this runbook is the *how*, that section is the *why*.
 
 None of these commands were run for real while writing this skill (no
 container access) — flags and argument names are read from the CLI source,

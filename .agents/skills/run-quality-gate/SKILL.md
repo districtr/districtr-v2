@@ -1,5 +1,5 @@
 ---
-name: quality-gate
+name: run-quality-gate
 description: Runs this repo's verification suite (pre-commit lint, frontend type-check and build, backend pytest), scoped to what the current diff actually touches, with the expensive gates run concurrently. Use when about to push a branch, before opening a PR, or whenever asked to run the quality gates or check whether the code is green.
 ---
 

@@ -9,11 +9,20 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 ## Quick Reference
 
 - **Architecture**: [`.agents/ARCHITECTURE.md`](.agents/ARCHITECTURE.md)
-- **Project skills**: `.agents/skills/` (8 concern guides + 7 runbooks; see `.agents/skills/AUTHORING.md`)
+- **Orientation**: [`docs/overview.md`](docs/overview.md) (project shape, name concordance) · [`docs/decisions.md`](docs/decisions.md) (dated architectural decisions)
+- **Project skills**: `.agents/skills/` (5 norm skills + 7 `run-*` runbooks; see `.agents/skills/AUTHORING.md`)
 - **Issue tracking**: `bd prime` or `bd ready` (beads CLI >=1.0.0, optional)
 - **Frontend**: `app/` (Next.js App Router, Bun, TypeScript)
 - **Backend**: `backend/` (FastAPI, Python 3.12, SQLModel)
 - **Pipelines**: `pipelines/` (tilesets, tabular data, transforms)
+
+## Cross-Cutting Rules
+
+- **The document UUID is the edit capability** — possession grants edit rights; treat
+  it as a secret. Never let it reach anyone who supplied only a `public_id`
+  (responses, logs, exports, URLs).
+- **`map_type: "default"` means a district map**, not "the default kind" — the word
+  "district" never appears as a type value. Full name concordance: `docs/overview.md`.
 
 ## Quality Gates
 
