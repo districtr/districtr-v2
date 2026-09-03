@@ -110,7 +110,9 @@ cross-check between them at creation time.
 
 **Verify**: `SELECT * FROM districtrmap WHERE districtr_map_slug = '<slug>'`
 shows the expected row; the map is initially safe to leave `visible=false`
-until the remaining steps pass.
+until the remaining steps pass. Check `statefps` on the new row: the CLI does
+not fill it automatically (issue #633), and county-brush behavior is silently
+disabled on any map whose document metadata lacks it.
 
 ### 6. (Shatterable maps only) Create parent-child edges
 

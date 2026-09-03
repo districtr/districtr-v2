@@ -18,31 +18,18 @@ stack already running (`docker-compose up -d db`; `pre-commit`, `frontend`,
 `backend` services get started as needed by `docker-compose up` /
 `docker-compose exec`).
 
-The script always runs `pre-commit`. It adds `bun run ts` and `bun run build`
-when `app/` is touched, and `pytest` when `backend/` is touched.
-
 ## Cadence
 
-Measured on a warm stack, 2026-08-24: `pre-commit` ~6s, `bun run ts` 2–3s,
-frontend `build` ~78s, backend `pytest` ~96s.
-
-Run the cheap gates (`pre-commit`, `ts`) on every relevant change — they're
-fast enough that there's no reason not to. Run the expensive gates (`build`,
-`pytest`) once per PR, right before push, scoped to whichever side the diff
-touches — running them on every edit buys nothing for two gates that together
-take over two minutes.
-
-A re-run is unnecessary after merging in an unrelated `dev` update (no file
-overlap with the current diff), for the backend: `test-backend.yml` reruns
-pytest on every push touching `backend/**`, on any branch, so a local re-run
-before that push adds a second wait for the same answer. No equivalent CI job
-exists for the frontend outside a PR preview or a deploy to `main`/`dev`, so
-this shortcut doesn't apply to `bun run build`.
+Run the cheap gates (`pre-commit` ~6s, `bun run ts` 2–3s) freely; run the
+expensive gates (`build` ~78s, `pytest` ~96s) once per PR, right before push —
+not on every edit. One shortcut: `test-backend.yml` reruns pytest in CI on
+every push touching `backend/**`, so a local pytest re-run right before such a
+push just waits twice for the same answer; no equivalent CI job covers
+`bun run build` outside previews/deploys.
 
 ## ESLint is deliberately not a gate
 
-`bun run lint` works — it was fixed in PR #728 after `next lint` sat broken
-since the Next 16 pin of December 2025, unnoticed for months precisely
-because nothing gated on it. On 2026-08-24 the team decided to leave linting
-unenforced rather than re-add it as a gate. `bun run lint` stays available for
-manual use; this skill does not run it.
+Team decision, 2026-08-24: linting stays unenforced (`next lint` had sat
+broken and unnoticed since Dec 2025 precisely because nothing gated on it —
+fixed in PR #728). `bun run lint` is available for manual use; this skill
+does not run it.

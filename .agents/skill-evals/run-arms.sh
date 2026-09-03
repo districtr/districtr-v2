@@ -12,7 +12,7 @@ BASELINE_COMMIT="${BASELINE_COMMIT:-8da38925^}" # parent of the rebuild commit
 TRIALS="${TRIALS:-2}"
 MODEL="${MODEL:-sonnet}"
 WORK="${WORK:-$(mktemp -d /tmp/skill-evals.XXXX)}"
-OUT="$(dirname "$0")/results/$(date +%Y%m%d-%H%M%S)"
+OUT="$(cd "$(dirname "$0")" && pwd)/results/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT"
 
 echo "work dir: $WORK  results: $OUT  baseline: $BASELINE_COMMIT"

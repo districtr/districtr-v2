@@ -66,43 +66,12 @@ docker-compose exec backend alembic downgrade -1
 docker-compose exec backend alembic upgrade head
 ```
 
-This is the migration's own feedback loop — a downgrade that raises, or a
-second upgrade that fails because the downgrade left the schema
-inconsistent, means the migration isn't done. Fix and re-run the full
-three-step loop; don't just re-run the failing step, since a partial fix can
-pass step 2 while still breaking step 3.
+On failure, fix and re-run the full three-step loop, not just the failing
+step. (CI's test suite runs `alembic upgrade head` on a fresh database, but
+only the upgrade direction — this loop is what exercises downgrade.)
 
-The test suite also runs `alembic upgrade head` against a fresh test database
-on every run (`backend/tests/conftest.py`) — a broken migration fails there
-too, but only in the upgrade direction; the manual loop above is what
-exercises downgrade.
-
-## Worked example: reviewing a real migration set for safety
-
-Commit `291cc45d` ("Junction surrogate PKs, FK delete cascades, and an
-admin-schema guard for alembic") is a good instance of the review habits
-above, applied by the author in the commit message itself:
-
-- **Named the lock risk up front**: "`a1c4d2e9b7f3` takes an ACCESS EXCLUSIVE
-  lock and rewrites [the junction tables]" — flagged in prose, so a reviewer
-  doesn't have to infer it from `ADD COLUMN id SERIAL` plus a primary-key
-  swap.
-- **Named the exact dependency the safety of a `DROP CONSTRAINT` rests on**:
-  "verify the constraint names against production before merging (the drops
-  are by literal name)" — an `op.drop_constraint("districtrmaps_to_groups_uuid",
-  ...)` is only safe if that name is what production actually has.
-- **Explained a downgrade regression it was fixing, not just describing the
-  fix**: "`545e708aeb30` recreated them without [CASCADE] — apparently
-  accidentally, since its own downgrade() re-adds the CASCADE" — evidence
-  that a migration's downgrade can be the more trustworthy half when the
-  upgrade drifted from intent.
-- **Stated which invariant was deliberately left alone**: "`document.document`
-  deliberately keeps NO ACTION: maps with saved plans must not be
-  deletable" — so a later pass doesn't "fix" that FK to match the cascading
-  ones next to it.
-
-## SQLAlchemy-first policy
-
-New backend query logic should be SQLAlchemy/SQLModel or set-based SQL, not a
-new UDF — see [`backend-endpoints`](../backend-endpoints/SKILL.md) for the full
-policy and the documented exception for measured performance needs.
+Two repo-specific review facts beyond the checklist above: constraint drops
+are by literal name, so verify the names against production before merging;
+and `document.document`'s FK deliberately keeps NO ACTION (maps with saved
+plans must not be deletable) — don't "fix" it to match the cascading FKs
+next to it.
