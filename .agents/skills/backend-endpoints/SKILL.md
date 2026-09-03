@@ -27,7 +27,7 @@ user-invocable: false
   `batch_insert_assignments` — an uploaded CSV may list only some of a shattered
   parent's children, and the unlisted siblings must still end up with rows). A change
   to one path without checking the other is how this contract silently breaks.
-- **The document UUID is the edit capability — treat it as a secret** (see CLAUDE.md).
+- **The document UUID is the edit capability — treat it as a secret** (see the root `AGENTS.md`).
   At this surface: a response reachable by `public_id` must never contain the true
   `document_id`. `get_document` (`core/dependencies.py`) resolves private ids only
   (write paths); `get_protected_document` resolves either id and returns the raw
