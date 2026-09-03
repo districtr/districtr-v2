@@ -2,7 +2,7 @@
 
 A newcomer-oriented tour of what the system is, what the words mean, and how the pieces
 fit. Architecture diagrams and per-directory detail live in
-[`.agents/ARCHITECTURE.md`](../.agents/ARCHITECTURE.md); the history of *why* things are
+[`architecture.md`](architecture.md); the history of *why* things are
 shaped this way lives in [`decisions.md`](decisions.md).
 
 Districtr is a community redistricting platform: people draw district maps (assigning

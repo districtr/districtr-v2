@@ -173,12 +173,11 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 
 Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` (Bun dev), `pre-commit` (linting), `pipelines`. Hot reload via bind mounts.
 
-### Production (Fly.io)
+### Production (AWS)
 
-- **Frontend**: 1GB RAM, 1 shared CPU, EWR region
-- **Backend**: 8GB RAM, 4 shared CPUs, 10GB persistent volume, EWR region
-- Release command runs `alembic upgrade head` before backend startup
-- Tilesets and Parquet served from S3 / Cloudfront CDN
+ECS Fargate services behind an ALB, RDS PostGIS, images in ECR, secrets in SSM —
+two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference.
+Tilesets and Parquet are served from S3 / CloudFront.
 
 ### CI/CD (GitHub Actions)
 
@@ -188,10 +187,4 @@ Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` 
 
 ## Key Architectural Decisions
 
-1. **Server-centric computation** - Metrics, contiguity, and spatial operations run server-side, not in tiles
-2. **Plain assignment tables** - Per-document LIST partitioning was removed; row-level locking on plain tables eliminated lock convoys that caused >90% failure rates under concurrent load
-3. **Optimistic concurrency** - `updated_at` timestamps for conflict detection; IDB as local cache
-4. **Subscription-based sync** - Cross-store effects via explicit subscriptions, not ad hoc listeners
-5. **Worker offloading** - Heavy geometry and data parsing in Web Workers to keep UI responsive
-6. **Map lock protocol** - UI respects `mapLock` state to prevent conflicting operations during saves/loads
-7. **Shatterable maps** - Parent-child geometry nesting enables drill-down from precincts to blocks
+Dated, PR-anchored history: [`decisions.md`](decisions.md).

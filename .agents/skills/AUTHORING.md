@@ -62,13 +62,13 @@ The official include/exclude table under "Write an effective CLAUDE.md"
 file and applies here unchanged — with one reading note: its "architectural decisions
 specific to your project" (include) means the *decisions*, which are norms and reasoned
 absences; an architecture *overview* is triggerless orientation and lives in
-`.agents/ARCHITECTURE.md` instead.
+`docs/architecture.md` instead.
 
 The test weighs derivation cost against drift rate. Plain descriptions of visible
 detail — file maps, restated function behavior — are cheap to re-derive and drift
 fast: leave them out. A system-level architecture overview is the opposite case —
 expensive to infer and slow to drift — so it earns a documentation home
-(`.agents/ARCHITECTURE.md`) despite being derivable; it still has no place in a
+(`docs/architecture.md`) despite being derivable; it still has no place in a
 skill, since orientation has no trigger. Examples and causal history earn their lines
 only as carriers of the categories above: an annotated example or a history that
 transmits a norm, or terminological idiosyncrasies.
@@ -92,7 +92,7 @@ Content that is real but has no skill-shaped trigger goes elsewhere:
 
 - **Triggerless orientation → docs, not skills.** Material that orients rather than
   corrects — architecture overviews, file maps — has no moment of need to route on and
-  belongs in the documentation layer (`.agents/ARCHITECTURE.md`, AGENTS.md, `docs/`),
+  belongs in the documentation layer (`docs/`, AGENTS.md),
   where both humans and agents read it eagerly. When writing a passage, ask who it
   serves and when: skills serve only the agent, at a detectable moment.
 - **Related to a specific line of code** For instance, if a suggestion is related to the
