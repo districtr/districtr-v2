@@ -140,6 +140,30 @@ terminology bound to the same situations belong in the same file.
   signal, not grounds for a wider skill: restate it more fundamentally and route it by
   the placement rule (usually CLAUDE.md).
 
+## Pointers and references
+
+The official mechanics are minimal — keep SKILL.md under 500 lines, move bulk to
+reference files, link each with what it contains and when to read it
+(https://code.claude.com/docs/en/skills). When a pointer *earns its line* is left
+unaddressed, and matters more: every pointer is a second routing hop, and each kind
+fails differently. The test for all of them: **is the pointer's condition checkable at
+the moment the reader reads it?** A skill's body is read once, at load; a condition
+that only becomes true later must be carried in memory until then, and nothing
+re-fires it.
+
+- **Progressive disclosure** (bundled `references/`): more depth on content the
+  skill's own trigger already selected, behind an immediately checkable condition
+  ("tracing an actual divergence → read debugging.md"). The endorsed case.
+- **Placement disclosure** (external): one line saying where related content
+  deliberately lives elsewhere (docs, a README) — justified when an agent would
+  otherwise search the skill for it or assume it doesn't exist. Immediate conditions
+  only.
+- **Deferred conditional trigger** ("read Z before doing W", W a sub-situation that
+  may arise later or never): misplaced — route Z by W's own trigger instead, usually a
+  comment at the choke point W must pass through.
+- **Routing duplication** (pointing at another skill or runbook whose own description
+  already fires on that situation): the router is the pointer; cut.
+
 ## Format
 
 - **Terminology as a concordance, not a glossary**: keyed by concept, listing the code

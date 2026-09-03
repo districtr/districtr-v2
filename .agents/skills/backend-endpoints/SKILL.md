@@ -47,7 +47,4 @@ user-invocable: false
 ## Where the rest lives
 
 - Data-model narrative (document/assignments split, module anatomy): `docs/overview.md`.
-- Partition history (PR #625 departitioning, the `ParentChildEdges` drop-and-revert):
-  `docs/decisions.md` — read before touching partition-adjacent code; check current
-  `models.py` rather than assuming the old shape.
-- Migration authoring: the `run-migration` runbook.
+- The grounds and history behind the constraints above: `docs/decisions.md`.
