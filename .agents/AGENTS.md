@@ -126,7 +126,6 @@ itself, loaded when working in their situations:
 - [`run-map-onboarding`](./skills/run-map-onboarding/SKILL.md) - onboard a new geographic layer end to end
 - [`run-migration`](./skills/run-migration/SKILL.md) - author and validate an Alembic migration
 - [`run-api-contract-audit`](./skills/run-api-contract-audit/SKILL.md) - detect drift between frontend API types and backend schemas
-- [`run-pr-review`](./skills/run-pr-review/SKILL.md) - this repo's project-specific review checkpoints
 - [`run-dependency-audit`](./skills/run-dependency-audit/SKILL.md) - survey outdated/vulnerable dependencies
 
 In Claude Code, routing is automatic — each skill's description states its situation
