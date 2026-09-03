@@ -21,11 +21,8 @@ Read [`.agents/AGENTS.md`](.agents/AGENTS.md) for full project context, guide se
 
 ## Quality Gates
 
-```bash
-docker-compose up pre-commit                    # Lint (Python + JS)
-docker-compose exec frontend bun run build      # FE build
-docker-compose exec backend pytest -v           # BE tests
-```
+Lint, FE build, BE tests — run via the `run-quality-gate` skill
+(`.agents/skills/run-quality-gate/`), diff-scoped.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
