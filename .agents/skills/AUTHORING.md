@@ -212,6 +212,35 @@ skill:
    form pressures padding, and the padding restates context that lives elsewhere in the
    file. A dense bullet in an existing section usually carries it.
 
+## Testing skills
+
+Anthropic's published guidance is **evaluation-driven development**
+(platform.claude.com → Agent Skills → best practices): before writing much content,
+run agents on representative tasks with the skill absent and document the failures;
+turn the gaps into a few evaluation scenarios; write the minimum that makes them pass;
+iterate against the baseline. Prefer deterministic graders (regex, file checks) over
+model-graded scoring, which is noisier on long outputs; test across model tiers, since
+guidance sufficient for a stronger model can be too thin for a weaker one.
+
+Use the official tooling, in preference to hand-rolled harnesses, to justify skill
+edits:
+
+- **`claude plugin eval`** (early access, sparsely documented): runs eval cases —
+  `evals/` directories holding a `prompt.md` plus graders (`regex`, `tool_used`,
+  `file_exists`, `llm`, `baseline`) — in fresh isolated sessions, with `--json` and
+  `--threshold` for CI. It can target this repo's plain skills, and its `baseline`
+  grader is exactly the with/without comparison the content test calls for.
+- **`/skill-doctor`** (early access): per-skill context cost and usage stats, including
+  never-invoked warnings — the cheapest trace-evidence source for the revision
+  procedure below.
+- **`claude plugin validate`**: structure/frontmatter checking only; says nothing about
+  behavior.
+
+Until the early-access tools are enabled, the published pattern still applies: a small
+set of task prompts per skill, run with and without the content under test, scored by
+deterministic checks. Keep the eval cases with the skill they test, so a revision can
+rerun them.
+
 ## Revision procedure
 
 Do not add content by introspection or completeness instinct — insider enumeration of
@@ -227,7 +256,8 @@ to attention). Instead:
    they are an output of this step, not an input to it.
 3. Re-route what survives per the placement rule, and only then write descriptions —
    discovery plans for the now-fixed inventory.
-4. Treat the result as a floor, grown only by **trace evidence**: when an agent is
+4. Treat the result as a floor, grown only by **trace evidence** (`/skill-doctor`'s
+   usage stats, observed sessions): when an agent is
    observed grepping the wrong term, conflating concepts, rebuilding something that
    exists under another name, or violating a standard, add the one line that would have
    prevented it, in the right location. Bias every judgment call toward brevity: an
