@@ -1,25 +1,28 @@
 # Authoring agent skills
 
-Normative reference for writing and revising the skills in this directory. Synthesized
-from Anthropic's official skill documentation (Claude Code skills reference, the Agent
-Skills engineering post, and the platform best-practices guide — all as of 2026-08-27)
-and from this repo's own principles about what content actually informs a competent
-model. Where the two sources pull apart, the divergence is stated and grounded.
+Normative reference for writing and revising the skills in this directory. The agents
+these files serve already have general engineering capability and can recover most
+facts about the codebase by browsing it. **A skill exists for one purpose: to state
+what the repository cannot say about itself.** Everything below serves that test.
+(Synthesized from Anthropic's skill documentation, this repo's measured routing and
+ablation experiments of 2026-09-01, and a loading-mechanism study of 2026-09-03.)
 
-## How skills load (mechanics, verified 2026-08-27)
+## How skills load (mechanics)
 
 Skills load via **progressive disclosure**: (1) every skill's `name` + `description` is
 pre-loaded into the system prompt at startup; (2) the SKILL.md body loads only when the
 model judges the description relevant to the current task; (3) bundled files load only
 when the work demands them, and bundled scripts execute without their source entering
 context at all. The model itself is the router — there is no classifier or keyword
-matcher. Two consequences:
+matcher. The `name: description` line is therefore the entire triggering mechanism for
+model-invoked skills. Under context compaction only roughly the first 5k tokens of a
+loaded SKILL.md survive — front-load the most important lines.
 
-- **The `name: description` line is the entire triggering mechanism.** The model decides
-  from that text alone — see the next section for what that text has to look like.
-- **Skills hold task-conditional content only.** Diffusely-relevant context (project
-  priorities, team norms, overall architecture) has no trigger condition and belongs in
-  the eagerly-loaded files (CLAUDE.md, AGENTS.md), not in a skill.
+Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
+exactly one level deep. `scripts/sync-skills.sh` therefore flattens any source grouping
+when syncing — verified empirically here on 2026-08-27, when 12 skills nested under a
+`project/` subfolder turned out to have been invisible to native routing since their
+creation. Skill names must stay unique (the sync errors on collision).
 
 ## How routing actually behaves (measured 2026-09-01)
 
@@ -50,18 +53,79 @@ principles as untested hypotheses there.
   33/58 on direct tasks. Subagents almost never invoke skills (one invocation across the
   whole experiment). Anything delegated to a subagent gets its hard invariants stated
   in the spawn prompt, not left to routing.
-Writing a description: use the plain engineering nouns a developer would say when
-restating a task in this concern — that's the vocabulary the model produces, and guessing
-it is normally enough. If a skill observably fails to load on tasks it should catch, then measure: run a
-few agents on such tasks, read each one's first planning sentence, and take the nouns
+
+Writing a description: third person, stating what the skill covers and its trigger
+terms, in the plain engineering nouns a developer would say when restating a task in
+this concern — that's the vocabulary the model produces, and guessing it is normally
+enough. If a skill observably fails to load on tasks it should catch, then measure: run
+a few agents on such tasks, read each one's first planning sentence, and take the nouns
 from there.
 
-Repo-specific delivery constraint: Claude Code discovers `.claude/skills/<name>/SKILL.md`
-exactly one level deep. `scripts/sync-skills.sh` therefore flattens any source grouping
-when syncing — verified empirically here on 2026-08-27, when 12 skills nested under a
-`project/` subfolder turned out to have been invisible to native routing since their
-creation. (The source tree is itself flat now; the flattening guards any future
-grouping.) Skill names must stay unique (the sync errors on collision).
+## The content test: keep only what the code can't speak
+
+For every passage ask: could an agent recover this in a couple of minutes of
+glob/grep/read? If yes, delete it — it is a stale-prone paraphrase of ground truth.
+(Ablation-tested here, 2026-09-01: randomly sampled points, skill force-loaded with and
+without the single point. Points stating generic engineering lore, or content the
+file's own surroundings entail, produced identical behavior with the line absent; the
+points that flipped behavior were the incompressible ones.)
+
+What survives falls into four categories, in descending value:
+
+1. **Norms** — the forbidden-but-possible, and what counts as better here, including
+   standards the current code sometimes violates. These are needed most exactly where
+   imitation of existing code would transmit the violation: conformity of instances is
+   descriptive, propagates drift instead of correcting it, and one noncompliant
+   instance starts teaching the opposite. A norm is incompressible — nothing else can
+   re-derive a choice that could have gone the other way. Where a norm can live as a
+   statement at a real choke point instead (a docstring on the function every caller
+   touches — read every time, where a skill loads only sometimes), put it there and cut
+   the skill line; and treat path evidence that descends from the skill itself (a
+   copied comment) as confirming nothing.
+2. **Terminology seams** — places where one concept has several names across code, UI,
+   and external data; one name covers several concepts; or a name misleads.
+3. **Reasoned absences** — things an agent would expect to exist and might reimplement
+   ("no ORM on purpose"; "X is deliberately uncached because…").
+4. **Lexically hidden structure** — logic living in infra config, dynamic imports,
+   cross-system contracts no grep can find (two write paths that must agree and never
+   reference each other).
+
+Plain descriptions of visible structure — file maps, restated function behavior — get
+cut unless they fall under (4). Worked examples and causal history earn their lines
+only as carriers of the categories above: an annotated example that transmits a norm,
+a history that grounds a reasoned absence. History as narrative fails the test.
+
+Prefer assertions over DO/DON'T imperatives for all of it: an assertion updates the
+model's world model and transfers to situations the author never anticipated; a bare
+rule applies only where its antecedent matches and gets over-applied where its grounds
+have lapsed — because it never stated them.
+
+Two gates on every kept point:
+
+- **Application**: will the model recognize the situation where the point applies? A
+  known rule that never fires behaves inert — a style rule buried in a ninety-line list
+  goes unapplied even with a violation in plain view. A point worth keeping needs a
+  trigger the model actually notices.
+- **Leverage is not truth**: a point can reliably steer agents toward a rule that is
+  itself wrong. Ablation measures leverage; review measures truth.
+
+## Placement: route by detectability of need
+
+Where a surviving point lives depends on whether an agent can *detect that it needs
+it*, not on the point's content type:
+
+- **Undetectable need → CLAUDE.md.** Knowledge that must correct an agent before it
+  knows it's wrong — terminology traps, cross-cutting norms — cannot be retrieved:
+  skill loading is gated on recognized relevance, and confident error generates no
+  retrieval signal. CLAUDE.md taxes every session, so it must stay small; the content
+  that belongs there is inherently small, and if it isn't, something is misrouted.
+- **Request-triggered → a skill, via its description** (the routing section above).
+- **Subsystem-scoped → a skill gated on `paths` globs**: norms and seam documentation
+  that apply whenever certain files are touched, regardless of how the task was framed.
+- **Human-useful, agent-derivable → docs, not skills.** Orientation material a person
+  needs but an agent can rebuild from the code (architecture overviews, file maps)
+  belongs in `docs/` or AGENTS.md's human-facing sections. When writing a passage, ask
+  who it serves; the two audiences fail differently, and skills serve only the agent.
 
 ## Individuation: one skill per concern, not per surface
 
@@ -69,67 +133,36 @@ A skill's unit is a **concern** — a coherent body of relevance: a question the
 needs answered, or a risk it must not trip. Not a file surface, not a tool. The same
 surface edit expresses different concerns on different days: one `docker-compose.yml`
 edit is about stack topology (`learn-infra`), another is about the memory limits that
-have bitten the server before (`learn-performance`). Path- or keyword-based routing
-cannot tell these apart; a description that names the concern lets the model route on
-*why* it is working, not *where*.
+have bitten the server before (`learn-performance`). A description that names the
+concern lets the model route on *why* it is working, not *where*.
 
-- Descriptions cover every route into the concern, but in the model's own engineering
-  nouns, as readable phrases (previous section) — "saving and syncing map edits:
-  IndexedDB persistence, server sync, conflict resolution", with a "use when" clause
-  naming the situations. Abstract concern-language ("whether user work is saved, lost,
-  or conflicted") reads well to a human and matches nothing the model writes. The
-  territory map inside the body names the files.
 - Surfaces map many-to-many onto concerns, and that's expected.
 - Skills that would always co-fire share one concern: merge them, and push sub-topic
   depth into `references/`.
 - A cross-cutting concern gets its own skill even with no dedicated surface
   (`learn-performance` is the archetype).
+
 Two trigger *types*, reflected in naming: **knowledge skills** (`learn-*`) load when
 working within a concern — editing or debugging; **runbooks** (imperative names,
 user-invocable) perform a procedure. Debugging guides attach to their concern's
 knowledge skill as references — a symptom and an edit route through the same concern.
 
-## Knowledge skills: declarative content, not rule lists
+## Form
 
-The dominant failure mode is a skill body made of DO/DON'T imperatives. Prefer
-assertions: an assertion updates the model's world model, so it composes and transfers
-to situations the author never anticipated; a bare rule applies only where its
-antecedent matches, gives no guidance elsewhere, and gets over-applied where its grounds
-have lapsed — because it never stated them. (Official guidance frames the same territory
-as "degrees of freedom": high-freedom tasks get heuristics and objectives, low-freedom
-tasks get exact steps. A knowledge skill is high-freedom by nature.)
-
-The highest-value genres, roughly in order:
-
-1. **Worked examples with commentary** — a good real instance (a migration, an
-   endpoint, a metrics PR), annotated with why its choices were made. Best
-   information-per-token; the model induces the policy from the example more faithfully
-   than from an enumeration of the policy's clauses.
-2. **Causal history** — what was tried, what failed, why the current shape exists
-   ("we used X, hit Y, moved to Z"). This tells the model what problem the practice
-   solves, and therefore when its justification stops applying. Date these entries
-   ("as of the 2026-04 departitioning…") so staleness is detectable; fold superseded
-   states into a collapsed "old patterns" note rather than deleting the why.
-3. **Objective structure** — what the task optimizes for and what it trades away.
-   Rules are cached outputs of running an objective against anticipated situations;
-   given the objective, the model can run it on unanticipated ones.
-4. **Map of the territory** — the load-bearing files, dependencies, and constraints
-   ("three systems write this table"). Most bad agent actions stem from a false world
-   model, not a missing rule.
-
-Keep a *small* invariants section on top, each line marked as such and carrying its
-one-line ground, in three cases only: invariants where re-derivation is unwanted
-("never modify an applied migration — prod already ran it"), genuine conventions
-(coordination points whose only rationale is consistency — say so), and compression
-diffs against the model's priors ("SQLAlchemy-first here; raw SQL is the exception that
-needs written justification"). Everything below the invariants is declarative.
-
-Assume the model is already smart: cut any sentence it could have written itself.
-Every body line competes with conversation history once loaded.
+- **Terminology as a concordance, not a glossary**: keyed by concept, listing the code
+  name, the user-facing name, the external-system name, and the actual meaning — with
+  only imperfect correspondences included (exact synonymy needs no row). Where the
+  translation between vocabularies is localized in code (an adapter or importer
+  module), reduce the entry to a pointer to that module.
+- **Norms under their own header** (e.g. "Constraints"), separate from terminology,
+  each carrying its one-line ground.
+- **Durable phrasing** over anything version- or date-bound. For facts that stay
+  volatile (routes, schema), prefer generated context or a script over hand-written
+  description; where a volatile claim must be written by hand, date it so staleness is
+  detectable.
+- One consistent term per concept throughout a skill.
 
 ## Runbooks: procedure, scripts, feedback loops
-
-For runbooks the official procedural patterns apply directly:
 
 - Sequential steps; for long workflows, a copyable checklist the agent ticks off.
 - **Feedback loops**: run validator → fix → re-run; gate progress on the validator
@@ -145,13 +178,13 @@ For runbooks the official procedural patterns apply directly:
 ## Structure and mechanics
 
 - Frontmatter: `name` ≤ 64 chars, lowercase/digits/hyphens; `description` ≤ 1,024 chars,
-  written in third person (it is injected into the system prompt). Claude Code truncates
-  the listing entry at 1,536 chars. The Agent Skills spec's portable fields are `name`,
-  `description`, `license`, `compatibility`, `metadata`, `allowed-tools`; fields like
-  `user-invocable` (hides the skill from the `/` menu) and `disable-model-invocation`
-  (blocks auto-loading) are Claude Code extensions — fine here, since the sync targets
-  strip or ignore frontmatter.
-- Keep the SKILL.md body under ~500 lines; split into `references/` when approaching it.
+  third person (it is injected into the system prompt). Claude Code truncates the
+  listing entry at 1,536 chars. `user-invocable: false` for pure background knowledge;
+  never `context: fork` for reference content. Fields like `user-invocable` and
+  `disable-model-invocation` are Claude Code extensions — fine here, since the sync
+  targets strip or ignore frontmatter.
+- Front-load each SKILL.md: the most important lines first (compaction keeps ~5k
+  tokens). Keep the body well under ~500 lines; split into `references/` early.
 - References link **one level deep from SKILL.md** — a reference that points to further
   references gets partially read. Give any reference file over ~100 lines a table of
   contents. Name files by content (`gis-validation.md`, not `doc2.md`).
@@ -169,63 +202,36 @@ Four failure modes recur in skill drafts (all four were found and cut from the f
    commit, code comment, or verified structural fact. If none exists, state the fact
    without a why — or mark the rationale as unconfirmed and ask a maintainer; many
    design decisions have no written record, and a human answer is the only source.
-2. **Sentence-level derivability.** For each sentence ask: would an agent standing at
-   the relevant code already see this? A paraphrase of a docstring or inline comment is
-   worse than the source — it says the same thing, away from the code, and can drift.
-   Cut at the sentence level, not just the section level.
+2. **Sentence-level derivability** — the content test above, applied per sentence, not
+   just per section. A paraphrase of a docstring or inline comment is worse than the
+   source: it says the same thing, away from the code, and can drift.
 3. **Description where a decision rule is needed.** If the point is a rule, state the
    rule; describing the parts and letting the reader induce the rule invites a wrong
    induction. The descriptions are evidence for the rule, not a substitute for it.
 4. **Structure inflation.** A one-payload fact doesn't earn a `##` section — the section
    form pressures padding, and the padding restates context that lives elsewhere in the
-   file. A dense bullet in an existing section usually carries it. Check that Territory
-   / See-also pointers aren't duplicated into body prose.
+   file. A dense bullet in an existing section usually carries it.
 
-## Will a point earn its lines? (ablation-tested 2026-09-01)
+## Revision procedure
 
-Four checks, asked in order, decide whether a point belongs in a skill. (Grounded in
-point-ablation measurements over this directory, 2026-09-01: randomly sampled points,
-the skill force-loaded with and without the single point, behavior compared.)
+Do not add content by introspection or completeness instinct — insider enumeration of
+seams and norms is unreliable (the curse of knowledge: resolved ambiguities don't rise
+to attention). Instead:
 
-1. **Prior-derivable?** Would a competent engineer with no access to this repo say the
-   same thing? Generic accessibility, CSS-performance, and database lore all behave this
-   way: the model states them unprompted, rule present or absent. Cut.
-2. **Path-derivable?** Does the agent's working path pass the evidence — code structure
-   that embodies the lesson, neighboring code it will imitate, or the rest of this same
-   file? (A causal-history bullet whose conclusion the surrounding sections already
-   entail is the common case.) Cut, or merge into what carries it — but weigh what kind
-   of evidence the path holds. *Structural* evidence (a dedicated component existing is
-   itself the answer) and a *normative statement at a choke point* (a docstring on the
-   function every caller touches — read every time, where a skill loads only sometimes)
-   justify the cut. *Conformity of instances* (every existing method happens to open
-   with the guard) does not: imitation is descriptive, propagates drift instead of
-   correcting it, and one noncompliant instance starts teaching the opposite. There,
-   keep the skill's line, or first move the rule to a real choke point and then cut.
-   And check provenance: path evidence that descends from the skill itself (a copied
-   comment) confirms nothing.
-3. **What survives is arbitrary selection among defensible alternatives** — team policy,
-   style convention, design intent underdetermined by the code. A convention is
-   incompressible — nothing else can re-derive a choice that could have gone the other
-   way — and that is precisely the content a skill exists to carry.
-4. **Application gate, on every verdict**: will the model recognize the situation where
-   the point applies? A known rule that never fires behaves inert — a style rule buried
-   in a ninety-line list goes unapplied even with a violation in plain view. A point
-   kept under check 3 still needs a trigger the model actually notices.
-
-One caution: changing behavior and being right are separate properties — a point can
-reliably steer agents toward a rule that is itself wrong. Ablation measures leverage;
-review measures truth.
-
-## Maintenance
+1. Apply the content test to everything existing; expect the first pass to be net
+   deletion — if the revised files are longer than the originals, the test was
+   misapplied.
+2. Re-route what survives per the placement rule.
+3. Treat the result as a floor, grown only by **trace evidence**: when an agent is
+   observed grepping the wrong term, conflating concepts, rebuilding something that
+   exists under another name, or violating a standard, add the one line that would have
+   prevented it, in the right location. Bias every judgment call toward brevity: an
+   omission discovered by trace costs one bad session; a bloated always-loaded file
+   costs every session.
 
 Skills are normative and versioned: when practice and skill diverge, either the change
-was wrong or the skill needs a deliberate revision. Recording rationale is what makes
-revision possible — a rule whose grounds are documented can be retired when the grounds
-lapse; an unexplained rule ossifies.
-
-Write skills from observed gaps, not anticipated ones: the trigger for a new skill (or a
-revision) is a session that repeatedly surfaced the same correction, the same missing
-context, or the same "this team always does X." After shipping, watch how agents
-actually use the skill — a reference file that is never opened is unnecessary or badly
-signaled; one that is opened every time belongs in the body; an agent that goes off
-track while holding the skill is telling you what context it actually needed.
+was wrong or the skill needs a deliberate revision. A rule whose grounds are documented
+can be retired when the grounds lapse; an unexplained rule ossifies. After shipping,
+watch usage — a reference file that is never opened is unnecessary or badly signaled;
+one opened every time belongs in the body; an agent that goes off track while holding
+the skill is telling you what context it actually needed.
