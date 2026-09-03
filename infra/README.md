@@ -77,7 +77,7 @@ Every AWS service this project uses, what it does here, and where it's defined:
 |---------|-------------------|------------|
 | **VPC / EC2** | VPC, two public subnets (multi-AZ), internet gateway, route table, security groups (ALB / backend / frontend / RDS) | `network.ts` |
 | **VPC S3 Gateway Endpoint** | Free in-region S3 access for graph reads and thumbnail writes — avoids NAT | `network.ts` |
-| **Elastic Load Balancing (ALB)** | Public ingress: HTTPS listener, HTTP→HTTPS redirect, host routing (`api.*` → backend, default → frontend); `/metrics` and `/_debug/*` blocked from the internet; access logs to S3 | `alb.ts` |
+| **Elastic Load Balancing (ALB)** | Public ingress: HTTPS listener, HTTP→HTTPS redirect, host routing (`api.*` → backend, default → frontend); `/_debug/*` blocked from the internet; access logs to S3 | `alb.ts` |
 | **WAF (WAFv2)** | Rate limiting and AWS managed rule sets on the API hostnames, attached to the ALB | `waf.ts` |
 | **Certificate Manager (ACM)** | DNS-validated TLS 1.3 certificate for the app + api domains | `alb.ts` |
 | **ECS on Fargate** | Cluster, backend + frontend services and task definitions, plus a one-off `migrate` task definition | `cluster.ts`, `backend.ts`, `frontend.ts` |

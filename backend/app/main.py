@@ -19,7 +19,8 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text
+from sqlalchemy import text, or_, cast as sa_cast
+from sqlalchemy.dialects.postgresql import JSONB, array as pg_array
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
 from starlette.concurrency import run_in_threadpool
@@ -31,7 +32,6 @@ from sqlmodel import ARRAY
 from datetime import datetime
 from uuid import uuid4
 import sentry_sdk
-from prometheus_fastapi_instrumentator import Instrumentator
 from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
@@ -68,7 +68,6 @@ import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
-from networkx import connected_components
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -83,7 +82,6 @@ from app.models import (
     DocumentMetadata,
     MAX_COMMUNITY_NAME_LENGTH,
     UUIDType,
-    ParentChildEdges,
     ShatterResult,
     BBoxGeoJSONs,
     MapGroup,
@@ -96,6 +94,7 @@ from app.comments.models import (
     Tag,
     CommentTag,
 )
+from app.save_share.models import DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
@@ -109,7 +108,7 @@ from app.utils import (
     RowFormat,
     package_rows,
 )
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi.responses import RedirectResponse
@@ -144,10 +143,6 @@ app.include_router(cms.router)
 app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
-
-Instrumentator(
-    excluded_handlers=["/metrics", "/_debug/cache"],
-).instrument(app).expose(app, include_in_schema=False)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -535,6 +530,11 @@ async def create_document(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
+
+        # Warm the graph LRU off the event loop: batch_insert_assignments calls
+        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
+        # takes seconds.
+        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
 
         try:
             insert_result = batch_insert_assignments(
@@ -1190,34 +1190,27 @@ async def get_children(
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    db_districtr_map_uuid = (
+    gerrydb_table_name = (
         session.connection()
         .execute(
-            select(DistrictrMap.uuid).where(
+            select(DistrictrMap.gerrydb_table_name).where(
                 DistrictrMap.districtr_map_slug == districtr_map_slug
             )
         )
         .scalar_one()
     )
-    stmt = text("""SELECT child_path, parent_path
-        FROM parentchildedges pce
-        WHERE pce.parent_path = ANY(:parent_geoids)
-        AND pce.districtr_map = :districtr_map_uuid""").bindparams(
-        bindparam(key="districtr_map_uuid", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-    )
-    results = (
-        session.connection()
-        .execute(
-            stmt,
-            {
-                "districtr_map_uuid": db_districtr_map_uuid,
-                "parent_geoids": parent_geoid,
-            },
-        )
-        .fetchall()
-    )
-    return results
+    try:
+        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+    except HTTPException:
+        # Graph unavailable — no shatter children to report rather than a
+        # hard failure on what may otherwise be a working document load.
+        return []
+    return [
+        ShatterResult(parent_path=parent, child_path=child)
+        for parent in parent_geoid
+        if parent in G
+        for child in sorted(G.children_of(parent))
+    ]
 
 
 @app.patch(
@@ -1369,8 +1362,12 @@ async def get_assignments(
     NOTE: there is no FastAPI `response_model` here (the body is a raw `Response`),
     so the msgpack shape above is the only place this contract is documented.
     """
-    districtr_map_uuid, map_type = session.exec(
-        select(DistrictrMap.uuid, Document.map_type)
+    gerrydb_table_name, child_layer, map_type = session.exec(
+        select(
+            DistrictrMap.gerrydb_table_name,
+            DistrictrMap.child_layer,
+            Document.map_type,
+        )
         .join(
             Document,
             onclause=col(Document.districtr_map_slug)
@@ -1381,36 +1378,35 @@ async def get_assignments(
     is_community_map = map_type == "community"
 
     if is_community_map:
-        stmt = (
-            select(
-                CommunityAssignments.geo_id,
-                func.nullif(CommunityAssignments.community_id, 0).label("zone"),
-                ParentChildEdges.parent_path,
-            )
-            .outerjoin(
-                ParentChildEdges,
-                onclause=(
-                    col(CommunityAssignments.geo_id) == ParentChildEdges.child_path
-                )
-                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
-            )
-            .where(CommunityAssignments.document_id == document.document_id)
-        )
+        stmt = select(
+            CommunityAssignments.geo_id,
+            func.nullif(CommunityAssignments.community_id, 0).label("zone"),
+        ).where(CommunityAssignments.document_id == document.document_id)
     else:
-        stmt = (
-            select(
-                Assignments.geo_id,
-                Assignments.zone,
-                ParentChildEdges.parent_path,
-            )
-            .outerjoin(
-                ParentChildEdges,
-                onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
-                & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
-            )
-            .where(Assignments.document_id == document.document_id)
+        stmt = select(Assignments.geo_id, Assignments.zone).where(
+            Assignments.document_id == document.document_id
         )
-    rows = session.exec(stmt).all()
+    assignment_rows = session.exec(stmt).all()
+
+    # parent_path marks shattered children so the client can rebuild shatter
+    # state. Non-shatterable maps have no parents — skip the graph entirely.
+    rows = None
+    if child_layer is not None and assignment_rows:
+        try:
+            G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        except HTTPException:
+            # Graph unavailable — still serve the assignment data itself,
+            # just without shatter-reconstruction metadata.
+            pass
+        else:
+            parents = G.parents_of([row.geo_id for row in assignment_rows])
+            rows = [
+                (row.geo_id, row.zone, parent)
+                for row, parent in zip(assignment_rows, parents)
+            ]
+    if rows is None:
+        rows = [(row.geo_id, row.zone, None) for row in assignment_rows]
+
     return package_rows(
         rows,
         fmt=format,
@@ -1449,6 +1445,7 @@ async def get_document_list(
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
     tags: list[str] = Query(default=[]),
+    draft_status: list[DocumentDraftStatus] = Query(default=[]),
 ):
     stmt = (
         select(  # type: ignore[no-matching-overload]
@@ -1471,25 +1468,36 @@ async def get_document_list(
     )
 
     if len(tags) > 0:
-        stmt = (
-            stmt.join(
-                FormDocumentComment,
-                FormDocumentComment.document_id == Document.document_id,
-            )
+        # A document matches a tag either via a comment-form submission or via
+        # its own metadata tags (set at creation, e.g. workshop modules).
+        comment_tagged = (
+            select(FormDocumentComment.document_id)
             .join(
                 CommentTag,
-                CommentTag.comment_id == FormDocumentComment.comment_id,
+                col(CommentTag.comment_id) == col(FormDocumentComment.comment_id),
             )
-            .join(
-                Tag,
-                Tag.id == CommentTag.tag_id,
-            )
-            .where(
-                col(Tag.slug).in_(tags),
-            )
-            .where(
-                # this is fine to keep as ->> because you're comparing to text
-                col(Document.map_metadata)["draft_status"].astext == "ready_to_share"
+            .join(Tag, col(Tag.id) == col(CommentTag.tag_id))
+            .where(col(Tag.slug).in_(tags))
+        )
+        metadata_tagged = sa_cast(col(Document.map_metadata)["tags"], JSONB).op("?|")(
+            pg_array(tags)
+        )
+        stmt = stmt.where(
+            or_(col(Document.document_id).in_(comment_tagged), metadata_tagged)
+        )
+        # Tagged listings only surface maps past scratch: moving a map to
+        # in_progress or ready_to_share is what "submits" it to the gallery.
+        if len(draft_status) == 0:
+            draft_status = [
+                DocumentDraftStatus.in_progress,
+                DocumentDraftStatus.ready_to_share,
+            ]
+
+    if len(draft_status) > 0:
+        # this is fine to keep as ->> because you're comparing to text
+        stmt = stmt.where(
+            col(Document.map_metadata)["draft_status"].astext.in_(
+                [s.value for s in draft_status]
             )
         )
 
@@ -1529,9 +1537,13 @@ async def get_unassigned_geoids(
     (geo_id strings). Adjacency is computed on the hybrid dual graph, which
     carries both parent-unit and child-block nodes, so unassigned parents and
     unassigned shattered blocks are grouped by true geographic adjacency rather
-    than by collapsing children up to their parent. Units with no adjacency
-    info (or when the graph is unavailable) come back as singletons. An empty
-    `components` list means nothing is unassigned.
+    than by collapsing children up to their parent. Units with no adjacent
+    neighbors come back as singletons; if the graph itself is unavailable,
+    every unassigned id comes back as its own singleton instead. Ids the
+    graph doesn't recognize (e.g. a document predating a graph regeneration)
+    are silently omitted, matching networkx's `subgraph()` convention — not
+    expected in steady state. An empty `components` list means nothing is
+    unassigned.
 
     `exclude_ids` is a client-supplied set of already-shattered parent geo_ids
     (see the SQL comment below) and is filtered out of the result.
@@ -1583,15 +1595,14 @@ async def get_unassigned_geoids(
             # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
             # must not block the event loop (or ALB health checks).
             G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
-            # Non-contiguous unassigned parents are intentionally NOT expanded
-            present = [gid for gid in unassigned_ids if gid in G.nodes]
+            # Non-contiguous unassigned parents are intentionally NOT expanded.
+            # Ids not in the graph are silently dropped by connected_components
+            # (matches nx subgraph() semantics) -- gerrydb/graph node counts
+            # are verified in sync across all states, so not expected here.
             components = [
                 sorted(component)
-                for component in connected_components(G.subgraph(present))
+                for component in G.connected_components(unassigned_ids)
             ]
-            # Ids absent from the graph (orphans / data gaps): keep as singletons.
-            missing = [gid for gid in unassigned_ids if gid not in G.nodes]
-            components.extend([gid] for gid in missing)
         except HTTPException:
             # Graph unavailable — fall back to one component per id.
             components = [[gid] for gid in unassigned_ids]
@@ -1685,8 +1696,7 @@ async def get_connected_component_bboxes(
         raise HTTPException(status_code=404, detail="Zone not found")
 
     node_data = {nb.node: nb for nb in node_bboxes}
-    subgraph = G.subgraph(nodes=list(node_data))
-    zone_connected_components = connected_components(subgraph)
+    zone_connected_components = G.connected_components(list(node_data))
 
     srid_table = districtr_map.parent_layer
     from_srid = (
@@ -1764,10 +1774,17 @@ async def update_districtrmap_metadata(
     session: Session = Depends(get_session),
 ):
     try:
+        # Merge into the existing metadata: the frontend sends partial updates
+        # (e.g. just draft_status), and replacing the whole JSON would wipe the
+        # other fields (name, tags set at creation, ...).
+        merged = {
+            **(document.map_metadata or {}),
+            **metadata.model_dump(exclude_unset=True),
+        }
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)  # type: ignore
-            .values(map_metadata=metadata.model_dump(exclude_unset=True))
+            .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
         session.commit()

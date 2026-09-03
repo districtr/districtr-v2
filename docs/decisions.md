@@ -53,9 +53,9 @@ post-paint side effect folds into the triggering gesture's undo entry, not a new
 
 API-server memory climbed to ~7GB in production: the graph cache had no eviction, so
 one process could hold every state's graph. Fix: an LRU cap (`_GRAPH_CACHE_MAX_SIZE`,
-now in `backend/app/evaluation/graph.py`) plus a debug endpoint for hit/miss stats. The
+now in `backend/app/evaluation/graph_loader.py`) plus a debug endpoint for hit/miss stats. The
 cap started at 10, raised to 15 by PR #623 (2026-07-15) — too small a cap forces
-multi-second cold S3 reloads; verify the live value in `graph.py`. An LRU bounds memory
+multi-second cold S3 reloads; verify the live value in `graph_loader.py`. An LRU bounds memory
 per cache, not per process — the per-worker duplication is what PR #721 addresses.
 
 ## Computation placement (PR #550, merged 2026-06-10; PR #470, merged 2026-01-29)

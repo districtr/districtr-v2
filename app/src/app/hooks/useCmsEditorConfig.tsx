@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
+import CmsImage from '@/app/components/Cms/RichTextEditor/extensions/CmsImage';
 import BoilerplateNode from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
 import {PlanGalleryNode} from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import {
@@ -19,6 +19,7 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
   InfoCircledIcon,
+  SizeIcon,
   ColumnsIcon,
   HeadingIcon,
   FileTextIcon,
@@ -43,7 +44,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
           class: 'text-blue-500 underline',
         },
       }),
-      Image.configure({
+      CmsImage.configure({
         allowBase64: true,
       }),
       BoilerplateNode,
@@ -193,6 +194,26 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         }
       },
       active: () => editor.isActive('image'),
+    },
+    {
+      title: 'Image Max Width',
+      icon: SizeIcon,
+      onClick: () => {
+        if (!editor.isActive('image')) {
+          window.alert('Select an image first');
+          return;
+        }
+        const current = editor.getAttributes('image').maxWidth ?? '';
+        const value = window.prompt('Max width in pixels (blank for none)', String(current));
+        if (value === null) return;
+        const maxWidth = parseInt(value, 10);
+        editor
+          .chain()
+          .focus()
+          .updateAttributes('image', {maxWidth: isNaN(maxWidth) ? null : maxWidth})
+          .run();
+      },
+      active: () => editor.isActive('image') && !!editor.getAttributes('image').maxWidth,
     },
   ];
 

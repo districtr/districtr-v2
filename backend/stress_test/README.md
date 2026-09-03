@@ -200,7 +200,7 @@ User data clones the repo at `REPO_SHA` and installs the harness venv
 (~2 min; done when `/home/ec2-user/bootstrap-done` exists, log at
 `/var/log/stress-runner-bootstrap.log`). The script prints `INSTANCE_ID`,
 the SG ids, and the `authorize-security-group-ingress` one-liner for the
-temporary 8080 rule that lets the runner scrape `/metrics`
+temporary 8080 rule that lets the runner snapshot `/_debug/cache`
 (see `infra/athena/OBSERVABILITY.md`) — run it before the test.
 
 **2. Seed** via the ECS Exec one-liner above, with
@@ -220,10 +220,9 @@ aws ssm send-command --region us-east-2 --instance-ids "$INSTANCE_ID" \
 `WINDOW_SECONDS` (900), `BASE_URL` (`https://api.beta.districtr.org`),
 `CLUSTER` (`districtr-prod`), `CONFIG_URL` (optional `STRESS_CONFIG_URL`
 override). It computes `-u` from `SCALE` (12,750 at 1.0), runs
-`-t WINDOW+180s`, snapshots `/_debug/cache` before/after, scrapes `/metrics`
-from every backend task IP every 15s (re-resolving IPs so autoscaled tasks
-are included), then uploads Locust CSV/HTML, `locust.log`, cache snapshots,
-`metrics/`, and both manifests to
+`-t WINDOW+180s`, snapshots `/_debug/cache` before/after (re-resolving task
+IPs so autoscaled tasks are included), then uploads Locust CSV/HTML,
+`locust.log`, cache snapshots, and both manifests to
 `s3://$RESULTS_BUCKET/stress-test/<RUN_ID>/` — plus the runtime manifest at
 `stress-test/stress_test_runtime_manifest_<RUN_ID>.json`, where the cleanup
 one-liner expects it. It exits with Locust's exit code (non-zero when any

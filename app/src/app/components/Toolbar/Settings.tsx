@@ -9,6 +9,7 @@ import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
@@ -33,7 +34,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const superDraw = useToolbarStore(state => state.superDraw);
-  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
+  const isSingleCounty = useIsSingleCounty();
+  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings) && !isSingleCounty;
   const access = useMapStore(state => state.mapStatus?.access);
   const variable = useDemographyStore(state => state.variable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);

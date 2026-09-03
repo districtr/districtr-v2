@@ -27,6 +27,7 @@ from app.evaluation.models import CountyDemographics
 from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
+    _json_build_object_sql,
     update_or_select_district_stats,
     assert_safe_ident,
     get_gerrydb_numeric_cols,
@@ -523,7 +524,7 @@ class CountyContext:
                 f"The table may not have been ingested with demographic data."
             )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-        demographic_json = f"json_build_object({', '.join(json_pairs)})"
+        demographic_json = _json_build_object_sql(json_pairs)
         total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
 
         insert_sql = f"""

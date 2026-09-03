@@ -55,7 +55,7 @@ export function createWaf(alb: Alb) {
       action: {block: {}},
       statement: {
         rateBasedStatement: {
-          limit: 2000,
+          limit: 10000,
           aggregateKeyType: "IP",
           // Every host the listener forwards to the backend, not just
           // apiDomain: an alias that routes to FastAPI but misses this scope
@@ -72,7 +72,7 @@ export function createWaf(alb: Alb) {
       name: "rate-limit-any",
       priority: 5,
       action: {block: {}},
-      statement: {rateBasedStatement: {limit: 10000, aggregateKeyType: "IP"}},
+      statement: {rateBasedStatement: {limit: 50000, aggregateKeyType: "IP"}},
       visibilityConfig: visibility(`${name}-waf-rate-limit-any`),
     },
     {

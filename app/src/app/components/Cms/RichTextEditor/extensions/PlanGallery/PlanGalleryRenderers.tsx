@@ -1,8 +1,9 @@
 'use client';
-import {Box, Flex, Table, Text} from '@radix-ui/themes';
+import {Badge, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {thumbnailUrl} from '@/app/utils/api/thumbnailUrl';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
 import {useRouter} from 'next/navigation';
+import {DRAFT_STATUS_COLORS, DRAFT_STATUS_TEXT} from '@constants/document/draftStatus';
 
 export type PlanFlags = {
   showThumbnails?: boolean;
@@ -11,6 +12,18 @@ export type PlanFlags = {
   showUpdatedAt?: boolean;
   showTags?: boolean;
   showModule?: boolean;
+  /** Quiet per-plan completion-status badge, for mixed-status galleries. */
+  showStatus?: boolean;
+};
+
+const StatusBadge = ({plan}: {plan: MinPublicDocument}) => {
+  const status = plan.map_metadata?.draft_status;
+  if (!status) return null;
+  return (
+    <Badge color={DRAFT_STATUS_COLORS[status]} variant="soft" size="1" className="w-fit">
+      {DRAFT_STATUS_TEXT[status]}
+    </Badge>
+  );
 };
 
 const FALLBACK_IMAGE = '/home-megaphone-square.png';
@@ -40,6 +53,7 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
         <Box px="4" py="2">
           <Flex direction="column" gap="2">
             {plan.public_id && <Text size="1">Map ID:{plan.public_id}</Text>}
+            {!!flags.showStatus && <StatusBadge plan={plan} />}
             {!!flags.showTitles && plan.map_metadata?.name && (
               <Text size="5">{plan.map_metadata?.name}</Text>
             )}
@@ -53,9 +67,9 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
                 {plan.map_metadata?.description}
               </Text>
             )}
-            {!!flags.showTags && plan.map_metadata?.tags && (
+            {!!flags.showTags && !!plan.map_metadata?.tags?.length && (
               <Text size="2" color="gray">
-                {plan.map_metadata?.tags}
+                {plan.map_metadata.tags.join(', ')}
               </Text>
             )}
             {!!flags.showUpdatedAt && plan.updated_at && (
@@ -73,7 +87,12 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
 export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags) => {
   const router = useRouter();
   return (
-    <Table.Row onClick={() => router.push(`/map/${plan.public_id}`)}>
+    // align-middle: the thumbnail cell is taller than one text line, and
+    // top-aligned text reads as misaligned beside it.
+    <Table.Row
+      onClick={() => router.push(`/map/${plan.public_id}`)}
+      className="[&>td]:align-middle"
+    >
       <Table.Cell>{plan.public_id}</Table.Cell>
       {!!flags.showThumbnails && (
         <Table.Cell>
@@ -91,9 +110,14 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
       {!!flags.showTitles && <Table.Cell>{plan.map_metadata?.name ?? ''}</Table.Cell>}
       {!!flags.showModule && <Table.Cell>{plan.map_module ?? ''}</Table.Cell>}
       {!!flags.showDescriptions && <Table.Cell>{plan.map_metadata?.description ?? ''}</Table.Cell>}
-      {!!flags.showTags && <Table.Cell>{plan.map_metadata?.tags ?? ''}</Table.Cell>}
+      {!!flags.showTags && <Table.Cell>{plan.map_metadata?.tags?.join(', ') ?? ''}</Table.Cell>}
       {!!flags.showUpdatedAt && (
         <Table.Cell>{new Date(plan.updated_at).toLocaleDateString() ?? ''}</Table.Cell>
+      )}
+      {!!flags.showStatus && (
+        <Table.Cell>
+          <StatusBadge plan={plan} />
+        </Table.Cell>
       )}
     </Table.Row>
   );
