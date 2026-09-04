@@ -8,21 +8,34 @@ description: Runs this repo's verification suite (pre-commit lint, frontend type
 ## Run it
 
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/run-gates.sh [base-ref]
+${CLAUDE_SKILL_DIR}/scripts/run-gates.sh [base-ref] [--only gate,...]
 ```
 
 `base-ref` defaults to `dev`. The script diffs HEAD against the merge-base with
 `base-ref`, not against `base-ref`'s current tip — so a `dev` update that
 landed after this branch was cut doesn't drag in unrelated files. Requires the
 stack already running (`docker-compose up -d db`; `pre-commit`, `frontend`,
-`backend` services get started as needed by `docker-compose up` /
-`docker-compose exec`).
+`backend` services get started as needed).
+
+**Scope to what actually needs re-checking — the script's default is the whole
+branch diff, which repays costs already paid on a repeat push.** Two levers:
+
+- Incremental push on a branch whose previous push was green: pass the remote
+  tracking ref so only the new work selects gates —
+  `run-gates.sh "origin/$(git branch --show-current)"`.
+- Your judgment says only specific gates are relevant (e.g. a Dockerfile fix
+  verified by a real `docker build` needs lint, not the FE build):
+  `--only pre-commit,pytest` overrides the diff-derived selection. Say in your
+  report which gates you skipped and why.
 
 ## Cadence
 
-Run the cheap gates (`pre-commit` ~6s, `bun run ts` 2–3s) freely; run the
-expensive gates (`build` ~78s, `pytest` ~96s) once per PR, right before push —
-not on every edit. The script automates one shortcut itself: when HEAD is
+Mid-work verification is a judgment call, and the cheapest sufficient check is
+usually an ad hoc command, not this script — `bun run ts` after a frontend
+edit, one pytest file after a backend fix. That habit is correct; this skill is
+the **push checkpoint**: run it right before `git push`, scoped as above.
+Cheap gates (`pre-commit` ~6s, `ts` 2–3s) cost nothing to include; the
+expensive gates (`build` ~78s, `pytest` ~96s) are the reason scoping matters. The script automates one shortcut itself: when HEAD is
 exactly the pushed tip (clean `backend/` worktree) and CI's `test-backend.yml`
 already completed for that SHA, it reuses CI's verdict instead of running
 pytest locally — the summary line says so when it happens. A CI *failure* for
