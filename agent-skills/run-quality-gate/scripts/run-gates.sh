@@ -107,8 +107,10 @@ fi
 pytest_status=0
 pytest_pid=""
 pytest_ran=false
+pytest_reused=false
 if [ "${run_backend}" = true ] && [ "${ci_verdict}" = "success" ]; then
   pytest_ran=true
+  pytest_reused=true
   echo "backend pytest: PASS (reusing CI test-backend run for pushed HEAD $(git rev-parse --short HEAD); local run skipped)"
   echo "CI verdict reused; see: gh run list --commit $(git rev-parse HEAD)" >"${pytest_log}"
 elif [ "${run_backend}" = true ]; then
@@ -136,7 +138,7 @@ fi
     echo "frontend build: FAIL (exit ${build_status})"
   fi
 }
-[ "${pytest_ran}" = true ] && {
+[ "${pytest_ran}" = true ] && [ "${pytest_reused}" = false ] && {
   if [ "${pytest_status}" -eq 0 ]; then
     echo "backend pytest: PASS"
   else
