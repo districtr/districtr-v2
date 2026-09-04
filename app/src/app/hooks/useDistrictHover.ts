@@ -1,9 +1,11 @@
 import {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
+import {useDistrictHoverStore} from '@store/districtHoverStore';
 import {PUBLIC_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 export function useDistrictHover() {
   const getMapRef = useMapStore(state => state.getMapRef);
+  const setHoveredZones = useDistrictHoverStore(state => state.setHoveredZones);
   const prevRef = useRef<string[]>([]);
 
   // Accepts one or several districts — highlighting a single district is
@@ -17,6 +19,7 @@ export function useDistrictHover() {
     const ids = zones.map(String);
     ids.forEach(id => map.setFeatureState({source: PUBLIC_SOURCE_ID, id}, {focused: true}));
     prevRef.current = ids;
+    setHoveredZones(ids);
   };
 
   const onDistrictLeave = () => {
@@ -27,6 +30,7 @@ export function useDistrictHover() {
       );
     }
     prevRef.current = [];
+    setHoveredZones([]);
   };
 
   return {onDistrictEnter, onDistrictLeave};

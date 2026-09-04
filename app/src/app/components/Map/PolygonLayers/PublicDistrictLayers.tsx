@@ -7,12 +7,16 @@ import {
   ZONE_LABEL_STYLE,
   HIGHLIGHT_LINE_COLOR,
   HIGHLIGHT_LINE_WIDTH,
+  HIGHLIGHT_MASK_COLOR,
+  HIGHLIGHT_MASK_OPACITY,
 } from '@constants/map/layerStyle';
 import {DEFAULT_BLOCK_LAYER_ORDER} from '@constants/map/layerRenderConfig';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useDistrictHoverStore} from '@store/districtHoverStore';
 
 export const PublicDistrictLayers: React.FC = () => {
   const colorScheme = useColorScheme();
+  const hoveredZones = useDistrictHoverStore(state => state.hoveredZones);
 
   return (
     <>
@@ -36,6 +40,23 @@ export const PublicDistrictLayers: React.FC = () => {
         }}
         beforeId={DEFAULT_BLOCK_LAYER_ORDER.outlineBeforeId}
       />
+      {hoveredZones.length > 0 && (
+        <Layer
+          id={CANONICAL_LAYER_IDS.PUBLIC.MASK}
+          source={PUBLIC_SOURCE_ID}
+          type="fill"
+          paint={{
+            'fill-color': HIGHLIGHT_MASK_COLOR,
+            'fill-opacity': [
+              'case',
+              ['boolean', ['feature-state', 'focused'], false],
+              0,
+              HIGHLIGHT_MASK_OPACITY,
+            ],
+          }}
+          beforeId={DEFAULT_BLOCK_LAYER_ORDER.highlightBeforeId}
+        />
+      )}
       <Layer
         id={CANONICAL_LAYER_IDS.PUBLIC.HIGHLIGHT}
         source={PUBLIC_SOURCE_ID}

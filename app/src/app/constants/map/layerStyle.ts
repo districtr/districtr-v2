@@ -11,12 +11,18 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-// A light neon magenta, not another gray or a warm amber: the surrounding
-// outline/basemap are already grayscale, and amber (#f59e0b) still read as
-// too muted against them in testing — a fully saturated, high-lightness
-// color reads at a glance instead.
-export const HIGHLIGHT_LINE_COLOR = '#ff66ff';
+// A vivid, fully-saturated orange — brighter than the earlier amber
+// (#f59e0b, which read as too muted against the grayscale basemap) and,
+// per human/design feedback, orange rather than the neon magenta tried
+// in between.
+export const HIGHLIGHT_LINE_COLOR = '#ff7a00';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
+
+// Dims every non-hovered district while one is focused, so the
+// highlighted district reads clearly against the rest of the map —
+// same masking convention as the paint-mask overlay (CountyLayers.tsx).
+export const HIGHLIGHT_MASK_COLOR = '#FFFFFF';
+export const HIGHLIGHT_MASK_OPACITY = 0.6;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];
