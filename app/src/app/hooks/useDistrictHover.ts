@@ -1,11 +1,10 @@
 import {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
-import {useDistrictHoverStore} from '@store/districtHoverStore';
 import {PUBLIC_SOURCE_ID} from '@/app/constants/map/layerIds';
 
 export function useDistrictHover() {
   const getMapRef = useMapStore(state => state.getMapRef);
-  const setHoveredZones = useDistrictHoverStore(state => state.setHoveredZones);
+  const setHoveredZones = useMapStore(state => state.setHoveredPublicZones);
   const prevRef = useRef<string[]>([]);
 
   // Accepts one or several districts — highlighting a single district is

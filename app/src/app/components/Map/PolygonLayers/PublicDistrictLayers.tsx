@@ -12,11 +12,11 @@ import {
 } from '@constants/map/layerStyle';
 import {DEFAULT_BLOCK_LAYER_ORDER} from '@constants/map/layerRenderConfig';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
-import {useDistrictHoverStore} from '@store/districtHoverStore';
+import {useMapStore} from '@store/mapStore';
 
 export const PublicDistrictLayers: React.FC = () => {
   const colorScheme = useColorScheme();
-  const hoveredZones = useDistrictHoverStore(state => state.hoveredZones);
+  const hoveredZones = useMapStore(state => state.hoveredPublicZones);
 
   return (
     <>
