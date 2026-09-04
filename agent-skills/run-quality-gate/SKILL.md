@@ -38,13 +38,15 @@ orchestrator, a pre-merge check — scoped as above. Cheap gates (`pre-commit`
 ~6s, `ts` 2–3s) cost nothing to include; the expensive gates (`build` ~78s,
 `pytest` ~96s) are the reason scoping matters.
 
-**Skip the local pytest when your next operation triggers the backend-test
-CI anyway** (`test-backend.yml` runs the suite on every push touching
-`backend/**`, any branch) — running it locally right before such a push pays
-twice for the same verdict (`--only pre-commit,ts,build` covers the rest).
-Run pytest locally when iterating on expected failures, or at a checkpoint
-CI never sees (a worker handing a branch to the orchestrator, a pre-merge
-check of unpushed work). The script automates one shortcut itself: when HEAD is
+**Local pytest runs in exactly two cases; otherwise don't run it.**
+(1) You expect a failure and are fixing it — run just the specific test or
+file you expect to fail, not the suite. (2) You're at a checkpoint CI never
+sees (a worker handing a branch to the orchestrator, a pre-merge check of
+unpushed work) — a full run is permitted there. Never run the full suite
+before an operation that triggers the backend-test CI (`test-backend.yml`
+runs it on every push touching `backend/**`, any branch — `--only
+pre-commit,ts,build` covers the rest), and don't run before a handoff when
+you expect green. The script automates one shortcut itself: when HEAD is
 exactly the pushed tip (clean `backend/` worktree) and CI's `test-backend.yml`
 already completed for that SHA, it reuses CI's verdict instead of running
 pytest locally — the summary line says so when it happens. A CI *failure* for
