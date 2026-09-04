@@ -1,0 +1,23 @@
+---
+name: backend-endpoints
+description: Adding or changing a backend route or endpoint, a SQLModel data model, a request dependency, or a database query in backend/app.
+user-invocable: false
+---
+
+# Backend Endpoints & Data Model
+
+## Constraints
+
+- **Backend logic lives in Python, where tests, types, and review reach it.** New query logic composes as SQLAlchemy/SQLModel expressions and set-based SQL. The UDFs in `backend/app/sql/` are retained history, not precedent — some (like `create_districtr_map`) are still live, but the set does not grow. A new UDF or stored procedure is warranted only when a measured performance or operational requirement shows the SQLAlchemy path cannot satisfy it without row-by-row Python iteration, and the justification must be written down (PR description or code comment): a UDF's cost is paid later, by every reader who has to leave the application's type system and test harness to learn what an endpoint does.
+- **Shattered-parent contract**: once a parent geography is shattered, every one of its children has a row in `document.assignments` — `zone = NULL` for a child that hasn't been painted — and the parent itself has no row. The frontend uses the presence of a child row (not its zone) to decide which block IDs are interactive; a missing row means the frontend can't tell the child exists. Both write paths derive the child set from the dual graph (`G.children_of`) but apply it separately: interactive shattering runs client-side (`handleShatter`/`setZones` in the frontend, children fetched from `GET /api/gerrydb/edges/{slug}`) and lands via the full-replacement `PUT /api/assignments`; CSV import fills unlisted siblings server-side (`_heal_or_fill` in `backend/app/assignments/assignments.py`, invoked during `batch_insert_assignments`). A change to one path without checking the other is how this contract silently breaks.
+- **The document UUID is the edit capability — treat it as a secret** (see the root `AGENTS.md`). At this surface: a response reachable by `public_id` must never contain the true `document_id`. `get_document` (`core/dependencies.py`) resolves private ids only (write paths); `get_protected_document` resolves either id and returns the raw `Document` row — read fields, compute, assemble the response by hand, and leave `document_id` out of it.
+
+## Vocabulary at this surface
+
+- **`parent_layer` / `child_layer` are roles relative to a map module, not units**: parent = the coarse paintable layer (a VTD layer in one module, a block-group layer in another), child = the fine shatter target. `parent_layer` is NOT NULL on every module — a non-shatterable module's only layer sits in `parent_layer` with no children; shatterable means `child_layer IS NOT NULL`.
+- **`zone` holds a `community_id` on community maps** (`map_type: "community"`), with `0` as the unassigned sentinel there.
+
+## Where the rest lives
+
+- Data-model narrative (document/assignments split, module anatomy): `docs/overview.md`.
+- The grounds and history behind the constraints above: `docs/decisions.md`.
