@@ -27,6 +27,18 @@ when threads exceed pool size. Measured: under a 30-second PostGIS geometry diss
 `dev`, a single fast probe (`/db_is_alive`) stalled for 63 seconds — event loop fully
 blocked. The same test on this branch showed 3–11 ms throughout.
 
+**Endpoints that are legitimately `async def`** (as of this PR):
+
+| Endpoint | Awaitable |
+|---|---|
+| `POST /session` | `verify_session_turnstile` — httpx Turnstile call |
+| `PUT /api/assignments` | `request.body()` — streaming raw msgpack body |
+| `POST /api/commenter`, `/comment`, `/tag`, `/submit-comment` | `turnstile.verify_turnstile` — httpx Turnstile call |
+
+All other route handlers are `def`. Non-route `async def` (middleware, lifespan,
+exception handlers) are required to be async by FastAPI/Starlette's own API and are
+not in scope of this rule.
+
 **A widely circulated "FastAPI expert" skill** asserts "MUST NOT: Use synchronous
 database operations" and "Use async/await for all I/O operations." That rule is
 correct at the library-call level (don't call `requests.get` inside `async def`) but
