@@ -19,6 +19,10 @@ The fix converted those three to `def`. The Turnstile session handlers stay `asy
 because they genuinely `await` an `httpx` coroutine — real non-blocking I/O that belongs
 on the event loop. That distinction is the invariant: `async def` only when the handler
 has a real awaitable (network I/O via an async library); `def` for everything else.
+The rule has a second half: an awaitable justifies `async def`, but the whole body then
+runs on the event loop, so any blocking segment inside such a handler must itself be
+wrapped in `run_in_threadpool`. That is the wrapper's surviving role — bridging blocking
+portions of genuinely-async handlers, not wrapping a handler's entire body.
 
 Concurrency parameters: anyio threadpool sized to 80 in lifespan
 (`anyio.to_thread.current_default_thread_limiter().total_tokens = 80`); DB pool is
@@ -35,17 +39,12 @@ blocked. The same test on this branch showed 3–11 ms throughout.
 | `PUT /api/assignments` | `request.body()` — streaming raw msgpack body |
 | `POST /api/commenter`, `/comment`, `/tag`, `/submit-comment` | `turnstile.verify_turnstile` — httpx Turnstile call |
 
-All other route handlers are `def`. Non-route `async def` (middleware, lifespan,
+Each of these wraps its blocking work (sync SQLAlchemy writes, msgpack decode +
+assignment ingest) in `run_in_threadpool`; only the awaitable itself runs on the event
+loop. All other route handlers are `def`. Non-route `async def` (middleware, lifespan,
 exception handlers) are required to be async by FastAPI/Starlette's own API and are
 not in scope of this rule.
 
-**A widely circulated "FastAPI expert" skill** asserts "MUST NOT: Use synchronous
-database operations" and "Use async/await for all I/O operations." That rule is
-correct at the library-call level (don't call `requests.get` inside `async def`) but
-wrong as a handler-declaration rule. FastAPI's own documentation explicitly instructs
-using `def` for blocking libraries that have no async alternative (NetworkX, sync
-SQLAlchemy). Applying the skill's blanket rule would push handlers back to
-`async def` + `run_in_threadpool`, reinstating the event-loop blocking this PR fixed.
 
 ## Graphs become mmap-shared (PR #721, merged to dev 2026-08-28)
 
