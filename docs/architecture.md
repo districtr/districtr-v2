@@ -153,13 +153,9 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 1. **Input**: GeoPackage files (from GerryDB or external sources)
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
-4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as both a
-   pickle (legacy) and a compact `.npz` array format
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as both a pickle (legacy) and a compact `.npz` array format
 5. **Upload**: Artifacts pushed to S3/Cloudflare S3
-6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics)
-   directly from R2; backend loads graph files into a `DualLevelGraph` (numpy/scipy-backed,
-   mmap-shareable across workers) for contiguity checks and other graph-touching metrics, cached
-   locally
+6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics) directly from R2; backend loads graph files into a `DualLevelGraph` (numpy/scipy-backed, mmap-shareable across workers) for contiguity checks and other graph-touching metrics, cached locally
 
 ### CLI Commands
 
@@ -178,9 +174,7 @@ Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` 
 
 ### Production (AWS)
 
-ECS Fargate services behind an ALB, RDS PostGIS, images in ECR, secrets in SSM —
-two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference.
-Tilesets and Parquet are served from S3 / CloudFront.
+ECS Fargate services behind an ALB, RDS PostGIS, images in ECR, secrets in SSM — two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference. Tilesets and Parquet are served from S3 / CloudFront.
 
 ### CI/CD (GitHub Actions)
 
