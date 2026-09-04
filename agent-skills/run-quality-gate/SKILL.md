@@ -1,38 +1,42 @@
 ---
 name: run-quality-gate
-description: Runs this repo's verification suite (pre-commit lint, frontend type-check and build, backend pytest), scoped to what the current diff actually touches, with the expensive gates run concurrently. Use when about to push a branch, before opening a PR, or whenever asked to run the quality gates or check whether the code is green.
+description: How to verify changes in this repo — which of the quality gates (pre-commit lint, frontend type-check and build, backend pytest) a situation actually calls for, and the commands to run them. Use when about to push a branch, hand off or merge work, open a PR, or whenever asked to run the quality gates or check whether the code is green.
 ---
 
-# Quality gate
+# Quality gates
 
-## Run it
+Decide what needs verifying from the situation, then run those commands directly. A **checkpoint** below means any moment work leaves this session: a push, a handoff to the orchestrator, a merge, opening a PR.
+
+- **pre-commit** (~6s) and **frontend ts** (2–3s): cheap enough to run whenever they could catch anything — after any frontend edit, at any checkpoint.
+- **Frontend build** (~78s): at any checkpoint whose diff touches `app/`. No CI covers the build outside previews/deploys, so the local run is the only gate there is.
+- **Backend pytest** (~96s full suite): **exactly two cases, otherwise skip.** (1) You expect a failure and are fixing it — verify with just that test or file, not the suite. (2) The checkpoint is one CI never sees (handing unpushed work to the orchestrator, a pre-merge check) — a full run is permitted. Never before an operation that triggers the backend-test CI (`test-backend.yml` runs the suite on every push touching `backend/**`, any branch), and not before a handoff you expect green.
+
+Report which gates you skipped and why.
+
+## Commands
+
+Requires the stack running (`docker-compose up -d db`; other services start as needed).
 
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/run-gates.sh [base-ref]
+docker-compose run --rm pre-commit                # lint (Python + JS)
+                                                  # (`run` propagates the lint
+                                                  #  exit code; `up` doesn't)
+docker-compose exec frontend bun run ts           # FE type check
+docker-compose exec frontend bun run build        # FE build
+docker-compose exec backend pytest tests/<file> -v  # scoped backend test
+docker-compose exec backend pytest                # full backend suite
 ```
 
-`base-ref` defaults to `dev`. The script diffs HEAD against the merge-base with
-`base-ref`, not against `base-ref`'s current tip — so a `dev` update that
-landed after this branch was cut doesn't drag in unrelated files. Requires the
-stack already running (`docker-compose up -d db`; `pre-commit`, `frontend`,
-`backend` services get started as needed by `docker-compose up` /
-`docker-compose exec`).
+Two scoping one-liners:
 
-## Cadence
-
-Run the cheap gates (`pre-commit` ~6s, `bun run ts` 2–3s) freely; run the
-expensive gates (`build` ~78s, `pytest` ~96s) once per PR, right before push —
-not on every edit. The script automates one shortcut itself: when HEAD is
-exactly the pushed tip (clean `backend/` worktree) and CI's `test-backend.yml`
-already completed for that SHA, it reuses CI's verdict instead of running
-pytest locally — the summary line says so when it happens. A CI *failure* for
-the pushed SHA still runs pytest locally (fresh log) and prints a pointer to
-the CI record. No equivalent CI job covers `bun run build` outside
-previews/deploys, so the build gate always runs locally.
+```bash
+git diff --name-only $(git merge-base HEAD dev)   # this branch's own changes
+                                                  # (swap dev for origin/<branch>
+                                                  #  to scope to unpushed work)
+gh run list --commit $(git rev-parse HEAD) --workflow test-backend.yml \
+  --json status,conclusion                        # has CI already tested this SHA?
+```
 
 ## ESLint is deliberately not a gate
 
-Team decision, 2026-08-24: linting stays unenforced (`next lint` had sat
-broken and unnoticed since Dec 2025 precisely because nothing gated on it —
-fixed in PR #728). `bun run lint` is available for manual use; this skill
-does not run it.
+Team decision, 2026-08-24: linting stays unenforced (`next lint` had sat broken and unnoticed since Dec 2025 precisely because nothing gated on it — fixed in PR #728). `bun run lint` is available for manual use; this skill does not run it.
