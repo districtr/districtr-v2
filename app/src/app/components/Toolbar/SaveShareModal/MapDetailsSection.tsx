@@ -68,7 +68,7 @@ export const MapDetailsSection: React.FC<{
                   <Text>Tags (coming soon)</Text>
                   <TextField.Root
                     className="flex-1 w-full"
-                    value={mapMetadata.tags ?? ''}
+                    value={mapMetadata.tags?.join(', ') ?? ''}
                     placeholder="Tags"
                     disabled={true}
                   />

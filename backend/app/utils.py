@@ -616,6 +616,18 @@ def add_districtr_map_to_map_group(
         session.commit()
 
 
+def _json_build_object_sql(pairs: list[str]) -> str:
+    """Build a JSON-object SQL expression from "'key', value" pair strings.
+
+    Postgres caps variadic functions at 100 arguments, so a single
+    json_build_object() breaks past 50 columns. Chunk into ≤50 pairs and
+    concatenate the jsonb pieces, casting back to json at the end.
+    """
+    chunks = [pairs[i : i + 50] for i in range(0, len(pairs), 50)]
+    joined = " || ".join(f"jsonb_build_object({', '.join(c)})" for c in chunks)
+    return f"({joined})::json"
+
+
 def update_or_select_district_stats(
     session: Session,
     document_id: str,
@@ -702,7 +714,7 @@ def update_or_select_district_stats(
             demo_cols = get_gerrydb_numeric_cols(session, gerrydb_table)
             if demo_cols:
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
-                demographic_json = f"json_build_object({', '.join(json_pairs)})"
+                demographic_json = _json_build_object_sql(json_pairs)
 
         # Serialize concurrent cache rebuilds at the document level: a loser
         # blocks here instead of computing an expensive spatial union it will
@@ -856,7 +868,7 @@ def update_or_select_district_stats(
             safe_parent_layer = assert_safe_ident(parent_layer)
             # demo_cols already validated by get_gerrydb_numeric_cols
             total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-            total_json = f"json_build_object({', '.join(total_json_pairs)})"
+            total_json = _json_build_object_sql(total_json_pairs)
             total_sql = (
                 f"SELECT {total_json} AS demographic_data "
                 f"FROM gerrydb.{safe_parent_layer}"

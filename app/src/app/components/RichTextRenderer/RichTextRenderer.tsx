@@ -5,7 +5,7 @@ import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
+import CmsImage from '@/app/components/Cms/RichTextEditor/extensions/CmsImage';
 import BoilerplateNode from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
 import PlanGalleryNode from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import parse from 'html-react-parser';
@@ -31,7 +31,7 @@ const extensions = [
       class: 'text-blue-500 underline',
     },
   }),
-  Image,
+  CmsImage,
   BoilerplateNode,
   PlanGalleryNode,
   SectionHeaderNode,

@@ -36,6 +36,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   const showUpdatedAt: boolean | undefined = node.attrs.showUpdatedAt || undefined;
   const showTags: boolean | undefined = node.attrs.showTags || undefined;
   const showModule: boolean | undefined = node.attrs.showModule || undefined;
+  const includeInProgress: boolean = node.attrs.includeInProgress || false;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
@@ -67,6 +68,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
           showUpdatedAt={showUpdatedAt}
           showTags={showTags}
           showModule={showModule}
+          includeInProgress={includeInProgress}
         />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
@@ -139,6 +141,19 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     <CheckboxCards.Item value="showTags">Show Tags</CheckboxCards.Item>
                     <CheckboxCards.Item value="showModule">Show Module</CheckboxCards.Item>
                   </CheckboxCards.Root>
+                </Flex>
+
+                <Flex direction="column" gap="2">
+                  <Text>Map Status (tag-based galleries)</Text>
+                  <Text as="label" size="2">
+                    <Flex gap="2" align="center">
+                      <Switch
+                        checked={includeInProgress}
+                        onCheckedChange={value => handleUpdate({includeInProgress: value})}
+                      />
+                      Also include in-progress maps (off: ready-to-share only)
+                    </Flex>
+                  </Text>
                 </Flex>
 
                 <Tabs.Root
