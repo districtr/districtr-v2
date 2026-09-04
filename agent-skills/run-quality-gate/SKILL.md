@@ -33,9 +33,18 @@ branch diff, which repays costs already paid on a repeat push.** Two levers:
 Mid-work verification is a judgment call, and the cheapest sufficient check is
 usually an ad hoc command, not this script — `bun run ts` after a frontend
 edit, one pytest file after a backend fix. That habit is correct; this skill is
-the **push checkpoint**: run it right before `git push`, scoped as above.
-Cheap gates (`pre-commit` ~6s, `ts` 2–3s) cost nothing to include; the
-expensive gates (`build` ~78s, `pytest` ~96s) are the reason scoping matters. The script automates one shortcut itself: when HEAD is
+the **checkpoint before sharing work** — a push, a handoff to the
+orchestrator, a pre-merge check — scoped as above. Cheap gates (`pre-commit`
+~6s, `ts` 2–3s) cost nothing to include; the expensive gates (`build` ~78s,
+`pytest` ~96s) are the reason scoping matters.
+
+**Skip the local pytest when your next operation triggers the backend-test
+CI anyway** (`test-backend.yml` runs the suite on every push touching
+`backend/**`, any branch) — running it locally right before such a push pays
+twice for the same verdict (`--only pre-commit,ts,build` covers the rest).
+Run pytest locally when iterating on expected failures, or at a checkpoint
+CI never sees (a worker handing a branch to the orchestrator, a pre-merge
+check of unpushed work). The script automates one shortcut itself: when HEAD is
 exactly the pushed tip (clean `backend/` worktree) and CI's `test-backend.yml`
 already completed for that SHA, it reuses CI's verdict instead of running
 pytest locally — the summary line says so when it happens. A CI *failure* for
