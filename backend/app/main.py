@@ -539,10 +539,10 @@ def create_document(
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
 
-        # Warm the graph LRU off the event loop: batch_insert_assignments calls
-        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
-        # takes seconds.
-        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+        # Warm the graph LRU before the insert: batch_insert_assignments calls
+        # get_graph, and a cold load (S3 fetch + deserialize) takes seconds.
+        # This def handler already runs in the threadpool, off the event loop.
+        get_graph(districtr_map.gerrydb_table_name)
 
         try:
             insert_result = batch_insert_assignments(
@@ -1206,7 +1206,7 @@ def get_children(
         .scalar_one()
     )
     try:
-        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        G = get_graph(gerrydb_table_name)
     except HTTPException:
         # Graph unavailable — no shatter children to report rather than a
         # hard failure on what may otherwise be a working document load.
@@ -1399,7 +1399,7 @@ def get_assignments(
     rows = None
     if child_layer is not None and assignment_rows:
         try:
-            G = await run_in_threadpool(get_graph, gerrydb_table_name)
+            G = get_graph(gerrydb_table_name)
         except HTTPException:
             # Graph unavailable — still serve the assignment data itself,
             # just without shatter-reconstruction metadata.
