@@ -4,6 +4,37 @@ Why the system is shaped the way it is, in reverse-chronological order. Each ent
 PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md)
 (the what); this file is the why.
 
+## FastAPI handler dispatch: `def` vs `async def` (PR #729)
+
+FastAPI routes declared with `def` are automatically dispatched to anyio's threadpool;
+routes declared with `async def` run directly on the event loop. Before this PR, three
+graph handlers (`get_unassigned_geoids`, `check_document_contiguity`,
+`get_connected_component_bboxes`) were `async def` only because they called
+`await run_in_threadpool(get_graph, ...)`. That pattern is not qualitatively different
+from a plain `def` handler calling `get_graph(...)` directly — both dispatch blocking
+work to the same threadpool. The `async def` + `run_in_threadpool` wrapper added no
+concurrency benefit and obscured why the handler existed.
+
+The fix converted those three to `def`. The Turnstile session handlers stay `async def`
+because they genuinely `await` an `httpx` coroutine — real non-blocking I/O that belongs
+on the event loop. That distinction is the invariant: `async def` only when the handler
+has a real awaitable (network I/O via an async library); `def` for everything else.
+
+Concurrency parameters: anyio threadpool sized to 80 in lifespan
+(`anyio.to_thread.current_default_thread_limiter().total_tokens = 80`); DB pool is
+40 base + 20 overflow = 60 connections per task. Pool-acquire is the natural backpressure
+when threads exceed pool size. Measured: under a 30-second PostGIS geometry dissolve on
+`dev`, a single fast probe (`/db_is_alive`) stalled for 63 seconds — event loop fully
+blocked. The same test on this branch showed 3–11 ms throughout.
+
+**A widely circulated "FastAPI expert" skill** asserts "MUST NOT: Use synchronous
+database operations" and "Use async/await for all I/O operations." That rule is
+correct at the library-call level (don't call `requests.get` inside `async def`) but
+wrong as a handler-declaration rule. FastAPI's own documentation explicitly instructs
+using `def` for blocking libraries that have no async alternative (NetworkX, sync
+SQLAlchemy). Applying the skill's blanket rule would push handlers back to
+`async def` + `run_in_threadpool`, reinstating the event-loop blocking this PR fixed.
+
 ## Graphs become mmap-shared (PR #721, merged to dev 2026-08-28)
 
 Every uvicorn worker unpickled its own private copy of every district graph it touched
