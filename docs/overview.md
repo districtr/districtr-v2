@@ -102,11 +102,16 @@ keys. Cross-store reactions are mostly wired in one place (`store/subscriptions.
 Assignments buffer during a gesture (`accumulatedAssignments`) and ingest once at
 gesture end — one coalesced write, one undo entry.
 
-Page composition: `components/MapPage/MapPage.tsx` → `MainMap.tsx` (district mode) /
-`CoiMap.tsx` (community mode) over a shared `MapContainer.tsx` shell. Layer components
-live under `components/Map/PolygonLayers/`; layer/style constants under
-`constants/map/`; the render subscriber is `utils/map/mapRenderSubs.ts`; MapLibre event
-wiring is `utils/events/mapEvents.ts`.
+Page composition: `components/MapPage/MapPage.tsx` picks, via `isPublicPage`, between the
+interactive editor — `MainMap.tsx` (district mode) / `CoiMap.tsx` (community mode) — and
+`PublicMap.tsx`, the read-only map shown on a plan's share-link/Evaluate page. "Public"
+here means "read-only viewer," not a visibility/permissions property, and has no
+"private" counterpart; `PublicMap` renders pre-aggregated district geometry fetched from
+`/document/{id}/stats`, not the live block-level assignment state the editor works from.
+All three sit over a shared `MapContainer.tsx` shell. Layer components live under
+`components/Map/PolygonLayers/`; layer/style constants under `constants/map/`; the render
+subscriber is `utils/map/mapRenderSubs.ts`; MapLibre event wiring is
+`utils/events/mapEvents.ts`.
 
 ## Saving and syncing
 

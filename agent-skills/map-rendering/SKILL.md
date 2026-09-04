@@ -27,6 +27,12 @@ user-invocable: false
   (`ACTIVE_TOOLS.SHATTER`, ~45 files); the toolbar label is "Break"; user copy says
   "break down into blocks"; the pill component is `BlockModePill`; the tool is gated
   behind "Super Draw" mode. Grepping the UI word "break" misses the implementation.
+- **"Public" means "read-only viewer," not a permissions/visibility property**:
+  `PublicMap`/`PublicDistrictLayers`/`PUBLIC_SOURCE_ID` render a plan's already-computed
+  district geometry (`GET /document/{id}/stats`) for the share-link/Evaluate view;
+  `MainMap` is the interactive block-level editor, picked instead via `isPublicPage` in
+  `MapPage.tsx`. There is no "private district" — reading "Public" as an access-control
+  term is the trap.
 
 ## Where the rest lives
 
