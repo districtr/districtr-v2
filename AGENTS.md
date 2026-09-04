@@ -18,8 +18,9 @@ Community redistricting platform - monorepo with Next.js frontend, FastAPI backe
 
 ## Quality Gates
 
-Lint, FE build, BE tests — run via the `run-quality-gate` skill
-(`agent-skills/run-quality-gate/`), diff-scoped.
+Lint, FE build, BE tests — the `run-quality-gate` skill
+(`agent-skills/run-quality-gate/`) says which gates a situation calls for and
+the commands.
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
