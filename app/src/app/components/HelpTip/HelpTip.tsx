@@ -105,6 +105,18 @@ export const HelpTipVideoDialog: React.FC<{
  * would otherwise register as "outside" the portaled content and immediately
  * close the card that same click just reopened).
  */
+/** Calls every ref with the same node, so cloning an element for `ref` doesn't
+ * clobber a ref the caller already put on it (same purpose as Radix's own
+ * `composeRefs`, used internally by `Slot`). */
+function mergeRefs<T>(...refs: (React.Ref<T> | null | undefined)[]): React.RefCallback<T> {
+  return node => {
+    refs.forEach(ref => {
+      if (typeof ref === 'function') ref(node);
+      else if (ref) (ref as React.MutableRefObject<T | null>).current = node;
+    });
+  };
+}
+
 export const HelpTip: React.FC<{
   tip: HelpTipKey;
   /** Custom hover trigger — wraps this element instead of rendering the default info
@@ -187,9 +199,15 @@ export const HelpTip: React.FC<{
     onPointerMove?: (e: React.PointerEvent) => void;
     onPointerLeave?: (e: React.PointerEvent) => void;
   };
+  // `cloneElement`'s `ref` in its config replaces the child's own ref outright
+  // (it isn't merged like other props) — read the child's original ref first
+  // so mergeRefs can preserve it instead of silently dropping it.
+  const childRef = children
+    ? (children as unknown as {ref?: React.Ref<HTMLElement>}).ref
+    : undefined;
   const trigger = children ? (
     React.cloneElement(children as React.ReactElement<TriggerProps>, {
-      ref: triggerRef,
+      ref: mergeRefs(triggerRef, childRef),
       onPointerEnter: (event: React.PointerEvent) => {
         handlePointerEnter(event);
         (children as React.ReactElement<TriggerProps>).props.onPointerEnter?.(event);

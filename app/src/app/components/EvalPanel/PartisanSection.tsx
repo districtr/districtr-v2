@@ -70,6 +70,14 @@ function dispLabel(disp: number, numDistricts: number): string {
   return seatLean > 0 ? `Skews Democratic by ${abs} seats` : `Skews Republican by ${abs} seats`;
 }
 
+const ftvHelpTipTrigger = (
+  <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
+    <button type="button" style={HOVER_BTN_STYLE}>
+      Freedom-To-Vote Test
+    </button>
+  </HelpTip>
+);
+
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
 function sortElections(keys: string[]): string[] {
@@ -109,19 +117,22 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
 
   const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
   const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
-  const ftvPassingKeys =
-    ftv && ftvThreshold !== null
-      ? new Set(
-          [...ftv.pres, ...ftv.sen].filter(key => {
-            const disprop = evaluation.disproportionality?.[key];
-            return disprop !== undefined && Math.abs(disprop) <= ftvThreshold;
-          })
-        )
-      : null;
-  const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
-  const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
   const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
   const ftvKeySet = ftv ? new Set(ftvElections) : null;
+  // A missing disproportionality value (the backend metric raises on an
+  // election with zero D+R votes, isolated per-metric) must not silently
+  // score as a failed contest — treat it the same as "not enough data".
+  const ftvHasCompleteData =
+    ftv &&
+    ftvThreshold !== null &&
+    ftvElections.every(key => evaluation.disproportionality?.[key] !== undefined);
+  const ftvPassingKeys = ftvHasCompleteData
+    ? new Set(
+        ftvElections.filter(key => Math.abs(evaluation.disproportionality![key]) <= ftvThreshold!)
+      )
+    : null;
+  const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
+  const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
   const isFtvHighlighted = (key: string) =>
     (ftvHover && !!ftvKeySet?.has(key)) ||
     (ftvPassHover && !!ftvPassingKeys?.has(key)) ||
@@ -134,16 +145,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
         ? `1 out of ${numDistricts} seats (${(ftvThreshold * 100).toFixed(1)}% of the seat share)`
         : '7%'
       : null;
-
-  // Shared between both branches of the FTV sentence below (scored and
-  // not-enough-data) so the HelpTip trigger isn't duplicated.
-  const ftvHelpTipTrigger = (
-    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
-      <span role="button" tabIndex={0} style={HOVER_BTN_STYLE}>
-        Freedom-To-Vote Test
-      </span>
-    </HelpTip>
-  );
 
   // FTV table's vote/seat share rows follow the pov toggle above, same as the
   // Proportionality table. The "Repub tilt"/"Dem tilt" verdict wording stays
@@ -377,9 +378,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   <Text size="2" mb="2" as="p">
                     This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
                     {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       style={HOVER_BTN_STYLE}
                       onMouseEnter={() => setFtvHover(true)}
                       onMouseLeave={() => setFtvHover(false)}
@@ -387,14 +387,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onBlur={() => setFtvHover(false)}
                     >
                       the last two Senate races and the last two Presidential races
-                    </span>{' '}
+                    </button>{' '}
                     as our test contests (
                     {ftvElections.map((key, i) => (
                       <Fragment key={key}>
                         {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
-                        <span
-                          role="button"
-                          tabIndex={0}
+                        <button
+                          type="button"
                           style={HOVER_BTN_STYLE}
                           onMouseEnter={() => setHoveredFtvKey(key)}
                           onMouseLeave={() => setHoveredFtvKey(null)}
@@ -402,7 +401,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           onBlur={() => setHoveredFtvKey(null)}
                         >
                           {formatElectionKey(key)}
-                        </span>
+                        </button>
                       </Fragment>
                     ))}
                     ). We check if the seat share would have been proportional to the vote share in
@@ -415,9 +414,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           <Table.ColumnHeaderCell justify="center" />
                           {ftvElections.map(key => (
                             <Table.ColumnHeaderCell key={key} justify="center">
-                              <span
-                                role="button"
-                                tabIndex={0}
+                              <button
+                                type="button"
                                 style={HOVER_BTN_STYLE}
                                 onMouseEnter={() => setHoveredFtvKey(key)}
                                 onMouseLeave={() => setHoveredFtvKey(null)}
@@ -425,7 +423,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                                 onBlur={() => setHoveredFtvKey(null)}
                               >
                                 {formatElectionKey(key)}
-                              </span>
+                              </button>
                             </Table.ColumnHeaderCell>
                           ))}
                         </Table.Row>
@@ -501,9 +499,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   </div>
                   <Text size="2" mb="3" as="p">
                     This is close enough{' '}
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
                       onMouseEnter={() => setFtvPassHover(true)}
                       onMouseLeave={() => setFtvPassHover(false)}
@@ -511,7 +508,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       onBlur={() => setFtvPassHover(false)}
                     >
                       {ftvPassCount} out of 4 times
-                    </span>
+                    </button>
                     , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
                     needed to pass.)
                   </Text>
@@ -725,7 +722,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     </Table.Row>
                     <Table.Row
                       tabIndex={0}
-                      style={{cursor: 'pointer'}}
+                      style={{cursor: 'default'}}
                       onMouseEnter={() => onDistrictEnter(swingDistricts)}
                       onMouseLeave={onDistrictLeave}
                       onFocus={() => onDistrictEnter(swingDistricts)}
@@ -735,14 +732,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Swing districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
                           {swingDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row
                       tabIndex={0}
-                      style={{cursor: 'pointer'}}
+                      style={{cursor: 'default'}}
                       onMouseEnter={() => onDistrictEnter(demSweepDistricts)}
                       onMouseLeave={onDistrictLeave}
                       onFocus={() => onDistrictEnter(demSweepDistricts)}
@@ -752,14 +749,14 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Dem Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
                           {demSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row
                       tabIndex={0}
-                      style={{cursor: 'pointer'}}
+                      style={{cursor: 'default'}}
                       onMouseEnter={() => onDistrictEnter(repSweepDistricts)}
                       onMouseLeave={onDistrictLeave}
                       onFocus={() => onDistrictEnter(repSweepDistricts)}
@@ -769,7 +766,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Repub sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold" style={HOVER_BTN_STYLE}>
+                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
                           {repSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
