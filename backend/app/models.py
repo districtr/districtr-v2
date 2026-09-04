@@ -169,6 +169,10 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
+    # The last partitioned table in this schema: document.assignments and
+    # document.community_assignments were departitioned (PR #625, lock convoy), and a
+    # drop of this table was tried and reverted pending the PR #721 graph work — see
+    # docs/decisions.md before changing anything partition-adjacent here.
     __table_args__ = (
         UniqueConstraint(
             "districtr_map",
