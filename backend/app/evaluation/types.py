@@ -35,10 +35,10 @@ class VoteShares(TypedDict):
 
 
 class CompetitiveMetrics(TypedDict):
-    n_dem_districts: int
-    n_rep_districts: int
-    n_swing_districts: int
-    n_competitive_districts: int
+    dem_sweep_districts: list[DistrictId]
+    rep_sweep_districts: list[DistrictId]
+    swing_districts: list[DistrictId]
+    contest_dem_vote_shares: list[float]
     n_districts: int
     n_elections: int
 

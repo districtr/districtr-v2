@@ -77,7 +77,7 @@ from app.evaluation.context import (
     COUNTY_CONTEXT,
     CountyContext,
 )
-from app.evaluation.types import Election, CompetitiveMetrics
+from app.evaluation.types import Election
 from app.evaluation.models import CountyDemographics
 from tests.conftest import PARENT_GRID_NAME, _GRID_BLOCK_ROWS, _GRID_ELEC_COLS
 from app.evaluation.partisans import (
@@ -374,14 +374,14 @@ _EXPECTED_PROPORTIONALITY = _elec(
     }
 )
 
-_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
-    n_dem_districts=0,
-    n_rep_districts=0,
-    n_swing_districts=8,
-    n_competitive_districts=6,
-    n_districts=8,
-    n_elections=7,
-)
+_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 6,
+    "n_districts": 8,
+    "n_elections": 7,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -430,9 +430,126 @@ def test_proportionality_matches_gerrychain(grid_context):
         assert result[col] == pytest.approx(expected), f"{col}"
 
 
+def _assert_competitiveness_matches(result, expected):
+    """Cross-checks the district-level lists against the same ground truth the
+    old fixed-band aggregate was validated against (see the module docstring's
+    regen script) — cardinalities and the ±3% contest count, since the raw
+    per-district identities aren't part of that recorded ground truth."""
+    n_districts = expected["n_districts"]
+    n_elections = expected["n_elections"]
+    assert result["n_districts"] == n_districts
+    assert result["n_elections"] == n_elections
+    assert (
+        len(result["dem_sweep_districts"])
+        + len(result["rep_sweep_districts"])
+        + len(result["swing_districts"])
+        == n_districts
+    )
+    assert len(result["swing_districts"]) == expected["n_swing_districts"]
+    assert len(result["dem_sweep_districts"]) == expected["n_dem_districts"]
+    assert len(result["rep_sweep_districts"]) == expected["n_rep_districts"]
+    assert len(result["contest_dem_vote_shares"]) == n_districts * n_elections
+    assert result["contest_dem_vote_shares"] == sorted(
+        result["contest_dem_vote_shares"]
+    )
+    n_competitive_at_47_53 = sum(
+        1 for s in result["contest_dem_vote_shares"] if 0.47 <= s <= 0.53
+    )
+    assert n_competitive_at_47_53 == expected["n_competitive_districts"]
+
+
 def test_competitiveness_matches_gerrychain(grid_context):
     result = competitive_metrics(grid_context)
-    assert result == _EXPECTED_COMPETITIVENESS
+    _assert_competitiveness_matches(result, _EXPECTED_COMPETITIVENESS)
+
+
+def test_competitive_metrics_reports_n_districts_with_no_elections():
+    """n_districts must reflect the real district count even when there's no
+    election data to compute sweep/swing over — the zero-elections branch
+    must not conflate "no districts" with "no elections"."""
+    district_stats = [
+        DistrictUnionsResponse(
+            zone=zone,
+            geometry=None,
+            demographic_data={"total_pop_20": 10000},
+            updated_at=_now,
+        )
+        for zone in range(1, 6)
+    ]
+    ctx = _StubEvaluationContext(district_stats)
+    result = competitive_metrics(ctx)
+    assert result["n_districts"] == 5
+    assert result["n_elections"] == 0
+    assert result["dem_sweep_districts"] == []
+    assert result["rep_sweep_districts"] == []
+    assert result["swing_districts"] == []
+    assert result["contest_dem_vote_shares"] == []
+
+
+def test_competitive_metrics_pins_sweep_and_swing_membership():
+    """The cardinality-only checks in _assert_competitiveness_matches can't
+    catch a party swap: labeling every dem-sweep district as rep-sweep (or
+    vice versa) still yields the same list lengths. This fixture's 4
+    districts are each a distinct case (dem sweep, rep sweep, and two
+    swings), so the exact membership of each list is pinned directly."""
+    district_stats = [
+        DistrictUnionsResponse(
+            zone=1,  # dem wins both elections -> dem sweep
+            geometry=None,
+            demographic_data={
+                "total_pop_20": 10000,
+                "pres_2020_dem": 600,
+                "pres_2020_rep": 400,
+                "sen_2020_dem": 550,
+                "sen_2020_rep": 450,
+            },
+            updated_at=_now,
+        ),
+        DistrictUnionsResponse(
+            zone=2,  # rep wins both elections -> rep sweep
+            geometry=None,
+            demographic_data={
+                "total_pop_20": 10000,
+                "pres_2020_dem": 300,
+                "pres_2020_rep": 700,
+                "sen_2020_dem": 350,
+                "sen_2020_rep": 650,
+            },
+            updated_at=_now,
+        ),
+        DistrictUnionsResponse(
+            zone=3,  # dem wins pres, rep wins sen -> swing
+            geometry=None,
+            demographic_data={
+                "total_pop_20": 10000,
+                "pres_2020_dem": 600,
+                "pres_2020_rep": 400,
+                "sen_2020_dem": 400,
+                "sen_2020_rep": 600,
+            },
+            updated_at=_now,
+        ),
+        DistrictUnionsResponse(
+            zone=4,  # rep wins pres, dem wins sen -> swing
+            geometry=None,
+            demographic_data={
+                "total_pop_20": 10000,
+                "pres_2020_dem": 450,
+                "pres_2020_rep": 550,
+                "sen_2020_dem": 550,
+                "sen_2020_rep": 450,
+            },
+            updated_at=_now,
+        ),
+    ]
+    ctx = _StubEvaluationContext(district_stats)
+    result = competitive_metrics(ctx)
+    assert result["dem_sweep_districts"] == [1]
+    assert result["rep_sweep_districts"] == [2]
+    assert result["swing_districts"] == [3, 4]
+    assert result["contest_dem_vote_shares"] == sorted(
+        [0.6, 0.55, 0.3, 0.35, 0.6, 0.4, 0.45, 0.55]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -551,14 +668,14 @@ _GRID_EXPECTED_PROPORTIONALITY = _elec(
     }
 )
 
-_GRID_EXPECTED_COMPETITIVENESS = CompetitiveMetrics(
-    n_dem_districts=0,
-    n_rep_districts=0,
-    n_swing_districts=8,
-    n_competitive_districts=29,
-    n_districts=8,
-    n_elections=7,
-)
+_GRID_EXPECTED_COMPETITIVENESS = {
+    "n_dem_districts": 0,
+    "n_rep_districts": 0,
+    "n_swing_districts": 8,
+    "n_competitive_districts": 29,
+    "n_districts": 8,
+    "n_elections": 7,
+}
 
 
 @pytest.fixture
@@ -732,7 +849,7 @@ def test_ensure_county_data_skips_populate_when_valid_rows_exist():
 
 def test_grid_competitiveness_matches_gerrychain(grid_district_context):
     result = competitive_metrics(grid_district_context)
-    assert result == _GRID_EXPECTED_COMPETITIVENESS
+    _assert_competitiveness_matches(result, _GRID_EXPECTED_COMPETITIVENESS)
 
 
 # ---------------------------------------------------------------------------
@@ -961,19 +1078,45 @@ def test_fuzz_competitive_metrics_invariants(district_stats):
     n_e = len(_FUZZ_ELECTIONS)
     assert result["n_districts"] == n
     assert result["n_elections"] == n_e
-    for key in (
-        "n_dem_districts",
-        "n_rep_districts",
-        "n_swing_districts",
-        "n_competitive_districts",
-    ):
-        assert result[key] >= 0, f"{key} is negative"
-    # every district must be dem, rep, or swing
     assert (
-        result["n_dem_districts"]
-        + result["n_rep_districts"]
-        + result["n_swing_districts"]
+        len(result["dem_sweep_districts"])
+        + len(result["rep_sweep_districts"])
+        + len(result["swing_districts"])
         == n
     )
-    # competitive contests counted per (district, election) pair
-    assert result["n_competitive_districts"] <= n * n_e
+    # sweep and swing lists are disjoint
+    assert not (set(result["dem_sweep_districts"]) & set(result["rep_sweep_districts"]))
+    assert not (set(result["dem_sweep_districts"]) & set(result["swing_districts"]))
+    assert not (set(result["rep_sweep_districts"]) & set(result["swing_districts"]))
+
+    # Independent oracle from ctx.dem_wins/rep_wins, not just cardinalities —
+    # catches a party swap (dem_sweep_districts/rep_sweep_districts labeled
+    # backwards), which the checks above alone can't (found via mutation
+    # testing: swapping the two lists still satisfies every prior assertion).
+    zones = ctx.demographic_data.index
+    dem_sweep_oracle = {
+        z for z in zones if all(ctx.dem_wins[e][z] for e in ctx.elections)
+    }
+    rep_sweep_oracle = {
+        z for z in zones if all(ctx.rep_wins[e][z] for e in ctx.elections)
+    }
+    swing_oracle = set(zones) - dem_sweep_oracle - rep_sweep_oracle
+    assert set(result["dem_sweep_districts"]) == dem_sweep_oracle
+    assert set(result["rep_sweep_districts"]) == rep_sweep_oracle
+    assert set(result["swing_districts"]) == swing_oracle
+
+    assert result["contest_dem_vote_shares"] == sorted(
+        result["contest_dem_vote_shares"]
+    )
+    for s in result["contest_dem_vote_shares"]:
+        assert 0.0 <= s <= 1.0, f"vote share {s} outside [0, 1]"
+    # Independent oracle for the flat share list itself, from dem_votes/
+    # total_votes directly — pins the zero-vote mask exactly (rather than via
+    # an incidental NaN range failure) and confirms it's Dem share, not Rep.
+    share_oracle = sorted(
+        float(ctx.dem_votes[e][z]) / float(ctx.total_votes[e][z])
+        for e in ctx.elections
+        for z in zones
+        if ctx.total_votes[e][z] > 0
+    )
+    assert result["contest_dem_vote_shares"] == pytest.approx(share_oracle)

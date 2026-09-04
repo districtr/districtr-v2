@@ -23,10 +23,10 @@ type VoteSharesResult = {
 };
 
 type CompetitivenessResult = {
-  n_dem_districts: number;
-  n_rep_districts: number;
-  n_swing_districts: number;
-  n_competitive_districts: number;
+  dem_sweep_districts: number[];
+  rep_sweep_districts: number[];
+  swing_districts: number[];
+  contest_dem_vote_shares: number[]; // sorted ascending, one entry per (district, election) pair
   n_districts: number;
   n_elections: number;
 };
