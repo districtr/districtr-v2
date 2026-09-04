@@ -84,10 +84,38 @@ if [ "${run_frontend}" = true ]; then
   build_pid=$!
 fi
 
+# CI-reuse: when HEAD is exactly what's pushed (clean backend/ worktree, local
+# tip == remote tip) and the test-backend workflow already completed for that
+# SHA, reuse CI's verdict instead of a duplicate multi-minute local run. One
+# gh call inside this script — no extra agent round-trips. Any doubt (dirty
+# tree, unpushed commits, gh missing, run still in progress) falls through to
+# a normal local run.
+ci_verdict=""
+if [ "${run_backend}" = true ] && command -v gh >/dev/null 2>&1 \
+   && [ -z "$(git status --porcelain -- backend/ 2>/dev/null)" ]; then
+  head_sha="$(git rev-parse HEAD)"
+  branch_name="$(git rev-parse --abbrev-ref HEAD)"
+  remote_sha="$(git ls-remote origin "refs/heads/${branch_name}" 2>/dev/null | cut -f1)"
+  if [ "${remote_sha}" = "${head_sha}" ]; then
+    ci_verdict="$(gh run list --commit "${head_sha}" --workflow test-backend.yml \
+      --json status,conclusion --jq \
+      'first(.[] | select(.status == "completed")) | .conclusion // empty' \
+      2>/dev/null || true)"
+  fi
+fi
+
 pytest_status=0
 pytest_pid=""
 pytest_ran=false
-if [ "${run_backend}" = true ]; then
+if [ "${run_backend}" = true ] && [ "${ci_verdict}" = "success" ]; then
+  pytest_ran=true
+  echo "backend pytest: PASS (reusing CI test-backend run for pushed HEAD $(git rev-parse --short HEAD); local run skipped)"
+  echo "CI verdict reused; see: gh run list --commit $(git rev-parse HEAD)" >"${pytest_log}"
+elif [ "${run_backend}" = true ]; then
+  if [ "${ci_verdict}" = "failure" ]; then
+    echo "note: CI test-backend FAILED for this exact commit — check the CI record" \
+      "(gh run list --commit $(git rev-parse HEAD)); running locally anyway for a fresh log."
+  fi
   pytest_ran=true
   echo "Starting backend pytest in background..."
   docker-compose exec -T backend pytest >"${pytest_log}" 2>&1 &

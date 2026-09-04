@@ -22,10 +22,13 @@ stack already running (`docker-compose up -d db`; `pre-commit`, `frontend`,
 
 Run the cheap gates (`pre-commit` ~6s, `bun run ts` 2–3s) freely; run the
 expensive gates (`build` ~78s, `pytest` ~96s) once per PR, right before push —
-not on every edit. One shortcut: `test-backend.yml` reruns pytest in CI on
-every push touching `backend/**`, so a local pytest re-run right before such a
-push just waits twice for the same answer; no equivalent CI job covers
-`bun run build` outside previews/deploys.
+not on every edit. The script automates one shortcut itself: when HEAD is
+exactly the pushed tip (clean `backend/` worktree) and CI's `test-backend.yml`
+already completed for that SHA, it reuses CI's verdict instead of running
+pytest locally — the summary line says so when it happens. A CI *failure* for
+the pushed SHA still runs pytest locally (fresh log) and prints a pointer to
+the CI record. No equivalent CI job covers `bun run build` outside
+previews/deploys, so the build gate always runs locally.
 
 ## ESLint is deliberately not a gate
 
