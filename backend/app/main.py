@@ -278,7 +278,7 @@ def duplicate_document_comments(
 
 
 @app.get("/")
-async def root():
+def root():
     return {"message": "Hello World"}
 
 
@@ -790,6 +790,9 @@ def _sync_update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
+    # Track whether anything actually changed so we can skip the updated_at bump on
+    # true no-op requests (which would otherwise break optimistic concurrency for
+    # other clients).
     mutated = False
 
     # Snapshot pre-existing district-mode assignments to compute which zones
@@ -814,6 +817,10 @@ def _sync_update_assignments(
             {"document_id": document_id},
         )
 
+    # The assignments field is always a full replacement set:
+    #   [] means "delete all assignments" (user cleared everything)
+    #   [...] means "replace with these assignments"
+    # Always DELETE existing rows, then INSERT new ones if any.
     delete_result = session.connection().execute(
         text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
         {"document_id": document_id},
@@ -823,6 +830,12 @@ def _sync_update_assignments(
     inserted_count = 0
     has_assignments = len(assignments) > 0
     if has_assignments:
+        # For community maps, build the set of valid community_ids so we can reject
+        # orphan-producing writes before they hit the table. 0 is the "unassigned"
+        # sentinel; positive ids must exist in the effective metadata list. Skip the
+        # check entirely when no metadata has been established yet (either in this
+        # request or previously persisted) — that's the bootstrap path where the UI
+        # writes assignments before the metadata save lands.
         valid_community_ids: set[int] | None = None
         if is_community_map:
             if validated_community_metadata is not None:
@@ -978,6 +991,7 @@ def _sync_update_assignments(
     ):
         mutated = True
 
+    # Sync scoped comments via comments schema (None = no change, [] = delete all)
     if data.comments is not None:
         comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
@@ -1050,10 +1064,16 @@ def _sync_update_assignments(
     if mutated:
         updated_at = update_timestamp(session, document_id)
     else:
+        # No-op request (e.g. assignments=[] on an already-empty doc with no metadata
+        # or comment changes). Keep updated_at pinned to its current value so other
+        # clients' optimistic-concurrency windows aren't invalidated.
         updated_at = session.exec(
             select(Document.updated_at).where(Document.document_id == document_id)
         ).one()
     if dirty_zones:
+        # Bump assignments_updated_at so /stats can tell that the CDN object
+        # is stale and republish, even on the path that doesn't otherwise
+        # change document.updated_at.
         session.connection().execute(
             text(
                 "UPDATE document.document SET assignments_updated_at = NOW() "
