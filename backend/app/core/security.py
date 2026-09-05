@@ -29,6 +29,11 @@ class TokenScope:
     delete_all_content = "delete:delete-all"
 
     review_content = "create:content_review"
+    # Explicit bypass of per-reviewer tag scoping (the `review_tags` claim).
+    # Deliberately separate from read:read-all: the *-all read/update/delete
+    # scopes govern access across CMS authorship boundaries, while this one
+    # widens moderation reach.
+    review_all_content = "review:review-all"
 
 
 class UnauthorizedException(HTTPException):
