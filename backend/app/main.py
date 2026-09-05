@@ -269,13 +269,21 @@ def duplicate_document_comments(
     return duplicated
 
 
+# Route-handler async convention:
+#   Plain `def` handlers run in FastAPI's anyio threadpool (limiter: 80 threads),
+#   which is the right place for blocking SQLAlchemy/boto3 work.
+#   `async def` is reserved for handlers that genuinely `await` something
+#   (Turnstile verification, `request.body()`, graph threadpool calls).
+#   New endpoints: default to `def` unless the body has a real `await`.
+
+
 @app.get("/")
-async def root():
+def root():
     return {"message": "Hello World"}
 
 
 @app.get("/db_is_alive")
-async def db_is_alive(session: Session = Depends(get_session)):
+def db_is_alive(session: Session = Depends(get_session)):
     try:
         session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
@@ -302,7 +310,7 @@ async def create_session(data: SessionCreate, request: Request):
 
 
 @app.get("/api/document/{document_id}/stats", dependencies=[Depends(require_session)])
-async def get_document_stats(
+def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     document_id: DocumentID = Depends(parse_document_id),
@@ -377,7 +385,7 @@ def get_document_evaluation(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_session)],
 )
-async def create_document(
+def create_document(
     data: DocumentCreate,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -531,10 +539,10 @@ async def create_document(
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
 
-        # Warm the graph LRU off the event loop: batch_insert_assignments calls
-        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
-        # takes seconds.
-        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+        # Warm the graph LRU before the insert: batch_insert_assignments calls
+        # get_graph, and a cold load (S3 fetch + deserialize) takes seconds.
+        # This def handler already runs in the threadpool, off the event loop.
+        get_graph(districtr_map.gerrydb_table_name)
 
         try:
             insert_result = batch_insert_assignments(
@@ -691,91 +699,14 @@ async def create_document(
     return doc_dict
 
 
-@app.put("/api/assignments", dependencies=[Depends(require_session)])
-async def update_assignments(
-    request: Request,
+def _sync_update_assignments(
+    data: AssignmentsCreate,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-):
-    """
-    Update assignments for a document with optimistic concurrency control.
-
-    This endpoint replaces all existing assignments for a document with the provided
-    assignments. It uses optimistic concurrency control to prevent overwriting changes
-    made by other clients.
-
-    Wire format (NOTE: the contract is not visible in the signature):
-        This endpoint takes the raw ``request`` body instead of a Pydantic body
-        parameter, so neither the request schema nor an example appears in OpenAPI.
-        - REQUEST: ``Content-Type: application/msgpack``. The body is a msgpack-encoded
-          map that is decoded and then validated against ``AssignmentsCreate`` (see
-          ``app/models.py``). Sending JSON will fail to decode (400).
-        - RESPONSE: plain JSON (a dict, serialized by FastAPI), NOT msgpack — see
-          Returns below. The frontend sends ``Accept: application/json`` accordingly.
-        We bypass the body param to avoid Pydantic re-validating the full assignments
-        list twice and to keep the large payload off the JSON path.
-
-    The last_updated_at parameter is used for conflict detection:
-    - The client should provide the timestamp of the last known update to the document
-    - The server compares this with the document's current updated_at timestamp in the database
-    - If the database timestamp is newer (document was modified by another client),
-      a 409 Conflict error is raised unless overwrite=True
-    - This ensures that concurrent updates don't silently overwrite each other's changes. They
-      must be explicitly allowed by setting overwrite=True.
-
-    Args:
-        request (Request): Raw request whose msgpack body decodes to an
-            ``AssignmentsCreate`` payload:
-            - document_id: The ID of the document to update
-            - assignments: Full replacement set of positional pairs
-              ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
-              ``zone`` is an int, or null/absent for unassigned (community maps
-              coerce a missing/null zone to the 0 "unassigned" sentinel).
-            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
-            - overwrite: If True, allows overwriting even if document was updated by another client
-            - map_type: Optional; must match the document's stored map_type ("default" vs "community")
-            - metadata: Optional metadata to update the document
-            - comments: Optional list of district/community comments to sync
-        session (Session): Database session dependency
-
-    Returns:
-        dict (JSON): Response containing:
-            - assignments_inserted: Number of assignments inserted
-            - updated_at: New timestamp after the update
-
-    Raises:
-        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
-        HTTPException: 404 if the document does not exist
-        HTTPException: 409 if document was updated by another client and overwrite=False
-        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
-    """
-    body_bytes = await request.body()
-    try:
-        raw = msgpack.unpackb(body_bytes, raw=False)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not decode msgpack body: {e}",
-        )
-    try:
-        data = AssignmentsCreate.model_validate(raw)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.errors(),
-        )
-
-    has_assignments = len(data.assignments) > 0
-    has_metadata = data.metadata is not None
-    has_comments = data.comments is not None
-    if not has_assignments and not has_metadata and not has_comments:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No changes provided",
-        )
-
+    session: Session,
+) -> dict:
+    """Sync core of update_assignments, run in the threadpool by its async wrapper."""
     document_id = data.document_id
-    assignments = data.assignments  # [[geo_id, zone], ...]
+    assignments = data.assignments
     last_updated_at = data.last_updated_at
     actual_map_type = session.exec(
         select(Document.map_type).where(Document.document_id == document_id)
@@ -825,8 +756,6 @@ async def update_assignments(
             f"num_communities={data.metadata.num_communities if data.metadata else None}"
         )
 
-    # Validate community payload (name sanitization, length) before any mutations.
-    # Returns normalized metadata list if provided, else None.
     validated_community_metadata = None
     if is_community_map:
         if VERBOSE_LOGGING:
@@ -866,11 +795,9 @@ async def update_assignments(
     # other clients).
     mutated = False
 
-    # Snapshot pre-existing district-mode assignments so we can compute the
-    # set of zones whose geometry/demographics changed in this request. Used
-    # below to drop only the affected rows from document.district_unions
-    # rather than wiping the cache for the whole document. Community maps
-    # don't feed into district_unions, so we skip the snapshot there.
+    # Snapshot pre-existing district-mode assignments to compute which zones
+    # changed, so only those rows are evicted from district_unions rather than
+    # wiping the whole document's cache. Community maps don't feed district_unions.
     diff_load_id: str | None = None
     if not is_community_map:
         diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
@@ -901,9 +828,10 @@ async def update_assignments(
     if delete_result.rowcount and delete_result.rowcount > 0:
         mutated = True
     inserted_count = 0
+    has_assignments = len(assignments) > 0
     if has_assignments:
         # For community maps, build the set of valid community_ids so we can reject
-        # orphan-producing writes before they hit the partition. 0 is the "unassigned"
+        # orphan-producing writes before they hit the table. 0 is the "unassigned"
         # sentinel; positive ids must exist in the effective metadata list. Skip the
         # check entirely when no metadata has been established yet (either in this
         # request or previously persisted) — that's the bootstrap path where the UI
@@ -919,8 +847,6 @@ async def update_assignments(
             if effective_metadata:
                 valid_community_ids = {c.id for c in effective_metadata} | {0}
 
-        # Use COPY for faster bulk insert with partitioned tables
-        # Create a temporary table for bulk loading
         load_id, _ = str(uuid4()).split("-", maxsplit=1)
         temp_table_name = f"temp_assignments_{load_id}"
         session.connection().execute(
@@ -929,13 +855,11 @@ async def update_assignments(
             )
         )
 
-        # Use COPY to bulk load data into temp table
         cursor = session.connection().connection.cursor()
         with cursor.copy(
             f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
         ) as copy:
             for assignment in assignments:
-                # assignment is [geo_id, zone]
                 geo_id = assignment[0]
                 zone_val = assignment[1] if len(assignment) > 1 else None
                 if is_community_map and zone_val is None:
@@ -953,8 +877,6 @@ async def update_assignments(
                     )
                 copy.write_row([document_id, geo_id, zone_val])
 
-        # Insert from temp table into partitioned assignments table
-        # PostgreSQL will automatically route to the correct partition based on document_id
         inserted_count = (
             session.connection()
             .execute(
@@ -974,10 +896,8 @@ async def update_assignments(
                 f"assignments to document {document_id}"
             )
 
-    # Update num_districts if provided
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
-            # Reject if map has num_districts_modifiable=False
             districtr_map = session.exec(
                 select(DistrictrMap)
                 .join(
@@ -1097,13 +1017,8 @@ async def update_assignments(
             session=session,
             background_tasks=background_tasks,
         )
-        # sync_fn always hits the DB (delete/insert/update), so count it.
         mutated = True
 
-    # For district maps, figure out which zones actually changed membership
-    # and evict only those rows from district_unions. The unassigned (NULL
-    # zone) row is always dropped when any zone changed, because its
-    # demographic totals depend on the sum across all assigned zones.
     dirty_zones: list[int] = []
     if diff_load_id is not None:
         old_snapshot_table = f"old_assignments_{diff_load_id}"
@@ -1134,6 +1049,9 @@ async def update_assignments(
         )
         dirty_zones = [int(r[0]) for r in dirty_rows]
         if dirty_zones:
+            # Always include zone IS NULL (the unassigned row): its demographic
+            # totals are derived from all assigned zones, so any zone change
+            # invalidates it.
             session.connection().execute(
                 text(
                     "DELETE FROM document.district_unions "
@@ -1181,11 +1099,99 @@ async def update_assignments(
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
+@app.put("/api/assignments", dependencies=[Depends(require_session)])
+async def update_assignments(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Update assignments for a document with optimistic concurrency control.
+
+    This endpoint replaces all existing assignments for a document with the provided
+    assignments. It uses optimistic concurrency control to prevent overwriting changes
+    made by other clients.
+
+    Wire format (NOTE: the contract is not visible in the signature):
+        This endpoint takes the raw ``request`` body instead of a Pydantic body
+        parameter, so neither the request schema nor an example appears in OpenAPI.
+        - REQUEST: ``Content-Type: application/msgpack``. The body is a msgpack-encoded
+          map that is decoded and then validated against ``AssignmentsCreate`` (see
+          ``app/models.py``). Sending JSON will fail to decode (400).
+        - RESPONSE: plain JSON (a dict, serialized by FastAPI), NOT msgpack — see
+          Returns below. The frontend sends ``Accept: application/json`` accordingly.
+        We bypass the body param to avoid Pydantic re-validating the full assignments
+        list twice and to keep the large payload off the JSON path.
+
+    The last_updated_at parameter is used for conflict detection:
+    - The client should provide the timestamp of the last known update to the document
+    - The server compares this with the document's current updated_at timestamp in the database
+    - If the database timestamp is newer (document was modified by another client),
+      a 409 Conflict error is raised unless overwrite=True
+    - This ensures that concurrent updates don't silently overwrite each other's changes. They
+      must be explicitly allowed by setting overwrite=True.
+
+    Args:
+        request (Request): Raw request whose msgpack body decodes to an
+            ``AssignmentsCreate`` payload:
+            - document_id: The ID of the document to update
+            - assignments: Full replacement set of positional pairs
+              ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
+              ``zone`` is an int, or null/absent for unassigned (community maps
+              coerce a missing/null zone to the 0 "unassigned" sentinel).
+            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
+            - overwrite: If True, allows overwriting even if document was updated by another client
+            - map_type: Optional; must match the document's stored map_type ("default" vs "community")
+            - metadata: Optional metadata to update the document
+            - comments: Optional list of district/community comments to sync
+        session (Session): Database session dependency
+
+    Returns:
+        dict (JSON): Response containing:
+            - assignments_inserted: Number of assignments inserted
+            - updated_at: New timestamp after the update
+
+    Raises:
+        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
+        HTTPException: 404 if the document does not exist
+        HTTPException: 409 if document was updated by another client and overwrite=False
+        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
+    """
+    body_bytes = await request.body()
+    try:
+        raw = msgpack.unpackb(body_bytes, raw=False)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not decode msgpack body: {e}",
+        )
+    try:
+        data = AssignmentsCreate.model_validate(raw)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        )
+
+    has_assignments = len(data.assignments) > 0
+    has_metadata = data.metadata is not None
+    has_comments = data.comments is not None
+    if not has_assignments and not has_metadata and not has_comments:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No changes provided",
+        )
+
+    return await run_in_threadpool(
+        _sync_update_assignments, data, background_tasks, session
+    )
+
+
 @app.get(
     "/api/gerrydb/edges/{districtr_map_slug}",
     response_model=list[ShatterResult],
 )
-async def get_children(
+def get_children(
     districtr_map_slug: str,
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1200,7 +1206,7 @@ async def get_children(
         .scalar_one()
     )
     try:
-        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        G = get_graph(gerrydb_table_name)
     except HTTPException:
         # Graph unavailable — no shatter children to report rather than a
         # hard failure on what may otherwise be a working document load.
@@ -1218,7 +1224,7 @@ async def get_children(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def reset_map(
+def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
@@ -1258,7 +1264,7 @@ async def reset_map(
     response_model=ColorsSetResult,
     dependencies=[Depends(require_session)],
 )
-async def update_colors(
+def update_colors(
     colors: list[str],
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1296,7 +1302,7 @@ async def update_colors(
     response_model=NumDistrictsSetResult,
     dependencies=[Depends(require_session)],
 )
-async def update_num_districts(
+def update_num_districts(
     num_districts: int,
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1332,7 +1338,7 @@ async def update_num_districts(
 
 
 @app.get("/api/get_assignments/{document_id}")
-async def get_assignments(
+def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     format: RowFormat = Query(
         default=RowFormat.msgpack,
@@ -1393,7 +1399,7 @@ async def get_assignments(
     rows = None
     if child_layer is not None and assignment_rows:
         try:
-            G = await run_in_threadpool(get_graph, gerrydb_table_name)
+            G = get_graph(gerrydb_table_name)
         except HTTPException:
             # Graph unavailable — still serve the assignment data itself,
             # just without shatter-reconstruction metadata.
@@ -1420,7 +1426,7 @@ async def get_assignments(
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
+def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
@@ -1439,7 +1445,7 @@ async def get_document_object(
 
 
 @app.get("/api/documents/list")
-async def get_document_list(
+def get_document_list(
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
@@ -1521,7 +1527,7 @@ async def get_document_list(
     "/api/document/{document_id}/unassigned",
     dependencies=[Depends(require_session)],
 )
-async def get_unassigned_geoids(
+def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1592,9 +1598,7 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
-            # must not block the event loop (or ALB health checks).
-            G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+            G = get_graph(districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded.
             # Ids not in the graph are silently dropped by connected_components
             # (matches nx subgraph() semantics) -- gerrydb/graph node counts
@@ -1615,7 +1619,7 @@ async def get_unassigned_geoids(
     "/api/document/{document_id}/contiguity",
     dependencies=[Depends(require_session)],
 )
-async def check_document_contiguity(
+def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1632,7 +1636,7 @@ async def check_document_contiguity(
 
     gerrydb_name = districtr_map.gerrydb_table_name
     kwargs = {"zones": zone} if len(zone) > 0 else {}
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     zone_assignments = contiguity.get_assigned_nodes(
         session, document.document_id, districtr_map, G=G, **kwargs
     )
@@ -1651,7 +1655,7 @@ async def check_document_contiguity(
     "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
     dependencies=[Depends(require_session)],
 )
-async def get_connected_component_bboxes(
+def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -1684,7 +1688,7 @@ async def get_connected_component_bboxes(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
     gerrydb_name = districtr_map.gerrydb_table_name
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
@@ -1768,7 +1772,7 @@ async def get_connected_component_bboxes(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def update_districtrmap_metadata(
+def update_districtrmap_metadata(
     metadata: DocumentMetadata,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
@@ -1801,7 +1805,7 @@ async def update_districtrmap_metadata(
     "/api/gerrydb/views",
     #  response_model=list[DistrictrMapPublic]
 )
-async def get_projects(
+def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
@@ -1823,7 +1827,7 @@ async def get_projects(
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)
-async def get_group(
+def get_group(
     *,
     session: Session = Depends(get_session),
     group_slug: str,
@@ -1847,7 +1851,7 @@ async def get_group(
 
 
 @app.get("/_debug/cache")
-async def debug_graph_lru_cache() -> dict[str, Any]:
+def debug_graph_lru_cache() -> dict[str, Any]:
     """
     GerryDB graph LRU cache stats (hits/misses/size).
 

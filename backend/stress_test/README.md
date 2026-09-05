@@ -179,6 +179,35 @@ var. `stress-test-seed` uses no CDN override, so it reads the real
 `stress-test/config.json`; it aborts before creating anything if any config
 slug is missing from the prod `districtrmap` table.)
 
+## Dev stack run
+
+The prod defaults above are all env overrides — no script changes needed. Dev
+resources use the same `Name`-tag scheme with the `districtr-dev` prefix, so
+provisioning/discovery works identically:
+
+```sh
+# provision.sh / teardown.sh
+export STACK_PREFIX=districtr-dev
+# run.sh + ECS Exec one-liners
+export BASE_URL=https://api.dev.districtr.org
+export CLUSTER=$(cd ../../infra && pulumi stack select dev >/dev/null && pulumi stack output clusterName)
+export RESULTS_BUCKET=$(cd ../../infra && pulumi stack output s3BucketName 2>/dev/null || true)  # dev backend bucket
+```
+
+Caveats specific to dev:
+
+- **Capacity**: dev runs 1–2 backend tasks at half prod CPU and a
+  `db.t4g.small` (vs `large`) — roughly ⅛–¼ of prod capacity. Size runs with
+  `SCALE` accordingly (e.g. `SCALE=0.25` ≈ 3,200 users); a full-scale run
+  saturates the stack and the failure noise drowns whatever you were
+  measuring.
+- **Seed slugs**: `stress-test-seed` validates the config JSON's slugs against
+  the target DB's `districtrmap` table and aborts if any is missing. Dev
+  shares the prod CDN config by default — verify the 10 slugs exist in the
+  dev DB first (or point `STRESS_CONFIG_URL` at a dev-specific config).
+- **Comparisons**: only compare runs against the *same* stack at the same
+  `SCALE`. Dev numbers are not comparable to prod numbers.
+
 ## Runner (ephemeral prod EC2)
 
 Scripts in `runner/`. `provision.sh`/`teardown.sh` run on the operator's

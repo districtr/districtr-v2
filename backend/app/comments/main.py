@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select, String, Select, update, delete
 
 from app.core.security import auth, client_ip_from_request, require_session, TokenScope
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document, validate_document_exists
@@ -459,7 +460,9 @@ async def create_commenter(
         commenter_data.turnstile_token, client_ip_from_request(request)
     )
     try:
-        commenter = create_commenter_db(commenter_data.commenter, session)
+        commenter = await run_in_threadpool(
+            create_commenter_db, commenter_data.commenter, session
+        )
     except IntegrityError as e:
         session.rollback()
         raise HTTPException(
@@ -484,7 +487,9 @@ async def create_comment(
         comment_data.turnstile_token, client_ip_from_request(request)
     )
     try:
-        comment = create_comment_db(comment_data.comment, session)
+        comment = await run_in_threadpool(
+            create_comment_db, comment_data.comment, session
+        )
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(
@@ -507,7 +512,7 @@ async def create_tag(
         tag_data.turnstile_token, client_ip_from_request(request)
     )
     try:
-        tag = create_tag_db(tag_data.tag, session)
+        tag = await run_in_threadpool(create_tag_db, tag_data.tag, session)
     except IntegrityError as e:
         session.rollback()
         raise HTTPException(
@@ -534,7 +539,9 @@ async def submit_full_comment(
         form_data.turnstile_token, client_ip_from_request(request)
     )
     try:
-        response = create_full_comment_submission(form_data, session)
+        response = await run_in_threadpool(
+            create_full_comment_submission, form_data, session
+        )
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(
@@ -962,7 +969,7 @@ def get_admin_district_comments_query(
     "/list",
     response_model=list[PublicCommentResponse],
 )
-async def list_comments(
+def list_comments(
     *,
     session: Session = Depends(get_session),
     public_id: int | None = None,
@@ -995,7 +1002,7 @@ async def list_comments(
 
 
 @router.get("/admin/list", response_model=list[AdminCommentResponse])
-async def list_comments_admin(
+def list_comments_admin(
     tags: list[str] = Query(default=[]),
     place: str = Query(default=None),
     state: str = Query(default=None),
@@ -1036,7 +1043,7 @@ async def list_comments_admin(
 
 
 @router.get("/admin/district-comments/list", response_model=list[AdminCommentResponse])
-async def list_district_comments_admin(
+def list_district_comments_admin(
     document_id: str | None = Query(
         default=None, description="Filter by document UUID to look up district comments"
     ),
@@ -1087,7 +1094,7 @@ async def list_district_comments_admin(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def flag_comment(
+def flag_comment(
     body: FlagCommentRequest,
     session: Session = Depends(get_session),
 ):
@@ -1107,7 +1114,7 @@ async def flag_comment(
 
 
 @router.post("/admin/review", response_model=ReviewUpdateResponse)
-async def review_comment(
+def review_comment(
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
