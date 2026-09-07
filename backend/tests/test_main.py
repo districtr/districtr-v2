@@ -616,6 +616,7 @@ def test_debug_modules_includes_invisible(client, districtr_maps_soft_deleted):
     assert by_name["Districtr map 1"]["visible"] is True
     for module in data["modules"]:
         assert set(module.keys()) == {
+            "districtr_map_slug",
             "name",
             "visible",
             "map_type",

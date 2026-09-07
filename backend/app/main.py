@@ -1892,6 +1892,7 @@ async def debug_modules(session: Session = Depends(get_session)) -> dict[str, An
         )
         modules.append(
             {
+                "districtr_map_slug": districtr_map.districtr_map_slug,
                 "name": districtr_map.name,
                 "visible": districtr_map.visible,
                 "map_type": districtr_map.map_type,
