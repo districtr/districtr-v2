@@ -109,6 +109,10 @@ from app.utils import (
     RowFormat,
     package_rows,
 )
+from app.evaluation.context import (
+    elections_from_columns,
+    demographic_columns_from_columns,
+)
 from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -1867,28 +1871,6 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
             "note": "Resident set size of this worker process, not LRU cache only.",
         },
     }
-
-
-def elections_from_columns(columns: list[str]) -> list[str]:
-    """Election prefixes among gerrydb columns, e.g. "pres_2020" from "pres_2020_dem".
-
-    Same convention as EvaluationContext.elections (app/evaluation/context.py).
-    """
-    return [c.removesuffix("_dem") for c in columns if c.endswith("_dem")]
-
-
-def demographic_columns_from_columns(columns: list[str]) -> list[str]:
-    """Demographic population columns, e.g. "hpop_20".
-
-    Same convention as EvaluationContext.demographic_columns
-    (app/evaluation/context.py): "pop" appears in the name, excluding the
-    total and catch-all "other" aggregates.
-    """
-    return [
-        c
-        for c in columns
-        if "pop" in c and not c.startswith(("other_pop", "total_pop"))
-    ]
 
 
 @app.get("/_debug/modules")

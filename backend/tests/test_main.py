@@ -11,7 +11,10 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
 )
 from app.utils import create_districtr_map, create_map_group
-from app.main import elections_from_columns, demographic_columns_from_columns
+from app.evaluation.context import (
+    elections_from_columns,
+    demographic_columns_from_columns,
+)
 from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import handle_full_submission_approve, patch_turnstile
