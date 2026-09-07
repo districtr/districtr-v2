@@ -101,6 +101,7 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
+    get_gerrydb_numeric_cols,
     update_or_select_district_stats,
     district_stats_to_feature_collection,
     publish_district_stats_to_s3,
@@ -1866,3 +1867,57 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
             "note": "Resident set size of this worker process, not LRU cache only.",
         },
     }
+
+
+def elections_from_columns(columns: list[str]) -> list[str]:
+    """Election prefixes among gerrydb columns, e.g. "pres_2020" from "pres_2020_dem".
+
+    Same convention as EvaluationContext.elections (app/evaluation/context.py).
+    """
+    return [c.removesuffix("_dem") for c in columns if c.endswith("_dem")]
+
+
+def demographic_columns_from_columns(columns: list[str]) -> list[str]:
+    """Demographic population columns, e.g. "hpop_20".
+
+    Same convention as EvaluationContext.demographic_columns
+    (app/evaluation/context.py): "pop" appears in the name, excluding the
+    total and catch-all "other" aggregates.
+    """
+    return [
+        c
+        for c in columns
+        if "pop" in c and not c.startswith(("other_pop", "total_pop"))
+    ]
+
+
+@app.get("/_debug/modules")
+async def debug_modules(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """
+    All modules (DistrictrMap rows), including invisible ones, with the
+    elections and demographic columns available on each module's gerrydb table.
+    """
+    districtr_maps = session.exec(
+        select(DistrictrMap).order_by(col(DistrictrMap.districtr_map_slug).asc())
+    ).all()
+
+    modules = []
+    for districtr_map in districtr_maps:
+        columns = (
+            get_gerrydb_numeric_cols(session, districtr_map.gerrydb_table_name)
+            if districtr_map.gerrydb_table_name
+            else []
+        )
+        modules.append(
+            {
+                "name": districtr_map.name,
+                "visible": districtr_map.visible,
+                "map_type": districtr_map.map_type,
+                "num_districts": districtr_map.num_districts,
+                "num_districts_modifiable": districtr_map.num_districts_modifiable,
+                "elections": elections_from_columns(columns),
+                "demographic_columns": demographic_columns_from_columns(columns),
+            }
+        )
+
+    return {"count": len(modules), "modules": modules}

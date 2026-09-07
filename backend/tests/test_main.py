@@ -11,6 +11,7 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
 )
 from app.utils import create_districtr_map, create_map_group
+from app.main import elections_from_columns, demographic_columns_from_columns
 from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import handle_full_submission_approve, patch_turnstile
@@ -599,6 +600,54 @@ def test_list_gerydb_views_soft_deleted_map(
     assert result is not None
     assert not result.visible
     assert data[0]["name"] == "Districtr map 1"
+
+
+def test_debug_modules_includes_invisible(client, districtr_maps_soft_deleted):
+    response = client.get("/_debug/modules")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == len(data["modules"])
+
+    by_name = {m["name"]: m for m in data["modules"]}
+    assert by_name["Districtr map 0"]["visible"] is False
+    assert by_name["Districtr map 1"]["visible"] is True
+    for module in data["modules"]:
+        assert set(module.keys()) == {
+            "name",
+            "visible",
+            "map_type",
+            "num_districts",
+            "num_districts_modifiable",
+            "elections",
+            "demographic_columns",
+        }
+
+
+def test_debug_modules_demographic_columns(client, request):
+    request.getfixturevalue(GERRY_DB_TOTPOP_FIXTURE_NAME)
+    response = client.get("/_debug/modules")
+    assert response.status_code == 200
+    (module,) = [
+        m
+        for m in response.json()["modules"]
+        if m["name"] == "DistrictMap with TOTPOP view"
+    ]
+    assert module["elections"] == []
+    assert sorted(module["demographic_columns"]) == [
+        "amin_pop_20",
+        "asian_nhpi_pop_20",
+        "bpop_20",
+        "hpop_20",
+        "white_pop_20",
+    ]
+
+
+def test_debug_modules_election_derivation():
+    # No gerrydb fixture carries election columns, so the derivation rules
+    # are checked directly against the column-name conventions.
+    columns = ["pres_2020_dem", "pres_2020_rep", "total_pop_20", "hpop_20"]
+    assert elections_from_columns(columns) == ["pres_2020"]
+    assert demographic_columns_from_columns(columns) == ["hpop_20"]
 
 
 @pytest.fixture(name=GERRY_DB_TOTPOP_FIXTURE_NAME)
