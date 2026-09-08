@@ -8,8 +8,8 @@
     ]
   },
   {
-    "districtr_map_slug": "al_congressional_districts_v2",
-    "assignments_path": "stress-data/al_congressional_v2_fixture.msgpack",
+    "districtr_map_slug": "al_state_senate_districts_v2",
+    "assignments_path": "stress-data/al_state_senate_v2_fixture.msgpack",
     "use": [
       "view"
     ]
