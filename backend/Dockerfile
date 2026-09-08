@@ -1,4 +1,7 @@
-ARG PYTHON_VERSION=3.12.6-slim-bullseye
+# bookworm: bullseye-security's Release metadata expired when bullseye left
+# security support (builds broke 2026-09-07), so the base must track a
+# distribution that still refreshes its repos.
+ARG PYTHON_VERSION=3.12-slim-bookworm
 FROM python:${PYTHON_VERSION}
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -11,11 +14,18 @@ WORKDIR $APP_HOME
 # leave one edge's index listing a filename another edge has already
 # purged, producing a 404 that a fresh apt-get update usually resolves on
 # the next attempt (seen live: PR #723's preview build, 2026-09-04).
-RUN for i in 1 2 3 4 5; do \
-      apt-get update && \
-      apt-get install -y openssh-client libpq-dev postgresql libpq-dev gdal-bin libgdal-dev \
-      && break || { echo "apt-get attempt $i failed, retrying..."; sleep 10; }; \
+# The loop must fail the build when every attempt fails: a bare
+# `&& break ||` retry exits 0 after the last failure, and the 2026-09-07
+# bullseye-EOL breakage shipped an image with no apt packages at all.
+RUN ok=""; \
+    for i in 1 2 3 4 5; do \
+      if apt-get update && \
+         apt-get install -y openssh-client libpq-dev postgresql gdal-bin libgdal-dev g++; then \
+        ok=1; break; \
+      fi; \
+      echo "apt-get attempt $i failed, retrying..."; sleep 10; \
     done && \
+    test -n "$ok" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
