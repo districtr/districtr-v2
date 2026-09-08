@@ -29,7 +29,7 @@ not grow.
 | `STRESS_RUN_ID` | `dev` | Tags User-Agent (`districtr-stress-test/<run-id>`), manifests, doc names |
 | `STRESS_SCALE` | `1.0` | Multiplies all population counts (`0.01` = 1% smoke) |
 | `STRESS_WINDOW_SECONDS` | `900` | Arrival window |
-| `STRESS_CONFIG_URL` | `https://tilesets1.cdn.districtr.org/stress-test/config.json` | Seed-plan config (plan §8); may be a local file path |
+| `STRESS_CONFIG_URL` | `https://tilesets1.cdn.districtr.org/stress-test/config-v2.json` | Seed-plan config (plan §8); may be a local file path |
 | `STRESS_SEED_MANIFEST` | `stress_test_manifest_<run-id>.json` | Seed manifest (input; written by `stress-test-seed` or `smoke_seed.py`) |
 | `STRESS_RUNTIME_MANIFEST` | `stress_test_runtime_manifest_<run-id>.json` | Editor-created doc ids (output; input to cleanup) |
 | `STRESS_RNG_SEED` | `42` | Arrival/perturbation RNG seed |
@@ -178,6 +178,37 @@ aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
 var. `stress-test-seed` uses no CDN override, so it reads the real
 `stress-test/config.json`; it aborts before creating anything if any config
 slug is missing from the prod `districtrmap` table.)
+
+## Dev stack run
+
+The prod defaults above are all env overrides — no script changes needed. Dev
+resources use the same `Name`-tag scheme with the `districtr-dev` prefix, so
+provisioning/discovery works identically:
+
+```sh
+# provision.sh / teardown.sh
+export STACK_PREFIX=districtr-dev
+# run.sh + ECS Exec one-liners
+export BASE_URL=https://api.dev.districtr.org
+export CLUSTER=$(cd ../../infra && pulumi stack select dev >/dev/null && pulumi stack output clusterName)
+export RESULTS_BUCKET=$(cd ../../infra && pulumi config get s3BucketName --stack dev)  # backend bucket (config secret, not a stack output)
+```
+
+Caveats specific to dev:
+
+- **Capacity**: dev runs 1–2 backend tasks at half prod CPU and a
+  `db.t4g.small` (vs `large`) — roughly ⅛–¼ of prod capacity. Size runs with
+  `SCALE` accordingly (e.g. `SCALE=0.25` ≈ 3,200 users); a full-scale run
+  saturates the stack and the failure noise drowns whatever you were
+  measuring.
+- **Seed slugs**: `stress-test-seed` validates the config JSON's slugs against
+  the target DB's `districtrmap` table and aborts if any is missing. The
+  default `config-v2.json` roster is restricted to `_v2` modules present on
+  both stacks (FL/CO/GA edit+view; IL x2, ME, NC, CA, KS, MA view); its
+  payloads live under `/stress-data-v2/` beside it, enacted plans aggregated
+  to each module's parent layer by the module's own graph.
+- **Comparisons**: only compare runs against the *same* stack at the same
+  `SCALE`. Dev numbers are not comparable to prod numbers.
 
 ## Runner (ephemeral prod EC2)
 

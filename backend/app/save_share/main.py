@@ -41,7 +41,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 
 @router.post("/api/document/{document_id}/share", response_model=DocumentShareResponse)
-async def share_districtr_plan(
+def share_districtr_plan(
     document: Annotated[Document, Depends(get_document)],
     data: DocumentShareRequest,
     session: Session = Depends(get_session),
@@ -119,7 +119,7 @@ async def share_districtr_plan(
 
 
 @router.post("/api/document/{document_id}/edit_access", response_model=Document)
-async def grant_edit_access_to_map_document(
+def grant_edit_access_to_map_document(
     document_id: int,
     data: GrantEditAccessRequest,
     session: Session = Depends(get_session),
