@@ -184,4 +184,4 @@ ECS Fargate services behind an ALB, RDS PostGIS, images in ECR, secrets in SSM â
 
 ## Key Architectural Decisions
 
-Dated, PR-anchored history: the [ADRs](adr/README.md).
+Dated, PR-anchored history: [`decisions.md`](decisions.md).

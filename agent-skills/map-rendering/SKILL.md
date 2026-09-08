@@ -11,7 +11,7 @@ user-invocable: false
 - **The map must feel synchronous under continuous mouse movement.** This is the value the rendering design serves; its consequences:
   - Heavy geometry/tabular work (dissolve/centroid math, parquet range scans) runs in `GeometryWorker`/`ParquetWorker`, never on the `mousemove`-driven paint path.
   - The paint path writes MapLibre feature-state directly and synchronously from the store action (see the comment at `assignmentsStore.ts`'s paint path) — do not marshal paint updates through an async layer re-render.
-  - A gesture coalesces to **one undo entry**: assignments buffer in `accumulatedAssignments` and ingest once at gesture end. Any *automatic* post-paint side effect (e.g. auto-heal) must fold into the triggering gesture's undo entry, not open its own — commit `07af68f6` fixed exactly this regression after PR #634 made undo per-gesture (detail in `docs/adr/0008-undo-redo-per-gesture.md`).
+  - A gesture coalesces to **one undo entry**: assignments buffer in `accumulatedAssignments` and ingest once at gesture end. Any *automatic* post-paint side effect (e.g. auto-heal) must fold into the triggering gesture's undo entry, not open its own — commit `07af68f6` fixed exactly this regression after PR #634 made undo per-gesture (detail in `docs/decisions.md`).
 
 ## Vocabulary at this surface
 
@@ -21,4 +21,4 @@ user-invocable: false
 ## Where the rest lives
 
 - Rendering architecture narrative (stores → subscribers → MapLibre, layer stack, worker contracts, event flow): `docs/overview.md`.
-- Layer-separation and undo history: `docs/adr/` (ADRs 0004, 0008).
+- Layer-separation and undo history: `docs/decisions.md`.

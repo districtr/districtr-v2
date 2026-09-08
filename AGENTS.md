@@ -5,7 +5,7 @@ Community redistricting platform - monorepo with Next.js frontend, FastAPI backe
 ## Quick Reference
 
 - **Architecture**: [`docs/architecture.md`](docs/architecture.md)
-- **Orientation**: [`docs/overview.md`](docs/overview.md) (newcomer tour — project shape, name concordance) · [`docs/adr/`](docs/adr/README.md) (dated architectural decision records)
+- **Orientation**: [`docs/overview.md`](docs/overview.md) (newcomer tour — project shape, name concordance) · [`docs/decisions.md`](docs/decisions.md) (dated architectural decisions)
 - **Project skills**: `agent-skills/`
 - **Issue tracking**: `bd prime` or `bd ready` (beads CLI >=1.0.0, optional)
 

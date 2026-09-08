@@ -1,6 +1,6 @@
 # Districtr v2 — project overview
 
-A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in the [ADRs](adr/README.md).
+A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in [`decisions.md`](decisions.md).
 
 Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and comment on them. The monorepo has four active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
 
