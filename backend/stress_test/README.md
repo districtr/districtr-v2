@@ -29,7 +29,7 @@ not grow.
 | `STRESS_RUN_ID` | `dev` | Tags User-Agent (`districtr-stress-test/<run-id>`), manifests, doc names |
 | `STRESS_SCALE` | `1.0` | Multiplies all population counts (`0.01` = 1% smoke) |
 | `STRESS_WINDOW_SECONDS` | `900` | Arrival window |
-| `STRESS_CONFIG_URL` | `https://tilesets1.cdn.districtr.org/stress-test/config.json` | Seed-plan config (plan §8); may be a local file path |
+| `STRESS_CONFIG_URL` | `https://tilesets1.cdn.districtr.org/stress-test/config-v2.json` | Seed-plan config (plan §8); may be a local file path |
 | `STRESS_SEED_MANIFEST` | `stress_test_manifest_<run-id>.json` | Seed manifest (input; written by `stress-test-seed` or `smoke_seed.py`) |
 | `STRESS_RUNTIME_MANIFEST` | `stress_test_runtime_manifest_<run-id>.json` | Editor-created doc ids (output; input to cleanup) |
 | `STRESS_RNG_SEED` | `42` | Arrival/perturbation RNG seed |
@@ -202,9 +202,11 @@ Caveats specific to dev:
   saturates the stack and the failure noise drowns whatever you were
   measuring.
 - **Seed slugs**: `stress-test-seed` validates the config JSON's slugs against
-  the target DB's `districtrmap` table and aborts if any is missing. Dev
-  shares the prod CDN config by default — verify the 10 slugs exist in the
-  dev DB first (or point `STRESS_CONFIG_URL` at a dev-specific config).
+  the target DB's `districtrmap` table and aborts if any is missing. The
+  default `config-v2.json` roster is restricted to `_v2` modules present on
+  both stacks (FL/CO/GA edit+view; IL x2, ME, NC, CA, KS, MA view); its
+  payloads live under `/stress-data-v2/` beside it, enacted plans aggregated
+  to each module's parent layer by the module's own graph.
 - **Comparisons**: only compare runs against the *same* stack at the same
   `SCALE`. Dev numbers are not comparable to prod numbers.
 
