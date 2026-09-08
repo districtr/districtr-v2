@@ -246,6 +246,12 @@ export interface MapStore {
   getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
   getZonesWithDescriptions: () => number[];
 
+  // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
+  /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
+   * can reactively dim every other district while one is hovered. */
+  hoveredPublicZones: string[];
+  setHoveredPublicZones: (zones: string[]) => void;
+
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -732,6 +738,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       return Array.from(zones).sort((a, b) => a - b);
     },
+
+    hoveredPublicZones: [],
+    setHoveredPublicZones: zones => set({hoveredPublicZones: zones}),
 
     mapStatus: null,
     setMapStatus: mapStatus => {

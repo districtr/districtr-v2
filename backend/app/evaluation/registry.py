@@ -85,7 +85,7 @@ METRICS: tuple[Metric[Any], ...] = (
         key="disproportionality", version=1, compute=partisans.disproportionality
     ),
     Metric[CompetitiveMetrics](
-        key="competitiveness", version=1, compute=partisans.competitive_metrics
+        key="competitiveness", version=2, compute=partisans.competitive_metrics
     ),
     Metric[int](key="ideal_population", version=2, compute=validity.ideal_population),
     Metric[dict[CountyGeoid, CountyPiecesInfo]](

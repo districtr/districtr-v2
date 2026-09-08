@@ -59,6 +59,7 @@ export const CANONICAL_LAYER_IDS = {
   PUBLIC: {
     FILL: 'public-district-fill',
     OUTLINE: 'public-district-outline',
+    MASK: 'public-district-hover-mask',
     HIGHLIGHT: 'public-district-highlight',
   },
   ZONE_LABELS: {
