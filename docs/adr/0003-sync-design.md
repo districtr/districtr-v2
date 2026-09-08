@@ -1,6 +1,6 @@
 # 3. Sync design: derived dirtiness, server-owned fields, wholesale comment sync
 
-Date: 2026-09-08 (retrospective record; the decisions predate it and no original date was recorded)
+Date: 2025-12 – 2026-02 (three PRs, anchored per bullet below; recorded retrospectively 2026-09-08)
 
 ## Status
 
@@ -12,9 +12,9 @@ The edit-sync model (see [`../overview.md`](../overview.md) for the mechanics) n
 
 ## Decision
 
-- **No dirty flag** — local-edit detection is derived from comparing `updated_at` and `clientLastUpdated`, two timestamps already stored for other reasons, so it cannot fall out of sync with reality.
-- **`overlays`/`statefps` are server-owned** — never locally editable; even a local-wins merge layers them in from the server, because local values of fields no UI edits are never information.
-- **District-comment sync replaces a zone's comments wholesale** — an incoming batch is not merged with what's stored.
+- **No dirty flag** (PR #464, 2025-12-19) — local-edit detection is derived from comparing `updated_at` and `clientLastUpdated`, two timestamps already stored for other reasons, so it cannot fall out of sync with reality.
+- **`overlays`/`statefps` are server-owned** (PR #474, 2026-01-29) — never locally editable; even a local-wins merge layers them in from the server, because local values of fields no UI edits are never information.
+- **District-comment sync replaces a zone's comments wholesale** (PR #489, 2026-02-23) — an incoming batch is not merged with what's stored.
 
 ## Consequences
 

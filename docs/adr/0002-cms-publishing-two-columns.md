@@ -1,6 +1,6 @@
 # 2. CMS publishing: two columns, no status enum
 
-Date: 2026-09-08 (retrospective record; the decision predates it and no original date was recorded)
+Date: 2025-04-08 (PR #306; comment review states PR #431, 2025-08-06; recorded retrospectively 2026-09-08)
 
 ## Status
 

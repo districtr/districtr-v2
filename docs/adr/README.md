@@ -7,8 +7,8 @@ To add a decision: copy the section structure of any record here into the next-n
 | ADR | Title | Date |
 |---|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | 2026-09-08 |
-| [0002](0002-cms-publishing-two-columns.md) | CMS publishing: two columns, no status enum | (retrospective) |
-| [0003](0003-sync-design.md) | Sync design: derived dirtiness, server-owned fields, wholesale comment sync | (retrospective) |
+| [0002](0002-cms-publishing-two-columns.md) | CMS publishing: two columns, no status enum | 2025-04-08 |
+| [0003](0003-sync-design.md) | Sync design: derived dirtiness, server-owned fields, wholesale comment sync | 2025-12 – 2026-02 |
 | [0004](0004-map-layer-separation.md) | Map layer components separated | 2026-02 |
 | [0005](0005-graph-lru-cache.md) | Server memory: the graph LRU cache | 2026-05-06 |
 | [0006](0006-computation-placement.md) | Computation placement | 2026-06-10 |
