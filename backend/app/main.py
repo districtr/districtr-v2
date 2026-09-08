@@ -101,12 +101,17 @@ from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
+    get_gerrydb_numeric_cols,
     update_or_select_district_stats,
     district_stats_to_feature_collection,
     publish_district_stats_to_s3,
     stats_cdn_url,
     RowFormat,
     package_rows,
+)
+from app.evaluation.context import (
+    elections_from_columns,
+    demographic_columns_from_columns,
 )
 from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
@@ -1866,3 +1871,36 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
             "note": "Resident set size of this worker process, not LRU cache only.",
         },
     }
+
+
+@app.get("/_debug/modules")
+async def debug_modules(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """
+    All modules (DistrictrMap rows), including invisible ones, with the
+    elections and demographic columns available on each module's gerrydb table.
+    """
+    districtr_maps = session.exec(
+        select(DistrictrMap).order_by(col(DistrictrMap.districtr_map_slug).asc())
+    ).all()
+
+    modules = []
+    for districtr_map in districtr_maps:
+        columns = (
+            get_gerrydb_numeric_cols(session, districtr_map.gerrydb_table_name)
+            if districtr_map.gerrydb_table_name
+            else []
+        )
+        modules.append(
+            {
+                "districtr_map_slug": districtr_map.districtr_map_slug,
+                "name": districtr_map.name,
+                "visible": districtr_map.visible,
+                "map_type": districtr_map.map_type,
+                "num_districts": districtr_map.num_districts,
+                "num_districts_modifiable": districtr_map.num_districts_modifiable,
+                "elections": elections_from_columns(columns),
+                "demographic_columns": demographic_columns_from_columns(columns),
+            }
+        )
+
+    return {"count": len(modules), "modules": modules}
