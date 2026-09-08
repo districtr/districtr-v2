@@ -1,7 +1,7 @@
 # bookworm: bullseye-security's Release metadata expired when bullseye left
 # security support (builds broke 2026-09-07), so the base must track a
 # distribution that still refreshes its repos.
-ARG PYTHON_VERSION=3.12-slim-bookworm
+ARG PYTHON_VERSION=3.12.14-slim-bookworm
 FROM python:${PYTHON_VERSION}
 
 ENV PYTHONDONTWRITEBYTECODE=1
