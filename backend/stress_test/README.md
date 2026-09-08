@@ -191,7 +191,7 @@ export STACK_PREFIX=districtr-dev
 # run.sh + ECS Exec one-liners
 export BASE_URL=https://api.dev.districtr.org
 export CLUSTER=$(cd ../../infra && pulumi stack select dev >/dev/null && pulumi stack output clusterName)
-export RESULTS_BUCKET=$(cd ../../infra && pulumi stack output s3BucketName 2>/dev/null || true)  # dev backend bucket
+export RESULTS_BUCKET=$(cd ../../infra && pulumi config get s3BucketName --stack dev)  # backend bucket (config secret, not a stack output)
 ```
 
 Caveats specific to dev:
