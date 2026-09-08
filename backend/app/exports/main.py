@@ -18,7 +18,7 @@ from app.core.security import require_session
 from app.models import Document, DistrictrMap, DistrictUnionsResponse, Assignments
 from app.exports.models import DocumentExportType
 from app.utils import update_or_select_district_stats
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from app.evaluation.main import update_or_select_document_evaluation
 
 
@@ -60,8 +60,8 @@ def build_block_assignments_csv(
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["geo_id", "zone"])
         for geo_id, zone in rows:
-            if "children" in G.nodes[geo_id]:
-                for child in G.nodes[geo_id]["children"]:
+            if G.is_shattered_parent(geo_id):
+                for child in G.children_of(geo_id):
                     writer.writerow([child, zone])
             else:
                 writer.writerow([geo_id, zone])
@@ -111,7 +111,7 @@ def build_districts_shapefile(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def export_document(
+def export_document(
     *,
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],

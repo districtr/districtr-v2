@@ -20,7 +20,7 @@ BACKEND_SG=$(aws ec2 describe-security-groups \
   --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Name,Values=${STACK_PREFIX}-backend-sg" \
   --query 'SecurityGroups[0].GroupId' --output text)
 
-# 1. Revoke the temporary /metrics scrape rule (may already be absent)
+# 1. Revoke the temporary /_debug/cache snapshot rule (may already be absent)
 if [ "$RUNNER_SG" != "None" ] && [ "$BACKEND_SG" != "None" ]; then
   aws ec2 revoke-security-group-ingress --group-id "$BACKEND_SG" \
     --protocol tcp --port 8080 --source-group "$RUNNER_SG" \

@@ -144,14 +144,14 @@ def aggregate(
     "--out-path",
     "-o",
     default=None,
-    help="Override output path (default: OUT_SCRATCH/graphs/<gerrydb-name>.pkl)",
+    help="Override output path prefix (default: OUT_SCRATCH/graphs/<gerrydb-name>)",
 )
 @click.option(
     "--upload",
     "-u",
     is_flag=True,
     default=False,
-    help="Upload the graph pkl to S3 after writing",
+    help="Upload the graph files to S3 after writing",
 )
 @click.option(
     "--graph-edge-layer",
@@ -181,8 +181,8 @@ def create_graph(
         parent_layer_name=parent_layer_name,
         graph_edge_layer=graph_edge_layer,
     )
-    path = write_graph(G, gerrydb_name, out_path=out_path, upload_to_s3=upload)
-    logger.info("Done. Graph written to %s", path)
+    paths = write_graph(G, gerrydb_name, out_path=out_path, upload_to_s3=upload)
+    logger.info("Done. Graph written to %s", ", ".join(str(p) for p in paths))
 
 
 @transforms.command("batch-create-graphs")

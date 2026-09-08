@@ -97,7 +97,7 @@ METRICS: tuple[Metric[Any], ...] = (
         compute=splits.district_county_membership,
     ),
     Metric[CutEdgesResult](
-        key="cut_edges", version=1, compute=compactness.block_cut_edges
+        key="cut_edges", version=2, compute=compactness.block_cut_edges
     ),
     Metric[dict[DistrictId, float]](
         key="polsby_popper", version=1, compute=compactness.polsby_popper
@@ -107,13 +107,13 @@ METRICS: tuple[Metric[Any], ...] = (
         key="population_deviation", version=3, compute=validity.population_deviation
     ),
     Metric[AssignedUnitsResult](
-        key="assigned_units", version=3, compute=validity.assigned_units
+        key="assigned_units", version=4, compute=validity.assigned_units
     ),
     Metric[UnassignedPopulation](
         key="unassigned_population", version=1, compute=validity.unassigned_population
     ),
     Metric[dict[DistrictId, bool]](
-        key="contiguous", version=1, compute=validity.contiguous
+        key="contiguous", version=2, compute=validity.contiguous
     ),
 )
 

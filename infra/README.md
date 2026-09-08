@@ -77,7 +77,8 @@ Every AWS service this project uses, what it does here, and where it's defined:
 |---------|-------------------|------------|
 | **VPC / EC2** | VPC, two public subnets (multi-AZ), internet gateway, route table, security groups (ALB / backend / frontend / RDS) | `network.ts` |
 | **VPC S3 Gateway Endpoint** | Free in-region S3 access for graph reads and thumbnail writes — avoids NAT | `network.ts` |
-| **Elastic Load Balancing (ALB)** | Public ingress: HTTPS listener, HTTP→HTTPS redirect, host routing (`api.*` → backend, default → frontend); `/metrics` and `/_debug/*` blocked from the internet | `alb.ts` |
+| **Elastic Load Balancing (ALB)** | Public ingress: HTTPS listener, HTTP→HTTPS redirect, host routing (`api.*` → backend, default → frontend); `/_debug/*` blocked from the internet; access logs to S3 | `alb.ts` |
+| **WAF (WAFv2)** | Rate limiting and AWS managed rule sets on the API hostnames, attached to the ALB | `waf.ts` |
 | **Certificate Manager (ACM)** | DNS-validated TLS 1.3 certificate for the app + api domains | `alb.ts` |
 | **ECS on Fargate** | Cluster, backend + frontend services and task definitions, plus a one-off `migrate` task definition | `cluster.ts`, `backend.ts`, `frontend.ts` |
 | **Application Auto Scaling** | CPU target-tracking autoscaling for both ECS services | `backend.ts`, `frontend.ts` |
@@ -87,6 +88,8 @@ Every AWS service this project uses, what it does here, and where it's defined:
 | **KMS** | Encrypts Pulumi config secrets (`alias/districtr-pulumi-secrets`) and the SSM SecureStrings | secrets provider, `scripts/bootstrap.sh` |
 | **CloudWatch** | Log groups (backend / frontend / migrate), Container Insights (prod), metric alarms | `cluster.ts`, `monitoring.ts` |
 | **SNS** | Alarm fan-out to email | `monitoring.ts` |
+| **EventBridge Scheduler** | Daily (06:00 UTC) one-off ECS task checking S3 graph comprehensiveness, alerting via SNS | `graphcheck.ts` |
+| **Athena** | Per-endpoint latency/error queries over the ALB access logs (table DDL + canned queries; see `athena/OBSERVABILITY.md`) | `athena/` |
 | **IAM** | ECS execution + task roles; GitHub OIDC provider and the `districtr-gha-deploy` role | `backend.ts`, `frontend.ts`, `scripts/bootstrap.sh` |
 | **STS** | `AssumeRoleWithWebIdentity` for GitHub Actions OIDC deploys | deploy workflows |
 | **S3** | Pulumi state-backend bucket; the backend task also reads/writes the existing tileset bucket | `scripts/bootstrap.sh` |
@@ -248,7 +251,6 @@ sizing settles.
 
 - Scope the deploy role down from AdministratorAccess.
 - Pin GitHub Actions to commit SHAs (the Pulumi CLI is now version-pinned).
-- ALB access logs + WAF; RDS parameter tuning (`work_mem` etc.) and log
-  exports.
+- RDS parameter tuning (`work_mem` etc.) and log exports.
 - Lifecycle policy for noncurrent versions on the Pulumi state bucket.
 - ECR keeps only the last 20 images — a long-pinned rollback tag can expire.

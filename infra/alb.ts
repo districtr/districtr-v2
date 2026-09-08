@@ -135,7 +135,7 @@ export function createAlb(network: Network) {
   new aws.lb.ListenerRule(`${name}-block-internal`, {
     listenerArn: httpsListener.arn,
     priority: 1,
-    conditions: [{pathPattern: {values: ["/metrics", "/_debug/*"]}}],
+    conditions: [{pathPattern: {values: ["/_debug/*"]}}],
     actions: [
       {
         type: "fixed-response",
