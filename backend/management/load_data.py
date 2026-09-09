@@ -127,16 +127,20 @@ def _create_districtr_map(session: Session, **kwargs) -> str:
     return create_districtr_map(session=session, **kwargs)
 
 
-@continue_on_previous_load
-def _create_parent_child_edges(session: Session, **kwargs):
-    # Spatial join over large states can exceed the default 120s API timeout.
-    session.execute(sa.text("SET statement_timeout = '0'"))
+def create_or_copy_parent_child_edges(
+    session: Session, districtr_map_uuid: str, force: bool = False
+) -> None:
+    """Copy a compatible map's edges when possible; otherwise compute them.
 
-    # If another map with the same parent/child layers already has edges, copy
-    # from that partition instead of re-running the expensive spatial join.
-    # A geography's map modules (congressional/senate/house/custom) share one
-    # layer pair, so their edge sets are identical.
-    districtr_map_uuid = kwargs["districtr_map_uuid"]
+    The spatial join over large states can exceed the default 120s statement
+    timeout, so it is lifted for this transaction only (SET LOCAL). If another
+    map with the same parent/child layers already has edges, its partition is
+    copied instead of re-running the expensive join — a geography's map
+    modules (congressional/senate/house/custom) share one layer pair, so
+    their edge sets are identical.
+    """
+    session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
+
     map_row = session.exec(
         select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
     ).one_or_none()
@@ -194,7 +198,14 @@ def _create_parent_child_edges(session: Session, **kwargs):
             )
             return
 
-    create_parent_child_edges(session=session, **kwargs)
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=districtr_map_uuid, force=force
+    )
+
+
+@continue_on_previous_load
+def _create_parent_child_edges(session: Session, **kwargs):
+    create_or_copy_parent_child_edges(session=session, **kwargs)
 
 
 class GerryDBViewImport(BaseModel):
