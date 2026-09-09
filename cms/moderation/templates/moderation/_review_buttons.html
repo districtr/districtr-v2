@@ -1,0 +1,16 @@
+{# Approve/Reject/Dismiss form for one action target. #}
+{# ct: comment|commenter (with target_id), or entry (comment + commenter). #}
+<form method="post" action="{% url 'moderation_review_action' %}" class="moderation-buttons" style="display:inline">
+    {% csrf_token %}
+    <input type="hidden" name="content_type" value="{{ ct }}">
+    {% if ct == "entry" %}
+        <input type="hidden" name="comment_id" value="{{ entry.comment_id }}">
+        {% if entry.commenter_id %}<input type="hidden" name="commenter_id" value="{{ entry.commenter_id }}">{% endif %}
+    {% else %}
+        <input type="hidden" name="id" value="{{ target_id }}">
+    {% endif %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="button button-small" name="review_status" value="APPROVED">Approve</button>
+    <button type="submit" class="button button-small no" name="review_status" value="REJECTED">Reject</button>
+    <button type="submit" class="button button-small button-secondary" name="review_status" value="REVIEWED">Dismiss</button>
+</form>

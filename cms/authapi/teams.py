@@ -1,0 +1,209 @@
+"""
+Team-based Wagtail admin scoping (see authapi.models.Team).
+
+A non-admin user who belongs to one or more Teams is "team-scoped": the admin
+listings/editing for galleries, tag pages, and Districtr map modules are
+narrowed to their teams' resources. Superusers and members of the `admin`
+group are never scoped; a non-admin user with no team keeps their role's
+default (unscoped) access.
+
+Each resource reaches a Team differently:
+- Gallery.team is a direct FK;
+- DistrictrMap relates through TeamDistrictrMap (team_links);
+- TagPage relates indirectly through districtr_map_slug -> DistrictrMap ->
+  TeamDistrictrMap.
+
+so the per-resource queryset filters live with each resource's wagtail_hooks;
+this module only answers "is this user scoped, and to which teams".
+"""
+
+from functools import cached_property
+
+from django.http import Http404
+from wagtail.permission_policies.base import ModelPermissionPolicy
+
+from authapi.models import TeamMembership
+
+
+def user_is_team_scoped(user) -> bool:
+    """True when ``user``'s Wagtail admin should be narrowed to their teams
+    (see module docstring for who is exempt)."""
+    if not user.is_authenticated or user.is_superuser:
+        return False
+    if user.groups.filter(name="admin").exists():
+        return False
+    return TeamMembership.objects.filter(user=user).exists()
+
+
+def team_ids_for_user(user) -> set[int]:
+    """The pks of every Team ``user`` belongs to (the ORM scoping unit)."""
+    return set(
+        TeamMembership.objects.filter(user=user).values_list("team_id", flat=True)
+    )
+
+
+def districtr_map_slugs_for_user(user) -> set[str]:
+    """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
+
+    A TagPage is in the user's scope exactly when its ``districtr_map_slug`` is
+    in this set (TagPage -> DistrictrMap by slug -> TeamDistrictrMap). Imported
+    lazily to keep authapi free of a load-time dependency on datastore.
+    """
+    from datastore.models import DistrictrMap
+
+    return set(
+        DistrictrMap.objects.filter(
+            team_links__team__memberships__user=user
+        ).values_list("districtr_map_slug", flat=True)
+    )
+
+
+def review_portal_slugs_for_user(user) -> list[str]:
+    """Portal (TagPage) slugs whose submissions the user may review — minted
+    as the JWT `review_tags` claim (a portal's page slug is its comment tag
+    slug).
+
+    DEFAULT LOCALE ONLY, for two reasons: translations legitimately share a
+    slug with their source (so per-locale rows would be duplicates), and page
+    slugs are unique only per parent — each locale has its own tags index, so
+    without this filter a member could create a page in a translated index
+    carrying ANOTHER team's portal slug and mint themselves that team's
+    review scope. This matches moderation's _accessible_portals filter.
+
+    Imported lazily to avoid a load-time dependency on content.
+    """
+    from wagtail.models import Locale
+
+    from content.models import TagPage
+
+    return sorted(
+        set(
+            TagPage.objects.filter(
+                locale=Locale.get_default(),
+                districtr_map_slug__in=districtr_map_slugs_for_user(user),
+            ).values_list("slug", flat=True)
+        )
+    )
+
+
+def instance_in_scope(user, model, team_filter_field, pk) -> bool:
+    """False exactly when a team-scoped ``user`` may not act on ``model`` row
+    ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
+    if not user_is_team_scoped(user):
+        return True
+    return scoped_queryset(model, team_filter_field, user).filter(pk=pk).exists()
+
+
+def scoped_queryset(model, team_filter_field, user):
+    """``model`` rows belonging to one of ``user``'s teams.
+
+    ``team_filter_field`` is the ORM lookup from the model to Team's pk,
+    e.g. ``team_id`` (Gallery, direct FK) or ``team_links__team_id``
+    (DistrictrMap, via TeamDistrictrMap).
+    """
+    team_ids = team_ids_for_user(user)
+    return model._default_manager.filter(
+        **{f"{team_filter_field}__in": team_ids}
+    ).distinct()
+
+
+class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
+    """Model permissions, plus: a team-scoped user may only act on instances
+    belonging to their teams. Admins / superusers / team-less users are
+    unaffected (full model-permission behaviour).
+
+    Used for resources a member may *edit* (e.g. Gallery). ``team_filter_field``
+    is the lookup passed to :func:`scoped_queryset`.
+    """
+
+    def __init__(self, model, *, team_filter_field):
+        super().__init__(model)
+        self.team_filter_field = team_filter_field
+
+    def instances_user_has_permission_for(self, user, action):
+        instances = super().instances_user_has_permission_for(user, action)
+        if user_is_team_scoped(user):
+            scoped = scoped_queryset(self.model, self.team_filter_field, user)
+            return instances.filter(pk__in=scoped.values("pk"))
+        return instances
+
+    def user_has_permission_for_instance(self, user, action, instance):
+        if not super().user_has_permission_for_instance(user, action, instance):
+            return False
+        if user_is_team_scoped(user):
+            return (
+                scoped_queryset(self.model, self.team_filter_field, user)
+                .filter(pk=instance.pk)
+                .exists()
+            )
+        return True
+
+
+class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
+    """Like :class:`TeamScopedModelPermissionPolicy`, but additionally grants
+    *view*/*inspect* to team members — scoped to their teams — even without a
+    Django view permission. Write actions (add/change/delete) still require the
+    Django permission, so admins keep editing and members cannot.
+
+    Used for resources a member may *see* but not edit (e.g. DistrictrMap
+    modules, which admins/super partners manage but each team should be able
+    to browse for its own assignments).
+    """
+
+    _VIEW_ACTIONS = {"view", "inspect"}
+
+    def user_has_permission(self, user, action):
+        if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
+            return True
+        return super().user_has_permission(user, action)
+
+    def instances_user_has_permission_for(self, user, action):
+        if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
+            return scoped_queryset(self.model, self.team_filter_field, user)
+        return super().instances_user_has_permission_for(user, action)
+
+    def user_has_permission_for_instance(self, user, action, instance):
+        if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
+            return (
+                scoped_queryset(self.model, self.team_filter_field, user)
+                .filter(pk=instance.pk)
+                .exists()
+            )
+        return super().user_has_permission_for_instance(user, action, instance)
+
+
+class TeamScopedViewSetMixin:
+    """SnippetViewSet mixin: index queryset and permission policy scoped to the
+    user's teams. Set ``team_filter_field``; override
+    ``permission_policy_class`` for view-grant behaviour."""
+
+    team_filter_field: str
+    permission_policy_class = TeamScopedModelPermissionPolicy
+
+    def get_queryset(self, request):
+        if user_is_team_scoped(request.user):
+            return scoped_queryset(self.model, self.team_filter_field, request.user)
+        return None
+
+    @cached_property
+    def permission_policy(self):
+        return self.permission_policy_class(
+            self.model, team_filter_field=self.team_filter_field
+        )
+
+
+class TeamScopedGetObjectMixin:
+    """For snippet object views that fetch straight from the model with no
+    instance permission check (Inspect/History/Usage/Copy): 404 when a
+    team-scoped member addresses an out-of-scope object by URL. Set
+    ``team_filter_field`` on the view subclass."""
+
+    team_filter_field: str
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not instance_in_scope(
+            self.request.user, self.model, self.team_filter_field, obj.pk
+        ):
+            raise Http404
+        return obj

@@ -1,0 +1,42 @@
+import os
+
+from .base import *  # noqa: F403
+
+DEBUG = False
+
+# The ALB terminates TLS and forwards X-Forwarded-Proto.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+# HSTS: the ALB already redirects HTTP→HTTPS (infra/alb.ts); this makes
+# browsers skip the insecure hop entirely. The CMS lives on its own
+# subdomain, so include-subdomains is safe for this host.
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
+]
+
+# Media on AWS S3. Mirrors backend/app/core/config.py get_s3_client():
+# AWS_S3_ENDPOINT (if set) overrides the host for an S3-compatible endpoint,
+# otherwise plain AWS S3.
+_bucket = os.environ.get("R2_BUCKET_NAME") or os.environ.get("AWS_S3_BUCKET")
+if _bucket:
+    STORAGES["default"] = {  # noqa: F405
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": _bucket,
+            "location": "cms-media",
+            "endpoint_url": os.environ.get("AWS_S3_ENDPOINT") or None,  # noqa: F405
+            "custom_domain": os.environ.get("CDN_DOMAIN") or None,  # noqa: F405
+            "file_overwrite": False,
+            "default_acl": None,
+        },
+    }
+
+# Transactional email via Resend
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+ANYMAIL = {
+    "RESEND_API_KEY": os.environ.get("RESEND_API_KEY", ""),  # noqa: F405
+}

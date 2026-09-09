@@ -73,6 +73,26 @@ services:
     command: sh -c "bun install && bun run build && bun run start"
     profiles: ["prod"]
 
+  cms:
+    build:
+      context: ./cms
+      dockerfile: Dockerfile.dev
+    container_name: cms
+    volumes:
+      - ./cms:/districtr-cms
+    env_file:
+      - ./cms/.env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+    command: bash -c "
+      python manage.py bootstrap_schema && \
+      python manage.py migrate --noinput && \
+      python manage.py runserver 0.0.0.0:8000
+      "
+    ports:
+      - "8001:8000"
+
   pre-commit:
     build:
       context: ./pre-commit

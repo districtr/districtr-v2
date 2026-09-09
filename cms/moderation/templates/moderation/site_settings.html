@@ -1,0 +1,27 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Frontend settings{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Frontend settings" subtitle="Site-wide switches on the public frontend" icon="cog" %}
+
+    <div class="nice-padding">
+        {% if error %}
+            <div class="help-block help-critical"><p>{{ error }}</p></div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <label>
+                <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
+                Under-construction mode
+            </label>
+            <p class="help">
+                When enabled, the public site redirects visitors to the
+                under-construction page. The frontend caches this flag, so a
+                change takes up to a minute to apply. The Wagtail admin and
+                the map editor stay reachable.
+            </p>
+            <button type="submit" class="button">Save</button>
+        </form>
+    </div>
+{% endblock %}
