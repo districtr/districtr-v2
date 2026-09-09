@@ -1096,8 +1096,8 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         for suffix in ("npz", "pkl"):
             key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.{suffix}"
             try:
-                s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
-                logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
+                s3.head_object(Bucket=settings.AWS_S3_BUCKET, Key=key)
+                logger.info("Graph present: s3://%s/%s", settings.AWS_S3_BUCKET, key)
                 status = None
                 break
             except botocore.exceptions.ClientError as e:
@@ -1110,7 +1110,7 @@ def check_missing_graphs(session: Session, skip_alert: bool):
             logger.warning(
                 "Graph %s: s3://%s/%s/%s.{npz,pkl}",
                 status,
-                settings.R2_BUCKET_NAME,
+                settings.AWS_S3_BUCKET,
                 S3_GRAPH_PREFIX,
                 m.gerrydb_table_name,
             )
@@ -1125,7 +1125,7 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         return
 
     problem_list = "\n".join(
-        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.{{npz,pkl}} — {status}"
+        f"  - s3://{settings.AWS_S3_BUCKET}/{S3_GRAPH_PREFIX}/{name}.{{npz,pkl}} — {status}"
         for name, status in problems
     )
     sns = boto3.client("sns")

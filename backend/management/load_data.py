@@ -12,7 +12,7 @@ from app.utils import (
     create_map_group,
 )
 from app.core.io import get_local_or_s3_path
-from app.main import get_session
+from app.core.db import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
@@ -322,7 +322,7 @@ def load_sample_data(
 
         if not Path(gpkg).exists():
             logger.info(f"File {gpkg} does not exist.")
-            gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
+            gpkg = f"s3://{settings.AWS_S3_BUCKET}/gerrydb/{view.gpkg}"
 
         try:
             table_exists = session.execute(

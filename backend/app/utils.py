@@ -998,7 +998,7 @@ def publish_district_stats_to_s3(
     request-scoped session (closed at teardown — would leak the checkout).
     """
     s3 = settings.get_s3_client()
-    bucket = settings.R2_BUCKET_NAME
+    bucket = settings.AWS_S3_BUCKET
     if s3 is None or bucket is None:
         return
 

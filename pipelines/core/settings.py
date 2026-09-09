@@ -12,10 +12,9 @@ class Settings(BaseSettings):
 
     OUT_SCRATCH: Path = Path("/tmp")
 
-    # R2
+    # S3
 
     S3_BUCKET: str | None = "districtr-v2-dev"
-    ACCOUNT_ID: str | None = None
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None

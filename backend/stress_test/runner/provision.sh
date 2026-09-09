@@ -17,7 +17,7 @@ NAME="${NAME:-${STACK_PREFIX}-stress-runner}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-c7i.4xlarge}"
 REPO_URL="${REPO_URL:-https://github.com/districtr/districtr-v2.git}"
 REPO_SHA="${REPO_SHA:?Set REPO_SHA to the pinned commit containing backend/stress_test}"
-# Backend S3 bucket (pulumi config s3BucketName / task env R2_BUCKET_NAME);
+# Backend S3 bucket (pulumi config s3BucketName / task env AWS_S3_BUCKET);
 # artifacts live under stress-test/.
 RESULTS_BUCKET="${RESULTS_BUCKET:?Set RESULTS_BUCKET to the backend S3 bucket name}"
 # Easy slip: the ALB access-logs bucket, which the IAM policy can't write to.

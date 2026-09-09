@@ -62,11 +62,18 @@ export const config = {
   s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
-  // Auth0 (non-secret identifiers)
+  // Auth0 (non-secret identifiers) — frontend session auth only; the backend
+  // verifies CMS-issued JWTs via the auth* keys below.
   auth0Domain: cfg.require("auth0Domain"),
   auth0ApiAudience: cfg.require("auth0ApiAudience"),
   auth0Issuer: cfg.require("auth0Issuer"),
   auth0Algorithms: cfg.get("auth0Algorithms") ?? "RS256",
+
+  // Backend JWT verification — tokens issued by the Districtr CMS.
+  authJwksUrl: cfg.require("authJwksUrl"),
+  authAudience: cfg.require("authAudience"),
+  authIssuer: cfg.require("authIssuer"),
+  authAlgorithms: cfg.get("authAlgorithms") ?? "RS256",
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
