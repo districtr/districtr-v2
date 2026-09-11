@@ -54,3 +54,40 @@ export const editPath = (
  */
 export const evalPath = (routePrefix: string, public_id: number): string =>
   `/${routePrefix}/${public_id}/eval`;
+
+/**
+ * Path for a document's plain public view page: `/{route}/{public_id}`.
+ * Read-only like evalPath, but without eval mode's comparison/scoring UI —
+ * public_id is required, same as evalPath.
+ */
+export const viewPath = (routePrefix: string, public_id: number): string =>
+  `/${routePrefix}/${public_id}`;
+
+const TRAILING_ROUTE_SEGMENTS = new Set(['edit', 'eval']);
+
+/**
+ * Extracts the id (public id or UUID) from a pasted or generated map share
+ * URL. Reads only the path portion, so any query string
+ * (`?private_edit_id=…`, `?pw=true`) is naturally ignored. Handles both the
+ * current `/{route}/{id}/edit|eval` shape and the legacy `/{route}/edit/{id}`
+ * shape, where the id sits in different positions relative to the route
+ * word. Falls back to treating unparseable input (e.g. a bare id with no
+ * scheme) as a path directly, rather than rejecting it.
+ */
+export const parseDocumentIdFromMapUrl = (url: string): string | null => {
+  const raw = url.trim();
+  if (!raw) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(raw).pathname;
+  } catch {
+    pathname = raw.split('?')[0];
+  }
+  const segments = pathname.split('/').filter(Boolean);
+  if (!segments.length) return null;
+  const last = segments[segments.length - 1];
+  if (TRAILING_ROUTE_SEGMENTS.has(last) && segments.length > 1) {
+    return segments[segments.length - 2];
+  }
+  return last;
+};

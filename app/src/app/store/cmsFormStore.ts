@@ -20,6 +20,9 @@ import {DistrictrMap} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {ClientSession} from '@/app/lib/auth0';
 
+// Tell Next.js to drop its ISR cache of the CMS-driven pages after an edit
+const revalidateStaticPages = () => fetch('/api/revalidate', {method: 'POST'}).catch(() => {});
+
 // Base form data interface with common fields
 interface BaseFormData {
   slug: string;
@@ -231,6 +234,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       }
       const r = await updateCMSContent({body: content, session});
       if (r.ok) {
+        revalidateStaticPages();
         set({success: 'Content updated successfully!', editingContent: null});
       } else {
         set({error: r.error?.detail, success: undefined});
@@ -257,6 +261,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       const r = await createCMSContent({body: content, session});
 
       if (r.ok) {
+        revalidateStaticPages();
         set({success: 'Content created successfully!'});
         // Refresh content list and reset form
         const newContent = await listEditorCMSContent(contentType, {}, session);
@@ -295,6 +300,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       session: session,
     });
     if (r.ok) {
+      revalidateStaticPages();
       const currentContent = get().content;
       if (!currentContent) return;
 
@@ -329,6 +335,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       session: session,
     });
     if (r.ok) {
+      revalidateStaticPages();
       const updatedContent = await listEditorCMSContent(contentType, {}, session);
       set({
         success: 'Content published successfully!',

@@ -19,6 +19,8 @@ interface RichTextRendererProps {
   content: string | object;
   className?: string;
   disabled?: boolean;
+  // record-level map slug; when set it overrides any form node's allowListModules
+  allowListModules?: string[];
 }
 
 const extensions = [
@@ -44,11 +46,12 @@ const RichTextRenderer: React.FC<RichTextRendererProps> = ({
   content,
   disabled = false,
   className = '',
+  allowListModules,
 }) => {
   const htmlContent = typeof content === 'string' ? content : generateHTML(content, extensions);
 
   const reactContent = parse(htmlContent, {
-    replace: domNodeReplacers(disabled),
+    replace: domNodeReplacers(disabled, allowListModules),
   });
 
   return <div className={`prose prose-sm max-w-none ${className}`}>{reactContent}</div>;

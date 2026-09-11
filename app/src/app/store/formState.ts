@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {CommentCreate, CommenterCreate} from '../utils/api/apiHandlers/types';
 import {postComment} from '../utils/api/mutations/postComment';
 import {createJSONStorage, persist} from 'zustand/middleware';
+import {parseDocumentIdFromMapUrl} from '../utils/map/editUrl';
 
 export interface FormState {
   formRef: React.RefObject<HTMLFormElement> | null;
@@ -20,6 +21,9 @@ export interface FormState {
   setIsSubmitting: (isSubmitting: boolean) => void;
   tags: string[];
   setTags: (tag: string, action: 'add' | 'remove') => void;
+  // pathname the current tags belong to; tags reset when the form mounts on a different page
+  tagsPageKey: string;
+  resetTagsForPage: (pageKey: string) => void;
   submitForm: () => Promise<void>;
   clear: () => void;
   error: string;
@@ -99,6 +103,12 @@ export const useFormState = create<FormState>()(
         set({tags: Array.from(new Set(newTags))});
       },
       tags: new Array<string>(),
+      tagsPageKey: '',
+      resetTagsForPage: (pageKey: string) => {
+        if (get().tagsPageKey !== pageKey) {
+          set({tagsPageKey: pageKey, tags: []});
+        }
+      },
       error: '',
       success: '',
       submitForm: async () => {
@@ -122,7 +132,7 @@ export const useFormState = create<FormState>()(
         }
         // clean up to just document ID
         const cleanDocumentId = comment.document_id?.trim()?.length
-          ? comment.document_id.split('/').pop()?.replace('?pw=true', '')
+          ? parseDocumentIdFromMapUrl(comment.document_id)
           : null;
         //  todo, some validation
         const response = await postComment.mutate({
@@ -185,6 +195,7 @@ export const useFormState = create<FormState>()(
         comment: state.comment,
         commenter: state.commenter,
         tags: state.tags,
+        tagsPageKey: state.tagsPageKey,
         acknowledgement: state.acknowledgement,
         showMapSelector: state.showMapSelector,
       }),

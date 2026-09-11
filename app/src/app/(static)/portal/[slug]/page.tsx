@@ -42,7 +42,13 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         availableLanguages={cmsData.available_languages}
       />
       <HeaderSecondTierNav />
-      <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
+      <RichTextRenderer
+        content={cmsData.content.published_content.body}
+        className="my-4"
+        allowListModules={
+          cmsData.content.districtr_map_slug ? [cmsData.content.districtr_map_slug] : undefined
+        }
+      />
     </Flex>
   );
 }
