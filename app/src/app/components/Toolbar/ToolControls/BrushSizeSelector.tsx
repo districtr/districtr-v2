@@ -1,7 +1,6 @@
-import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
+import {Slider, Flex, Heading, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
 const BRUSH_MIN_SIZE = 1;
@@ -36,8 +35,7 @@ export function BrushSizeSelector() {
   };
 
   useEffect(() => {
-    // listen for [ or - and reduce brush size
-    // listen for ] or + and increase brush size
+    // [ reduces the brush size, ] increases it
     const handleKeyDown = (e: KeyboardEvent) => {
       // if alt shift or ctrl are pressed, ignore
       if (e.altKey || e.shiftKey || e.ctrlKey) return;

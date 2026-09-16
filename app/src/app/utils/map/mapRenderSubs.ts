@@ -8,6 +8,8 @@ import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectin
 import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
+import {setHoverFeatures} from '@utils/map/hoverFeatures';
+import {useTooltipStore} from '@store/tooltipStore';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {demographyService} from '../demography/demographyService';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from '@/app/store/demography/constants';
@@ -213,6 +215,11 @@ export class MapRenderSubscriber {
     );
   }
   renderCursor(activeTool: ActiveTool) {
+    // The outgoing tool's hover highlight and tooltip are stale for the
+    // incoming one (a hotkey switch moves no mouse); clear both and let the
+    // next mousemove repaint them.
+    setHoverFeatures();
+    useTooltipStore.getState().setTooltip(null);
     const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties

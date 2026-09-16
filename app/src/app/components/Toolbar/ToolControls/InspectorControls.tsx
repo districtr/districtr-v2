@@ -44,24 +44,36 @@ export const InspectorControls = () => {
   return (
     <Flex direction="column" gapY="4">
       <BrushControls />
-      <Flex direction="column" gap="1">
-        <Text size="2" weight="medium">
-          Summary type
-        </Text>
-        <RadioGroup.Root
-          size="1"
-          value={inspectorMode}
-          onValueChange={value => setInspectorMode(value as SummaryType)}
-        >
-          <Flex direction="row" align="center" gapX="3" gapY="1" wrap="wrap">
-            {availableModes.map(({value, label}) => (
-              <RadioGroup.Item key={value} value={value}>
-                {label}
-              </RadioGroup.Item>
-            ))}
-          </Flex>
-        </RadioGroup.Root>
-      </Flex>
+      {/* A radio group asserts a choice, so it needs at least two summary
+          types; with exactly one, the name still tells the user which stats
+          the inspector shows, so it renders as plain text. Zero means
+          demography hasn't resolved yet — no label over nothing. */}
+      {availableModes.length > 0 && (
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            Summary type
+          </Text>
+          {availableModes.length > 1 ? (
+            <RadioGroup.Root
+              size="1"
+              value={inspectorMode}
+              onValueChange={value => setInspectorMode(value as SummaryType)}
+            >
+              <Flex direction="row" align="center" gapX="3" gapY="1" wrap="wrap">
+                {availableModes.map(({value, label}) => (
+                  <RadioGroup.Item key={value} value={value}>
+                    {label}
+                  </RadioGroup.Item>
+                ))}
+              </Flex>
+            </RadioGroup.Root>
+          ) : (
+            <Text size="1" color="gray">
+              {availableModes[0].label}
+            </Text>
+          )}
+        </Flex>
+      )}
       <Flex direction="column" gap="1">
         <Text size="2" weight="medium">
           Columns

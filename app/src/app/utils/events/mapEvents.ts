@@ -202,7 +202,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
       e,
       brushSize,
       paintLayers,
-      activeTool !== ACTIVE_TOOLS.INSPECTOR
+      !TOOLTIP_TOOLS.includes(activeTool)
     );
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -393,7 +393,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     e,
     brushSize,
     paintLayers,
-    activeTool !== ACTIVE_TOOLS.INSPECTOR
+    !TOOLTIP_TOOLS.includes(activeTool)
   );
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
@@ -431,17 +431,18 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   ) {
     setTooltip({
       ...e.point,
-      data: mapOptions.showPopulationTooltip
-        ? [
-            {
-              label: 'Total Pop',
-              value: selectedFeatures.reduce(
-                (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                0
-              ),
-            },
-          ]
-        : [],
+      data:
+        mapOptions.showPopulationTooltip && !TOOLTIP_TOOLS.includes(activeTool)
+          ? [
+              {
+                label: 'Total Pop',
+                value: selectedFeatures.reduce(
+                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+                  0
+                ),
+              },
+            ]
+          : [],
     });
   } else {
     setTooltip(null);

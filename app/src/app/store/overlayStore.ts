@@ -3,6 +3,8 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {Overlay} from '@utils/api/apiHandlers/types';
 import {useMapStore} from './mapStore';
+import {useMapControlsStore} from './mapControlsStore';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {dissolve} from '@turf/turf';
 import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
 import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
@@ -95,6 +97,16 @@ export const useOverlayStore = create(
           : mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
       const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
       if (matchingFeatures && matchingFeatures.length > 0) {
+        // County brush and paint masks are mutually exclusive: county-brush
+        // features carry no geometry, and the mask filter is geometric
+        // (filterFeatures reads f.geometry). PaintByCounty already clears the
+        // mask when the brush turns on; this is the same exclusion from the
+        // other direction, so neither order of clicks combines the two.
+        const {mapOptions, setMapOptions, setPaintFunction} = useMapControlsStore.getState();
+        if (mapOptions.paintByCounty) {
+          setMapOptions({paintByCounty: false});
+          setPaintFunction(getFeaturesInBbox);
+        }
         set({
           paintConstraint: {
             overlayId: overlayId,
