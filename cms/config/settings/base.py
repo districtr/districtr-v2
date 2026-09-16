@@ -238,8 +238,13 @@ SIMPLE_JWT = {
 }
 
 REST_FRAMEWORK = {
+    # ALB -> task, nothing in front, so one proxy hop: throttle on the
+    # client address from X-Forwarded-For, not the load balancer's.
+    "NUM_PROXIES": 1,
     "DEFAULT_THROTTLE_RATES": {
-        # Brute-force guard on /api/token/
+        # Brute-force guard on /api/token/. Counted per gunicorn worker
+        # (LocMemCache), so the real ceiling is rate x workers; a shared
+        # cache backend is only worth it if the CMS scales past one task.
         "login": "10/min",
     },
 }

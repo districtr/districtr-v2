@@ -229,7 +229,10 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                 [
                     FieldPanel("uuid", read_only=True),
                     FieldPanel("name"),
-                    FieldPanel("districtr_map_slug"),
+                    # Referenced by string from document.document, tag pages,
+                    # team grants and the /map/<slug> route; nothing coordinates
+                    # a rename. Set once by the compose tool.
+                    FieldPanel("districtr_map_slug", read_only=True),
                     FieldPanel("map_type"),
                     FieldPanel("data_source_name"),
                     FieldPanel("statefps"),

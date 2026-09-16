@@ -1,9 +1,10 @@
 """
 Team-based Wagtail admin scoping (authapi.models.Team / authapi.teams).
 
-Covers the membership helpers, the gallery permission policy (object + queryset
-scoping), and an end-to-end admin check that a team-scoped member sees/edits
-only their team's galleries while admins and team-less users are unaffected.
+Covers the membership helpers, the team-scoped permission policy (object +
+queryset scoping), and an end-to-end admin check that a team-scoped member
+sees/edits only their team's map modules while admins and team-less users are
+unaffected.
 """
 
 from django.contrib.auth import get_user_model
