@@ -76,8 +76,6 @@ export const config = {
   jwtVerifyingKey: cfg.requireSecret("jwtVerifyingKey"),
   // Set only during key rotation (served alongside the active key in JWKS).
   jwtNextVerifyingKey: cfg.getSecret("jwtNextVerifyingKey"),
-  /** NextAuth session-cookie encryption key (frontend). */
-  authSecret: cfg.requireSecret("authSecret"),
   resendApiKey: cfg.getSecret("resendApiKey"),
   openaiApiKey: cfg.getSecret("openaiApiKey"),
   turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
