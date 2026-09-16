@@ -13,7 +13,7 @@ from typing import Any, Optional
 import jwt
 from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework_simplejwt.settings import api_settings
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken
 
 from authapi.jwks import current_kid
 
@@ -55,14 +55,6 @@ def get_kid_token_backend() -> KidTokenBackend:
 
 
 class KidAccessToken(AccessToken):
-    @property
-    def token_backend(self) -> TokenBackend:
-        return get_kid_token_backend()
-
-
-class KidRefreshToken(RefreshToken):
-    access_token_class = KidAccessToken
-
     @property
     def token_backend(self) -> TokenBackend:
         return get_kid_token_backend()

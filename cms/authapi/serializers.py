@@ -1,23 +1,24 @@
-from datetime import timedelta
+"""
+Claims minting for the RS256 access tokens the FastAPI backend verifies.
 
-from rest_framework_simplejwt.serializers import (
-    TokenObtainPairSerializer,
-    TokenRefreshSerializer,
-)
+There is no login or refresh endpoint and no refresh token: the Wagtail admin
+is session-authenticated, and views that call the backend mint a short-lived
+access token in-process per request. Claims are re-derived on every mint, so
+a role or team change takes effect on the user's next action.
+"""
+
+from datetime import timedelta
 
 from authapi.scopes import scopes_for_user
 from authapi.teams import review_portal_slugs_for_user, user_is_team_scoped
-from authapi.tokens import KidAccessToken, KidRefreshToken
+from authapi.tokens import KidAccessToken
 
 
 def set_user_claims(token, user) -> None:
-    """Set the Districtr claims on a token (login and in-process minting).
+    """Set the Districtr claims on a token.
 
     Space-delimited scope claim enforced verbatim by the FastAPI backend's
-    SecurityScopes (backend/app/core/security.py). Claims set on the refresh
-    token propagate to access tokens on refresh, so a role change takes
-    effect at next login, not next refresh — same semantics as the Auth0
-    setup this replaces.
+    SecurityScopes (backend/app/core/security.py).
     """
     group_names = sorted(g.name for g in user.groups.all())
     token["sub"] = str(user.pk)
@@ -41,25 +42,9 @@ def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:
 
     Used by Wagtail admin views (moderation) that call the FastAPI backend
     on the acting user's behalf, so the backend enforces the caller's own
-    scopes and review_tags claim exactly as for a normal login. Builds a
-    bare KidAccessToken rather than going through the refresh-token path,
-    which would write an OutstandingToken row per mint.
+    scopes and review_tags claim.
     """
     token = KidAccessToken()
     token.set_exp(lifetime=timedelta(minutes=lifetime_minutes))
     set_user_claims(token, user)
     return str(token)
-
-
-class DistrictrTokenObtainPairSerializer(TokenObtainPairSerializer):
-    token_class = KidRefreshToken
-
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        set_user_claims(token, user)
-        return token
-
-
-class DistrictrTokenRefreshSerializer(TokenRefreshSerializer):
-    token_class = KidRefreshToken
