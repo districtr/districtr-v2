@@ -43,7 +43,7 @@ ALL_SCOPES = [
     REVIEW_ALL_CONTENT,
 ]
 
-# Page editing, galleries, and the datastore tools are all Wagtail-side
+# Page editing and the datastore tools are all Wagtail-side
 # permissions (or service-token calls); the only FastAPI scope a user token
 # needs is comment moderation. No review:review-all: the backend treats that
 # scope as "unrestricted, ignore review_tags", and partner moderation is

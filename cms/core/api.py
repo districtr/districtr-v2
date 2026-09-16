@@ -1,6 +1,6 @@
 """
-Shared helpers for the public read-only JSON APIs (content/api.py and
-galleries/api.py): permissive CORS + JsonResponse, matching the posture of
+Shared helpers for the public read-only JSON APIs (content/api.py):
+permissive CORS + JsonResponse, matching the posture of
 the legacy FastAPI CORS middleware, plus clamped pagination parsing.
 """
 
