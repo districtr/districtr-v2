@@ -21,9 +21,9 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from authapi.jwks import all_jwks, current_kid
-from core.testing import PASSWORD, make_user
+from core.testing import make_user
 from authapi.scopes import ALL_SCOPES, scopes_for_user
-from authapi.serializers import DistrictrTokenObtainPairSerializer
+from authapi.serializers import mint_user_access_token
 from content.models import TagPage
 
 
@@ -75,8 +75,7 @@ class ScopeMappingTests(TestCase):
 class TokenContractTests(TestCase):
     def test_access_token_round_trips_through_fastapi_verifier(self):
         user = make_user("partner")
-        refresh = DistrictrTokenObtainPairSerializer.get_token(user)
-        payload = fastapi_style_verify(str(refresh.access_token))
+        payload = fastapi_style_verify(mint_user_access_token(user))
 
         self.assertEqual(payload["sub"], str(user.pk))
         self.assertEqual(payload["email"], user.email)
@@ -85,7 +84,7 @@ class TokenContractTests(TestCase):
 
     def test_kid_header_matches_jwks(self):
         user = make_user("partner")
-        token = str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
+        token = mint_user_access_token(user)
         header = pyjwt.get_unverified_header(token)
         self.assertEqual(header["kid"], current_kid())
         self.assertEqual(header["alg"], "RS256")
@@ -124,8 +123,7 @@ class ReviewScopingClaimTests(TestCase):
         return page
 
     def _claim_for(self, user):
-        refresh = DistrictrTokenObtainPairSerializer.get_token(user)
-        return fastapi_style_verify(str(refresh.access_token))
+        return fastapi_style_verify(mint_user_access_token(user))
 
     def test_team_scoped_user_gets_portal_slugs(self):
         from core.testing import create_mirror_tables, make_team
@@ -208,52 +206,10 @@ class ReviewScopingClaimTests(TestCase):
         self.assertNotIn("review:review-all", scopes_for_user(make_user("partner")))
 
 
-class TokenEndpointTests(TestCase):
-    def test_obtain_and_refresh_flow(self):
-        make_user("partner", email="flow@districtr.org")
-
-        response = self.client.post(
-            "/api/token/",
-            {"username": "flow@districtr.org", "password": PASSWORD},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("access", data)
-        self.assertIn("refresh", data)
-
-        payload = fastapi_style_verify(data["access"])
-        self.assertIn("create:content_review", payload["scope"].split())
-
-        # Refresh must preserve the scope claim and kid header (the Next.js
-        # session refreshes silently; FastAPI keeps seeing valid scopes).
-        refresh_response = self.client.post(
-            "/api/token/refresh/", {"refresh": data["refresh"]}
-        )
-        self.assertEqual(refresh_response.status_code, 200)
-        refreshed = refresh_response.json()
-        refreshed_payload = fastapi_style_verify(refreshed["access"])
-        self.assertEqual(refreshed_payload["scope"], payload["scope"])
-        # Rotation: a new refresh token is issued, but the old one must REMAIN
-        # usable (BLACKLIST_AFTER_ROTATION=False). The Next.js frontend
-        # refreshes from both middleware and React Server Components; RSCs
-        # cannot persist the rotated cookie, so a single-use refresh token
-        # would deterministically 401 the side still holding the old token and
-        # force-log admins out every access-token lifetime.
-        self.assertIn("refresh", refreshed)
-        reuse = self.client.post("/api/token/refresh/", {"refresh": data["refresh"]})
-        self.assertEqual(reuse.status_code, 200)
-
-    def test_bad_credentials_rejected(self):
-        make_user("partner", email="bad@districtr.org")
-        response = self.client.post(
-            "/api/token/",
-            {"username": "bad@districtr.org", "password": "wrong-password"},
-        )
-        self.assertEqual(response.status_code, 401)
-
+class TokenAudienceTests(TestCase):
     def test_audience_and_issuer_enforced(self):
         user = make_user("partner", email="aud@districtr.org")
-        token = str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
+        token = mint_user_access_token(user)
         keys = {k["kid"]: k for k in all_jwks()}
         signing_key = pyjwt.algorithms.RSAAlgorithm.from_jwk(
             json.dumps(keys[pyjwt.get_unverified_header(token)["kid"]])

@@ -6,22 +6,12 @@ from wagtail import urls as wagtail_urls
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.documents import urls as wagtaildocs_urls
 
-from authapi.views import (
-    DistrictrTokenObtainPairView,
-    DistrictrTokenRefreshView,
-    jwks,
-)
+from authapi.views import jwks
 from core.views import health
 
 urlpatterns = [
     path("health", health),
     path(".well-known/jwks.json", jwks),
-    path("api/token/", DistrictrTokenObtainPairView.as_view(), name="token_obtain"),
-    path(
-        "api/token/refresh/",
-        DistrictrTokenRefreshView.as_view(),
-        name="token_refresh",
-    ),
     # Public content compat API (replaces the legacy FastAPI /api/cms/content).
     path("api/content/", include("content.urls")),
     path("django-admin/", admin.site.urls),

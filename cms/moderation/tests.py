@@ -15,10 +15,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from core.testing import PASSWORD, make_admin_user, make_portal, make_team
-from authapi.serializers import (
-    DistrictrTokenObtainPairSerializer,
-    mint_user_access_token,
-)
+from authapi.serializers import mint_user_access_token
 from authapi.tests import fastapi_style_verify
 
 
@@ -103,17 +100,6 @@ class MintUserAccessTokenTests(TestCase):
         self.assertEqual(payload["review_tags"], ["a-tour", "b-tour"])
         self.assertNotIn("read:read-all", payload["scope"].split())
         self.assertIn("create:content_review", payload["scope"].split())
-
-    def test_login_path_claims_unchanged_by_refactor(self):
-        # Guard the set_user_claims extraction: the login-issued access token
-        # carries the same claims as the in-process mint.
-        user = make_admin_user(email="both@districtr.org", group_name="partner")
-        login_payload = fastapi_style_verify(
-            str(DistrictrTokenObtainPairSerializer.get_token(user).access_token)
-        )
-        minted_payload = fastapi_style_verify(mint_user_access_token(user))
-        for claim in ("sub", "scope", "roles", "email", "name"):
-            self.assertEqual(login_payload[claim], minted_payload[claim], claim)
 
 
 # ---------------------------------------------------------------------------

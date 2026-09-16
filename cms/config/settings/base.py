@@ -42,8 +42,6 @@ INSTALLED_APPS = [
     "wagtail",
     "modelcluster",
     "taggit",
-    "rest_framework",
-    "rest_framework_simplejwt.token_blacklist",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -221,30 +219,10 @@ SIMPLE_JWT = {
     "VERIFYING_KEY": JWT_VERIFYING_KEY,
     "ISSUER": JWT_ISSUER,
     "AUDIENCE": JWT_AUDIENCE,
+    # No login/refresh endpoints and no refresh tokens: the Wagtail admin is
+    # session-authenticated and mints short-lived access tokens in-process
+    # (authapi/serializers.py::mint_user_access_token). This dict only
+    # configures how those tokens are signed.
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-    "ROTATE_REFRESH_TOKENS": True,
-    # Refresh tokens MUST stay multi-use. The Next.js frontend refreshes from
-    # both middleware and React Server Components; RSCs cannot persist the
-    # rotated cookie, so single-use refresh tokens (blacklist-after-rotation)
-    # deterministically brick admin sessions: the middleware/RSC double
-    # refresh blacklists the token one side still holds and the next refresh
-    # 401s, force-logging admins out every ACCESS_TOKEN_LIFETIME. Trade-off:
-    # an old refresh token stays valid until its own 14-day exp. The
-    # token_blacklist app stays installed for outstanding-token bookkeeping.
-    "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_TOKEN_CLASSES": ("authapi.tokens.KidAccessToken",),
-    "UPDATE_LAST_LOGIN": True,
-}
-
-REST_FRAMEWORK = {
-    # ALB -> task, nothing in front, so one proxy hop: throttle on the
-    # client address from X-Forwarded-For, not the load balancer's.
-    "NUM_PROXIES": 1,
-    "DEFAULT_THROTTLE_RATES": {
-        # Brute-force guard on /api/token/. Counted per gunicorn worker
-        # (LocMemCache), so the real ceiling is rate x workers; a shared
-        # cache backend is only worth it if the CMS scales past one task.
-        "login": "10/min",
-    },
 }
