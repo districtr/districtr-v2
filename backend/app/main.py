@@ -1423,9 +1423,7 @@ def get_assignments(
         fmt=format,
         columns=["geo_id", "zone", "parent_path"],
         filename=(
-            f"assignments_{document.document_id}.csv"
-            if format == RowFormat.csv
-            else None
+            f"assignments_{document.public_id}.csv" if format == RowFormat.csv else None
         ),
     )
 

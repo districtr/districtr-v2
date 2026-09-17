@@ -87,3 +87,25 @@ def test_get_block_assignments_csv_export(
         response.text
         == "geo_id,zone\n000010000000001,1\n000010000000002,1\n000010000000003,2\n"
     )
+
+
+def test_download_filenames_never_contain_document_uuid(
+    client: TestClient, assignments_document_id: str
+):
+    # The document UUID is the edit capability: a downloaded file that carries it
+    # in its name leaks edit rights when shared. Both download routes must name
+    # files by public_id whether they were reached via the UUID or the public_id.
+    document_id = assignments_document_id
+    public_id = client.get(f"/api/document/{document_id}").json()["public_id"]
+    assert public_id is not None
+    for doc_ref in (document_id, public_id):
+        for url in (
+            f"/api/document/{doc_ref}/export?export_type=BlockAssignmentsCSV",
+            f"/api/get_assignments/{doc_ref}?format=csv",
+        ):
+            response = client.get(url)
+            assert response.status_code == 200, response.text
+            disposition = response.headers["content-disposition"]
+            assert document_id not in disposition, url
+            assert str(public_id) in disposition, url
+            assert document_id not in response.text, url

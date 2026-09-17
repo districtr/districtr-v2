@@ -134,7 +134,7 @@ def export_document(
         DocumentExportType.districts_shapefile: "zip",
         DocumentExportType.evaluation_json: "json",
     }[_export_type]
-    out_file_name = f"{document_id}_{_export_type.value}_{timestamp}.{ext}"
+    out_file_name = f"{document.public_id}_{_export_type.value}_{timestamp}.{ext}"
     _out_file = f"/tmp/{out_file_name}"
     background_tasks.add_task(remove_file, _out_file)
 
