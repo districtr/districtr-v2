@@ -71,21 +71,21 @@ const mintSession = async (): Promise<string | null> => {
  * Turnstile if needed. Never throws; returns null on any failure, on the
  * server, or when no site key is configured.
  *
- * Checks for `document` rather than `window` — this also runs inside
- * GeometryWorker (a dedicated Web Worker), where some bundler targets still
- * expose a `window` global. The Turnstile widget can only render where
- * `<SessionChallenge />` is mounted (the main thread), so a document-less
- * caller returns null immediately instead of stalling for the full
- * silent-challenge timeout on every call.
+ * Requests issued from GeometryWorker (a dedicated Web Worker) always carry
+ * no session token: the `document` check below returns null immediately for
+ * it rather than mint, since Turnstile can only render on the main thread
+ * (`<SessionChallenge />`). This is currently harmless only because
+ * `SESSION_ENFORCE` is off (backend/app/core/config.py) — every gated
+ * endpoint logs and proceeds without one, for any caller. If
+ * `SESSION_ENFORCE` is ever turned on, every endpoint GeometryWorker calls
+ * (e.g. `/unassigned`) will start rejecting with 401 `session_required`,
+ * since there is currently no path for a worker to carry a real token — it
+ * would need the main thread's already-minted token passed into the worker
+ * call.
  *
- * That means requests issued from GeometryWorker always carry no session
- * token. This is currently harmless only because `SESSION_ENFORCE` is off
- * (backend/app/core/config.py) — every gated endpoint logs and proceeds
- * without one, for any caller. If `SESSION_ENFORCE` is ever turned on,
- * every endpoint GeometryWorker calls (e.g. `/unassigned`) will start
- * rejecting with 401 `session_required`, since there is currently no path
- * for a worker to carry a real token — it would need the main thread's
- * already-minted token passed into the worker call.
+ * (`document` rather than `window` in the check below: some bundler worker
+ * targets still expose a `window` global inside GeometryWorker, but
+ * `document` never does.)
  */
 export async function getSessionToken(): Promise<string | null> {
   if (typeof document === 'undefined' || !TURNSTILE_SESSION_SITE_KEY) return null;
