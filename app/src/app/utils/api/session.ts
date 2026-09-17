@@ -70,9 +70,17 @@ const mintSession = async (): Promise<string | null> => {
  * Get a session token for the X-Districtr-Session header, minting one via
  * Turnstile if needed. Never throws; returns null on any failure, on the
  * server, or when no site key is configured.
+ *
+ * Checks for `document` rather than `window`: this runs inside GeometryWorker
+ * (a dedicated Web Worker) as well as the main thread, and some bundler
+ * worker targets still expose a `window` global there. The Turnstile widget
+ * is DOM-based and can only ever render on the main thread (where
+ * `<SessionChallenge />` is mounted) — minting from a document-less context
+ * can never succeed and would otherwise stall for the full silent-challenge
+ * timeout on every call.
  */
 export async function getSessionToken(): Promise<string | null> {
-  if (typeof window === 'undefined' || !TURNSTILE_SESSION_SITE_KEY) return null;
+  if (typeof document === 'undefined' || !TURNSTILE_SESSION_SITE_KEY) return null;
   if (isFresh(cached)) return cached.token;
   const stored = readStorage();
   if (isFresh(stored)) {
