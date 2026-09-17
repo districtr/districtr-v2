@@ -71,13 +71,21 @@ const mintSession = async (): Promise<string | null> => {
  * Turnstile if needed. Never throws; returns null on any failure, on the
  * server, or when no site key is configured.
  *
- * Checks for `document` rather than `window`: this runs inside GeometryWorker
- * (a dedicated Web Worker) as well as the main thread, and some bundler
- * worker targets still expose a `window` global there. The Turnstile widget
- * is DOM-based and can only ever render on the main thread (where
- * `<SessionChallenge />` is mounted) — minting from a document-less context
- * can never succeed and would otherwise stall for the full silent-challenge
- * timeout on every call.
+ * Checks for `document` rather than `window` — this also runs inside
+ * GeometryWorker (a dedicated Web Worker), where some bundler targets still
+ * expose a `window` global. The Turnstile widget can only render where
+ * `<SessionChallenge />` is mounted (the main thread), so a document-less
+ * caller returns null immediately instead of stalling for the full
+ * silent-challenge timeout on every call.
+ *
+ * That means requests issued from GeometryWorker always carry no session
+ * token. This is currently harmless only because `SESSION_ENFORCE` is off
+ * (backend/app/core/config.py) — every gated endpoint logs and proceeds
+ * without one, for any caller. If `SESSION_ENFORCE` is ever turned on,
+ * every endpoint GeometryWorker calls (e.g. `/unassigned`) will start
+ * rejecting with 401 `session_required`, since there is currently no path
+ * for a worker to carry a real token — it would need the main thread's
+ * already-minted token passed into the worker call.
  */
 export async function getSessionToken(): Promise<string | null> {
   if (typeof document === 'undefined' || !TURNSTILE_SESSION_SITE_KEY) return null;
