@@ -9,7 +9,6 @@ import {formatErrorDetail, get, post} from '../factory';
 interface SubmissionPublic {
   id: number;
   portal_id: string;
-  tags: string[];
   nsfw: boolean;
   map_public_id: number | null;
   created_at: string | null;
@@ -30,7 +29,6 @@ export interface CommentListing {
   state: string | null;
   zip_code: string | null;
   created_at: Date;
-  tags?: string[];
   /** Blur this entry until the reader opts in */
   nsfw: boolean;
   /** Public ID of the associated map, if any */
@@ -41,8 +39,8 @@ export interface CommentListing {
 export interface CommentFilters {
   /** Filter by specific submission IDs (curated galleries) */
   ids?: number[];
-  /** Filter by tag slugs */
-  tags?: string[];
+  /** Filter by portal slugs (a gallery block's `tags` attribute) */
+  portalIds?: string[];
   /** Filter by a specific portal */
   portalId?: string;
   place?: string;
@@ -70,7 +68,6 @@ const flatten = (row: SubmissionPublic): CommentListing => ({
   state: row.fields.state ?? null,
   zip_code: row.fields.zip_code ?? null,
   created_at: new Date(row.submitted_at ?? row.created_at ?? 0),
-  tags: row.tags,
   nsfw: row.nsfw,
   public_id: row.map_public_id,
 });

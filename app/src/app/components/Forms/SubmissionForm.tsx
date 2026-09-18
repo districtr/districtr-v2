@@ -6,7 +6,7 @@ import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
-import {useEffect, useLayoutEffect, useRef} from 'react';
+import {useLayoutEffect, useRef} from 'react';
 import {CUSTOM_FIELD_MAX_LENGTHS, FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
 
 export interface CustomFieldSpec {
@@ -26,7 +26,6 @@ export interface SubmissionFormProps {
   requireEmailConfirm?: boolean;
   /** Admin-defined questions beyond the registry (answers are public). */
   customFields?: CustomFieldSpec[] | null;
-  mandatoryTags: string[];
   allowListModules: string[] | null;
 }
 
@@ -42,7 +41,6 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   requiredFields,
   requireEmailConfirm,
   customFields,
-  mandatoryTags,
   allowListModules,
 }) => {
   const formRef = useRef<HTMLFormElement>(null);
@@ -70,14 +68,6 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   useLayoutEffect(() => {
     setFormRef(formRef);
   }, [formRef]);
-
-  // Editor-set block tags still ride along on the submission (for curated
-  // cross-portal galleries), just without a public tag-picker UI — portal
-  // membership itself is the submission's portal_id, not a tag.
-  const setTags = useFormState(state => state.setTags);
-  useEffect(() => {
-    mandatoryTags.forEach(tag => setTags(tag, 'add'));
-  }, [mandatoryTags, setTags]);
 
   if (!portalId || !fields) {
     // No form config for this portal (or a form block on a non-portal page).

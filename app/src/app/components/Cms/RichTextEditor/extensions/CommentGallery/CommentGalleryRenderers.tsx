@@ -5,7 +5,7 @@
  * They handle conditional display of fields based on the options prop.
  */
 'use client';
-import {Badge, Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
+import {Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
 import {PersonIcon, CalendarIcon, GlobeIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {flagSubmission, type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
 import {formatDistanceToNow} from 'date-fns';
@@ -141,13 +141,8 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
             </Text>
           )}
 
-          {/* Tags, Map, Report */}
+          {/* Map, Report */}
           <Flex wrap="wrap" gap="2" align="center">
-            {comment.tags?.map(tag => (
-              <Badge key={tag} size="1" variant="surface" color="purple" className="cursor-default">
-                #{tag}
-              </Badge>
-            ))}
             {options.showMaps && comment.public_id && <MapLink publicId={comment.public_id} />}
             <ReportButton submissionId={comment.id} />
           </Flex>
