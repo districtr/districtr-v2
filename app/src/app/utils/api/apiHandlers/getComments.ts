@@ -3,7 +3,7 @@
  * source). There is no approval gate: everything visible is served, with
  * `nsfw` marking entries the UI blurs behind an opt-in reveal.
  */
-import {get, post} from '../factory';
+import {formatErrorDetail, get, post} from '../factory';
 
 /** Raw row from GET /api/submissions (backend SubmissionPublic). */
 interface SubmissionPublic {
@@ -86,7 +86,9 @@ export const getPublicComments = async (
     }
   }
   const response = await get<SubmissionPublic[]>('submissions')({queryParams});
-  if (!response.ok) return response;
+  if (!response.ok) {
+    return {ok: false, error: {detail: formatErrorDetail(response.error.detail)}};
+  }
   return {ok: true, response: response.response.map(flatten)};
 };
 

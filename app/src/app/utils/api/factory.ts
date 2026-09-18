@@ -2,6 +2,18 @@ import {API_URL} from './constants';
 import {fetchWithSession} from './session';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
 import {ClientSession} from '@/app/lib/auth';
+/**
+ * Flatten an error `detail` to a string. Aggregated validation errors are
+ * list[str]; FastAPI's own request validation is list[{msg,...}]. Rendering
+ * either as a React child throws, so galleries showed a blank region.
+ */
+export const formatErrorDetail = (detail: unknown): string =>
+  Array.isArray(detail)
+    ? detail
+        .map(d => (typeof d === 'string' ? d : ((d as {msg?: string})?.msg ?? JSON.stringify(d))))
+        .join('; ')
+    : String(detail);
+
 export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
 /**
  * API endpoint handler factory
