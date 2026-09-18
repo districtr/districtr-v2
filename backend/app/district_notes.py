@@ -143,20 +143,25 @@ def sync_district_notes(
     """Full replace-by-diff sync of a document's zone notes.
 
     Each note is {comment_id?, zone, text}: a comment_id that exists for this
-    document updates that row, anything else inserts, and existing rows not in
-    the payload are deleted. Notes are truncated to the map's length limit and
-    capped per zone. Document existence is enforced upstream (the assignments
-    endpoint 404s first) and by the FK.
+    document AND sits in the same zone updates that row, anything else inserts,
+    and existing rows not in the payload are deleted. The zone check keeps a
+    stray id (a client-side placeholder that happens to parse as a real row id)
+    from silently relabelling another zone's note. Notes are truncated to the
+    map's length limit and capped per zone. Moderation is scheduled only for
+    text that changed; the client resends every note on every save. Document
+    existence is enforced upstream (the assignments endpoint 404s first) and
+    by the FK.
     """
     max_note_length, max_notes_per_zone = _get_note_limits_for_document(
         document_id, session
     )
 
-    existing_ids = set(
-        session.scalars(
-            select(DistrictNote.id).where(col(DistrictNote.document_id) == document_id)
+    existing = {
+        row.id: row
+        for row in session.exec(
+            select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
         )
-    )
+    }
 
     # Normalize first: a note that is empty after truncation (blank input, or
     # a map with comment_length_limit=0 — the supported "descriptions
@@ -183,23 +188,27 @@ def sync_district_notes(
 
     kept_ids: set[int] = set()
     for n, text in normalized:
-        if n.comment_id is not None and n.comment_id in existing_ids:
-            session.execute(
-                update(DistrictNote)
-                .where(col(DistrictNote.id) == n.comment_id)
-                .values(note=text, zone=n.zone)
-            )
-            note_id = n.comment_id
+        row = existing.get(n.comment_id) if n.comment_id is not None else None
+        if row is not None and row.zone == n.zone:
+            changed = row.note != text
+            if changed:
+                session.execute(
+                    update(DistrictNote)
+                    .where(col(DistrictNote.id) == row.id)
+                    .values(note=text)
+                )
+            note_id = row.id
         else:
+            changed = True
             new_note = DistrictNote(document_id=document_id, zone=n.zone, note=text)
             session.add(new_note)
             session.flush()
             note_id = new_note.id
         kept_ids.add(note_id)
-        if background_tasks:
+        if background_tasks and changed:
             background_tasks.add_task(moderate_note_by_id, note_id, text)
 
-    to_delete = existing_ids - kept_ids
+    to_delete = set(existing) - kept_ids
     if to_delete:
         session.execute(delete(DistrictNote).where(col(DistrictNote.id).in_(to_delete)))
 
