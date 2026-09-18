@@ -1,5 +1,4 @@
-import {Slider, Flex, Heading, Text, Box, Kbd} from '@radix-ui/themes';
-import {useAltHeld} from '@/app/hooks/useAltHeld';
+import {Slider, Flex, Heading, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useEffect} from 'react';
@@ -19,17 +18,6 @@ export function BrushSizeSelector() {
   const brushSize = useMapControlsStore(state => state.brushSize);
   const setBrushSize = useMapControlsStore(state => state.setBrushSize);
   const access = useMapStore(state => state.mapStatus?.access);
-  // Same reveal gesture as the tool buttons' hotkey badges: hints show only
-  // while Alt/Option is held. They flank the thumb because that is what the
-  // keys do — nudge the value left or right.
-  const showHotkeyHints = useAltHeld();
-  const thumbPct = ((brushSize - BRUSH_MIN_SIZE) / (BRUSH_MAX_SIZE - BRUSH_MIN_SIZE)) * 100;
-  // The thumb's travel is inset by half its width at each end, so its center
-  // sits at pct% + (0.5 - pct) * thumbWidth of the track, not at raw pct%.
-  // Size-3 thumb = track (space-2 * 1.25 = 10px) + space-1 (4px) = 14px.
-  const SLIDER_THUMB_WIDTH = 14;
-  const HINT_GAP = 14;
-  const thumbCorrection = (0.5 - thumbPct / 100) * SLIDER_THUMB_WIDTH;
 
   const handleChangeEnd = (value: Array<number>) => {
     setBrushSize(value.length ? value[0] : 0);
@@ -76,57 +64,18 @@ export function BrushSizeSelector() {
       <Flex direction="column" width="100%" gap="1">
         <Text size="2">Brush Size</Text>
         <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
-          <Box position="relative" width="100%">
-            <Slider
-              defaultValue={[brushSize]}
-              size="3"
-              value={[brushSize]}
-              onValueChange={access === ACCESS_STATES.READ ? () => {} : handleChangeEnd}
-              min={BRUSH_MIN_SIZE}
-              max={BRUSH_MAX_SIZE}
-              disabled={access === ACCESS_STATES.READ}
-              style={
-                {
-                  '--gray-a3': 'var(--gray-a6)',
-                  '--gray-a5': 'var(--gray-a8)',
-                } as React.CSSProperties
-              }
-            />
-            {showHotkeyHints && (
-              <>
-                <Kbd
-                  size="1"
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    // Anchored by its right edge so the gap to the thumb
-                    // mirrors "]" exactly, whatever width the glyph renders
-                    // at. Constant gap even past the track ends; the key that
-                    // can do nothing there is dimmed.
-                    right: `calc(${100 - thumbPct}% + ${HINT_GAP - thumbCorrection}px)`,
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                    opacity: brushSize <= BRUSH_MIN_SIZE ? 0 : 1,
-                  }}
-                >
-                  [
-                </Kbd>
-                <Kbd
-                  size="1"
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: `calc(${thumbPct}% + ${HINT_GAP + thumbCorrection}px)`,
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                    opacity: brushSize >= BRUSH_MAX_SIZE ? 0 : 1,
-                  }}
-                >
-                  ]
-                </Kbd>
-              </>
-            )}
-          </Box>
+          <Slider
+            defaultValue={[brushSize]}
+            size="3"
+            value={[brushSize]}
+            onValueChange={access === ACCESS_STATES.READ ? () => {} : handleChangeEnd}
+            min={BRUSH_MIN_SIZE}
+            max={BRUSH_MAX_SIZE}
+            disabled={access === ACCESS_STATES.READ}
+            style={
+              {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
+            }
+          />
         </Flex>
       </Flex>
     </Flex>
