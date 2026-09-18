@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.district_notes import moderate_note_by_id
+from app.district_notes.tasks import moderate_note_by_id
 from app.thumbnails.main import generate_thumbnail
 
 

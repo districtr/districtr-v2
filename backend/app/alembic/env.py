@@ -18,7 +18,7 @@ from app.models import (
     DistrictUnions,
 )
 from app.save_share.models import MapDocumentToken
-from app.district_notes import DistrictNote
+from app.district_notes.models import DistrictNote
 from app.evaluation.models import Evaluation
 from app.submissions.models import (
     FormConfig,

@@ -47,7 +47,7 @@ from app.core.security import (
     require_session,
     turnstile,
 )
-from app.district_notes import duplicate_district_notes
+from app.district_notes.services import duplicate_district_notes
 from app.models import Document
 from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (

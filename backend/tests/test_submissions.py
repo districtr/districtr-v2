@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from app.core.security import auth
 from app.main import app
-from app.district_notes import DistrictNote
+from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission

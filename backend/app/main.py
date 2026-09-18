@@ -57,10 +57,12 @@ from app.core.security import (
 import app.admin_ops.main as admin_ops
 import app.cms.main as cms
 import app.exports.main as exports
-from app.district_notes import (
+from app.models import DocumentCommentCreate
+from app.district_notes.models import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
-    DistrictNote,
+)
+from app.district_notes.services import (
     duplicate_district_notes,
     sync_district_notes,
 )
@@ -541,14 +543,21 @@ async def create_document(
                 # The response select below reads through session.connection(),
                 # which does not autoflush.
                 session.flush()
-            for original_label, new_zone in zone_label_remapping.items():
-                display_label = original_label if original_label else "(blank)"
-                session.add(
-                    DistrictNote(
-                        document_id=document_id,
-                        zone=new_zone,
-                        note=f"Originally labeled as {display_label}",
-                    )
+            if zone_label_remapping:
+                # Same path as the editor's own notes, so the map's length and
+                # count limits (0 = descriptions disabled) and moderation apply;
+                # the label text is raw CSV input.
+                sync_district_notes(
+                    document_id=document_id,
+                    notes=[
+                        DocumentCommentCreate(
+                            zone=new_zone,
+                            text=f"Originally labeled as {original_label or '(blank)'}",
+                        )
+                        for original_label, new_zone in zone_label_remapping.items()
+                    ],
+                    session=session,
+                    background_tasks=background_tasks,
                 )
         except NoResultFound:
             session.rollback()
