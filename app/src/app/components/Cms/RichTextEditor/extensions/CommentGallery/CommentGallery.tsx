@@ -365,6 +365,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         tableHeader={
           <>
             {showTitles && <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>}
+            <Table.ColumnHeaderCell>Comment</Table.ColumnHeaderCell>
             {showIdentifier && <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>}
             {showPlaces && <Table.ColumnHeaderCell>Place</Table.ColumnHeaderCell>}
             {showStates && <Table.ColumnHeaderCell>State</Table.ColumnHeaderCell>}
