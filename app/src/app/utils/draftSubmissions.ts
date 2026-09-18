@@ -12,8 +12,6 @@ export interface DraftSubmission {
   /** The portal's collection mode at creation time; 'prompt' opens the
    * submit modal on ready-to-share. Absent on legacy records. */
   collectionMode?: string | null;
-  /** User declined the ready-to-share prompt; keep the manual button only. */
-  suppressed?: boolean;
   /** Finalized — nothing left to prompt for. */
   submitted?: boolean;
 }
@@ -60,3 +58,18 @@ export const updateDraftSubmission = (documentId: string, updates: Partial<Draft
   if (!all[documentId]) return;
   writeAll({...all, [documentId]: {...all[documentId], ...updates}});
 };
+
+/** Whether the submit-to-portal prompt applies to this map right now: an
+ * unsubmitted draft on a prompt-mode portal, with the map marked ready to
+ * share (finalize hard-requires that server-side, so offering it earlier
+ * guarantees a 409 and burns a captcha). Auto modes finalize server-side and
+ * 'form' portals never create drafts. Legacy records without a stored mode
+ * predate the modes and were all prompt-flow. */
+export const canSubmitDraft = (
+  draft: DraftSubmission | null | undefined,
+  draftStatus: string | null | undefined
+): draft is DraftSubmission =>
+  !!draft &&
+  !draft.submitted &&
+  (draft.collectionMode ?? 'prompt') === 'prompt' &&
+  draftStatus === 'ready_to_share';
