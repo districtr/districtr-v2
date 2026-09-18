@@ -16,7 +16,7 @@ from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
 )
-from app.district_notes import (
+from app.district_notes.models import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
     DistrictNote,
@@ -88,16 +88,6 @@ def get_protected_document(
         raise HTTPException(status_code=500, detail="Error loading document")
 
     return document
-
-
-def validate_document_exists(document_id: DocumentID, session: Session) -> bool:
-    """
-    Validate that the document exists. Raises HTTPException 404 if not found.
-    Use when you only need to guard that the document exists and do not need its data.
-    """
-    # This should error if the document doesn't exist
-    get_protected_document(document_id=document_id, session=session)
-    return True
 
 
 def get_document_public(
