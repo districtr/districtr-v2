@@ -119,7 +119,13 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
       activeTool,
       childOnly
     );
-    selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+    selectedFeatures = paintFunction(
+      mapRef,
+      e,
+      brushSize,
+      paintLayers,
+      !TOOLTIP_TOOLS.includes(activeTool)
+    );
   }
 
   handleCoiFeatureSelection(selectedFeatures, mapRef);
@@ -158,7 +164,13 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
     return;
   }
 
-  const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+  const selectedFeatures = paintFunction(
+    mapRef,
+    e,
+    brushSize,
+    paintLayers,
+    !TOOLTIP_TOOLS.includes(activeTool)
+  );
   // Maplibre touch events carry `points`/`lngLats` (not `touches`) — the
   // TouchEvent lives on originalEvent.
   const isTouchEvent =
@@ -180,22 +192,23 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   if (
     isBrushingTool &&
     selectedFeatures?.length &&
-    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)
+    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS.includes(activeTool))
   ) {
     setTooltip({
       ...e.point,
-      data: mapOptions.showPopulationTooltip
-        ? [
-            {
-              label: 'Total Pop',
-              value:
-                selectedFeatures?.reduce(
-                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-                  0
-                ) ?? 'N/A',
-            },
-          ]
-        : [],
+      data:
+        mapOptions.showPopulationTooltip && !TOOLTIP_TOOLS.includes(activeTool)
+          ? [
+              {
+                label: 'Total Pop',
+                value:
+                  selectedFeatures?.reduce(
+                    (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+                    0
+                  ) ?? 'N/A',
+              },
+            ]
+          : [],
     });
   } else {
     setTooltip(null);
