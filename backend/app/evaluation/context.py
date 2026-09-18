@@ -13,7 +13,7 @@ import logging
 
 from functools import cached_property
 from pathlib import Path
-from typing import ClassVar, NewType, cast
+from typing import ClassVar, Iterable, NewType, cast
 
 import fastapi
 import numpy as np
@@ -43,6 +43,23 @@ ElectionPartyKey = NewType("ElectionPartyKey", str)
 DemographicColumn = NewType("DemographicColumn", str)
 
 TOTAL_POP_COL = "total_pop_20"
+
+
+def elections_from_columns(columns: Iterable[str]) -> list[Election]:
+    """Election prefixes among column names, e.g. "pres_2020" from "pres_2020_dem"."""
+    return [Election(c.removesuffix("_dem")) for c in columns if c.endswith("_dem")]
+
+
+def demographic_columns_from_columns(columns: Iterable[str]) -> list[DemographicColumn]:
+    """Demographic population columns, e.g. "hpop_20": "pop" appears in the name,
+    excluding the total and catch-all "other" aggregates.
+    """
+    return [
+        DemographicColumn(c)
+        for c in columns
+        if "pop" in c and not c.startswith(("other_pop", "total_pop"))
+    ]
+
 
 _transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
 
@@ -103,20 +120,12 @@ class DocumentEvaluationContext:
     @cached_property
     def elections(self) -> list[Election]:
         """Election prefixes for demographic columns (e.g. "pres_2020")"""
-        return [
-            Election(s.removesuffix("_dem"))
-            for s in self.demographic_data.columns
-            if s.endswith("_dem")
-        ]
+        return elections_from_columns(self.demographic_data.columns)
 
     @cached_property
     def demographic_columns(self) -> list[DemographicColumn]:
         """Demographic columns (e.g. "hpop_20")"""
-        return [
-            col
-            for col in self.demographic_data.columns
-            if "pop" in col and not col.startswith(("other_pop", "total_pop"))
-        ]
+        return demographic_columns_from_columns(self.demographic_data.columns)
 
     @cached_property
     def dem_wins(self) -> dict[Election, pd.Series]:

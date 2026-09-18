@@ -241,7 +241,7 @@ def _resolve_public_id(raw_id: str, session: Session) -> int | None:
 
 
 @router.get("/api/document/{public_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(*, public_id: str, session: Session = Depends(get_session)):
+def get_thumbnail(*, public_id: str, session: Session = Depends(get_session)):
     resolved_public_id = _resolve_public_id(public_id, session)
     if resolved_public_id is not None:
         thumbail_file_path = get_thumbnail_file_path(resolved_public_id)
@@ -254,7 +254,7 @@ async def get_thumbnail(*, public_id: str, session: Session = Depends(get_sessio
 
 
 @router.post("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def make_thumbnail(
+def make_thumbnail(
     *,
     document: Annotated[Document, Depends(get_document)],
     background_tasks: BackgroundTasks,
@@ -357,7 +357,7 @@ def _generate_blank(
 @router.post(
     "/api/gerrydb/{districtr_map_slug}/thumbnail", status_code=status.HTTP_200_OK
 )
-async def make_districtrmap_thumbnail(
+def make_districtrmap_thumbnail(
     *,
     districtr_map_slug: str,
     background_tasks: BackgroundTasks,

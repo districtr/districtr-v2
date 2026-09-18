@@ -11,8 +11,8 @@ from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
-import app.evaluation.graph as eval_graph_module
-from app.evaluation.graph import get_graph as _get_graph_cached
+import app.evaluation.graph_loader as eval_graph_module
+from app.evaluation.graph_loader import get_graph as _get_graph_cached
 from app.evaluation.context import GerrydbTableName
 from app.evaluation.types import Election
 from tests.constants import (
@@ -824,10 +824,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 # ---------------------------------------------------------------------------
 #
 # def _build_grid_block_graph() -> Graph:
+#     """Plain block graph, no parent hierarchy — mirrors graph_from_gpkg's
+#     non-shatterable-map output (no annotate step run)."""
 #     G = Graph()
 #     for r in range(8):
 #         for c in range(8):
-#             G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+#             G.add_node(_block_geoid(r, c))
 #     for r in range(8):
 #         for c in range(7):
 #             G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
@@ -850,8 +852,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 #     return G
 #
 # def _build_grid_combined_graph() -> Graph:
-#     """Inline of pipelines/transforms/graph.py:_build_combined_graph."""
+#     """Inline of pipelines/transforms/graph.py:_build_combined_graph, with the
+#     annotate step (_annotate_graph_with_parents_from_gpkg) also inlined."""
 #     G = _build_grid_block_graph()
+#     for r in range(8):
+#         for c in range(8):
+#             G.nodes[_block_geoid(r, c)]["parent"] = _vtd_geoid(r // 2, c // 2)
 #     G.graph["weighted_edges"] = {}
 #     for u, v in list(G.edges()):
 #         p_u = G.nodes[u]["parent"]
@@ -919,6 +925,17 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 # #     pickle.dump(G, f)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_graph_disk_cache(tmp_path_factory):
+    """Point the shared mmap graph cache at a fresh temp dir per test.
+
+    Per-test (not per-session) so a graph cached by one test's mock can't
+    leak into a test that forgot to request a graph mock fixture."""
+    from app.core.config import settings as app_settings
+
+    app_settings.GRAPH_CACHE_PATH = str(tmp_path_factory.mktemp("graph-cache"))
+
+
 @pytest.fixture(name="mock_grid_graph_file")
 def mock_grid_graph_file_fixture(monkeypatch):
     """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
@@ -930,6 +947,12 @@ def mock_grid_graph_file_fixture(monkeypatch):
     _get_graph_cached.cache_clear()
     yield
     _get_graph_cached.cache_clear()
+
+
+@pytest.fixture(name="mock_gerrydb_graph_file")
+def mock_gerrydb_graph_file_fixture(mock_grid_graph_file):
+    """Alias: any fixture graph by gerrydb name (not just grids)."""
+    yield
 
 
 _UPSERT_GERRYDBTABLE = text("""

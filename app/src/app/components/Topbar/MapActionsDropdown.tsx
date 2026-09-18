@@ -71,10 +71,10 @@ export const MapActionsDropdown: React.FC<{
     }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
-    // anchor. The backend names the file "{document_id}_{ExportType}_{timestamp}.{ext}"
-    // (exports/main.py) — document_id is a UUID (no underscores), so splitting
+    // anchor. The backend names the file "{public_id}_{ExportType}_{timestamp}.{ext}"
+    // (exports/main.py) — public_id is numeric (no underscores), so splitting
     // on the first "_" cleanly separates it from the "{ExportType}_{timestamp}.{ext}"
-    // suffix, which is always kept as-is. The UUID prefix is swapped for the
+    // suffix, which is always kept as-is. The public_id prefix is swapped for the
     // user's own plan name when set; dropped entirely (not replaced) when not.
     try {
       const response = await fetchWithSession(

@@ -55,7 +55,7 @@ class VerifyToken:
         jwks_url = f"https://{self.config.AUTH0_DOMAIN}/.well-known/jwks.json"
         self.jwks_client = jwt.PyJWKClient(jwks_url)
 
-    async def verify(
+    def verify(
         self,
         security_scopes: SecurityScopes,
         token: HTTPAuthorizationCredentials | None = Depends(HTTPBearer()),

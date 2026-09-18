@@ -21,7 +21,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
-from app.evaluation.graph import S3_GRAPH_PREFIX
+from app.evaluation.graph_loader import S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
 from contextlib import contextmanager
@@ -1064,7 +1064,7 @@ def sync_overlay_metadata(session: Session, metadata: str, dry_run: bool):
 )
 @with_session
 def check_missing_graphs(session: Session, skip_alert: bool):
-    """Query all visible DistrictrMap records and alert via SNS if any graph pkl is absent from S3."""
+    """Query all visible DistrictrMap records and alert via SNS if any graph file (npz or pkl) is absent from S3."""
     topic_arn = settings.ALARM_SNS_TOPIC_ARN
     if not skip_alert and not topic_arn:
         raise click.UsageError(
@@ -1088,22 +1088,32 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         raise SystemExit(1)
 
     # (gerrydb_table_name, status) where status is "missing" or an S3 error code
+    # Either format satisfies the check during the pkl -> npz migration.
     problems = []
     for m in maps:
         assert m.gerrydb_table_name is not None
-        key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.pkl"
-        try:
-            s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
-            logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
-        except botocore.exceptions.ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
-            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
-            problems.append((m.gerrydb_table_name, status))
-        except botocore.exceptions.BotoCoreError as e:
-            # Non-HTTP failures: connection, timeout, credentials, etc.
-            status = type(e).__name__
-            logger.warning("Graph %s: s3://%s/%s", status, settings.R2_BUCKET_NAME, key)
+        status = None
+        for suffix in ("npz", "pkl"):
+            key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.{suffix}"
+            try:
+                s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+                logger.info("Graph present: s3://%s/%s", settings.R2_BUCKET_NAME, key)
+                status = None
+                break
+            except botocore.exceptions.ClientError as e:
+                code = e.response.get("Error", {}).get("Code", "")
+                status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
+            except botocore.exceptions.BotoCoreError as e:
+                # Non-HTTP failures: connection, timeout, credentials, etc.
+                status = type(e).__name__
+        if status is not None:
+            logger.warning(
+                "Graph %s: s3://%s/%s/%s.{npz,pkl}",
+                status,
+                settings.R2_BUCKET_NAME,
+                S3_GRAPH_PREFIX,
+                m.gerrydb_table_name,
+            )
             problems.append((m.gerrydb_table_name, status))
 
     if not problems:
@@ -1115,15 +1125,15 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         return
 
     problem_list = "\n".join(
-        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.pkl — {status}"
+        f"  - s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{name}.{{npz,pkl}} — {status}"
         for name, status in problems
     )
     sns = boto3.client("sns")
     sns.publish(
         TopicArn=topic_arn,
-        Subject=f"[Districtr] {len(problems)} graph pkl file(s) missing or unreachable",
+        Subject=f"[Districtr] {len(problems)} graph file(s) missing or unreachable",
         Message=(
-            f"The following graph pkl files are missing or unreachable in S3:\n\n"
+            f"The following graph files are missing or unreachable in S3:\n\n"
             f"{problem_list}\n\n"
             "For files marked 'missing', re-run the graph pipeline to regenerate; "
             "other entries show the S3 error code encountered."

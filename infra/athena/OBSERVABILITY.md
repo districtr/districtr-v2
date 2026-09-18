@@ -8,7 +8,7 @@ it during a run.
 - **CloudWatch dashboard** `districtr-prod-stress-test` (`infra/monitoring.ts`):
   ECS CPU/memory/task count, ALB requests/latency percentiles/5xx, RDS.
   No new alarms.
-- **`/metrics` scrapes**: manual runbook below — deliberately not in Pulumi.
+- **`/_debug/cache` snapshots**: manual runbook below — deliberately not in Pulumi.
 
 ## Athena over ALB access logs
 
@@ -33,12 +33,17 @@ Logs are delivered in ~5-minute batches; wait a few minutes after the run
 before expecting complete results. The bucket expires objects after
 `logRetentionDays` (90 in prod).
 
-## Prometheus `/metrics` scrapes from the runner
+## `/_debug/cache` snapshots from the runner
 
-The backend already exposes per-endpoint Prometheus histograms at
-`GET /metrics` (`backend/app/main.py:128`), blocked at the ALB by a 403 path
-rule. The runner scrapes tasks directly on port 8080 instead — flat files
-every 15s, no Prometheus server.
+The backend exposes GerryDB graph LRU cache stats at `GET /_debug/cache`,
+blocked at the ALB by a 403 path rule. The runner reaches tasks directly on
+port 8080 instead, snapshotting before and after the run to check per-run
+cache hit rates.
+
+(A per-endpoint Prometheus `/metrics` scrape used to run alongside this —
+removed once the ALB-access-log/Athena path above covered the same
+per-endpoint latency/error data, and `--workers 2` made the in-process
+Prometheus registry's own counters incoherent across scrapes.)
 
 **Temporary SG rule** (backend SG normally admits 8080 from the ALB SG only).
 This is a documented manual pair, intentionally not wired into Pulumi:
@@ -56,29 +61,22 @@ aws ec2 revoke-security-group-ingress --group-id "$BACKEND_SG" \
   --protocol tcp --port 8080 --source-group "$RUNNER_SG"
 ```
 
-**Scrape loop** (on the runner, backgrounded for the duration of the run).
-Task IPs are re-resolved every iteration because autoscaling adds tasks
-mid-run:
+**Snapshot** (on the runner, before and after the run). Task IPs are
+resolved fresh each time because autoscaling adds tasks mid-run:
 
 ```bash
-mkdir -p metrics
-while true; do
-  ips=$(aws ecs describe-tasks --cluster districtr-prod \
-    --tasks $(aws ecs list-tasks --cluster districtr-prod \
-      --service-name backend --query 'taskArns[]' --output text) \
-    --query 'tasks[].containers[].networkInterfaces[].privateIpv4Address' \
-    --output text)
-  ts=$(date +%s)
-  for ip in $ips; do
-    curl -s --max-time 5 "http://$ip:8080/metrics" > "metrics/${ts}_${ip}.prom"
-  done
-  sleep 15
+ips=$(aws ecs describe-tasks --cluster districtr-prod \
+  --tasks $(aws ecs list-tasks --cluster districtr-prod \
+    --service-name backend --query 'taskArns[]' --output text) \
+  --query 'tasks[].containers[].networkInterfaces[].privateIpv4Address' \
+  --output text)
+for ip in $ips; do
+  curl -s --max-time 5 "http://$ip:8080/_debug/cache" > "cache_before_${ip}.json"
 done
 ```
 
-Upload `metrics/` to the run's S3 results prefix afterwards (runner/run.sh
-does this in its artifact-upload step). Per-run cache hit rates: also snapshot
-`http://$ip:8080/_debug/cache` before and after the run.
+Upload the cache snapshots to the run's S3 results prefix afterwards
+(runner/run.sh does this in its artifact-upload step).
 
 ## Existing alarms that may fire during the run
 
