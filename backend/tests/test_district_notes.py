@@ -167,3 +167,57 @@ def test_empty_note_is_treated_as_deletion(_mock, client, document_id, session):
         select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
     ).all()
     assert remaining == []
+
+
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
+def test_matched_id_in_another_zone_does_not_relabel(
+    _mock, client, document_id, session
+):
+    # Unsaved notes carry client UUIDs; a lenient parseInt("3f25…") once sent a
+    # real row id under the wrong zone and overwrote that zone's note.
+    assert _put_note(client, document_id, "zone one", zone=1).status_code == 200
+    zone_one = session.exec(
+        select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+    ).one()
+
+    document_info = client.get(f"/api/document/{document_id}").json()
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [],
+            "comments": [
+                {"comment_id": zone_one.id, "zone": 1, "text": "zone one"},
+                {"comment_id": zone_one.id, "zone": 2, "text": "zone two"},
+            ],
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    session.expire_all()
+    notes = {
+        n.zone: n.note
+        for n in session.exec(
+            select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+        )
+    }
+    assert notes == {1: "zone one", 2: "zone two"}
+
+
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
+def test_unchanged_note_is_not_rescored(mock_score, client, document_id, session):
+    assert _put_note(client, document_id, "same text").status_code == 200
+    assert mock_score.call_count == 1
+    note = session.exec(
+        select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+    ).one()
+    # The client resends the whole set on every save.
+    assert (
+        _put_note(client, document_id, "same text", comment_id=note.id).status_code
+        == 200
+    )
+    assert mock_score.call_count == 1
+    assert (
+        _put_note(client, document_id, "edited", comment_id=note.id).status_code == 200
+    )
+    assert mock_score.call_count == 2
