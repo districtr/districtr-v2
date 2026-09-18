@@ -12,6 +12,9 @@ import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelp
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+import {useMapMetadata} from '@/app/hooks/useMapMetadata';
+import {canSubmitDraft, getDraftSubmission} from '@/app/utils/draftSubmissions';
+import {useDraftSubmissionStore} from '@store/draftSubmissionStore';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -25,6 +28,14 @@ export const MapActionsDropdown: React.FC<{
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
   const {save} = useMapSaveStatus();
+  // Maps started from a portal carry a draft submission; once ready to share
+  // the user can submit from here as well as from Map Details, so declining
+  // the prompt doesn't hide the action.
+  const draftStatus = useMapMetadata()?.draft_status;
+  const draftSubmission = getDraftSubmission(mapDocument?.document_id);
+  const openSubmitPrompt = useDraftSubmissionStore(state => state.openPrompt);
+  const showSubmitToPortal =
+    access === ACCESS_STATES.EDIT && !!draftSubmission && !draftSubmission.submitted;
 
   const notifyExportFailed = (reason: string) =>
     setNotification({
@@ -152,6 +163,21 @@ export const MapActionsDropdown: React.FC<{
           >
             Share map
           </DropdownMenu.Item>
+          {showSubmitToPortal && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              disabled={!canSubmitDraft(draftSubmission, draftStatus)}
+              title={
+                canSubmitDraft(draftSubmission, draftStatus)
+                  ? undefined
+                  : 'Mark the map "Ready to share" first'
+              }
+              data-testid="submit-to-portal"
+              onSelect={() => mapDocument?.document_id && openSubmitPrompt(mapDocument.document_id)}
+            >
+              Submit to the {draftSubmission.portalId} portal
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger disabled={!exportId}>
               Export assignments

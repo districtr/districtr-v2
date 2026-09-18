@@ -19,9 +19,14 @@ import {
   getFormConfig,
   type FormConfigPublic,
 } from '@/app/utils/api/apiHandlers/postSubmission';
-import {FIELD_ORDER, FIELD_REGISTRY} from '@/app/components/Forms/fieldRegistry';
+import {
+  CUSTOM_FIELD_MAX_LENGTHS,
+  FIELD_ORDER,
+  FIELD_REGISTRY,
+} from '@/app/components/Forms/fieldRegistry';
 import {FormField} from '@/app/components/Forms/FormField';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -48,6 +53,7 @@ export const SubmitToPortalModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const {TurnstileComponent, captchaToken} = useTurnstile();
+  const {isOutdated, save} = useMapSaveStatus();
 
   useEffect(() => {
     setConfig(null);
@@ -103,14 +109,25 @@ export const SubmitToPortalModal: React.FC = () => {
     (!needsEmailConfirm || emailConfirm === values['email']) &&
     requiredCustoms.every(c => (values[c.key] ?? '').trim().length > 0);
 
-  const dismiss = () => {
-    updateDraftSubmission(promptDocumentId, {suppressed: true});
-    closePrompt();
-  };
+  const dismiss = () => closePrompt();
 
   const submit = async () => {
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
+    // Finalize clones the SERVER copy of the plan, so pending browser-only
+    // edits must land first or the gallery entry is missing the user's last
+    // strokes. A failed save already surfaced (conflict modal / toast); stop
+    // here without spending the captcha token.
+    if (isOutdated) {
+      const saved = await save(false, {silent: true});
+      if (!saved.ok) {
+        setIsSubmitting(false);
+        setError(
+          'Your latest edits could not be saved, so nothing was submitted. Please try again.'
+        );
+        return;
+      }
+    }
     const response = await finalizeSubmission(draft.submissionId, {
       fields: values,
       tags: [],
@@ -196,7 +213,7 @@ export const SubmitToPortalModal: React.FC = () => {
                   id={custom.key}
                   value={values[custom.key] ?? ''}
                   placeholder={custom.label}
-                  maxLength={5000}
+                  maxLength={CUSTOM_FIELD_MAX_LENGTHS.textarea}
                   onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
                 />
               ) : (
@@ -204,7 +221,7 @@ export const SubmitToPortalModal: React.FC = () => {
                   id={custom.key}
                   value={values[custom.key] ?? ''}
                   placeholder={custom.label}
-                  maxLength={255}
+                  maxLength={CUSTOM_FIELD_MAX_LENGTHS.text}
                   onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
                 />
               )}
