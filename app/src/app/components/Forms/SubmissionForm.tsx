@@ -7,7 +7,7 @@ import {FormField} from './FormField';
 import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {useEffect, useLayoutEffect, useRef} from 'react';
-import {FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
+import {CUSTOM_FIELD_MAX_LENGTHS, FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
 
 export interface CustomFieldSpec {
   key: string;
@@ -20,9 +20,6 @@ export interface SubmissionFormProps {
   disabled?: boolean;
   /** The portal this form submits to (injected by the CMS content API). */
   portalId?: string | null;
-  /** The portal's collection mode (informational here; the form block only
-   * appears on prompt/form portals in practice). */
-  collectionMode?: string | null;
   /** Registry field names this portal's form shows; null = no form config. */
   fields?: string[] | null;
   requiredFields?: string[] | null;
@@ -102,6 +99,13 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   }
   const submissionFields = shown.filter(name => FIELD_REGISTRY[name].section === 'submission');
   const aboutFields = shown.filter(name => FIELD_REGISTRY[name].section === 'about');
+  // checkValidity() only sees native constraints, so the confirm field's match
+  // rule is enforced here — otherwise require_email_confirm degrades to "type
+  // anything twice". A config that requires confirmation without collecting
+  // an email has nothing to confirm, so it doesn't block the form.
+  const emailConfirmed =
+    !requireEmailConfirm || !shown.includes('email') || emailConfirm === emailValue;
+  const canSubmit = !!captchaToken && formIsValid && emailConfirmed;
 
   const renderCustomField = (spec: CustomFieldSpec) => (
     <Box key={spec.key} flexGrow="1">
@@ -111,6 +115,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         label={`${spec.label}${spec.required ? ' *' : ''}`}
         type="text"
         component={spec.fieldType === 'textarea' ? TextArea : undefined}
+        maxLength={CUSTOM_FIELD_MAX_LENGTHS[spec.fieldType]}
         required={spec.required}
       />
     </Box>
@@ -186,12 +191,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
       <form
         onSubmit={e => {
           e.preventDefault();
-          // checkValidity() only sees native constraints, so the confirm
-          // field's match rule must be enforced here — otherwise
-          // require_email_confirm degrades to "type anything twice".
-          const emailConfirmed =
-            !requireEmailConfirm || (shown.includes('email') && emailConfirm === emailValue);
-          if (captchaToken && formIsValid && emailConfirmed) {
+          if (!emailConfirmed) {
+            setError('Email addresses must match');
+            return;
+          }
+          if (canSubmit) {
             // Custom keys must be in the allowlist too, or the store filter
             // strips their answers before POST (silent loss for optional
             // customs; an unrecoverable 422 for required ones).
@@ -232,8 +236,8 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             <Button
               type="submit"
               size="4"
-              color={!captchaToken || !formIsValid ? 'gray' : 'green'}
-              className={`${!captchaToken || !formIsValid ? 'cursor-not-allowed opacity-50' : ''} w-min`}
+              color={canSubmit ? 'green' : 'gray'}
+              className={`${canSubmit ? '' : 'cursor-not-allowed opacity-50'} w-min`}
               onMouseEnter={() => setHighlightErrors(true)}
               onMouseLeave={() => setHighlightErrors(false)}
             >
