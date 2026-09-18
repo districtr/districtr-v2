@@ -75,13 +75,12 @@ VALID_FIELDS = {
 }
 
 
-def _submit(client, fields=None, tags=None, map_ref=None, portal_id=PORTAL):
+def _submit(client, fields=None, map_ref=None, portal_id=PORTAL):
     return client.post(
         "/api/submissions",
         json={
             "portal_id": portal_id,
             "fields": fields if fields is not None else VALID_FIELDS,
-            "tags": tags or [],
             "map_ref": map_ref,
             "turnstile_token": "test_token",
         },
@@ -125,17 +124,16 @@ class TestValidation:
         assert "Invalid zip code" in errors
 
     def test_valid_submission_immediately_visible(self, client, form_config):
-        response = _submit(client, tags=["River Basin"])
+        response = _submit(client)
         assert response.status_code == 201
         assert set(response.json().keys()) == {"id", "submission_id"}
 
         listed = client.get(f"/api/submissions?portal_id={PORTAL}").json()
         assert len(listed) == 1
         entry = listed[0]
-        # No approval gate: visible right away, portal tag auto-applied,
-        # free tags slugified.
+        # No approval gate: visible right away.
         assert entry["fields"]["title"] == "My testimony"
-        assert entry["tags"] == [PORTAL, "river-basin"]
+        assert entry["portal_id"] == PORTAL
         assert entry["nsfw"] is False
 
     def test_slugify(self):
@@ -356,7 +354,7 @@ class TestCloneAtSubmission:
         assert _assignment_count(session, clone.document_id) == 1
 
         # The gallery lists the clone under the portal tag.
-        gallery = client.get(f"/api/documents/list?tags={PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [submission.map_public_id]
 
 
@@ -383,7 +381,6 @@ class TestDraftFinalize:
             f"/api/submissions/{submission_id}/finalize",
             json={
                 "fields": fields if fields is not None else VALID_FIELDS,
-                "tags": [],
                 "turnstile_token": "test_token",
             },
         )
@@ -400,6 +397,15 @@ class TestDraftFinalize:
         ).one()
         assert draft.status == "draft"
         assert draft.map_public_id == doc["public_id"]
+        # The map belongs to the portal it was started from.
+        assert (
+            session.exec(
+                select(Document.portal_id).where(
+                    col(Document.public_id) == doc["public_id"]
+                )
+            ).one()
+            == PORTAL
+        )
         # Drafts are invisible publicly and never in the gallery.
         assert client.get(f"/api/submissions?portal_id={PORTAL}").json() == []
 
@@ -485,7 +491,7 @@ class TestGalleryExclusion:
         document_id = response.json()["document_id"]
         _mark_ready(session, document_id)
 
-        listed = client.get(f"/api/documents/list?tags={PORTAL}").json()
+        listed = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
         assert listed == []
 
     def test_hidden_and_nsfw_submissions_leave_the_tag_gallery(
@@ -493,7 +499,7 @@ class TestGalleryExclusion:
     ):
         self._ready_map(client, session, document_id)
         submission_id = _submit(client, map_ref=document_id).json()["id"]
-        assert len(client.get(f"/api/documents/list?tags={PORTAL}").json()) == 1
+        assert len(client.get(f"/api/documents/list?portal_ids={PORTAL}").json()) == 1
 
         _set_auth(TEAM_A_PAYLOAD)
         assert (
@@ -502,25 +508,29 @@ class TestGalleryExclusion:
             ).status_code
             == 200
         )
-        assert client.get(f"/api/documents/list?tags={PORTAL}").json() == []
+        assert client.get(f"/api/documents/list?portal_ids={PORTAL}").json() == []
 
-    def test_cross_portal_tags_cannot_inject_into_another_gallery(
+    def test_submission_lands_only_in_its_own_portal_gallery(
         self, client, form_config, document_id, session
     ):
         # Visibility and moderation authority share one key: a submission to
-        # OTHER_PORTAL tagged with PORTAL must NOT appear in PORTAL's
-        # gallery, where PORTAL's reviewers could never take it down.
+        # OTHER_PORTAL must NOT appear in PORTAL's gallery, where PORTAL's
+        # reviewers could never take it down. The clone belongs to OTHER_PORTAL.
         self._ready_map(client, session, document_id)
         response = _submit(
             client,
             fields={"title": "injected"},
-            tags=[PORTAL],
             map_ref=document_id,
             portal_id=OTHER_PORTAL,
         )
         assert response.status_code == 201, response.json()
-        assert client.get(f"/api/documents/list?tags={PORTAL}").json() == []
-        assert len(client.get(f"/api/documents/list?tags={OTHER_PORTAL}").json()) == 1
+        assert client.get(f"/api/documents/list?portal_ids={PORTAL}").json() == []
+        listed = client.get(f"/api/documents/list?portal_ids={OTHER_PORTAL}").json()
+        assert len(listed) == 1
+        clone = session.exec(
+            select(Document).where(col(Document.public_id) == listed[0]["public_id"])
+        ).one()
+        assert clone.portal_id == OTHER_PORTAL
 
     def test_takedown_demotes_the_frozen_clone(
         self, client, form_config, document_id, session
@@ -725,7 +735,7 @@ class TestAutoFinalize:
         # auto_public vs internal.
         listed = client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()
         assert [e["id"] for e in listed] == [submission.id]
-        gallery = client.get(f"/api/documents/list?tags={AUTO_PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_ids={AUTO_PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [doc["public_id"]]
 
         # Idempotent: a second submitted-tier PUT is a no-op.
@@ -910,7 +920,9 @@ class TestInternalExclusion:
             for s in client.get("/api/submissions").json()
         )
         # Tag gallery: absent (the auto-applied portal tag would match).
-        assert client.get(f"/api/documents/list?tags={INTERNAL_PORTAL}").json() == []
+        assert (
+            client.get(f"/api/documents/list?portal_ids={INTERNAL_PORTAL}").json() == []
+        )
 
         # Admin list: present.
         _set_auth(TEAM_A_PAYLOAD)
@@ -1070,19 +1082,24 @@ class TestAdminAdd:
         # The LIVE map, not a snapshot: no clone row, no demotable copy.
         assert submission.map_public_id == public_id
         assert submission.map_is_clone is False
-        assert submission.tags == [PORTAL]
+        session.expire_all()
+        assert (
+            session.exec(
+                select(Document.portal_id).where(col(Document.public_id) == public_id)
+            ).one()
+            == PORTAL
+        )
 
-    def test_one_map_can_join_multiple_portals(
+    def test_one_map_belongs_to_one_portal(
         self, client, form_config, document_id, session
     ):
         public_id = self._public_id(client, document_id)
         _set_auth(UNRESTRICTED_PAYLOAD)
         assert self._add(client, public_id).status_code == 201
-        assert self._add(client, public_id, portal_id=OTHER_PORTAL).status_code == 201
-        rows = session.exec(
-            select(Submission).where(col(Submission.map_public_id) == public_id)
-        ).all()
-        assert sorted(r.portal_id for r in rows) == sorted([PORTAL, OTHER_PORTAL])
+        response = self._add(client, public_id, portal_id=OTHER_PORTAL)
+        assert response.status_code == 409
+        assert "belongs to portal" in response.json()["detail"]
+        assert "copy" in response.json()["detail"]
 
     def test_wrong_team_cannot_add(self, client, form_config, document_id):
         public_id = self._public_id(client, document_id)

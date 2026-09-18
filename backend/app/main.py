@@ -450,22 +450,25 @@ async def create_document(
         # must degrade to "a normal map", never "no map".
         try:
             submissions.get_form_config(data.portal_id, session)
-        except HTTPException:
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
             logger.warning(
                 f"create_document: no form config for portal {data.portal_id!r}; "
                 "creating the map without a draft submission"
             )
-            data.portal_id = None
-    if data.portal_id is not None:
-        draft = Submission(
-            portal_id=data.portal_id,
-            map_public_id=new_document.public_id,
-            status=SubmissionStatus.draft,
-            tags=[data.portal_id],
-        )
-        session.add(draft)
-        session.flush()
-        draft_submission_id = draft.submission_id
+        else:
+            # The map belongs to the portal it was started from.
+            new_document.portal_id = data.portal_id
+            session.add(new_document)
+            draft = Submission(
+                portal_id=data.portal_id,
+                map_public_id=new_document.public_id,
+                status=SubmissionStatus.draft,
+            )
+            session.add(draft)
+            session.flush()
+            draft_submission_id = draft.submission_id
 
     total_assignments = 0
     skipped_geo_ids: list[str] = []
@@ -1434,7 +1437,7 @@ async def get_document_list(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
-    tags: list[str] = Query(default=[]),
+    portal_ids: list[str] = Query(default=[]),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
 ):
     stmt = (
@@ -1457,22 +1460,20 @@ async def get_document_list(
         .limit(limit)
     )
 
-    if len(tags) > 0:
-        # A document is in a tag's gallery when a visible submission carries
-        # it.
-        submission_tagged = exists(
+    if len(portal_ids) > 0:
+        # A map is in a portal's gallery when it belongs to that portal
+        # (document.portal_id) and a visible submission row carries it.
+        # Membership and moderation authority share one key, the portal, so
+        # nobody can list a map in a portal whose reviewers can't take it down.
+        stmt = stmt.where(col(Document.portal_id).in_(portal_ids))
+        submission_visible = exists(
             select(literal(1))
             .select_from(Submission)
             .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
             .where(
                 and_(
                     Submission.map_public_id == Document.public_id,
-                    # Gallery membership is the submission's OWN portal, never
-                    # its free-form tags: visibility and moderation authority
-                    # must share a key, or an attacker submits to a portal
-                    # they choose (whose reviewers they picked) while tagging
-                    # a victim portal whose reviewers can't see the row.
-                    col(Submission.portal_id).in_(tags),
+                    col(Submission.portal_id) == Document.portal_id,
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
                     col(Submission.nsfw).is_(False),
@@ -1485,8 +1486,8 @@ async def get_document_list(
             )
             .correlate(Document)
         )
-        stmt = stmt.where(submission_tagged)
-        # Tagged listings only surface maps past scratch: moving a map to
+        stmt = stmt.where(submission_visible)
+        # Portal listings only surface maps past scratch: moving a map to
         # in_progress or ready_to_share is what "submits" it to the gallery
         # (deliberate submissions are frozen clones at ready_to_share;
         # auto-collected ones are live maps whose status this reflects).

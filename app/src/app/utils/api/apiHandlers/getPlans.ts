@@ -22,7 +22,8 @@ export const getPlans = async ({
   if (ids?.length) {
     queryParams.ids = ids;
   } else if (tags) {
-    queryParams.tags = tags;
+    // The CMS block calls them tags; the API keys galleries on portal ids.
+    queryParams.portal_ids = tags;
   }
 
   if (draftStatuses?.length) {

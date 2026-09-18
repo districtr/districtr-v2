@@ -130,7 +130,6 @@ export const SubmitToPortalModal: React.FC = () => {
     }
     const response = await finalizeSubmission(draft.submissionId, {
       fields: values,
-      tags: [],
       turnstile_token: captchaToken,
     });
     // Turnstile tokens are single-use: the server verifies the captcha

@@ -113,7 +113,7 @@ def moderate_submission_by_id(
                 map_texts = [
                     str(metadata.get(key) or "") for key in ("name", "description")
                 ]
-        text = " ".join([*values, *(submission.tags or []), *map_texts])
+        text = " ".join([*values, *map_texts])
         score = score_text(text)
         sess.execute(
             update(Submission)

@@ -284,6 +284,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
+    # The portal this map was created to fit, or None. A map belongs to at most
+    # one portal: stamped at creation for maps started from a portal page and
+    # on the clone for form/finalize submissions; other portals borrow a map by
+    # listing its id. The FK to comments.form_configs (ON UPDATE CASCADE, ON
+    # DELETE SET NULL) lives in the migration only: FormConfig imports this
+    # module, so declaring it here would be circular.
+    portal_id: str | None = Field(
+        default=None,
+        sa_column=Column(String(255), nullable=True, index=True),
+    )
     document_type: DocumentType = Field(
         sa_column=Column(
             ENUM(

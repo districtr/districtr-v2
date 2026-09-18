@@ -29,7 +29,6 @@ type UserFilters = {
   place: string;
   state: string;
   zipCode: string;
-  tags: string[];
 };
 
 /** Initial state for user filters */
@@ -39,7 +38,6 @@ const INITIAL_USER_FILTERS: UserFilters = {
   place: '',
   state: '',
   zipCode: '',
-  tags: [],
 };
 
 /** Custom hook for debounced value */
@@ -62,9 +60,9 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 /** Props for CommentGallery - matches attributes defined in CommentGalleryNode */
 export interface CommentGalleryProps {
   ids?: number[];
-  /** Injected by the CMS on portal pages: scopes the gallery to one portal
-   * regardless of tag filters (tags are OR'd and user-extendable). */
+  /** Injected by the CMS on portal pages: scopes the gallery to one portal. */
   portalId?: string;
+  /** The CMS block's `tags` attribute: portal slugs whose submissions to list. */
   tags?: string[];
   place?: string;
   state?: string;
@@ -98,30 +96,14 @@ const FilterControls: React.FC<{
   onFilterChange: (key: keyof UserFilters, value: UserFilters[keyof UserFilters]) => void;
   onClearFilters: () => void;
 }> = ({filters, onFilterChange, onClearFilters}) => {
-  const [tagInput, setTagInput] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !filters.tags.includes(tagInput.trim())) {
-      onFilterChange('tags', [...filters.tags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    onFilterChange(
-      'tags',
-      filters.tags.filter(t => t !== tag)
-    );
-  };
 
   const hasActiveFilters =
     filters.search ||
     filters.hasMap !== undefined ||
     filters.place ||
     filters.state ||
-    filters.zipCode ||
-    filters.tags.length > 0;
+    filters.zipCode;
 
   return (
     <Box className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
@@ -197,51 +179,6 @@ const FilterControls: React.FC<{
               </Box>
             ))}
           </Flex>
-
-          {/* Tags filter */}
-          <Box className="mt-3">
-            <Text as="label" size="1" weight="medium" className="text-slate-600 block mb-1">
-              Tags
-            </Text>
-            <Flex gap="2" align="center">
-              <TextField.Root
-                placeholder="Add tag..."
-                value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
-                size="2"
-                className="max-w-[200px]"
-              >
-                <TextField.Slot>
-                  <Text size="1" color="gray">
-                    #
-                  </Text>
-                </TextField.Slot>
-              </TextField.Root>
-              <Button variant="soft" size="2" onClick={handleAddTag} disabled={!tagInput.trim()}>
-                Add
-              </Button>
-            </Flex>
-            {filters.tags.length > 0 && (
-              <Flex gap="2" wrap="wrap" className="mt-2">
-                {filters.tags.map(tag => (
-                  <Box
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm cursor-pointer hover:bg-purple-200 transition-colors"
-                    onClick={() => handleRemoveTag(tag)}
-                  >
-                    #{tag}
-                    <Cross1Icon className="w-3 h-3" />
-                  </Box>
-                ))}
-              </Flex>
-            )}
-          </Box>
         </Box>
       )}
     </Box>
@@ -251,7 +188,7 @@ const FilterControls: React.FC<{
 export const CommentGallery: React.FC<CommentGalleryProps> = ({
   ids,
   portalId,
-  tags: initialTags,
+  tags: portalIds,
   place: initialPlace,
   state: initialState,
   zipCode: initialZipCode,
@@ -276,12 +213,9 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   // Debounced filters for API queries - only updates after user stops typing
   const debouncedUserFilters = useDebouncedValue(userFilters, DEBOUNCE_DELAY);
 
-  const handleFilterChange = useCallback(
-    (key: string, value: string | boolean | undefined | string[]) => {
-      setUserFilters(prev => ({...prev, [key]: value}));
-    },
-    []
-  );
+  const handleFilterChange = useCallback((key: string, value: string | boolean | undefined) => {
+    setUserFilters(prev => ({...prev, [key]: value}));
+  }, []);
 
   const handleClearFilters = useCallback(() => {
     setUserFilters(INITIAL_USER_FILTERS);
@@ -293,11 +227,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
     () => ({
       ids: ids,
       portalId: portalId,
-      // Merge initial tags with user-added tags
-      tags:
-        initialTags || debouncedUserFilters.tags.length > 0
-          ? [...(initialTags ?? []), ...debouncedUserFilters.tags]
-          : undefined,
+      portalIds: portalIds?.length ? portalIds : undefined,
       // User filters override initial values if set, otherwise use initial
       place: debouncedUserFilters.place || initialPlace,
       state: debouncedUserFilters.state || initialState,
@@ -310,7 +240,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
     [
       ids,
       portalId,
-      initialTags,
+      portalIds,
       debouncedUserFilters,
       initialPlace,
       initialState,
