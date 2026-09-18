@@ -3,7 +3,6 @@ import {formatErrorDetail, get, post, put} from '../factory';
 export interface SubmissionCreate {
   portal_id: string;
   fields: Record<string, string>;
-  tags: string[];
   /** Document reference (UUID or public id); the backend clones the plan. */
   map_ref?: string | null;
   turnstile_token: string;
@@ -26,7 +25,6 @@ export const postSubmission = async (body: SubmissionCreate): Promise<Result> =>
 
 export interface SubmissionFinalize {
   fields: Record<string, string>;
-  tags: string[];
   turnstile_token: string;
 }
 

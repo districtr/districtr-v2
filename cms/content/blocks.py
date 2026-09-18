@@ -163,7 +163,7 @@ class PlanGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to plans with these tags (empty = no filter).",
+        help_text="Portal slugs whose submitted plans to list (empty = no filter).",
     )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
@@ -197,7 +197,7 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to comments with these tags (empty = no filter).",
+        help_text="Portal slugs whose submissions to list (empty = no filter).",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
@@ -231,12 +231,6 @@ class FormBlock(CompatStructBlock):
     ``allowListModules.includes(slug)`` rejects every module.
     """
 
-    mandatoryTags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        label="Mandatory tags",
-        help_text="Tags automatically applied to every submission.",
-    )
     allowListModules = blocks.ListBlock(
         blocks.ChoiceBlock(choices=districtr_map_slug_choices),
         default=[],

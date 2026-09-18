@@ -51,7 +51,6 @@ from app.models import Document
 from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (
     PRIVATE_FIELDS,
-    slugify,
     validate_submission_fields,
 )
 from app.submissions.moderation import moderate_submission_by_id
@@ -191,17 +190,21 @@ def _is_team_scoped(auth_result: dict) -> bool:
     return TokenScope.review_all_content not in token_scopes
 
 
-def clone_document_for_submission(session: Session, source: Document) -> Document:
+def clone_document_for_submission(
+    session: Session, source: Document, portal_id: str
+) -> Document:
     """Snapshot a plan for a gallery submission.
 
     Copies assignments, zone notes, and map_metadata (the gallery renders
     name/description from it, and the clone must stay ready_to_share — normal
     copies drop metadata, this one must not). Share tokens are not copied.
     The clone's document_id (edit capability) is never returned to a caller
-    response; only its public_id is stored on the submission.
+    response; only its public_id is stored on the submission. The clone
+    belongs to the portal it was submitted to.
     """
     clone = Document(
         document_id=str(uuid4()),
+        portal_id=portal_id,
         districtr_map_slug=source.districtr_map_slug,
         map_type=source.map_type,
         document_type=source.document_type,
@@ -257,15 +260,6 @@ def _resolve_ready_document(map_ref: str | int, session: Session) -> Document:
             detail="Map must be marked ready to share before submitting",
         )
     return document
-
-
-def _normalized_tags(tags: list[str], portal_id: str) -> list[str]:
-    """Slugify, dedupe, and guarantee the portal's own tag is present."""
-    slugs = [slugify(t) for t in tags]
-    slugs = [s for s in slugs if s]
-    if portal_id not in slugs:
-        slugs.insert(0, portal_id)
-    return list(dict.fromkeys(slugs))
 
 
 def _insert_content(
@@ -352,13 +346,12 @@ async def create_submission(
     map_public_id = None
     if data.map_ref is not None:
         source = _resolve_ready_document(data.map_ref, session)
-        clone = clone_document_for_submission(session, source)
+        clone = clone_document_for_submission(session, source, config.portal_id)
         map_public_id = clone.public_id
 
     submission = Submission(
         portal_id=config.portal_id,
         map_public_id=map_public_id,
-        tags=_normalized_tags(data.tags, config.portal_id),
         status=SubmissionStatus.submitted,
         submitted_at=datetime.now(timezone.utc),
         map_is_clone=map_public_id is not None,
@@ -415,11 +408,10 @@ async def finalize_submission(
             detail="The map for this draft submission no longer exists",
         )
     source = _resolve_ready_document(submission.map_public_id, session)
-    clone = clone_document_for_submission(session, source)
+    clone = clone_document_for_submission(session, source, config.portal_id)
 
     submission.map_public_id = clone.public_id
     submission.map_is_clone = True
-    submission.tags = _normalized_tags(data.tags, config.portal_id)
     submission.status = SubmissionStatus.submitted
     submission.submitted_at = datetime.now(timezone.utc)
     session.add(submission)
@@ -434,7 +426,7 @@ async def finalize_submission(
 async def list_submissions(
     portal_id: str | None = Query(default=None),
     ids: list[int] | None = Query(default=None),
-    tags: list[str] | None = Query(default=None),
+    portal_ids: list[str] | None = Query(default=None),
     place: str | None = Query(default=None),
     state: str | None = Query(default=None),
     zip_code: str | None = Query(default=None),
@@ -446,7 +438,7 @@ async def list_submissions(
 ):
     """List visible submissions. nsfw rows are included — the frontend blurs
     them with an opt-in reveal. Everything here is public data, so portal_id
-    is optional: gallery blocks filter by tags or curated ids instead.
+    is optional: gallery blocks filter by portal_ids or curated ids instead.
 
     Written entries only: a row with no public content (auto-collected, or
     added by an admin) is a bare map, and bare maps belong to the map
@@ -488,8 +480,8 @@ async def list_submissions(
         stmt = stmt.where(col(Submission.portal_id) == portal_id)
     if ids:
         stmt = stmt.where(col(Submission.id).in_(ids))
-    if tags:
-        stmt = stmt.where(col(Submission.tags).overlap(tags))
+    if portal_ids:
+        stmt = stmt.where(col(Submission.portal_id).in_(portal_ids))
     for field, value in (("place", place), ("state", state), ("zip_code", zip_code)):
         if value:
             stmt = stmt.where(
@@ -526,7 +518,6 @@ async def list_submissions(
         SubmissionPublic(
             id=s.id,
             portal_id=s.portal_id,
-            tags=s.tags,
             nsfw=s.nsfw,
             map_public_id=s.map_public_id,
             created_at=s.created_at,
@@ -664,7 +655,6 @@ async def list_submissions_admin(
         SubmissionAdmin(
             id=s.id,
             portal_id=s.portal_id,
-            tags=s.tags,
             nsfw=s.nsfw,
             map_public_id=s.map_public_id,
             created_at=s.created_at,
@@ -760,13 +750,14 @@ async def admin_add_submission(
 ):
     """Retroactively associate an existing map with a portal.
 
-    Portal membership is a Submission row, so one map can join any number of
-    portals — each row is hidden/blurred independently. The row references
-    the LIVE map (map_is_clone=False, like auto-collection): no snapshot is
-    taken, and takedown never demotes the author's working document. The
-    entry surfaces in the public gallery only once the map's draft_status is
-    past scratch, exactly like an auto-collected entry. No moderation task —
-    there is no text content to score, and an admin vouched for the map.
+    A map belongs to one portal (document.portal_id): a map already owned by
+    another portal is refused with a 409 that says to copy it instead. The
+    Submission row references the LIVE map (map_is_clone=False, like
+    auto-collection): no snapshot is taken, and takedown never demotes the
+    author's working document. The entry surfaces in the public gallery only
+    once the map's draft_status is past scratch, exactly like an auto-collected
+    entry. No moderation task: there is no text content to score, and an admin
+    vouched for the map.
     """
     config = get_form_config(data.portal_id, session)
     require_portal_admin(auth_result, config)
@@ -790,10 +781,17 @@ async def admin_add_submission(
             detail=f"Map {data.map_public_id} already has a {existing.status} "
             f"submission in portal {config.portal_id!r}",
         )
+    if document.portal_id is not None and document.portal_id != config.portal_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Map {data.map_public_id} belongs to portal "
+            f"{document.portal_id!r}. Make a copy of it to add it here.",
+        )
+    document.portal_id = config.portal_id
+    session.add(document)
     submission = Submission(
         portal_id=config.portal_id,
         map_public_id=data.map_public_id,
-        tags=[config.portal_id],
         status=SubmissionStatus.submitted,
         submitted_at=datetime.now(timezone.utc),
         map_is_clone=False,
