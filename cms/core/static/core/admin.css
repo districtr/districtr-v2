@@ -1,0 +1,30 @@
+/*
+ * Districtr branding for the Wagtail admin (core/wagtail_hooks.py,
+ * insert_global_admin_css).
+ *
+ * Wagtail composes every UI colour from HSL custom-property triples and
+ * derives its hover/active/tint shades with calc() offsets on them. Only the
+ * hue and saturation are overridden here — the designed lightness values (and
+ * therefore all contrast relationships, in light and dark themes) stay intact.
+ *
+ * Palette (app/tailwind.config.ts):
+ *   districtrBlue     #0099cd = hsl(195.2 100% 40.2%)
+ *   districtrDarkBlue #006b9c = hsl(199.2 100% 30.6%)
+ */
+:root,
+:host {
+  /* Sidebar / chrome: deep Districtr blue (default lightness 24.5%). */
+  --w-color-primary-hue: 199.2;
+  --w-color-primary-saturation: 100%;
+
+  /* Buttons, links, focus accents: Districtr blue (default lightness 24.7%
+   * keeps white-on-secondary text at its designed contrast). */
+  --w-color-secondary-hue: 195.2;
+  --w-color-secondary-saturation: 100%;
+}
+
+/* Legibility: a touch more breathing room between the stacked approve /
+ * reject / dismiss buttons in the moderation queues. */
+.moderation-buttons .button-small {
+  margin-inline-end: 0.25rem;
+}

@@ -1,0 +1,33 @@
+{% extends "wagtailsnippets/snippets/edit.html" %}
+{# The single map-management page: the mapped fields (panels), then the
+   module's relational sections as inline formsets inside the same form —
+   one Save applies everything. The "Regenerate thumbnail" button posts to
+   its own tiny view, so it must live OUTSIDE the editor form. #}
+
+{% block before_form %}
+    {% if regenerate_thumbnail_url %}
+        <div class="nice-padding w-mt-4">
+            <form method="POST" action="{{ regenerate_thumbnail_url }}">
+                {% csrf_token %}
+                <button type="submit" class="button button-small button-secondary">
+                    Regenerate thumbnail
+                </button>
+                <span class="help" style="margin-inline-start: 0.5rem;">
+                    Rebuilds the blank-map preview from the parent layer.
+                </span>
+            </form>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block form_content %}
+    {{ block.super }}
+
+    <div class="nice-padding">
+        {% include "datastore/_link_formset.html" with formset=overlays_formset heading="Attached overlays" description="Overlays available on this map. Pick an overlay in the blank row to attach one; tick Delete to detach. Saving the map applies the changes." %}
+        {% include "datastore/_link_formset.html" with formset=groups_formset heading="Map-group listings" description="Map groups this module is listed under on the frontend." %}
+        {% if teams_formset %}
+            {% include "datastore/_link_formset.html" with formset=teams_formset heading="Team assignments" description="Teams whose members may browse this map module and its portal pages. Admin-managed." %}
+        {% endif %}
+    </div>
+{% endblock %}
