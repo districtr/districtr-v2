@@ -157,8 +157,8 @@ def test_multiple_required_scopes(verifier, keypair, jwks):
 
 
 def test_review_tags_claim_round_trips(verifier, keypair, jwks):
-    """Tag-scoped reviewer token: the CMS strips read:read-all and mints a
-    sorted review_tags claim; the verifier must hand the claim through
+    """Tag-scoped reviewer token: the CMS withholds review:review-all and
+    mints a sorted review_tags claim; the verifier must hand the claim through
     unchanged for allowed_review_tags (app/comments/main.py) to enforce."""
     private_pem, _ = keypair
     kid = jwks["keys"][0]["kid"]
@@ -172,7 +172,7 @@ def test_review_tags_claim_round_trips(verifier, keypair, jwks):
     payload = run_verify(verifier, token, ["create:content_review"])
 
     assert payload["review_tags"] == ["environment", "schools"]
-    assert "read:read-all" not in payload["scope"].split()
+    assert "review:review-all" not in payload["scope"].split()
 
 
 def test_review_tags_claim_absent_by_default(verifier, keypair, jwks):
