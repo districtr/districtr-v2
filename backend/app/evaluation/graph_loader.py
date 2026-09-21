@@ -84,20 +84,22 @@ def from_networkx(G: Graph) -> DualLevelGraph:
         parent_of[idx[node]] = idx[p]
 
     we = G.graph.get("weighted_edges")
-    we_edges = we_vals = None
-    if we:
-        we_edges = np.asarray(
-            [(idx[str(a)], idx[str(b)]) for a, b in we], dtype=np.int32
-        )
-        we_vals = np.asarray([int(w) for w in we.values()], dtype=np.int32)
     ncp = G.graph.get("non_contiguous_parents")
     return DualLevelGraph(
         node_ids=node_ids,
         edges=edges,
         parent_of=parent_of,
-        we_edges=we_edges,
-        we_vals=we_vals,
-        ncp=(np.asarray([idx[str(p)] for p in ncp], dtype=np.int32) if ncp else None),
+        weighted_edges=(
+            np.asarray(
+                [(idx[str(a)], idx[str(b)], int(w)) for (a, b), w in we.items()],
+                dtype=np.int32,
+            )
+            if we
+            else None
+        ),
+        non_contiguous_parents=(
+            np.asarray([idx[str(p)] for p in ncp], dtype=np.int32) if ncp else None
+        ),
     )
 
 
@@ -109,12 +111,14 @@ def from_npz(file) -> DualLevelGraph:
         if version != 1:
             raise ValueError(f"Unsupported graph npz format_version: {version}")
         node_ids = data["node_ids"]
-        we_edges = we_vals = None
+        weighted_edges = None
         if bool(data["has_weighted_edges"]):
             # we_keys already holds node-index pairs (the writer translates
-            # geo_ids through the same sorted node_ids order used here).
-            we_edges = np.asarray(data["we_keys"], dtype=np.int32)
-            we_vals = np.asarray(data["we_vals"], dtype=np.int32)
+            # geo_ids through the same sorted node_ids order used here);
+            # append the weights as a third column.
+            weighted_edges = np.column_stack([data["we_keys"], data["we_vals"]]).astype(
+                np.int32
+            )
         ncp = None
         if bool(data["has_non_contiguous_parents"]):
             ncp_ids = data["non_contiguous_parents"]
@@ -128,9 +132,8 @@ def from_npz(file) -> DualLevelGraph:
             node_ids=node_ids,
             edges=data["edges"],
             parent_of=data["parent_of"],
-            we_edges=we_edges,
-            we_vals=we_vals,
-            ncp=ncp,
+            weighted_edges=weighted_edges,
+            non_contiguous_parents=ncp,
         )
 
 

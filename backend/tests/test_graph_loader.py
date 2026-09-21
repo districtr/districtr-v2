@@ -25,7 +25,7 @@ def test_get_gerrydb_graph_streams_from_s3(monkeypatch):
         Bucket="some-bucket", Key="graphs/simple_geos.pkl"
     )
     s3.download_file.assert_not_called()
-    assert G._we_vals.size
+    assert G._weighted_edges.size
 
 
 def test_get_gerrydb_graph():
@@ -41,8 +41,8 @@ def test_get_gerrydb_graph():
     }
     vtd_nodes = {"vtd:000010000001", "vtd:000010000002", "vtd:000010000003"}
     assert set(G._node_ids.tolist()) == block_nodes | vtd_nodes
-    assert G._we_vals.size
-    assert G._ncp.dtype.kind == "i"
+    assert G._weighted_edges.size
+    assert G._non_contiguous_parents.dtype.kind == "i"
 
 
 def test_get_gerrydb_graph_npz():
@@ -50,9 +50,10 @@ def test_get_gerrydb_graph_npz():
     G_npz = get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.npz"))
     G_pkl = get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
     assert G_npz._node_ids.tolist() == G_pkl._node_ids.tolist()
-    assert G_npz._we_edges.tolist() == G_pkl._we_edges.tolist()
-    assert G_npz._we_vals.tolist() == G_pkl._we_vals.tolist()
-    assert G_npz._ncp.tolist() == G_pkl._ncp.tolist()
+    assert G_npz._weighted_edges.tolist() == G_pkl._weighted_edges.tolist()
+    assert (
+        G_npz._non_contiguous_parents.tolist() == G_pkl._non_contiguous_parents.tolist()
+    )
 
 
 def test_get_gerrydb_graph_file_prefers_local_npz(tmp_path):
@@ -90,8 +91,7 @@ def test_load_graph_uses_shared_disk_cache(monkeypatch, tmp_path):
     G2 = graph_module._load_via_disk_cache("simple_geos")
     assert isinstance(G2._node_ids, np.memmap)
     assert G2._node_ids.tolist() == G1._node_ids.tolist()
-    assert G2._we_edges.tolist() == G1._we_edges.tolist()
-    assert G2._we_vals.tolist() == G1._we_vals.tolist()
+    assert G2._weighted_edges.tolist() == G1._weighted_edges.tolist()
 
 
 def test_load_graph_recovers_from_corrupt_disk_cache(monkeypatch, tmp_path):
@@ -108,7 +108,7 @@ def test_load_graph_recovers_from_corrupt_disk_cache(monkeypatch, tmp_path):
     (cache_dir / "meta.json").write_text("not json {")
 
     G = graph_module._load_via_disk_cache("simple_geos")
-    assert G._we_vals.size
+    assert G._weighted_edges.size
     # Cache was rebuilt cleanly
     assert (cache_dir / "meta.json").read_text().startswith("{")
 
@@ -137,4 +137,4 @@ def test_s3_npz_missing_falls_back_to_pkl(monkeypatch):
     G = get_gerrydb_graph("s3://some-bucket/graphs/simple_geos.npz")
 
     assert s3.get_object.call_count == 2
-    assert G._we_vals.size
+    assert G._weighted_edges.size

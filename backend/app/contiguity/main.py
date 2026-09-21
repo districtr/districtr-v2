@@ -122,7 +122,7 @@ def get_assigned_nodes_bboxes(
         safe_table = assert_safe_ident(gerrydb_table_name)
         geo_source = f"gerrydb.{safe_table} g"
 
-    if G and G._ncp.size:
+    if G and G._non_contiguous_parents.size:
         assigned = session.execute(
             sa.text("""
                 SELECT a.geo_id
