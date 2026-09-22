@@ -14,7 +14,6 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
-    create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
@@ -99,69 +98,6 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
         gpkg=gpkg,
         rm=rm,
     )
-
-
-@cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
-@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
-@click.option(
-    "--force",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Drop and recreate edges if they were already loaded for this map",
-)
-@with_session
-def create_parent_child_edges(
-    session: Session,
-    districtr_map_slug: str | None,
-    districtr_map_uuid: str | None,
-    force: bool,
-):
-    """
-    Create parent-child edges for a districtr map.
-    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
-    """
-    if not districtr_map_slug and not districtr_map_uuid:
-        raise ValueError(
-            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
-        )
-
-    if districtr_map_slug:
-        districtr_map_uuid = session.scalars(
-            select(DistrictrMap.uuid).where(
-                DistrictrMap.districtr_map_slug == districtr_map_slug
-            )
-        ).first()
-        if not districtr_map_uuid:
-            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
-
-    logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(
-        session=session, districtr_map_uuid=districtr_map_uuid, force=force
-    )
-    logger.info("Parent-child relationship upserted successfully.")
-
-
-@cli.command("delete-parent-child-edges")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
-@with_session
-def delete_parent_child_edges(session: Session, districtr_map: str):
-    logger.info("Deleting parent-child edges...")
-
-    delete_query = text(
-        """
-        DELETE FROM parentchildedges
-        WHERE districtr_map = :districtr_map
-    """
-    )
-    session.execute(
-        delete_query,
-        {
-            "districtr_map": districtr_map,
-        },
-    )
-    logger.info("Parent-child relationship upserted successfully.")
 
 
 @cli.command("create-districtr-map")
