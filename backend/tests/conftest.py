@@ -31,7 +31,6 @@ from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
 )
 
 
@@ -490,9 +489,6 @@ def simple_parent_child_geos_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
-    )
     session.commit()
     return inserted_districtr_map
 
@@ -513,9 +509,6 @@ def simple_shatterable_fixed_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
-    )
     session.commit()
     return inserted_districtr_map
 
@@ -532,24 +525,6 @@ def simple_child_geos_nonshatterable_districtr_map_fixture(
         num_districts=2,
         parent_layer="simple_child_geos",
     )
-
-
-@pytest.fixture
-def simple_shatterable_districtr_map_no_edges_yet(
-    session: Session, gerrydb_simple_geos_view
-):
-    inserted_districtr_map = create_districtr_map(
-        session,
-        name="Simple shatterable layer",
-        districtr_map_slug="simple_geos",
-        gerrydb_table_name="simple_geos",
-        num_districts=3,
-        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
-        parent_layer="simple_parent_geos",
-        child_layer="simple_child_geos",
-    )
-    session.commit()
-    return inserted_districtr_map
 
 
 @pytest.fixture(name="ks_ellis_county_vtd")

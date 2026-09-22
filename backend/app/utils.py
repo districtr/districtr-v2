@@ -10,12 +10,12 @@ from uuid import uuid4
 from typing import Callable, NewType
 
 from fastapi import BackgroundTasks
-from sqlalchemy import text, update, Table, MetaData, func
+from sqlalchemy import text, update
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
-from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
+from app.constants import GERRY_DB_SCHEMA
 from typing import Iterable, Sequence
 from fastapi import Response
 from app.models import (
@@ -30,7 +30,6 @@ from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings, s3_environment_folder
 from app.core.db import engine
 
-metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -168,21 +167,6 @@ def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
     return [assert_safe_ident(row.column_name) for row in rows]
 
 
-def _quote_ident(name: str) -> str:
-    """Quote a PostgreSQL identifier (double-quote and escape).
-
-    This function carries a light SQL injection risk and should only be used
-    with trusted input.
-
-    Args:
-        name (str): The name of the identifier to quote.
-
-    Returns:
-        str: The quoted identifier.
-    """
-    return '"' + name.replace('"', '""') + '"'
-
-
 def create_districtr_map(
     session: Session,
     name: str,
@@ -313,90 +297,6 @@ def create_shatterable_gerrydb_view(
             "gerrydb_table_name": gerrydb_table_name,
         },
     )
-
-
-def create_parent_child_edges(
-    session: Session,
-    districtr_map_uuid: str,
-    force: bool = False,
-) -> None:
-    """
-    Create the parent child edges for a given gerrydb map.
-
-    Args:
-        session: The database session.
-        districtr_map_uuid: The UUID of the districtr map.
-        force: If True, drop any previously loaded edges for this map and
-            recreate them instead of raising when they already exist.
-    """
-    stmt = select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
-    map_row = session.exec(stmt).one_or_none()
-
-    if not map_row:
-        raise ValueError(f"No districtrmap found for UUID: {districtr_map_uuid}")
-
-    parent_layer, child_layer = (map_row.parent_layer, map_row.child_layer)
-    if not parent_layer or not child_layer:
-        raise ValueError("Districtr map must have both parent_layer and child_layer")
-
-    # Check not already loaded
-    count_stmt = text(
-        """
-        SELECT COUNT(*) > 0 FROM parentchildedges edges
-        WHERE edges.districtr_map = :uuid
-        """
-    )
-    previously_loaded = session.execute(
-        count_stmt, {"uuid": districtr_map_uuid}
-    ).scalar_one()
-
-    uuid_str = str(districtr_map_uuid)
-    partition_name = f"parentchildedges_{uuid_str}"
-
-    if previously_loaded:
-        if not force:
-            raise ValueError(
-                f"Relationships for districtr_map {districtr_map_uuid} already loaded"
-            )
-        logger.warning(
-            f"Relationships for districtr_map {districtr_map_uuid} already loaded; "
-            "force=True, dropping existing partition and reloading"
-        )
-        # Dropping the partition removes its rows, allowing the CREATE TABLE
-        # below to recreate the partition from scratch.
-        session.execute(text(f"DROP TABLE IF EXISTS {_quote_ident(partition_name)}"))
-
-    create_sql = text(
-        f"CREATE TABLE {_quote_ident(partition_name)} "
-        f"PARTITION OF parentchildedges FOR VALUES IN ('{uuid_str}')"
-    )
-    session.execute(create_sql)
-
-    # Use the session's connection for partition reflection so we see the
-    # just-created table in the same transaction (other connections would not).
-    conn = session.connection()
-    parent = Table(parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
-    child = Table(child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=conn)
-    partition = Table(
-        partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=conn
-    )
-
-    spatial_join = func.ST_Contains(
-        parent.c.geometry, func.ST_PointOnSurface(child.c.geometry)
-    )
-    stmt = partition.insert().from_select(
-        ["created_at", "districtr_map", "parent_path", "child_path"],
-        select(
-            func.now(),
-            bindparam("uuid"),
-            parent.c.path,
-            child.c.path,
-        )
-        .select_from(parent)
-        .join(child, spatial_join),
-    )
-
-    session.execute(stmt, params={"uuid": districtr_map_uuid})
 
 
 def add_extent_to_districtrmap(
