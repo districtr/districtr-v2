@@ -2,6 +2,10 @@
 
 Why the system is shaped the way it is, in reverse-chronological order. Each entry is PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md) (the what); this file is the why.
 
+## ParentChildEdges dropped (2026-09-22)
+
+The write-only table outlived its readers by one production release: PR #721 moved every runtime reader to the graph, release 2.3.7 baked that in production, and this drop (migration `bf8c58301816`) removes the table, its `ParentChildEdges` model, `create_parent_child_edges`, both CLI commands, and the onboarding step that populated it. Parent/child relationships now have one source of truth — the pipeline-built graph (`_annotate_graph_with_parents_from_gpkg`). The schema has no partitioned tables left; the earlier reverted attempt (2026-07-17, below) needed only this ordering to succeed.
+
 ## Graphs become mmap-shared (PR #721, merged to dev 2026-08-28)
 
 Every uvicorn worker unpickled its own private copy of every district graph it touched (~500MB per worker for Pennsylvania-scale data). `DualLevelDualGraph` replaces the pickled `networkx.Graph` with a numpy/scipy representation whose arrays are memory-mapped, so all workers in a container share one physical copy. Measured at PA-scale (346K nodes / 1.08M edges): per-process resident memory 428MB → 70MB; whole-US across 5 workers 44.7GB → ~3GB flat; cold load 1.3–2.2s → ~0.25s; contiguity check ~5–9x faster. An `igraph` alternative was measured and set aside — its sharing depends on `fork()` copy-on-write surviving sustained traffic, weaker than mmap's guarantee. Validation method worth copying: both implementations run against 152 sampled production documents and diffed. The PR also migrated every runtime reader off the `ParentChildEdges` table, and its migration (`2ecf1bdc582b`) dropped the dependent UDFs (`shatter_parent`, `unshatter_parent`, the `get_block_assignments` overloads) as dead code — interactive shattering is applied client-side from graph children served by `GET /api/gerrydb/edges/`. The table itself survives write-only: onboarding still populates it, nothing reads it, and dropping it is the remaining follow-up.
