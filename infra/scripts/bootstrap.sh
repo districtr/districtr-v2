@@ -211,9 +211,11 @@ aws iam update-role --role-name "$PREVIEW_ROLE_NAME" --max-session-duration 7200
 aws iam put-role-policy --role-name "$PREVIEW_ROLE_NAME" \
   --policy-name preview-deploy --policy-document "$PREVIEW_POLICY"
 
-# 5. Seed image-tag parameters (deploy workflows overwrite these with git SHAs)
+# 5. Seed image-tag parameters (deploy workflows overwrite these with git SHAs).
+# The cms seed breaks the first-deploy cycle: infra/cms.ts reads
+# /meta/cms-image-tag before the CMS workflow has ever pushed an image.
 for STACK in dev prod; do
-  for COMPONENT in backend frontend; do
+  for COMPONENT in backend frontend cms; do
     PARAM="/districtr/${STACK}/meta/${COMPONENT}-image-tag"
     if aws ssm get-parameter --name "$PARAM" --region "$REGION" >/dev/null 2>&1; then
       echo "SSM parameter ${PARAM} already exists"

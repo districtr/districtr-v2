@@ -93,12 +93,23 @@ export function createNetwork() {
     tags: {Name: `${name}-frontend-sg`},
   });
 
+  const cmsSecurityGroup = new aws.ec2.SecurityGroup(`${name}-cms-sg`, {
+    vpcId: vpc.id,
+    description: "CMS tasks: 8080 from the ALB only",
+    ingress: [{protocol: "tcp", fromPort: 8080, toPort: 8080, securityGroups: [albSecurityGroup.id]}],
+    egress: [{protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"], ipv6CidrBlocks: ["::/0"]}],
+    tags: {Name: `${name}-cms-sg`},
+  });
+
   const dbSecurityGroup = new aws.ec2.SecurityGroup(`${name}-db-sg`, {
     vpcId: vpc.id,
-    description: "RDS: 5432 from backend tasks only",
+    description: "RDS: 5432 from backend and CMS tasks only",
     // Operators reach RDS via ECS Exec into a backend task (see backend.ts);
     // the DB never accepts connections from outside the VPC.
-    ingress: [{protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]}],
+    ingress: [
+      {protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [backendSecurityGroup.id]},
+      {protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [cmsSecurityGroup.id]},
+    ],
     egress: [{protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"], ipv6CidrBlocks: ["::/0"]}],
     tags: {Name: `${name}-db-sg`},
   });
@@ -109,6 +120,7 @@ export function createNetwork() {
     albSecurityGroup,
     backendSecurityGroup,
     frontendSecurityGroup,
+    cmsSecurityGroup,
     dbSecurityGroup,
   };
 }
