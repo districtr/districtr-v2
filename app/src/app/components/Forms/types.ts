@@ -7,6 +7,7 @@ export type FormFieldProps = {
   placeholder?: string;
   type: TextField.RootProps['type'];
   autoComplete?: TextField.RootProps['autoComplete'];
+  inputMode?: TextField.RootProps['inputMode'];
   component?: typeof TextField.Root | typeof TextArea | typeof Select.Root;
   disabled?: boolean;
   required?: boolean;

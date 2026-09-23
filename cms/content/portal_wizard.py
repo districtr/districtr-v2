@@ -1,12 +1,12 @@
 """The portal creation wizard: answer a few questions, get a portal.
 
-Creating a portal by hand takes four disconnected steps (add a TagPage under
-the Tags index, remember the body blocks, create a matching FormConfig row,
+Creating a portal by hand takes four disconnected steps (add a PortalPage under
+the Portals index, remember the body blocks, create a matching FormConfig row,
 get the slugs to agree). The wizard does all of it in one transaction from a
 short, paginated questionnaire: title, URL, how maps are collected, which map
 modules to offer, and the submission form's fields (including unlimited
 custom questions). The templated page body is generated from those answers —
-a draft TagPage in the page editor for staff review before publishing.
+a draft PortalPage in the page editor for staff review before publishing.
 Pages keep review; submissions don't.
 
 Gated by PORTAL_EDITOR_GROUPS (portals/views.py); team-scoped members
@@ -210,10 +210,10 @@ class PortalWizardForm(forms.Form):
             return cleaned
         cleaned["slug"] = slug
 
-        parent = _tags_index()
+        parent = _portals_index()
         if parent is None:
             raise forms.ValidationError(
-                "The Tags index page is missing — run content provisioning first."
+                "The Portals index page is missing — run content provisioning first."
             )
         cleaned["parent"] = parent
         if parent.get_children().filter(slug=slug).exists():
@@ -256,10 +256,10 @@ class PortalWizardForm(forms.Form):
         return cleaned
 
 
-def _tags_index():
-    from content.models import TagsIndexPage
+def _portals_index():
+    from content.models import PortalsIndexPage
 
-    return TagsIndexPage.objects.filter(locale=Locale.get_default()).first()
+    return PortalsIndexPage.objects.filter(locale=Locale.get_default()).first()
 
 
 def _question_rows(question_formset):
@@ -317,7 +317,7 @@ def portal_wizard(request):
         )
 
     if request.method == "POST" and form.is_valid() and question_formset.is_valid():
-        from content.models import TagPage
+        from content.models import PortalPage
 
         data = form.cleaned_data
         slug = data["slug"]
@@ -347,7 +347,7 @@ def portal_wizard(request):
                 # districtr_map_slug (the single-map field) is deliberately
                 # left blank: portals often offer several modules, so the
                 # create-buttons block is the module surface now.
-                page = TagPage(
+                page = PortalPage(
                     title=data["title"],
                     slug=slug,
                     body=json.dumps(body),

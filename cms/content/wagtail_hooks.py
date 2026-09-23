@@ -1,9 +1,9 @@
 """
-Team-based scoping for content pages (TagPage, PlacePage) in the Wagtail page
+Team-based scoping for content pages (PortalPage, PlacePage) in the Wagtail page
 explorer.
 
 A team-scoped member sees and edits only the content pages their teams own:
-a TagPage (portal) when its FormConfig.admin_teams names one of their teams
+a PortalPage (portal) when its FormConfig.admin_teams names one of their teams
 (authapi.teams.portal_slugs_for_user — the same key the Portals hub and the
 backend's moderation checks use), a PlacePage when any of its
 districtr_map_slugs is a module their teams hold. Structural pages
@@ -38,7 +38,7 @@ from content.models import (
     PlacePage,
     PlacesIndexPage,
     StaticIndexPage,
-    TagPage,
+    PortalPage,
 )
 
 
@@ -48,7 +48,7 @@ def _is_out_of_scope_page(request, page):
     if not user_is_team_scoped(request.user):
         return False
     specific = page.specific
-    if isinstance(specific, TagPage):
+    if isinstance(specific, PortalPage):
         return specific.slug not in portal_slugs_for_user(request.user)
     if isinstance(specific, PlacePage):
         # In scope when the page features at least one map the team owns.
@@ -62,7 +62,7 @@ def _is_out_of_scope_page(request, page):
 def scope_content_pages_in_explorer(parent_page, pages, request):
     if not user_is_team_scoped(request.user):
         return pages
-    out_of_scope = TagPage.objects.exclude(
+    out_of_scope = PortalPage.objects.exclude(
         slug__in=list(portal_slugs_for_user(request.user))
     ).values_list("pk", flat=True)
     out_of_scope_places = PlacePage.objects.exclude(

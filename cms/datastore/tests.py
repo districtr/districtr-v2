@@ -348,7 +348,7 @@ class FormConfigAdminFormTests(TestCase):
         )
 
         create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
-        # TagPage.full_clean validates districtr_map_slug once the mirror
+        # PortalPage.full_clean validates districtr_map_slug once the mirror
         # exists, so the referenced map row must too.
         layer = GerryDBTable.objects.create(name="blocks")
         DistrictrMap.objects.create(
