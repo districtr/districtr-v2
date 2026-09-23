@@ -16,7 +16,7 @@ from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
-from app.submissions.moderation import moderate_submission_by_id
+from app.submissions.moderation import moderate_submission
 from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import (  # noqa: F401 (autouse fixtures)
     override_auth_dependency,
@@ -123,6 +123,22 @@ class TestValidation:
         assert "Invalid email address" in errors
         assert "Invalid zip code" in errors
 
+    def test_international_email_accepted(self):
+        # A regex that only knows ASCII rejected these; email-validator
+        # implements the RFCs, including internationalized addresses.
+        from app.submissions.fields import validate_submission_fields
+
+        for email in (
+            "josé@example.com",
+            "用户@例子.广告",
+            "first.last+tag@sub.example.org",
+        ):
+            errors = validate_submission_fields(["email"], [], {"email": email})
+            assert errors == [], (email, errors)
+        for email in ("not-an-email", "a@b", "two@@example.com", "trailing@example."):
+            errors = validate_submission_fields(["email"], [], {"email": email})
+            assert errors == ["Invalid email address"], email
+
     def test_valid_submission_immediately_visible(self, client, form_config):
         response = _submit(client)
         assert response.status_code == 201
@@ -168,7 +184,7 @@ class TestModerationAndVisibility:
     def test_nsfw_scoring_and_toggle(self, client, form_config, session):
         submission_id = _submit(client).json()["id"]
         with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission_by_id(submission_id, session=session)
+            moderate_submission(submission_id, session)
 
         public = client.get(f"/api/submissions?portal_id={PORTAL}").json()
         # nsfw rows stay listed — the frontend blurs them.
@@ -594,7 +610,7 @@ class TestModerationWiring:
         # background tasks synchronously).
         calls = []
         monkeypatch.setattr(
-            "app.submissions.main.moderate_submission_by_id",
+            "app.submissions.main.moderate_submission_in_background",
             lambda submission_id, session=None: calls.append(submission_id),
         )
         response = _submit(client)
@@ -618,7 +634,7 @@ class TestModerationWiring:
             "app.submissions.moderation.score_text",
             side_effect=lambda text: scored.setdefault("text", text) and 0.0 or 0.0,
         ):
-            moderate_submission_by_id(submission_id, session=session)
+            moderate_submission(submission_id, session)
         assert "abusive title" in scored["text"]
 
 
@@ -819,7 +835,7 @@ class TestAutoFinalize:
         # (e.g. copies) — the flip and its moderation pass run at create.
         # (The real task opens its own DB session, invisible to this test
         # transaction, so scheduling is asserted via a patched task.)
-        with patch("app.submissions.main.moderate_submission_by_id") as task:
+        with patch("app.submissions.main.moderate_submission_in_background") as task:
             response = client.post(
                 "/api/create_document",
                 json={
@@ -841,7 +857,7 @@ class TestAutoFinalize:
 
         # The scoring itself sees the map card text: in-session run.
         with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission_by_id(submission.id, session=session)
+            moderate_submission(submission.id, session)
         session.refresh(submission)
         assert submission.nsfw is True
 
@@ -856,7 +872,7 @@ class TestAutoFinalize:
 
         # The card text is live — a later abusive rename must re-schedule
         # scoring for the submitted live-referenced entry.
-        with patch("app.main.submissions.moderate_submission_by_id") as task:
+        with patch("app.main.submissions.moderate_submission_in_background") as task:
             response = client.put(
                 f"/api/document/{doc['document_id']}/metadata",
                 json={"name": "now abusive"},
@@ -864,9 +880,19 @@ class TestAutoFinalize:
             assert response.status_code == 200
         task.assert_called_once_with(submission.id)
 
+        # The client resends unchanged values on most saves: resending the same
+        # name and description must not re-score.
+        with patch("app.main.submissions.moderate_submission_in_background") as task:
+            response = client.put(
+                f"/api/document/{doc['document_id']}/metadata",
+                json={"name": "now abusive", "draft_status": "ready_to_share"},
+            )
+            assert response.status_code == 200
+        task.assert_not_called()
+
         # ...and the score sees the new name.
         with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission_by_id(submission.id, session=session)
+            moderate_submission(submission.id, session)
         session.refresh(submission)
         assert submission.nsfw is True
 
@@ -1088,8 +1114,29 @@ class TestAdminAdd:
             json={"portal_id": portal_id, "map_public_id": public_id},
         )
 
-    def _public_id(self, client, document_id):
+    def _public_id(self, client, document_id, ready=True):
+        if ready:
+            response = client.put(
+                f"/api/document/{document_id}/metadata",
+                json={"draft_status": "ready_to_share"},
+            )
+            assert response.status_code == 200
         return client.get(f"/api/document/{document_id}").json()["public_id"]
+
+    def test_scratch_map_refused(self, client, form_config, document_id, session):
+        # The submissions list has no draft_status filter, so a scratch map
+        # added here would be public at once; no other path allows that.
+        public_id = self._public_id(client, document_id, ready=False)
+        _set_auth(TEAM_A_PAYLOAD)
+        response = self._add(client, public_id)
+        assert response.status_code == 409
+        assert "scratch" in response.json()["detail"]
+        assert (
+            session.exec(
+                select(Submission).where(col(Submission.map_public_id) == public_id)
+            ).first()
+            is None
+        )
 
     def test_scoped_admin_adds_live_reference(
         self, client, form_config, document_id, session

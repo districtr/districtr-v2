@@ -56,7 +56,9 @@ distlib==0.3.9
 distro==1.9.0
     # via openai
 dnspython==2.6.1
+    # via email-validator
 duckdb==0.10.1
+email-validator==2.2.0
 fastapi==0.115.5
     # via fastapi-utils
 fastapi-utils==0.8.0
