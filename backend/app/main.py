@@ -366,7 +366,7 @@ def get_document_stats(
     return district_stats_to_feature_collection(rows)
 
 
-# Sync def: a cold get_graph (S3 fetch + unpickle) inside compute_metrics
+# Sync def: a cold get_graph (S3 fetch + npz parse) inside compute_metrics
 # runs for seconds; a plain def hands the whole request to FastAPI's
 # threadpool so it never blocks the event loop (or ALB health checks).
 @app.get(
@@ -1552,8 +1552,7 @@ def get_unassigned_geoids(
     neighbors come back as singletons; if the graph itself is unavailable,
     every unassigned id comes back as its own singleton instead. Ids the
     graph doesn't recognize (e.g. a document predating a graph regeneration)
-    are silently omitted, matching networkx's `subgraph()` convention — not
-    expected in steady state. An empty `components` list means nothing is
+    are silently omitted — not expected in steady state. An empty `components` list means nothing is
     unassigned.
 
     `exclude_ids` is a client-supplied set of already-shattered parent geo_ids
@@ -1606,8 +1605,8 @@ def get_unassigned_geoids(
             G = get_graph(districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded.
             # Ids not in the graph are silently dropped by connected_components
-            # (matches nx subgraph() semantics) -- gerrydb/graph node counts
-            # are verified in sync across all states, so not expected here.
+            # -- gerrydb/graph node counts are verified in sync across all
+            # states, so not expected here.
             components = [
                 sorted(component)
                 for component in G.connected_components(unassigned_ids)

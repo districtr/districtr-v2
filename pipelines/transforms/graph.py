@@ -1,11 +1,10 @@
-"""Graph building pipeline - produces dual-level pkl graphs without DB access.
+"""Graph building pipeline - produces dual-level npz graphs without DB access.
 
 Derives parent-child relationships from GeoPackage spatial joins.
 """
 
 import logging
 import os
-import pickle
 import re
 import sqlite3
 from enum import Enum
@@ -100,7 +99,6 @@ def graph_to_npz_arrays(G: Graph) -> dict:
 
 
 class GraphFileFormat(str, Enum):
-    pkl = "Pickle"
     npz = "NPZ"
 
     def format_filepath(self, filepath: str | Path) -> Path:
@@ -109,11 +107,7 @@ class GraphFileFormat(str, Enum):
     def write_graph(self, G: Graph, filepath: str | Path) -> Path:
         out_path = self.format_filepath(filepath)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        if self is GraphFileFormat.npz:
-            np.savez_compressed(out_path, **graph_to_npz_arrays(G))
-        else:
-            with open(out_path, "wb") as f:
-                pickle.dump(obj=G, file=f)
+        np.savez_compressed(out_path, **graph_to_npz_arrays(G))
         return out_path
 
 
@@ -281,12 +275,7 @@ def build_combined_graph_from_gpkg(
     return G
 
 
-# Dual-write during the pkl -> npz migration so a backend running either
-# format finds its file; drop pkl here once all deployments read npz.
-DEFAULT_GRAPH_FORMATS: tuple[GraphFileFormat, ...] = (
-    GraphFileFormat.pkl,
-    GraphFileFormat.npz,
-)
+DEFAULT_GRAPH_FORMATS: tuple[GraphFileFormat, ...] = (GraphFileFormat.npz,)
 
 
 def write_graph(
@@ -335,7 +324,7 @@ class GraphConfig(BaseModel):
 
 
 class GraphBatch(Config):
-    """Batch config for building and uploading graph pkl files."""
+    """Batch config for building and uploading graph npz files."""
 
     graphs: dict[str, GraphConfig]
 
