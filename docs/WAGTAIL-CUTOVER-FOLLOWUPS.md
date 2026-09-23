@@ -167,7 +167,11 @@ or make middleware the *only* refresher and re-enable blacklisting.
 > (host-validation-exempt middleware). If cutover happens on AWS, step 2 below
 > replaces Fly secrets with Pulumi config.
 
-1. DB snapshot.
+1. DB snapshot, plus a schema dump of the legacy comments:
+   `pg_dump --schema=comments --format=custom -f legacy-comments.dump "$DATABASE_URL"`.
+   Migration d8f1b52c96e3 drops the legacy comment tables without converting
+   their rows into submissions; this dump is the backfill source if any are
+   ever wanted.
 2. Secrets. **AWS**: `pulumi config set --secret` per stack —
    `djangoSecretKey`, `jwtSigningKey`/`jwtVerifyingKey`
    (`manage.py generate_jwt_keys`), `authSecret`, `resendApiKey`
