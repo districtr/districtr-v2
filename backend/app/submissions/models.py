@@ -243,7 +243,7 @@ class Submission(TimeStampMixin, SQLModel, table=True):
         ),
     )
     # True when the map is a submission-owned frozen clone; false for live
-    # references (drafts, auto-collect modes).
+    # references (drafts, auto-collect modes, admin-added maps).
     # Takedown may only demote the draft_status of clones.
     map_is_clone: bool = Field(
         default=False,

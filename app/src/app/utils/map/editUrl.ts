@@ -57,10 +57,14 @@ export const evalPath = (routePrefix: string, public_id: number): string =>
 
 /**
  * Extract a document reference (UUID or numeric public id) from any map link
- * or bare id a user might paste: edit links (preferring the private_edit_id
- * capability), read links, legacy ?pw=true links, or the id itself. Null when
- * nothing parseable is found. Replaces the old `split('/').pop()` logic,
- * which mangled edit URLs into `edit?private_edit_id=…`.
+ * or bare id a user might paste: edit links, read links, legacy ?pw=true
+ * links, or the id itself. Null when nothing parseable is found.
+ *
+ * Order: a numeric public id in the path first, then the private_edit_id
+ * token, then a UUID path segment. The backend resolves a public id and a
+ * UUID to the same map, and a token damaged in transit can still decode to a
+ * well-formed UUID for some other document, so the path id is the safer
+ * source whenever the link carries one (every current edit link does).
  */
 export const parseMapRef = (input: string, base?: string): string | null => {
   const trimmed = (input ?? '').trim();
@@ -75,16 +79,17 @@ export const parseMapRef = (input: string, base?: string): string | null => {
   } catch {
     return null;
   }
-  const privateId = url.searchParams.get(PRIVATE_EDIT_ID_PARAM);
-  if (privateId) {
-    const uuid = expandUUID(privateId);
-    if (uuid) return uuid;
-  }
   const segments = url.pathname.split('/').filter(Boolean);
   while (segments.length && ['edit', 'eval'].includes(segments[segments.length - 1])) {
     segments.pop();
   }
   const last = segments.pop() ?? '';
-  if (isUUID(last) || /^\d+$/.test(last)) return last;
+  if (/^\d+$/.test(last)) return last;
+  const privateId = url.searchParams.get(PRIVATE_EDIT_ID_PARAM);
+  if (privateId) {
+    const uuid = expandUUID(privateId);
+    if (uuid) return uuid;
+  }
+  if (isUUID(last)) return last;
   return null;
 };
