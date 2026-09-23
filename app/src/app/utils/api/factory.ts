@@ -1,7 +1,11 @@
 import {API_URL} from './constants';
 import {fetchWithSession} from './session';
 import {HTTP_METHOD} from 'next/dist/server/web/http';
-import {ClientSession} from '@/app/lib/auth0';
+/** Serializable session shape passed from server components to the client. */
+export type ClientSession = {
+  user?: {email?: string | null; name?: string | null; roles?: string[]};
+  tokenSet?: {accessToken: string};
+};
 export type QueryParams = Record<string, string | number | boolean | (string | number)[]>;
 /**
  * API endpoint handler factory

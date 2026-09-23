@@ -28,7 +28,7 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.models import PlacePage, StaticPage, TagPage
+from content.models import PlacePage, PreviewSnapshot, StaticPage, TagPage
 from core.api import _json, pagination
 
 CONTENT_TYPE_PAGES = {
@@ -125,6 +125,19 @@ def content_detail(request, content_type, slug):
             "type": content_type,
         }
     )
+
+
+@require_GET
+def content_preview(request, token):
+    """GET /api/content/preview/<token>
+
+    Draft snapshot minted by the editor's Preview button
+    (ContentPageBase.serve_preview). Token-gated: the unguessable uuid with a
+    short TTL is the whole authorization, so no auth header is required."""
+    snapshot = PreviewSnapshot.fresh().filter(token=token).first()
+    if snapshot is None:
+        return _json({"detail": "Preview expired or not found"}, status=404)
+    return _json(snapshot.data)
 
 
 @require_GET
