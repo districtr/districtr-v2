@@ -1,0 +1,27 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Upload overlay{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Upload overlay" subtitle="Add a GeoJSON or PMTiles overlay and attach it to maps" icon="upload" %}
+
+    <div class="nice-padding">
+        <p>
+            Upload a <code>.geojson</code> or <code>.pmtiles</code> file (or
+            point at one already hosted) to create an overlay row and
+            optionally attach it to one or more Districtr maps. The data
+            type is inferred from the file extension.
+        </p>
+        <form action="" method="POST" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% include "wagtailadmin/shared/non_field_errors.html" %}
+            <ul class="fields">
+                {% for field in form %}
+                    <li>
+                        {% include "wagtailadmin/shared/field.html" with field=field %}
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" class="button">Create overlay</button>
+        </form>
+    </div>
+{% endblock %}
