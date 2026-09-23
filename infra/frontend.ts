@@ -25,42 +25,12 @@ export function createFrontend(
     : aws.ssm.getParameterOutput({name: `/districtr/${config.stack}/meta/frontend-image-tag`}).value;
   const image = pulumi.interpolate`${repos.frontendRepo.repositoryUrl}:${imageTag}`;
 
-  // --- Secrets: Pulumi config -> SSM SecureString -> task definition ---
-  // NEXT_PUBLIC_* values are baked at image build time; only Auth0 session
-  // material is needed at runtime.
-  const ssmPrefix = `/districtr/${config.stack}/frontend`;
-  const secretParams = [
-    {envName: "AUTH0_CLIENT_ID", value: config.auth0ClientId},
-    {envName: "AUTH0_CLIENT_SECRET", value: config.auth0ClientSecret},
-    {envName: "AUTH0_SECRET", value: config.auth0SessionSecret},
-  ].map(({envName, value}) => ({
-    envName,
-    param: new aws.ssm.Parameter(`${name}-frontend-${envName}`, {
-      name: `${ssmPrefix}/${envName}`,
-      type: "SecureString",
-      value,
-    }),
-  }));
-
   const executionRole = new aws.iam.Role(`${name}-frontend-exec-role`, {
     assumeRolePolicy: ECS_TASKS_TRUST,
   });
   new aws.iam.RolePolicyAttachment(`${name}-frontend-exec-managed`, {
     role: executionRole.name,
     policyArn: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-  });
-  new aws.iam.RolePolicy(`${name}-frontend-exec-ssm`, {
-    role: executionRole.id,
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: ["ssm:GetParameters"],
-          Resource: secretParams.map(s => s.param.arn),
-        },
-      ],
-    }),
   });
 
   const taskDefinition = new aws.ecs.TaskDefinition(`${name}-frontend-task`, {
@@ -80,15 +50,10 @@ export function createFrontend(
         environment: [
           {name: "APP_BASE_URL", value: `https://${config.appDomain}`},
           {name: "NEXT_SERVER_API_URL", value: `https://${config.apiDomain}`},
-          {name: "AUTH0_DOMAIN", value: config.auth0Domain},
-          {name: "AUTH0_ISSUER", value: config.auth0Issuer},
-          {name: "AUTH0_AUDIENCE", value: config.auth0ApiAudience},
-          {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
           // Server-side CMS content reads.
           {name: "CMS_URL", value: `https://${config.cmsDomain}`},
           {name: "UNDER_CONSTRUCTION", value: String(config.underConstruction)},
         ],
-        secrets: secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn})),
         logConfiguration: {
           logDriver: "awslogs",
           options: {
