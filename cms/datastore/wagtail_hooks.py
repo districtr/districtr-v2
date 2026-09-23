@@ -54,7 +54,9 @@ from authapi.teams import (
     TeamScopedGetObjectMixin,
     TeamScopedViewGrantPermissionPolicy,
     TeamScopedViewSetMixin,
+    administered_by_user,
     team_slugs_for_user,
+    user_administers,
     user_is_unscoped_admin,
 )
 from datastore import views
@@ -506,15 +508,17 @@ class FormConfigAdminForm(WagtailAdminModelForm):
         # portal_id is the join key to the TagPage AND the backend FK target
         # (ON UPDATE CASCADE drags comments.submissions.portal_id along), so
         # renames silently re-home submissions and detach the live page.
-        # Only unscoped admins may change it, and only to a real portal slug.
+        # Only unscoped admins may set or change it, and only to a real portal
+        # slug. That includes creation: attaching the first form to a portal
+        # names its moderating teams, so a partner doing it could claim any
+        # unconfigured portal. Partners get new portals from the wizard.
         if (
-            self.instance.pk
-            and portal_id != self.instance.portal_id
-            and self.for_user is not None
+            self.for_user is not None
             and not user_is_unscoped_admin(self.for_user)
+            and (not self.instance.pk or portal_id != self.instance.portal_id)
         ):
             raise forms.ValidationError(
-                "Only admins may re-point a form at a different portal."
+                "Only admins may attach a form to a portal or re-point it."
             )
         from wagtail.models import Locale
 
@@ -540,13 +544,22 @@ class FormConfigAdminForm(WagtailAdminModelForm):
             )
         user = self.for_user
         if user is not None and not user_is_unscoped_admin(user):
-            chosen = set(cleaned.get("admin_teams") or [])
-            if not chosen & set(team_slugs_for_user(user)):
+            own = set(team_slugs_for_user(user))
+            chosen = list(cleaned.get("admin_teams") or [])
+            if not set(chosen) & own:
                 self.add_error(
                     "admin_teams",
                     "At least one of your own teams must keep moderation "
                     "access (otherwise you lose this form).",
                 )
+            # Other teams' checkboxes aren't rendered for this editor, so they
+            # never come back in the POST. Put them back where they were, or
+            # saving would silently revoke a co-administering team.
+            previous = list(self.instance.admin_teams or [])
+            withheld = [t for t in previous if t not in own]
+            cleaned["admin_teams"] = [
+                t for t in previous if t in withheld or t in chosen
+            ] + [t for t in chosen if t not in previous]
         return cleaned
 
 
@@ -555,21 +568,25 @@ class FormConfigPermissionPolicy(ModelPermissionPolicy):
     admin_teams intersect their team slugs (the same rule the backend
     enforces on the moderation endpoints)."""
 
+    def user_has_permission(self, user, action):
+        # Creating (or copying) a config claims a portal, so only admins may:
+        # the snippet's /add/ and /copy/ views both check "add". Partners get
+        # configs through the portal wizard, which creates page and form
+        # together for the partner's own teams.
+        if action == "add" and not user_is_unscoped_admin(user):
+            return False
+        return super().user_has_permission(user, action)
+
     def instances_user_has_permission_for(self, user, action):
         instances = super().instances_user_has_permission_for(user, action)
-        if not user_is_unscoped_admin(user):
-            # NOT user_is_team_scoped: a partner with no team must see
-            # nothing (overlap with [] is empty), not inherit admin reach —
-            # the backend fails the same user closed (teams: [] -> 403).
-            return instances.filter(admin_teams__overlap=team_slugs_for_user(user))
-        return instances
+        # A partner with no team sees nothing (overlap with [] is empty); the
+        # backend fails the same user closed (teams: [] -> 403).
+        return administered_by_user(instances, user)
 
     def user_has_permission_for_instance(self, user, action, instance):
         if not super().user_has_permission_for_instance(user, action, instance):
             return False
-        if not user_is_unscoped_admin(user):
-            return bool(set(instance.admin_teams) & set(team_slugs_for_user(user)))
-        return True
+        return user_administers(user, instance.admin_teams)
 
 
 class _FormConfigScoped:
@@ -580,10 +597,7 @@ class _FormConfigScoped:
 
     def get_object(self, *args, **kwargs):
         obj = super().get_object(*args, **kwargs)
-        user = self.request.user
-        if not user_is_unscoped_admin(user) and not (
-            set(obj.admin_teams) & set(team_slugs_for_user(user))
-        ):
+        if not user_administers(self.request.user, obj.admin_teams):
             raise Http404
         return obj
 
@@ -705,9 +719,7 @@ class FormConfigViewSet(SnippetViewSet):
 
     def get_queryset(self, request):
         if not user_is_unscoped_admin(request.user):
-            return FormConfig.objects.filter(
-                admin_teams__overlap=team_slugs_for_user(request.user)
-            )
+            return administered_by_user(FormConfig.objects.all(), request.user)
         return None
 
     @cached_property
