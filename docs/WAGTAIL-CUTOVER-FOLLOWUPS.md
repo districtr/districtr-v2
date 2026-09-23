@@ -1,207 +1,119 @@
-# Wagtail Cutover — Remaining Work & Follow-ups
+# Wagtail cutover runbook and open items
 
-### Session 2026-08-05 — all administration moved into the Wagtail UI
+This file describes the cutover as merged. It covers what the merged code does, the ordered cutover checklist, and the follow-up ledger. "Tracked" means the item has an issue in the beads tracker. Git history holds the path that led here.
 
-Shipped (branch commits `0836caa7`, `5e283044`, + this one), reviewed against
-the Districtr Management System requirements:
+## What the merged code does
 
-- **`cms/moderation` app**: comment review, map
-  submissions (comments with an attached plan; approve into team galleries as
-  draft revisions), and the under-construction toggle are now Wagtail views
-  calling the FastAPI admin endpoints with a per-user minted JWT
-  (`authapi.serializers.mint_user_access_token`). The Next.js `/admin` tree
-  and the external "Comment review" menu link (`FRONTEND_URL`) are gone.
-- **Groups consolidated** (authapi.0007): `partner` (pages own-content,
-  galleries drafts, comment/submission moderation), `super_partner`
-  (+ compose map, upload overlay, module/overlay editing; GPKG import stays
-  admin-only via `datastore.add_gerrydbtable`), `admin`. `editor`/`reviewer`
-  deleted; members migrated to partner.
-- **Review//approve** (content.0007): "Admin approval" Workflow +
-  GroupApprovalTask(admin) on the page tree and Gallery snippets — partners
-  submit for moderation; publish permissions removed from non-admins.
-- **Locales** pre-provisioned (content.0006).
-- Backend: `has_document` filter on `GET /api/comments/admin/list (module dropped later in the stack; submissions replaced it)`.
+### Auth
 
-**⏳ DEFERRED — Partner report generation** (decided 2026-08-05: spec later).
-The feature list's "Generate a report" has no implementation anywhere. Open
-questions before building: CSV export vs formatted summary; scope (per
-portal/tag? per team?); which fields (comments, commenters, attached plan
-ids, counts). `bd` is still broken locally (`issue_prefix` missing), so this
-note is the tracking record.
+- The Wagtail CMS (`cms/`) issues every user JWT. Tokens are RS256 with a `kid` header (`cms/authapi/tokens.py`). The public keys are served at `/.well-known/jwks.json` (`cms/config/urls.py`).
+- There is no login or refresh endpoint and no refresh token. The Wagtail admin uses Django sessions. Admin views that call the backend mint a 5-minute access token per request with `mint_user_access_token` (`cms/authapi/serializers.py`). Claims are rebuilt on every mint, so a role or team change applies on the user's next action.
+- The frontend holds no user credentials. NextAuth, the `/auth` routes and `AUTH_SECRET` are gone. Editors sign in at the CMS, and the site footer links to `<CMS>/admin/`.
+- The backend verifies tokens with `AUTH_JWKS_URL`, `AUTH_ISSUER` and `AUTH_AUDIENCE` (`backend/app/core/security.py`). Infra derives them from `cmsDomain` and `jwtAudience` (`infra/backendtask.ts`).
+- `manage.py issue_service_token` mints service tokens with explicit scopes.
+- No application code calls Auth0. The only remaining use of Auth0 data is mapping legacy page authors during the content import.
 
-Status as of 2026-06-11, branch `wagtail-cutover` (20 commits ahead of `dev`, all
-quality gates green: backend 306 passed, cms 175 tests, frontend build clean).
-All 13 cutover workstreams and all 10 verified code-review findings are fixed
-and committed. This file tracks what was **deliberately deferred** — pick it up
-in a future session. Plan context: `~/.claude/plans/review-these-conversation-notes-federated-mitten.md`
-(local to Dylan's machine) and the project memory `wagtail-cutover-project`.
+### Roles and team scoping
 
-### Follow-up session 2026-06-11 — cleared the decision-free backlog
+- Three groups exist (`cms/authapi/migrations/0002_provision_roles.py`). `admin` has full page and datastore permissions. `partner` edits its own pages. `super_partner` adds the map-module and overlay tools. GPKG import is admin only.
+- Partners hold `add_page` only on the Portals and Places index pages (`authapi/0004`). Their edits go through the "Admin approval" workflow (`content/0002`), so an admin publishes.
+- Teams are the tenant boundary. The JWT carries a `teams` claim of team slugs for every non-admin. Admins get no claim and hold `review:review-all`.
+- The backend's `require_portal_admin` (`backend/app/submissions/main.py`) intersects the `teams` claim with `form_configs.admin_teams`. A missing or empty claim gets a 403. `review:review-all` is the only bypass.
+- In the CMS, `user_is_team_scoped` (`cms/authapi/teams.py`) scopes every signed-in non-admin. A partner with no team reaches nothing.
+- Portal pages are scoped by their FormConfig's `admin_teams` (`portal_slugs_for_user` in `cms/authapi/teams.py`). A portal with no FormConfig belongs to no team.
+- Only admins can create or copy a FormConfig (`FormConfigPermissionPolicy` in `cms/datastore/wagtail_hooks.py`). Partners get portals from the portal wizard (`cms/content/portal_wizard.py`). The wizard creates a draft page and its FormConfig together.
+- Only admins manage Teams (the Teams snippet in `cms/authapi/wagtail_hooks.py`).
 
-All items below marked **✅ DONE** were fixed and verified this session
-(backend 306 passed, cms non-menu tests pass, frontend build + pre-commit
-clean). Items marked **⏳ NEEDS DECISION** or **⏳ DEFERRED** remain. Details
-inline. The flaky `TestCommenterEndpoint` fix was a real fragility:
-`create_commenter_db`/`create_tag_db` returned `Model.model_construct(...)`
-instances that bypass SQLAlchemy instrumentation and fail FastAPI response
-serialization until the ORM mappers are configured by an unrelated test —
-replaced with real `Model(**row._asdict())` instances.
+### Submissions and moderation
 
----
+- `comments.form_configs`, `comments.submissions` and `comments.submissions_content` replace the legacy comment tables (`backend/app/submissions/models.py`).
+- Migration `d8f1b52c96e3` drops the legacy comment tables without converting their rows. Production held five legacy form comments, four of them test rows.
+- Zone notes live in `comments.district_notes` (`backend/app/district_notes/`).
+- A map belongs to at most one portal through `document.portal_id` (migration `f3a9c1d27e58`). `submissions.tags` no longer exists.
+- Moderation needs no review. Text scoring sets `nsfw` automatically, and the frontend blurs those entries (`backend/app/submissions/moderation.py`). District notes get the same scoring, and nsfw notes show a placeholder in public reads. District notes have no human moderation control.
+- The human controls are Blur and Hide, both in the Portals hub gallery. Hide removes an entry from every public listing. It does not delete the map, which stays reachable at `/map/<public_id>` by design.
+- There is no review queue. The Portals hub (`cms/portals/`, at `/admin/portals/`) replaced it. The hub has a portal index, a per-portal gallery with filters for flagged, hidden and nsfw entries, and a per-portal metrics page. The old `/admin/moderation/portals/` URL redirects to the hub.
+- A WAF rule limits `/api/submissions/flag` to 20 requests per IP per 5 minutes (`rate-limit-flag` in `infra/waf.ts`).
 
-## 1. Product decisions — RESOLVED 2026-08-04 (session with Dylan)
+### Collection modes
 
-### 1.1 ✅ Editor scope: **own-content-only** (+ teams for manual control)
-Shipped: `content/0004_editor_own_content_only` revokes the editor group's
-tree-wide `change_page`; editors keep `add_page` (Wagtail's owner model grants
-edit on owned pages) + `publish_page` (applies only to editable, i.e. own,
-pages). `migrate_tiptap --owners "auth0|xx=email,..."` sets `Page.owner` from
-the legacy `author` column (Auth0 subjects — the sub→email mapping must be
-supplied at cutover; there are two distinct authors in the data).
+`FormConfig.collection_mode` (`cms/datastore/models.py`, checked in `backend/app/submissions/models.py`) takes one of four values:
 
-### 1.2 ✅ group_only galleries: **enforced via Teams**
-Shipped: the JWT carries a `map_groups` claim (slugs across the user's teams,
-minted in [cms/authapi/serializers.py](../cms/authapi/serializers.py));
-[cms/galleries/api.py](../cms/galleries/api.py) requires the gallery's
-`map_group` slug in that claim, or the `admin` role. A merely-valid login no
-longer opens group_only galleries. Scoping unit confirmed as `MapGroup`.
+- `internal` collects maps made from the portal and shows them only in the admin gallery.
+- `auto_public` collects maps into the public gallery once they are marked in progress or ready to share. There is no form.
+- `prompt` asks the author to submit with a short form when a map is marked ready to share. This is the default.
+- `form` shows a form on the portal page. Maps are not collected automatically.
 
-> **Superseded 2026-08-05 (districtr_v2-i06): Team is the tenant now.**
-> MapGroup reverted to a pure listing facet. Team gained a `slug`
-> (authapi.0008), the JWT claim is `teams` (team slugs), Gallery has a
-> required real `team` FK (galleries.0003 — also closes the
-> silently-inaccessible NULL-group gallery bug, districtr_v2-rqz), and
-> teams own map modules directly via TeamDistrictrMap (existing
-> TeamMapGroup ownership auto-expanded per map at migration). Scoping
-> engine: authapi/teams.py (`team_ids_for_user` / `team_slugs_for_user`).
+### Content
 
-### 1.3 Refresh-token security posture (still open, low priority)
-`BLACKLIST_AFTER_ROTATION` was turned **off**
-([cms/config/settings/base.py](../cms/config/settings/base.py)) because Next.js
-RSCs cannot persist rotated cookies — single-use tokens deterministically
-bricked admin sessions. Trade-off: a stolen refresh token stays valid until its
-own 14-day expiry. If tighter security is wanted later: implement a reuse
-grace-window serializer (accept the previous token for ~60s after rotation),
-or make middleware the *only* refresher and re-enable blacklisting.
+- `TagPage` is now `PortalPage` and `TagsIndexPage` is now `PortalsIndexPage` (`content/0006`). The tables keep their old names. The index page keeps the slug `tags`, and the frontend serves portals at `/portal/<slug>`.
+- `content/0002_provision_site` creates the Portals, Places and Static index pages, the locales, and the Admin approval workflow.
+- `content/0003_import_legacy_content` runs `migrate_tiptap` during `migrate` to import `cms.tags_content` and `cms.places_content`. If legacy rows exist and `MIGRATE_TIPTAP_OWNERS` is unset, the migration refuses to run.
+- The content API (`cms/content/api.py`) serves the types `portals`, `places` and `static`. It also accepts `tags` as a temporary alias for `portals`.
+- The backend's `app/cms` package now only serves site settings (`/api/cms/site_settings`, the under-construction flag).
 
----
+### Tests
 
-## 2. Functional follow-ups (small, well-scoped)
+- Frontend unit tests run with `bun run test` (`bun test` over `*.test.ts` under `app/src`). CI runs them in `.github/workflows/test-app.yml`.
+- CMS tests run in `.github/workflows/test-cms.yml`. Backend tests run in `.github/workflows/test-backend.yml`.
 
-| Item | Where | Notes |
-|---|---|---|
-| ✅ **DECIDED 2026-08-04: leave as-is** — District comments for tag-scoped reviewers | [backend/app/comments/main.py](../backend/app/comments/main.py) | Blanket 403 stays: scoped reviewers moderate community comments only; full reviewers/admins handle district comments. Menu link already hidden for scoped reviewers. |
-| ⚠️ **OPEN** — District-comment review has NO admin UI | [cms/moderation/services.py](../cms/moderation/services.py) | `list_district_comments` has no production caller: the portal review queue only lists form comments, and the old Next.js /admin surface is gone. District comments are auto-moderated (nsfw scoring) but cannot be human-reviewed until a queue is built — do not treat district-comment review as shipped. |
-| ✅ **DONE** — `/places` "N map modules" count | [app/src/app/(static)/places/page.tsx](../app/src/app/(static)/places/page.tsx) | Restored: card shows `N map module(s)` from the `districtr_map_slugs` the list endpoint returns. |
-| ✅ **DONE** — GET `/auth/logout` CSRF | [app/src/app/auth/logout/route.ts](../app/src/app/auth/logout/route.ts) | Guarded with the Fetch-Metadata `Sec-Fetch-Site` header — an explicit `cross-site` GET bounces home WITHOUT signing out; same-origin/same-site/direct nav still log out. Chose this over the auto-submit-form approach: lower risk, no coupling to NextAuth CSRF internals, no redirect flash. |
-| ⏳ **DEFERRED** (long-term) — PermissionGuard reads raw JWT client-side | [app/src/app/admin/components/PermissionGuard.tsx](../app/src/app/admin/components/PermissionGuard.tsx) | Now base64url-safe via shared `decodeJwtPayload`, but long-term the access token shouldn't need to reach the client at all — pass roles/scopes as typed session fields and keep the token server-side. Larger auth-session refactor; left as-is. |
-| ✅ **DONE** — Flaky `TestCommenterEndpoint` (3 tests) | backend/tests/test_comments.py | Root cause: `create_commenter_db`/`create_tag_db` returned `model_construct(...)` instances bypassing ORM instrumentation, failing FastAPI response serialization until mappers were configured by an unrelated test. Fixed by returning real `Model(**row._asdict())` instances. Now passes in isolation, subset, and full suite. |
+## Cutover checklist
 
----
+Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`) behind the shared ALB on `cms.districtr.org` and `cms.dev.districtr.org`. `.github/workflows/deploy-cms.yml` deploys it.
 
-## 3. Performance — ✅ ALL DONE this session
-
-- ✅ **`content_detail` fetches every language's full body** to compute
-  `available_languages`, then serializes one
-  ([cms/content/api.py](../cms/content/api.py)). Fixed: `values_list('locale__language_code')`
-  for the language set + a single full fetch of the chosen page only.
-- ✅ **`content_list` pulls full `body` columns for up to 100 rows** to emit a
-  link list (backs `/tags`, `/places`, homepage PlaceMap). Fixed: `.defer('body')`.
-- ✅ **`/api/galleries/` list has no offset/limit clamp** — fixed: mirrors
-  `content_list`'s `MAX_PAGE_SIZE` (100) with `offset`/`limit` query params.
-- ✅ **Token mint runs 4 queries where 2 suffice** (groups + assignments queried
-  twice across `get_token`/`scopes_for_user`). Fixed: groups + assignments
-  queried once in `get_token` and passed into `scopes_for_user` via new
-  `group_names` / `has_review_assignments` kwargs.
-
----
-
-## 4. Infrastructure / consistency
-
-- ✅ **DONE** — **S3-vs-R2 client divergence** (decided: prod is **AWS S3**).
-  All three sites now share one S3 contract: `get_s3_client` honors
-  `AWS_S3_ENDPOINT` (optional S3-compatible host) and the R2 `ACCOUNT_ID`
-  branching is gone (backend + `cms/datastore/services.py` +
-  `cms/config/settings/production.py`). The `R2_BUCKET_NAME`-misnomer TODO is
-  resolved: backend reads the bucket through a new `Settings.s3_bucket`
-  property (`R2_BUCKET_NAME or AWS_S3_BUCKET`, matching cms `GPKG_BUCKET`); the
-  legacy secret name is kept (it's live) but documented. The dead `ACCOUNT_ID`
-  / `R2_ACCOUNT_ID` fields were removed (`extra="ignore"` makes a stale prod
-  secret harmless). NOTE: backend now reads `AWS_S3_ENDPOINT` where it didn't
-  before — if a prod `ACCOUNT_ID`/R2 secret is still set it is now ignored, so
-  confirm prod is genuinely on S3 before/at cutover.
-- ✅ **DONE** — **Permission-grant migration boilerplate ×3** (`datastore/0002`,
-  `galleries/0002`, `authapi/0003`). Extracted `core/migration_utils.py`
-  (`ensure_permissions` + `model_permissions`); all three migrations now use it.
-  The `create_permissions` fresh-DB footgun lives in one documented place.
-- ⏳ **DEFERRED** — **Datastore admin tool views** ([cms/datastore/views.py](../cms/datastore/views.py)):
-  four hand-rolled form views with permission declared twice (view decorator +
-  menu item kwarg). A small shared FormView base would make the fifth tool
-  safe to add by construction. Left as-is — pure refactor, lower value.
-- ✅ **DONE (partial)** — **cms fetch wrappers** ([app/src/app/utils/api/cmsContent.ts](../app/src/app/utils/api/cmsContent.ts)):
-  the three per-function try/fetch/null blocks now share one `cmsFetch<T>()`.
-  CMS URL resolution across three places (`auth.ts`, `admin/config.ts`,
-  `cmsContent.ts`) NOT consolidated — `auth.ts` is the critical NextAuth path
-  with server-only semantics; left untouched to avoid risk.
-- ⏳ **DEFERRED** — **Dev JWT keys are ephemeral per process**
-  ([cms/config/settings/dev.py](../cms/config/settings/dev.py)): fine for the
-  single-process compose runserver, but `manage.py shell` mints tokens the
-  server won't verify. Run `manage.py generate_jwt_keys` and pin them in
-  `cms/.env.docker` if this bites. Also: `KidTokenBackend` mirrors SimpleJWT
-  internals — re-check on any SimpleJWT upgrade.
-- **`bd` issue tracker is broken locally** (`pending schema migrations alter
-  pre-existing dirty tables`) — no beads issues were filed for any of this
-  branch; repair bd and backfill if the team wants tracker history.
-
----
-
-## 5. Cutover-day checklist (operational)
-
-> **AWS-first (2026-08-05, Fly is being deprecated):** the CMS now has a full
-> AWS home — `infra/cms.ts` (Fargate service + cms-migrate release task, host
-> rule `cms.districtr.org` / `cms.dev.districtr.org`, cert SAN + DNS record in
-> the `dnsRecords` output) and `.github/workflows/deploy-cms.yml`. The backend
-> and frontend task envs are already pointed at the CMS issuer (no Auth0 config
-> remains in `infra/`). S3 auth uses the task role
-> (`AWS_USE_DEFAULT_CREDENTIALS`); ALB health checks hit `/healthz`
-> (host-validation-exempt middleware). If cutover happens on AWS, step 2 below
-> replaces Fly secrets with Pulumi config.
-
-1. DB snapshot, plus a schema dump of the legacy comments:
+1. Take an RDS snapshot. Then dump the legacy comments schema:
    `pg_dump --schema=comments --format=custom -f legacy-comments.dump "$DATABASE_URL"`.
-   Migration d8f1b52c96e3 drops the legacy comment tables without converting
-   their rows into submissions; this dump is the backfill source if any are
-   ever wanted.
-2. Secrets. **AWS**: `pulumi config set --secret` per stack —
-   `djangoSecretKey`, `jwtSigningKey`/`jwtVerifyingKey`
-   (`manage.py generate_jwt_keys`), `authSecret`, `resendApiKey`
-   (+ verify the Resend sending domain); create the `cms.*.districtr.org`
-   DNS records from the `dnsRecords` output.
-   **Fly (only if cutover precedes the AWS migration)** — **cms**:
-   `JWT_SIGNING_KEY`/`JWT_VERIFYING_KEY`, `DJANGO_SECRET_KEY`,
-   `RESEND_API_KEY`, DB + storage creds;
-   **api**: `AUTH_JWKS_URL=https://districtr-v2-cms.fly.dev/.well-known/jwks.json`,
-   `AUTH_ISSUER`, `AUTH_AUDIENCE`; **frontend**: `AUTH_SECRET`, `CMS_URL`.
-3. Staging rehearsal on the `-dev` Fly apps first (full sequence below, plus a
-   backend `alembic revision --autogenerate` afterward proving an empty diff).
-4. Merge → CI deploys api/app/cms (release commands run both migration systems).
-5. `manage.py migrate_tiptap --dry-run` → review report → real run **with
-   `--owners "auth0|<sub>=<email>,..."`** (map the two legacy author subjects
-   to provisioned users so their pages stay editable under own-content-only).
-5b. In the Wagtail admin, add a "Static pages" index page under Home
-   (StaticPage type, new 2026-08-04): static site pages migrate into the CMS
-   one at a time — delete the hardcoded Next.js route, publish a StaticPage
-   with the same slug (the `/[slug]` catch-all serves it).
-6. `manage.py provision_users users.csv` (CSV: email,name,group — groups are
-   now `admin`/`partner`/`super_partner`, consolidated 2026-08-05 by
-   authapi.0007) — sends password-setup emails.
-7. Smoke: Wagtail login, edit+publish a page, comment moderation in the
-   Wagtail admin (Review menu → /admin/moderation/portals/, pick a portal;
-   moved in-CMS 2026-08-05; the Next.js /admin pages are gone),
-   under-construction toggle (Settings → Frontend settings), thumbnail regen,
-   gallery publish, compose-map dry call.
-8. **Disable** (don't delete) the Auth0 tenant; delete after two quiet weeks.
-9. One month post-cutover: ship the migration renaming `cms.tags_content` /
-   `cms.places_content` → `*_legacy` (they must survive until then —
-   `migrate_tiptap` reads them; alembic's `include_object` already ignores the
-   `cms` schema).
+   Migration `d8f1b52c96e3` drops the legacy comment tables without converting their rows. This dump is the backfill source if any row is ever wanted.
+2. Set the stack secrets with `pulumi config set --secret` on each stack. `infra/config.ts` requires `djangoSecretKey`, `jwtSigningKey` and `jwtVerifyingKey`. Neither stack file has them yet. Generate the key pair with `manage.py generate_jwt_keys`. `secretKey` and `s3BucketName` are also required and already set. Set `resendApiKey` too, because `provision_users` emails through Resend. Verify the Resend sending domain.
+3. Set the GitHub repo variables `CMS_URL_DEV` and `CMS_URL_PROD`. `deploy-app.yml` bakes them into the frontend as `NEXT_PUBLIC_CMS_URL`.
+4. Run `pulumi preview` on prod and read the certificate diff. `infra/alb.ts` adds `cmsDomain` to the certificate SANs, which replaces the ACM certificate. Create the validation and `cms.*` records from `pulumi stack output dnsRecords`.
+5. Get the legacy page-author mapping ready. `content/0003` needs `MIGRATE_TIPTAP_OWNERS="auth0|<sub>=<email>,..."` for any legacy content to import. Use `unowned` to import admin-only pages on purpose. Set it with `pulumi config set migrateTiptapOwners '<mapping>'` on the stack being cut over; `infra/cms.ts` passes it to the `cms-migrate` task only. Remove it after the cutover deploy.
+6. Rehearse the full sequence on the dev stack. Run `manage.py migrate_tiptap --dry-run` and review its report. Afterward, run `alembic revision --autogenerate` in the backend and confirm the diff is empty.
+7. Merge to `main`. Set `AWS_DEPLOY_CMS_PROD=true`, or run `deploy-cms.yml` by hand. The api and cms workflows each run their migrations as a one-off task before rolling the service.
+8. Run `manage.py provision_users users.csv`. The CSV columns are `email,name,group`, and the groups are `admin`, `partner` and `super_partner`. The command emails each user a password-setup link.
+9. Right after step 8, create the Teams as an admin. Add their members and map modules. `provision_users` has no team column, and a partner with no team sees nothing.
+10. As an admin, add a Portal forms entry for each legacy portal. Set `portal_id` to the portal's slug and `admin_teams` to the owning teams. Until then the portal page shows no form and no partner can reach it.
+11. Smoke test:
+    - Sign in to the Wagtail admin with a provisioned account.
+    - Edit and publish a page as an admin. Edit a page as a partner and submit it for moderation.
+    - In the Portals hub, create a portal with the wizard as a partner. On a portal gallery, hide an entry and restore it. Toggle an entry's blur.
+    - Toggle under-construction mode (Settings, then Frontend settings) and turn it back off.
+    - Regenerate a map module's thumbnail from its edit page.
+    - Compose a throwaway module with Create map module. It is created hidden.
+    - Load a portal page and a place page on the public site.
+12. Disable the Auth0 tenant. Do not delete it. Delete it after two quiet weeks.
+13. One month after cutover, rename `cms.tags_content` and `cms.places_content` to `*_legacy`. They must survive until then because `content/0003` reads them. Alembic's `include_object` already ignores the `cms` schema.
+
+## Open items
+
+| Item | Where | Status |
+|---|---|---|
+| Cache CMS-rendered pages before the first public portal launch. Portal, place and static pages read the language cookie, which forces dynamic rendering. `/portals` and `/places` are `force-dynamic`. Every pageview hits the CMS. | `app/src/app/(static)/` | Tracked |
+| Backfill a FormConfig for each legacy portal. Nothing creates them, so checklist step 10 is manual. | `cms/datastore/` | Tracked |
+| Pass `MIGRATE_TIPTAP_OWNERS` to the `cms-migrate` task. | `infra/cms.ts` | Done |
+| Add a team column to `provision_users`. | `cms/authapi/management/commands/provision_users.py` | Tracked |
+| Show empty-state help to partners with no team and to teams with no map modules. | CMS admin | Tracked |
+| Split `backend/app/main.py` (about 2,000 lines) into routers by domain. | `backend/app/main.py` | Tracked |
+| Reorganize `backend/tests/test_main.py` by domain. | `backend/tests/test_main.py` | Tracked |
+| Enforce sessions on `POST /api/submissions/flag`. `SESSION_ENFORCE` is `false`, so `require_session` only logs. The WAF rate rule is the stopgap. | `infra/backendtask.ts`, `backend/app/core/security.py` | Tracked |
+| Add a section and a prefill flag to custom form questions. Prefilled answers are keyed by question key alone, so two portals with the same key share answers. | `FormFieldCustom` in `backend/app/submissions/models.py` and `cms/datastore/models.py` | Tracked |
+| Make `collection_mode` immutable once the portal page is published. Portal forms still edit it freely. | `cms/datastore/wagtail_hooks.py` | Tracked |
+| Enforce the portal module allow-list on the server. `allowListModules` is checked only in the browser. | `app/src/app/components/Forms/MapSelector.tsx` | Tracked |
+| Validate DistrictrMap layer and tiles fields when the CMS edit form saves. | `cms/datastore/wagtail_hooks.py` | Tracked |
+| Decide whether super partners manage their own team's membership. Team permissions are admin only today. | `cms/authapi/migrations/0002_provision_roles.py` | Tracked |
+| Per-team image collections in the Wagtail image library. | CMS | Tracked |
+| Content blocks for self-hosted video, a guide page hierarchy, and reusable snippets. | `cms/content/` | Tracked |
+| Partner report generation needs a spec. The Portals hub metrics page may cover part of it. | `cms/portals/` | Tracked |
+| Drop the `tags` content-type alias once every deployed frontend requests `portals`. | `cms/content/api.py` | Open |
+| Dev JWT keys are generated per process, so `manage.py shell` mints tokens the dev server rejects. Pin keys from `generate_jwt_keys` in `cms/.env.docker` if this matters. `KidTokenBackend` copies SimpleJWT internals, so recheck it on any SimpleJWT upgrade. | `cms/config/settings/dev.py`, `cms/authapi/tokens.py` | Open |
+
+## Done
+
+- `/places` cards show the number of map modules again.
+- `content_detail` reads the language list with `values_list`, and `content_list` defers `body`.
+- The token mint queries groups once and passes them to `scopes_for_user`.
+- Backend and CMS share one S3 client contract. `AWS_S3_ENDPOINT` is optional, and the R2 account branching is gone.
+- Permission-grant migrations share `cms/core/migration_utils.py`.
+- Frontend CMS reads share one `cmsFetch` wrapper (`app/src/app/utils/api/cmsContent.ts`).
+- Team-less partners fail closed in both the CMS and the backend.
+- The Portals hub replaced the review queues, and the Next.js `/admin` tree is gone.
