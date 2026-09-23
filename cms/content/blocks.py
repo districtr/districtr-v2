@@ -4,9 +4,12 @@ nodes used by the Next.js frontend.
 
 CRITICAL CONTRACT: struct-child names keep the EXACT camelCase attribute
 names defined in app/src/app/constants/cms.ts (PLAN_GALLERY_ATTRIBUTES,
-COMMENT_GALLERY_ATTRIBUTES, FORM_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES,
-and the boilerplate/sectionHeader node attrs) so the frontend can spread a
-block's ``value`` straight into the matching React component as props.
+COMMENT_GALLERY_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES, and the
+boilerplate/sectionHeader node attrs) so the frontend can spread a block's
+``value`` straight into the matching React component as props. The form
+block has no attribute list: its value is typed by FormBlock in
+app/src/app/utils/api/cmsContent.ts and spread into SubmissionFormProps
+(see the note in constants/cms.ts).
 
 TipTap node name (app/src/app/components/Cms/RichTextEditor/extensions/)
 maps to stream block name as follows:
@@ -221,7 +224,8 @@ class CommentGalleryBlock(CompatStructBlock):
 
 
 class FormBlock(CompatStructBlock):
-    """The submission-form placement marker; mirrors FORM_ATTRIBUTES.
+    """The submission-form placement marker; its value is FormBlock in
+    app/src/app/utils/api/cmsContent.ts.
 
     Which fields the form shows lives portal-level in the FormConfig mirror
     (datastore.models.FormConfig), injected into the API representation by

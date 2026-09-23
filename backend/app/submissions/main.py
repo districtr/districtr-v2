@@ -712,7 +712,7 @@ async def set_submission_hidden(
     clone's draft_status to scratch, and restore puts it back to
     ready_to_share (the status every clone has by construction). That label
     is bookkeeping; the `hidden` filters are what remove the entry.
-    Live-referenced maps (drafts, auto-collect modes)
+    Live-referenced maps (drafts, auto-collect modes, admin-added maps)
     are never demoted, since that would change a real user's working map.
     """
     submission = _get_submission_for_admin(submission_pk, auth_result, session)
