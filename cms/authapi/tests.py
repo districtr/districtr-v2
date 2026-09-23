@@ -24,7 +24,6 @@ from authapi.jwks import all_jwks, current_kid
 from core.testing import make_user
 from authapi.scopes import ALL_SCOPES, scopes_for_user
 from authapi.serializers import mint_user_access_token
-from content.models import TagPage
 
 
 def fastapi_style_verify(token: str) -> dict:
