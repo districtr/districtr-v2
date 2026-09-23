@@ -187,7 +187,7 @@ def test_expand_non_contiguous_mutates_in_place():
 
 def test_expand_non_contiguous_noop_when_no_match(dg):
     """The common case (51/52 states have zero non-contiguous parents):
-    nothing in geo_ids intersects _non_contiguous_parents, so the set comes
+    nothing in geo_ids matches a _non_contiguous_parents entry, so the set comes
     back unchanged and untouched."""
     geo_ids = {"missing_1", "missing_2"}
     dg.expand_non_contiguous(geo_ids)
@@ -198,8 +198,8 @@ def test_expand_non_contiguous_empty_ncp_is_cheap_regardless_of_geo_ids_size():
     """O(len(non_contiguous_parents)), never O(len(geo_ids)): a huge geo_ids
     set with an empty (or non-matching) NCP set must not be scanned element
     by element. Not a timing assertion (flaky) — asserts the actual
-    mechanism: CPython's set `&` iterates the smaller operand, so this
-    intersection touches _non_contiguous_parents' elements, not geo_ids'."""
+    mechanism: the loop iterates _non_contiguous_parents and probes geo_ids
+    by membership, so it touches NCP's elements, not geo_ids'."""
     dg = _ncp_graph()
     huge = {str(i) for i in range(200_000)}
     dg.expand_non_contiguous(huge)
@@ -278,8 +278,11 @@ def test_from_npz_matches_from_networkx(name):
     for node in via_pkl._node_ids.tolist():
         assert via_npz.parents_of([node]) == via_pkl.parents_of([node])
         assert via_npz.children_of(node) == via_pkl.children_of(node)
-    assert via_npz._weighted_edges == via_pkl._weighted_edges
-    assert via_npz._non_contiguous_parents == via_pkl._non_contiguous_parents
+    assert via_npz._weighted_edges.tolist() == via_pkl._weighted_edges.tolist()
+    assert (
+        via_npz._non_contiguous_parents.tolist()
+        == via_pkl._non_contiguous_parents.tolist()
+    )
 
     subset = via_pkl._node_ids.tolist()[: len(via_pkl) // 2]
     expected = {frozenset(c) for c in via_pkl.connected_components(subset)}
@@ -304,14 +307,18 @@ def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
     # Arrays are memory-mapped (shared across worker processes by the OS)
     assert isinstance(loaded._node_ids, np.memmap)
     assert isinstance(loaded._adj, np.memmap)
+    assert isinstance(loaded._weighted_edges, np.memmap)
+    assert isinstance(loaded._non_contiguous_parents, np.memmap)
 
     node_ids = loaded._node_ids.tolist()
     assert node_ids == dg._node_ids.tolist()
     for node in node_ids:
         assert loaded.parents_of([node]) == dg.parents_of([node])
         assert loaded.children_of(node) == dg.children_of(node)
-    assert loaded._weighted_edges == dg._weighted_edges
-    assert loaded._non_contiguous_parents == dg._non_contiguous_parents
+    assert loaded._weighted_edges.tolist() == dg._weighted_edges.tolist()
+    assert (
+        loaded._non_contiguous_parents.tolist() == dg._non_contiguous_parents.tolist()
+    )
 
     subset = node_ids[: max(1, len(dg) // 2)]
     expected = {frozenset(c) for c in dg.connected_components(subset)}

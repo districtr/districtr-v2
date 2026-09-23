@@ -47,8 +47,8 @@ class DualLevelGraph:
         node_ids: np.ndarray,
         edges: np.ndarray,
         parent_of: np.ndarray,
-        weighted_edges: dict[tuple[str, str], int] | None = None,
-        non_contiguous_parents: set[str] | None = None,
+        weighted_edges: np.ndarray | None = None,
+        non_contiguous_parents: np.ndarray | None = None,
     ):
         """
         Args:
@@ -57,14 +57,27 @@ class DualLevelGraph:
             parent_of: (N,) int32 array of indices into node_ids, -1 = no parent.
                 Every referenced parent must itself be a node — callers
                 (``from_networkx``/``from_npz``) enforce this at construction.
-            weighted_edges: {(parent_a, parent_b): block-edge count} or None for
+            weighted_edges: (W, 3) int32 array of rows (parent_a, parent_b,
+                weight): a parent-unit node-index pair on a parent boundary
+                and the block-edge count between them — or None for
                 non-shatterable graphs.
-            non_contiguous_parents: parent ids whose blocks are disconnected.
+            non_contiguous_parents: (M,) int32 array of node indices of
+                parents whose blocks are disconnected, or None.
         """
         n = len(node_ids)
         self._node_ids = node_ids
         self._edges = edges
         self._parent_of = parent_of
+        self._weighted_edges = (
+            weighted_edges
+            if weighted_edges is not None
+            else np.empty((0, 3), dtype=np.int32)
+        )
+        self._non_contiguous_parents = (
+            np.sort(non_contiguous_parents)
+            if non_contiguous_parents is not None
+            else np.empty(0, dtype=np.int32)
+        )
 
         # CSR adjacency: sort both edge directions by source. adj_offsets MUST
         # be int32 (matching adj's int32 dtype) — scipy.sparse.csr_array
@@ -85,13 +98,9 @@ class DualLevelGraph:
         by_parent = np.argsort(parent_of[child_idx], kind="stable")
         self._children_sorted = child_idx[by_parent]
 
-        self._finalize(weighted_edges, non_contiguous_parents)
+        self._finalize()
 
-    def _finalize(
-        self,
-        weighted_edges: dict[tuple[str, str], int] | None,
-        non_contiguous_parents: set[str] | None,
-    ) -> None:
+    def _finalize(self) -> None:
         """Build the small per-process structures derived from the arrays.
 
         Shared by __init__ and load_cache (the latter sets the array
@@ -105,11 +114,6 @@ class DualLevelGraph:
         self._children_slices: dict[int, tuple[int, int]] = {
             int(p): (int(s), int(e)) for p, s, e in zip(uniq, starts, ends)
         }
-
-        self._weighted_edges = weighted_edges or None
-        self._non_contiguous_parents: frozenset[str] = frozenset(
-            non_contiguous_parents or ()
-        )
 
         # Cached once — parents_of() is called per-request on real batches;
         # rebuilding this list per call was measured at ~97% of a single-id
@@ -139,8 +143,10 @@ class DualLevelGraph:
         "adj",
         "adj_offsets",
         "children_sorted",
+        "weighted_edges",
+        "non_contiguous_parents",
     )
-    _CACHE_VERSION = 1
+    _CACHE_VERSION = 2
 
     def save_cache(self, cache_dir: Path) -> None:
         """Atomically write the graph as mmap-able .npy files + meta.json.
@@ -154,28 +160,7 @@ class DualLevelGraph:
         try:
             for name in self._CACHE_ARRAYS:
                 np.save(tmp_dir / f"{name}.npy", getattr(self, f"_{name}"))
-            we = self._weighted_edges
-            if we:
-                np.save(
-                    tmp_dir / "we_a.npy",
-                    np.asarray([a for a, _ in we], dtype=str),
-                )
-                np.save(
-                    tmp_dir / "we_b.npy",
-                    np.asarray([b for _, b in we], dtype=str),
-                )
-                np.save(
-                    tmp_dir / "we_vals.npy",
-                    np.asarray(list(we.values()), dtype=np.int32),
-                )
-            ncp = self._non_contiguous_parents
-            if ncp:
-                np.save(tmp_dir / "ncp.npy", np.asarray(sorted(ncp), dtype=str))
-            meta = {
-                "cache_version": self._CACHE_VERSION,
-                "has_weighted_edges": bool(we),
-                "has_non_contiguous_parents": bool(ncp),
-            }
+            meta = {"cache_version": self._CACHE_VERSION}
             (tmp_dir / "meta.json").write_text(json.dumps(meta))
         except OSError:
             # Failed before tmp_dir was complete (e.g. ENOSPC mid-write) --
@@ -221,21 +206,7 @@ class DualLevelGraph:
                 np.load(cache_dir / f"{name}.npy", mmap_mode="r"),
             )
 
-        weighted_edges = None
-        if meta["has_weighted_edges"]:
-            weighted_edges = {
-                (a, b): int(w)
-                for a, b, w in zip(
-                    np.load(cache_dir / "we_a.npy").tolist(),
-                    np.load(cache_dir / "we_b.npy").tolist(),
-                    np.load(cache_dir / "we_vals.npy").tolist(),
-                )
-            }
-        non_contiguous_parents = None
-        if meta["has_non_contiguous_parents"]:
-            non_contiguous_parents = set(np.load(cache_dir / "ncp.npy").tolist())
-
-        g._finalize(weighted_edges, non_contiguous_parents)
+        g._finalize()
         return g
 
     # -- lookups ------------------------------------------------------------
@@ -315,12 +286,15 @@ class DualLevelGraph:
         not ``Iterable[str]``: a broader type would force an O(len(geo_ids))
         copy just to call this. Real-world non-contiguous parents are
         vanishingly rare (as of writing, only Maine has any, 5 out of ~48k
-        nodes), so the match-finding step below is written to cost
-        O(len(non_contiguous_parents)) — CPython's set ``&`` always iterates
-        the smaller operand regardless of argument order — and NEVER
+        nodes), so the match-finding step below iterates
+        ``_non_contiguous_parents`` and tests each parent's geo_id against
+        the caller's set — O(len(_non_contiguous_parents)), NEVER
         O(len(geo_ids)), independent of how large the zone being expanded is.
         """
-        to_expand = self._non_contiguous_parents & geo_ids
+        nid = self._node_ids_list
+        to_expand = [
+            p for i in self._non_contiguous_parents.tolist() if (p := nid[i]) in geo_ids
+        ]
         for p in to_expand:
             geo_ids.discard(p)
             geo_ids.update(self.children_of(p))
@@ -391,9 +365,11 @@ class DualLevelGraph:
         individually-assigned units are seen from both sides; halve that
         sub-total to avoid double-counting.
 
-        Step 1's flat ``weighted_edges`` dict scan measures ~2.1ms/call on
-        real state-scale data — negligible outside a hot path, so it is not
-        backed by a second (parent-indexed) CSR index.
+        Step 1's flat scan over the ``_weighted_edges`` rows costs
+        low-single-digit ms on real state-scale data — negligible outside a
+        hot path, so it is not backed by a second (parent-indexed) CSR
+        index. Zones come from ``parent_idx_to_zone``, the same index-space
+        translation Step 2 uses, so both passes stay in index space.
 
         The caller's split is trusted as-is, not re-derived against the
         graph's own parent-unit membership: a geo_id can only reach
@@ -451,10 +427,13 @@ class DualLevelGraph:
             }
 
         cut_count = 0
-        if self._weighted_edges:
-            for (parent_a, parent_b), weight in self._weighted_edges.items():
-                zone_a = parent_unit_to_zone.get(parent_a)
-                zone_b = parent_unit_to_zone.get(parent_b)
+        if len(self._weighted_edges):
+            # .tolist() copies this small array out of the mmap once per
+            # call — plain-int iteration, none of memmap's per-element read
+            # overhead (see the .view(np.ndarray) note below).
+            for a, b, weight in self._weighted_edges.tolist():
+                zone_a = parent_idx_to_zone.get(a)
+                zone_b = parent_idx_to_zone.get(b)
                 if zone_a is not None and zone_b is not None and zone_a != zone_b:
                     cut_count += weight
 
