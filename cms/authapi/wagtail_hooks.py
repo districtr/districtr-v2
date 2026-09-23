@@ -79,7 +79,7 @@ def register_user_chooser_viewset():
 class TeamViewSet(SnippetViewSet):
     """Admin-only "Teams" snippet: name a team, add member users, and assign
     the Districtr map modules it owns. Only the `admin` group holds Team permissions
-    (authapi/migrations/0005), so the menu item never renders for other roles.
+    (authapi/migrations/0002_provision_roles), so the menu item never renders for other roles.
 
     Membership/ownership take effect immediately for the Wagtail admin scoping
     (authapi/teams.py) — no token round-trip, since this scoping is server-side

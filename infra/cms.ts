@@ -175,7 +175,14 @@ export function createCms(
           "-c",
           "python manage.py bootstrap_schema && python manage.py migrate --noinput",
         ],
-        environment: [...environment, ...dbEnvironment],
+        environment: [
+          ...environment,
+          ...dbEnvironment,
+          // Only the one-off migrate task needs it (content/0003).
+          ...(config.migrateTiptapOwners
+            ? [{name: "MIGRATE_TIPTAP_OWNERS", value: config.migrateTiptapOwners}]
+            : []),
+        ],
         secrets,
         logConfiguration: logConfiguration(logGroups.cmsMigrate),
       },
