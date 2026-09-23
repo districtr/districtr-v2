@@ -628,7 +628,7 @@ def create_document(
                 session, new_document.public_id, data.metadata.draft_status
             ):
                 background_tasks.add_task(
-                    submissions.moderate_submission_by_id, flipped_id
+                    submissions.moderate_submission_in_background, flipped_id
                 )
 
     stmt = (
@@ -1824,8 +1824,9 @@ def update_districtrmap_metadata(
         # Merge into the existing metadata: the frontend sends partial updates
         # (e.g. just draft_status), and replacing the whole JSON would wipe the
         # other fields (name, tags set at creation, ...).
+        previous = document.map_metadata or {}
         merged = {
-            **(document.map_metadata or {}),
+            **previous,
             **metadata.model_dump(exclude_unset=True),
         }
         stmt = (
@@ -1841,10 +1842,11 @@ def update_districtrmap_metadata(
             session, document.public_id, merged.get("draft_status")
         )
         # Auto entries are live references, so the rendered card text (map
-        # name/description) can change AFTER the initial score — re-score
-        # submitted live-ref entries whenever those fields are touched.
+        # name/description) can change AFTER the initial score. Re-score
+        # submitted live-ref entries when either field actually changed; the
+        # client resends unchanged values on most saves.
         rescore: set[int] = set(flipped)
-        if metadata.name is not None or metadata.description is not None:
+        if any(previous.get(k) != merged.get(k) for k in ("name", "description")):
             rescore.update(
                 session.exec(
                     select(Submission.id).where(
@@ -1859,7 +1861,7 @@ def update_districtrmap_metadata(
         session.commit()
         for submission_id in rescore:
             background_tasks.add_task(
-                submissions.moderate_submission_by_id, submission_id
+                submissions.moderate_submission_in_background, submission_id
             )
 
     except Exception as e:

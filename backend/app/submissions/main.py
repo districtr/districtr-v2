@@ -53,7 +53,7 @@ from app.submissions.fields import (
     PRIVATE_FIELDS,
     validate_submission_fields,
 )
-from app.submissions.moderation import moderate_submission_by_id
+from app.submissions.moderation import moderate_submission_in_background
 from app.submissions.models import (
     CollectionMode,
     CustomFieldPublic,
@@ -112,7 +112,7 @@ def auto_finalize_draft_submissions(
 
     Idempotent; called inside the caller's transaction; does not commit.
     Returns the ids of rows flipped to submitted — callers MUST enqueue
-    moderate_submission_by_id for each AFTER commit: the gallery card
+    moderate_submission_in_background for each AFTER commit: the gallery card
     renders the map's name/description, so an unscored auto entry would let
     an abusive map title sail past the nsfw filter.
     """
@@ -362,7 +362,7 @@ async def create_submission(
     session.commit()
     session.refresh(submission)
 
-    background_tasks.add_task(moderate_submission_by_id, submission.id)
+    background_tasks.add_task(moderate_submission_in_background, submission.id)
     return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
 
 
@@ -418,7 +418,7 @@ async def finalize_submission(
     _insert_content(submission.id, data.fields, session)
     session.commit()
 
-    background_tasks.add_task(moderate_submission_by_id, submission.id)
+    background_tasks.add_task(moderate_submission_in_background, submission.id)
     return SubmissionCreated(id=submission.id, submission_id=submission_id)
 
 
@@ -754,20 +754,31 @@ async def admin_add_submission(
     another portal is refused with a 409 that says to copy it instead. The
     Submission row references the LIVE map (map_is_clone=False, like
     auto-collection): no snapshot is taken, and takedown never demotes the
-    author's working document. The entry surfaces in the public gallery only
-    once the map's draft_status is past scratch, exactly like an auto-collected
-    entry. No moderation task: there is no text content to score, and an admin
-    vouched for the map.
+    author's working document. Scratch work is refused: the submissions list
+    has no draft_status filter, so a scratch map added here would be public
+    immediately, which no other path allows. No moderation task: there is no
+    text content to score, and an admin vouched for the map.
     """
     config = get_form_config(data.portal_id, session)
     require_portal_admin(auth_result, config)
+    # Row lock: two concurrent adds for the same map (multiple workers or
+    # containers) must serialize, or both pass the duplicate check below.
     document = session.exec(
-        select(Document).where(col(Document.public_id) == data.map_public_id)
+        select(Document)
+        .where(col(Document.public_id) == data.map_public_id)
+        .with_for_update(of=Document)
     ).first()
     if document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Map {data.map_public_id} not found",
+        )
+    draft_status = (document.map_metadata or {}).get("draft_status")
+    if draft_status not in [s.value for s in SUBMITTED_DRAFT_STATUSES]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Map {data.map_public_id} is still scratch work. It can be "
+            "added once its author marks it in progress or ready to share.",
         )
     existing = session.exec(
         select(Submission).where(
