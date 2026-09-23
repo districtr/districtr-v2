@@ -7,7 +7,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("content", "0004_alter_placepage_body_alter_staticpage_body_and_more"),
+        ("content", "0005_merge_preview_and_portal_hub"),
     ]
 
     operations = [
