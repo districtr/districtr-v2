@@ -2,7 +2,7 @@
 
 A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in [`decisions.md`](decisions.md).
 
-Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and comment on them. The monorepo has four active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
+Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and JWT issuer), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
 
 ## Repository layout
 
@@ -16,14 +16,12 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   └── src/
 │       └── app/                 # Next.js app router root
 │           ├── (interactive)/   # Route group: map viewer/editor pages
-│           │   └── map/         #   /map, /map/[map_id], /map/edit/*
+│           │   └── map/         #   /map, /map/[public_id], /map/edit
 │           ├── (static)/        # Route group: static content pages
 │           │   └── ...          #   /about, /guide, /places, /contact, etc.
-│           ├── admin/           # Admin panel pages (Auth0-protected)
 │           ├── components/      # React components
 │           ├── constants/       # Constants and configuration
 │           ├── hooks/           # Custom hooks
-│           ├── lib/             # Auth0 and shared libraries
 │           ├── store/           # Zustand stores, subscriptions, middleware
 │           └── utils/           # Workers, API handlers, map helpers, IDB
 ├── backend/                     # FastAPI backend (Python)
@@ -33,8 +31,9 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   └── app/
 │       ├── alembic/             # Alembic DB migrations
 │       ├── assignments/         # Zone assignments management
-│       ├── cms/                 # Content management endpoints
-│       ├── comments/            # Comments + moderation API
+│       ├── cms/                 # Site settings (under-construction flag)
+│       ├── district_notes/      # Per-zone map notes
+│       ├── submissions/         # Portal submissions + moderation API
 │       ├── contiguity/          # Geographic spatial contiguity
 │       ├── core/                # DB, config, security, dependencies
 │       ├── exports/             # Export data functions
@@ -43,6 +42,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │       ├── thumbnails/          # Map thumbnail generation
 │       ├── models.py            # SQLModel/SQLAlchemy models
 │       └── main.py              # FastAPI entrypoint
+├── cms/                         # Wagtail CMS: admin UI, content API, JWT issuer
 ├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
 ├── docker-compose.yml           # Orchestration
 └── .env.example                 # Root env flags (LOAD_DATA, etc.)
@@ -90,11 +90,11 @@ A `Document` row (`backend/app/models.py`) carries plan metadata; assignments li
 
 ## Auth and sharing
 
-Protected routes enforce scopes through `VerifyToken.verify` (`backend/app/core/security.py`) against Auth0-issued JWTs; the frontend's role→scope mapping is `app/src/app/lib/auth0.ts` (`SCOPES`), mirrored by the backend's `TokenScope` — the two lists have no compile-time link, so a scope added to one side alone silently does nothing. Share links mint a row in `document.map_document_token` (optionally with a bcrypt password); the returned JWT names *which* share record it refers to, not the document — the grant is looked up server-side when the link is used. Password-protected edit access is the one deliberate point where proving the password hands over the protected document. Share and session tokens are HMAC JWTs signed with the same key, separated only by `aud`/`exp` claims (`require_session`'s `require: ["exp", "aud"]` is the entire separation). Captcha (Cloudflare Turnstile) is verified server-side, with separate secrets per widget. **Note (2026-09-03): auth is slated for a revamp — verify this section against the code before relying on details.**
+Protected routes enforce scopes through `VerifyToken.verify` (`backend/app/core/security.py`) against RS256 JWTs issued by the Wagtail CMS. The CMS maps groups to scopes in `cms/authapi/scopes.py`, mirrored by the backend's `TokenScope`. The two lists have no compile-time link, so a scope added to one side alone silently does nothing. The frontend holds no user credentials. Editors sign in to the Wagtail admin, which mints a short-lived token for each backend call. Share links mint a row in `document.map_document_token` (optionally with a bcrypt password); the returned JWT names *which* share record it refers to, not the document — the grant is looked up server-side when the link is used. Password-protected edit access is the one deliberate point where proving the password hands over the protected document. Share and session tokens are HMAC JWTs signed with the same key, separated only by `aud`/`exp` claims (`require_session`'s `require: ["exp", "aud"]` is the entire separation). Captcha (Cloudflare Turnstile) is verified server-side, with separate secrets per widget.
 
-## CMS and comments
+## CMS and submissions
 
-CMS content rows (`backend/app/cms/models.py`) carry `draft_content` and `published_content` as two columns, not a status enum — publishing moves draft into published and clears draft; there is no "in review" state on content. The rich-text editor is TipTap-based (`components/Cms/RichTextEditor/`), with the public page rendered separately by `RichTextRenderer` — **TipTap is slated for retirement; don't build on it.** Comment moderation scores text (OpenAI moderation or a local fallback) into `ReviewStatus`; rejected/over-threshold comments are masked with a placeholder in public responses rather than omitted, so counts stay truthful. District comments (zone-scoped, `DocumentComment`) sync by wholesale replacement: an incoming batch replaces that zone's comments — a UX decision, not a merge.
+Content pages (portals, places, static pages) are Wagtail pages in `cms/content/`, served to the frontend by the content API at `/api/content/` and rendered by `components/RichTextRenderer/StreamRenderer.tsx`. Partner page edits go through Wagtail's "Admin approval" workflow. Portal submissions live in `backend/app/submissions/`. Moderation is automatic. Text scoring (OpenAI moderation or a local fallback) sets `nsfw`, and the frontend blurs those entries. Portal admins can blur or hide entries in the Portals hub (`cms/portals/`). District notes (zone-scoped, `backend/app/district_notes/`) get the same scoring, show a placeholder when nsfw, and sync by wholesale replacement. An incoming batch replaces that zone's notes. That is a UX decision, not a merge. The cutover runbook and open items are in [`WAGTAIL-CUTOVER-FOLLOWUPS.md`](WAGTAIL-CUTOVER-FOLLOWUPS.md).
 
 ## Dev environment
 
