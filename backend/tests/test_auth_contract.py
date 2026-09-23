@@ -17,7 +17,6 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import anyio
 import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -126,13 +125,11 @@ def mint_token(
 
 
 def run_verify(verifier, token: str, scopes: list[str]) -> dict:
-    async def _go():
-        return await verifier.verify(
-            SecurityScopes(scopes=scopes),
-            HTTPAuthorizationCredentials(scheme="Bearer", credentials=token),
-        )
-
-    return anyio.run(_go)
+    # verify is a plain def (it runs in FastAPI's threadpool; see #729).
+    return verifier.verify(
+        SecurityScopes(scopes=scopes),
+        HTTPAuthorizationCredentials(scheme="Bearer", credentials=token),
+    )
 
 
 def test_valid_token_with_required_scope(verifier, keypair, jwks):
@@ -255,8 +252,5 @@ def test_unsigned_token_rejected(verifier, jwks):
 
 
 def test_missing_token_rejected(verifier):
-    async def _go():
-        return await verifier.verify(SecurityScopes(scopes=[]), None)
-
     with pytest.raises(UnauthenticatedException):
-        anyio.run(_go)
+        verifier.verify(SecurityScopes(scopes=[]), None)
