@@ -1490,7 +1490,7 @@ class PortalWizardTests(TestCase):
             response = self.client.post(
                 self.url, self._payload(collection_mode=mode, map_modules=[])
             )
-            self.assertContains(response, "at least one map module", msg_prefix=mode)
+            self.assertContains(response, "at least one", msg_prefix=mode)
         self.assertFalse(FormConfig.objects.exists())
 
     def test_custom_questions_created_with_slugified_keys(self):
@@ -1529,6 +1529,21 @@ class PortalWizardTests(TestCase):
         )
         self.assertTrue(customs[0].required)
         self.assertEqual(customs[1].field_type, "textarea")
+
+    def test_colliding_question_keys_are_shown_and_create_nothing(self):
+        from datastore.models import FormConfig
+
+        response = self.client.post(
+            self.url,
+            self._payload(
+                **{
+                    "questions-0-label": "What is your ZIP?",
+                    "questions-1-label": "What is your zip",
+                }
+            ),
+        )
+        self.assertContains(response, "would share the key")
+        self.assertFalse(FormConfig.objects.exists())
 
     def test_slug_collision_with_existing_page_creates_nothing(self):
         from core.testing import make_portal

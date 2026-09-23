@@ -5,5 +5,5 @@
     <input type="hidden" name="action" value="{{ action }}">
     <input type="hidden" name="value" value="{{ value }}">
     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-    <button type="submit" class="button button-small{% if danger %} no{% endif %}">{{ label }}</button>
+    <button type="submit" class="button button-small{% if danger %} no{% endif %}" title="Applies to the public site immediately">{{ label }}</button>
 </form>

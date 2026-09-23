@@ -134,6 +134,8 @@ export interface MinPublicDocument {
   document_type: 'district' | 'coi';
   map_module: string;
   updated_at: string;
+  /** A visible submission of this map was marked sensitive: blur, don't drop. */
+  nsfw?: boolean;
 }
 
 export interface DocumentCreate {

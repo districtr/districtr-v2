@@ -70,6 +70,13 @@
             <div class="help-block help-critical"><p>{{ error }}</p></div>
         {% endif %}
 
+        {% if entries %}
+            <p class="help">
+                <strong>Hide</strong> and <strong>Blur</strong> change the
+                public site immediately. Pinning a plan saves a draft of the
+                portal page; the pin shows once the page is published.
+            </p>
+        {% endif %}
         {% for entry in entries %}
             {% include "portals/_entry.html" %}
         {% empty %}

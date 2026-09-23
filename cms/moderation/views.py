@@ -11,22 +11,14 @@ import logging
 from django.shortcuts import redirect, render
 from requests import RequestException
 from wagtail.admin import messages
-from wagtail.admin.auth import user_passes_test
 
+from core.menu import group_required
 from moderation import services
 from moderation.services import BackendAPIError
 
 logger = logging.getLogger(__name__)
 
 SITE_SETTINGS_GROUPS = frozenset({"admin"})
-
-
-def group_required(groups):
-    """Allow superusers and members of `groups`; else Wagtail's standard
-    permission-denied response (redirect to admin home with an error)."""
-    return user_passes_test(
-        lambda user: user.is_superuser or user.groups.filter(name__in=groups).exists()
-    )
 
 
 @group_required(SITE_SETTINGS_GROUPS)

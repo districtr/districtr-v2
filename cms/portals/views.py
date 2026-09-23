@@ -16,8 +16,8 @@ re-checks everything.
 """
 
 import logging
-import re
 import time
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.http import (
@@ -31,9 +31,10 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from requests import RequestException
 from wagtail.admin import messages
-from wagtail.admin.auth import permission_denied, user_passes_test
+from wagtail.admin.auth import permission_denied
 
-from authapi.teams import team_slugs_for_user, user_is_unscoped_admin
+from authapi.teams import portal_slugs_for_user, user_is_unscoped_admin
+from core.menu import group_required
 from moderation import services
 from moderation.services import BackendAPIError
 
@@ -74,21 +75,28 @@ def _portal_member_ids(user, slug: str) -> set:
     cached = _MEMBERSHIP_CACHE.get(key)
     if cached and time.monotonic() - cached[0] < _METRICS_CACHE_TTL:
         return cached[1]
-    member = services.list_submissions(
-        user, portal_id=slug, status="submitted", has_map="true", limit=100
-    )
-    ids = {e.get("map_public_id") for e in member}
+    # Page through every member (the endpoint caps limit at 100) so rows on
+    # later metrics pages pass the guard too.
+    # ponytail: one call per 100 submitted maps per cache miss; add a
+    # map_public_id filter to /api/submissions/admin if portals grow to
+    # thousands of maps.
+    ids, offset = set(), 0
+    while True:
+        batch = services.list_submissions(
+            user,
+            portal_id=slug,
+            status="submitted",
+            has_map="true",
+            offset=offset,
+            limit=100,
+        )
+        ids.update(e.get("map_public_id") for e in batch)
+        if len(batch) < 100:
+            break
+        offset += 100
     _prune(_MEMBERSHIP_CACHE, _METRICS_CACHE_TTL)
     _MEMBERSHIP_CACHE[key] = (time.monotonic(), ids)
     return ids
-
-
-def group_required(groups):
-    """Allow superusers and members of `groups`; else Wagtail's standard
-    permission-denied response (redirect to admin home with an error)."""
-    return user_passes_test(
-        lambda user: user.is_superuser or user.groups.filter(name__in=groups).exists()
-    )
 
 
 def accessible_portals(user):
@@ -102,15 +110,18 @@ def accessible_portals(user):
     from wagtail.models import Locale
 
     from content.models import TagPage
-    from datastore.models import FormConfig
 
     portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
     if not user_is_unscoped_admin(user):
-        team_portals = FormConfig.objects.filter(
-            admin_teams__overlap=team_slugs_for_user(user)
-        ).values_list("portal_id", flat=True)
-        portals = portals.filter(slug__in=list(team_portals))
+        portals = portals.filter(slug__in=list(portal_slugs_for_user(user)))
     return portals
+
+
+def _page_number(request) -> int:
+    try:
+        return max(int(request.GET.get("p", 1)), 1)
+    except ValueError:
+        return 1
 
 
 def _get_portal_or_denied(request, slug):
@@ -191,10 +202,7 @@ def portal_gallery(request, slug):
     if denied:
         return denied
 
-    try:
-        page = max(int(request.GET.get("p", 1)), 1)
-    except ValueError:
-        page = 1
+    page = _page_number(request)
     params = {
         "portal_id": slug,
         "offset": (page - 1) * PAGE_SIZE,
@@ -267,14 +275,22 @@ def portal_metrics(request, slug):
     if denied:
         return denied
 
+    page = _page_number(request)
     entries, error = [], None
     try:
         entries = services.list_submissions(
-            request.user, portal_id=slug, status="submitted", has_map="true", limit=100
+            request.user,
+            portal_id=slug,
+            status="submitted",
+            has_map="true",
+            offset=(page - 1) * PAGE_SIZE,
+            limit=PAGE_SIZE + 1,
         )
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Portal metrics fetch failed")
         error = str(exc)
+    has_next = len(entries) > PAGE_SIZE
+    entries = entries[:PAGE_SIZE]
 
     documents = {}
     map_ids = [e["map_public_id"] for e in entries if e.get("map_public_id")]
@@ -302,6 +318,10 @@ def portal_metrics(request, slug):
             "portal": portal,
             "rows": rows,
             "error": error,
+            "page": page,
+            "prev_page": page - 1,
+            "next_page": page + 1,
+            "has_next": has_next,
             "backend_url": settings.BACKEND_API_URL,
         },
     )
@@ -332,7 +352,7 @@ def portal_metrics_row(request, slug, public_id: int):
 
     try:
         envelope = services.get_document_evaluation(
-            public_id, services.mint_backend_session()
+            public_id, services.mint_backend_session(request.user)
         )
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Evaluation fetch failed for %s", public_id)
@@ -380,24 +400,44 @@ def _next_url(request):
     return reverse("portals_index")
 
 
+def parse_public_id(ref: str) -> int | None:
+    """The public ID in a bare ID or a pasted map link, else None.
+
+    Python twin of the frontend's parseMapRef (app/src/app/utils/map/
+    editUrl.ts), minus the UUID branch — admin/add takes a public ID. Only
+    the URL PATH is read: an edit link's private_edit_id query can contain
+    digits, and a UUID-only link carries no public ID at all.
+    """
+    ref = (ref or "").strip()
+    if ref.isdigit():
+        return int(ref)
+    segments = [s for s in urlparse(ref).path.split("/") if s]
+    while segments and segments[-1] in ("edit", "eval"):
+        segments.pop()
+    return int(segments[-1]) if segments and segments[-1].isdigit() else None
+
+
 @group_required(PORTAL_EDITOR_GROUPS)
 def portal_add_map(request, slug):
     """Retroactively put an existing map in this portal's gallery.
 
-    Takes the map's public ID; a pasted map link works too (the trailing
-    number is the ID). The backend does the real enforcement — team scoping,
-    existence, duplicate 409 — and its detail message surfaces on failure.
+    Takes the map's public ID or a pasted map link (parse_public_id). The
+    backend does the real enforcement — team scoping, existence, duplicate
+    409 — and its detail message surfaces on failure.
     """
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     portal, denied = _get_portal_or_denied(request, slug)
     if denied:
         return denied
-    match = re.search(r"(\d+)\D*$", request.POST.get("map_ref", ""))
-    if not match:
-        messages.error(request, "Enter the map's public ID (or paste its link).")
+    public_id = parse_public_id(request.POST.get("map_ref", ""))
+    if public_id is None:
+        messages.error(
+            request,
+            "Enter the map's public ID, or paste a link that shows it "
+            "(…/map/1234 or …/map/1234/edit).",
+        )
         return redirect(reverse("portals_gallery", args=[slug]))
-    public_id = int(match.group(1))
     try:
         services.add_submission(request.user, slug, public_id)
     except (BackendAPIError, RequestException) as exc:

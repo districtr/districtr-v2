@@ -56,6 +56,15 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <nav>
+                {% if page > 1 %}
+                    <a class="button button-secondary" href="?p={{ prev_page }}">Previous</a>
+                {% endif %}
+                <span style="margin: 0 0.5rem;">Page {{ page }}</span>
+                {% if has_next %}
+                    <a class="button button-secondary" href="?p={{ next_page }}">Next</a>
+                {% endif %}
+            </nav>
         {% endif %}
     </div>
 
@@ -68,6 +77,13 @@
             const queue = rows.slice();
             const fmt = (v, digits) => (v === null || v === undefined) ? '—'
                 : (typeof v === 'number' ? v.toLocaleString(undefined, {maximumFractionDigits: digits ?? 0}) : String(v));
+            // A fraction of the ideal population. Same wording as the
+            // frontend's formatDeviation (EvalPanel/BasicsSection.tsx).
+            const formatDeviation = (value) => {
+                if (value > 1) return 'over 100%';
+                const formatted = (value * 100).toFixed(3);
+                return formatted === '0.000' ? 'under 0.001%' : `${formatted}%`;
+            };
             const fill = (row, data) => {
                 const set = (cell, text) => {
                     const el = row.querySelector(`[data-cell="${cell}"]`);
@@ -80,8 +96,9 @@
                     return;
                 }
                 set('complete', data.complete === null ? '—' : (data.complete ? 'Yes' : 'No'));
-                set('drawn', data.total_count ? `${fmt(data.assigned_count)} / ${fmt(data.total_count)}` : fmt(data.districts_drawn));
-                set('deviation', fmt(data.top_to_bottom_deviation));
+                set('drawn', fmt(data.districts_drawn));
+                set('deviation', typeof data.top_to_bottom_deviation === 'number'
+                    ? formatDeviation(data.top_to_bottom_deviation) : '—');
                 set('unassigned', fmt(data.unassigned_population));
                 set('contiguous', data.all_contiguous === null ? '—' : (data.all_contiguous ? 'Yes' : 'No'));
             };
