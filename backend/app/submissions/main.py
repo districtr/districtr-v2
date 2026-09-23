@@ -716,9 +716,9 @@ async def set_submission_hidden(
 ):
     """Hard takedown/restore for spam and abuse. Resolves the flag report.
 
-    Takedown removes the entry from the portal gallery and the submissions
-    list; it does not delete the map, which stays reachable at its public_id
-    by design. For submitted clone-backed entries, takedown also sets the
+    Takedown removes the entry from every public listing (portal galleries,
+    curated galleries, and the submissions list); it does not delete the map,
+    which stays reachable at its public_id by design. For submitted clone-backed entries, takedown also sets the
     clone's draft_status to scratch, and restore puts it back to
     ready_to_share (the status every clone has by construction). That label
     is bookkeeping; the `hidden` filters are what remove the entry.
