@@ -5,10 +5,9 @@ Replaces /api/comments/*. Key decisions:
 - No approval gate. Everything visible unless a reviewer hides it; moderation
   sets `nsfw`, which the public list serves and the frontend blurs.
 - Admin scoping is the JWT `teams` claim intersected with the portal's
-  form_configs.admin_teams. `read:read-all` in the token scopes is the
-  admin/superuser escape hatch (same convention the old review_tags scoping
-  used); an absent teams claim is unrestricted (service tokens), an empty one
-  allows nothing.
+  form_configs.admin_teams. `review:review-all` in the token scopes is the
+  admin/superuser escape hatch. Without it, an absent or empty teams claim
+  allows nothing (require_portal_admin fails closed).
 - Maps are attached by cloning: the referenced plan must be ready_to_share,
   gets copied (assignments, zone notes, metadata), and the submission stores
   the clone's public_id. The clone's edit UUID is generated here and never
@@ -595,11 +594,12 @@ async def set_submission_hidden(
 ):
     """Hard takedown/restore for spam and abuse. Resolves the flag report.
 
-    For submitted entries the map is a frozen clone that exists ONLY as a
-    gallery entry, so takedown also demotes its draft_status: without that,
-    the abusive map stays fetchable at its enumerable public_id even while
-    hidden from every listing. Restore puts it back to ready_to_share (the
-    status every clone has by construction).
+    Takedown removes the entry from the portal gallery and the submissions
+    list; it does not delete the map, which stays reachable at its public_id
+    by design. For submitted entries the map is a frozen clone, and takedown
+    also sets the clone's draft_status to scratch; restore puts it back to
+    ready_to_share (the status every clone has by construction). That label
+    is bookkeeping. The `hidden` filters are what remove the entry.
     """
     submission = _get_submission_for_admin(submission_pk, auth_result, session)
     submission.hidden = body.hidden
