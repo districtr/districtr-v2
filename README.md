@@ -14,7 +14,7 @@ The Districtr reboot monorepo.
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
 1. Install and configure [Docker](https://www.docker.com/) for your machine
-2. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
+2. Copy the env examples (compose requires all three to parse): `cp ./backend/.env.docker.example ./backend/.env.docker && cp ./app/.env.docker.example ./app/.env.docker && cp ./cms/.env.docker.example ./cms/.env.docker`, then fill in missing variables.
 3. From the repo root, run `docker-compose up db backend frontend`
 4. Add data as necessary by following the steps in [Loading data](#loading-data) below
 
@@ -43,8 +43,11 @@ The existing Docker Compose services can be used as [Dev Containers](https://con
    ```bash
    cp ./backend/.env.docker.example ./backend/.env.docker
    cp ./app/.env.docker.example ./app/.env.docker
+   cp ./cms/.env.docker.example ./cms/.env.docker
    ```
-   Fill in any missing variables in both files.
+   Fill in any missing variables in the copied files. All three copies must
+   exist before `docker-compose` will parse — the compose file references
+   them as required env_file entries.
 
 ### Available containers
 
