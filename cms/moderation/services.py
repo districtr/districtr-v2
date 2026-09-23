@@ -9,11 +9,15 @@ it does for a normal login — the teams x admin_teams scoping logic stays in
 one place (backend/app/submissions/main.py).
 """
 
+import logging
+
 import requests
 from django.conf import settings
 
 from authapi.serializers import mint_user_access_token
 from datastore.services import REQUEST_TIMEOUT_SECONDS, BackendAPIError
+
+logger = logging.getLogger(__name__)
 
 
 def _call(
@@ -118,27 +122,32 @@ def set_submission_hidden(user, submission_id: int, hidden: bool) -> dict:
 
 def get_documents_list(ids: list[int]) -> list:
     """GET /api/documents/list?ids=… (public) — batched map metadata
-    (name/description/draft_status via map_metadata, module, updated_at)."""
+    (name/description/draft_status via map_metadata, module, updated_at).
+    include_hidden: the admin still needs metadata for taken-down maps,
+    which public listings drop."""
     if not ids:
         return []
     return _call(
         None,
         "GET",
         "/api/documents/list",
-        params={"ids": ids[:100], "limit": 100},
+        params={"ids": ids[:100], "limit": 100, "include_hidden": "true"},
         what="document list",
     )
 
 
-def mint_backend_session() -> str | None:
-    """POST /api/session (unauthenticated) — a session token for the
-    require_session-gated endpoints (/stats, /evaluation). Enforcement is
-    currently off (SESSION_ENFORCE=false); send the header anyway so the CMS
-    keeps working if it flips on. Returns None on failure — callers proceed
-    without the header."""
+def mint_backend_session(user) -> str | None:
+    """POST /api/session/admin — a session token for the require_session-gated
+    endpoints (/stats, /evaluation), minted against the acting moderator's
+    access token (the public /api/session wants a Turnstile token the CMS
+    can't produce). Returns None on failure, logged — callers proceed without
+    the header, which works only while SESSION_ENFORCE is off."""
     try:
-        return _call(None, "POST", "/api/session", what="session mint").get("token")
-    except Exception:
+        return _call(user, "POST", "/api/session/admin", what="session mint").get(
+            "token"
+        )
+    except (BackendAPIError, requests.RequestException):
+        logger.exception("Backend session mint failed")
         return None
 
 
@@ -146,8 +155,10 @@ def get_document_evaluation(public_id: int, session_token: str | None) -> dict:
     """GET /api/document/{public_id}/evaluation — the metrics envelope.
 
     A cache-miss recompute is multi-second (S3 graph load behind an advisory
-    lock, up to ~120s), hence the raised timeout; call this lazily per row,
-    never eagerly for a whole listing."""
+    lock, up to ~120s), hence the raised timeout — kept just under the ALB's
+    120s idle timeout (infra/alb.ts), past which the browser's request is
+    gone anyway. Call this lazily per row, never eagerly for a whole
+    listing."""
     headers = {"X-Districtr-Session": session_token} if session_token else None
     return _call(
         None,
@@ -155,7 +166,7 @@ def get_document_evaluation(public_id: int, session_token: str | None) -> dict:
         f"/api/document/{public_id}/evaluation",
         what="map evaluation",
         headers=headers,
-        timeout=180,
+        timeout=110,
     )
 
 

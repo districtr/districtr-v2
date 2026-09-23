@@ -9,9 +9,10 @@ default (unscoped) access.
 
 Each resource reaches a Team differently:
 - DistrictrMap relates through TeamDistrictrMap (team_links);
-- TagPage relates indirectly through districtr_map_slug -> DistrictrMap ->
-  TeamDistrictrMap;
-- FormConfig (submission moderation) carries team slugs in admin_teams.
+- FormConfig (submission moderation) carries team slugs in admin_teams;
+- TagPage (a portal) relates through its FormConfig (portal_id = page slug),
+  so page access and submission moderation share one key. Module grants
+  decide which modules a team may use, never which portals it may edit.
 
 so the per-resource queryset filters live with each resource's wagtail_hooks;
 this module only answers "is this user scoped, and to which teams".
@@ -65,12 +66,26 @@ def team_slugs_for_user(user) -> list[str]:
     )
 
 
+def portal_slugs_for_user(user) -> set[str]:
+    """Slugs of the portals (TagPages) whose FormConfig.admin_teams include
+    one of ``user``'s teams — the same rule the backend enforces via the JWT
+    teams claim. A TagPage is in a team-scoped user's scope exactly when its
+    slug is in this set; a portal with no FormConfig belongs to no team."""
+    from datastore.models import FormConfig
+
+    return set(
+        FormConfig.objects.filter(
+            admin_teams__overlap=team_slugs_for_user(user)
+        ).values_list("portal_id", flat=True)
+    )
+
+
 def districtr_map_slugs_for_user(user) -> set[str]:
     """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
 
-    A TagPage is in the user's scope exactly when its ``districtr_map_slug`` is
-    in this set (TagPage -> DistrictrMap by slug -> TeamDistrictrMap). Imported
-    lazily to keep authapi free of a load-time dependency on datastore.
+    Scopes PlacePages and the map-module choices offered in page forms and
+    the portal wizard. Imported lazily to keep authapi free of a load-time
+    dependency on datastore.
     """
     from datastore.models import DistrictrMap
 

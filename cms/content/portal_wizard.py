@@ -150,9 +150,11 @@ class PortalWizardForm(forms.Form):
     map_modules = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Map modules",
-        help_text="Each module gets a 'draw a map' card on the portal page. "
-        "Required unless the portal only collects written testimony.",
+        label="Draw-a-map links",
+        help_text="Each one you tick becomes a 'Draw a map' card on the "
+        "portal page. Pick at least one when the portal collects maps; "
+        "optional for written testimony, where people can draw a map and "
+        "link it in the form.",
     )
     fields = forms.MultipleChoiceField(
         choices=SUBMISSION_FIELD_CHOICES,
@@ -224,7 +226,7 @@ class PortalWizardForm(forms.Form):
         ):
             self.add_error(
                 "map_modules",
-                "Pick at least one map module — this portal collects maps.",
+                "Pick at least one 'Draw a map' link — this portal collects maps.",
             )
 
         # Auto-collected portals never show a form, so form answers are
@@ -311,13 +313,7 @@ def portal_wizard(request):
         return render(
             request,
             "content/portal_wizard.html",
-            {
-                "form": form,
-                "question_formset": question_formset,
-                # A POST re-render means errors somewhere: show every step at
-                # once so nothing stays hidden behind the stepper.
-                "paginate": request.method != "POST",
-            },
+            {"form": form, "question_formset": question_formset},
         )
 
     if request.method == "POST" and form.is_valid() and question_formset.is_valid():

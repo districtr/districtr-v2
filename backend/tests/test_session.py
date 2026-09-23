@@ -96,3 +96,22 @@ def test_gated_endpoint_enforced(monkeypatch):
         assert response.status_code != 401
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_session_requires_a_moderator_token():
+    # No bearer token: the CMS contract fails closed.
+    response = TestClient(app).post("/api/session/admin")
+    assert response.status_code in (401, 403)
+
+
+def test_admin_session_mints_for_moderator(monkeypatch):
+    from app.core.security import auth
+
+    monkeypatch.setattr(settings, "SESSION_ENFORCE", True)
+    app.dependency_overrides[auth.verify] = lambda: {"sub": "cms-user"}
+    try:
+        response = TestClient(app).post("/api/session/admin")
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    require_session(response.json()["token"])  # passes the enforced gate

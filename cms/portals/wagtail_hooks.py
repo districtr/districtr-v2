@@ -6,18 +6,11 @@ review workflow for submissions), and its map metrics."""
 from django.urls import path, reverse
 from django.views.generic import RedirectView
 from wagtail import hooks
-from wagtail.admin.auth import user_passes_test
 
 from content.portal_wizard import portal_wizard
-from core.menu import GroupMenuItem
+from core.menu import GroupMenuItem, group_required
 from portals import views
 from portals.views import PORTAL_EDITOR_GROUPS
-
-
-def _is_portal_editor(user):
-    return (
-        user.is_superuser or user.groups.filter(name__in=PORTAL_EDITOR_GROUPS).exists()
-    )
 
 
 @hooks.register("register_admin_urls")
@@ -25,7 +18,7 @@ def register_portals_admin_urls():
     # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
     # the views additionally require a portal-editor group (and the backend
     # re-checks teams×admin_teams on every data call).
-    gate = user_passes_test(_is_portal_editor)
+    gate = group_required(PORTAL_EDITOR_GROUPS)
     return [
         path("portals/", views.portals_index, name="portals_index"),
         path("portals/new/", gate(portal_wizard), name="content_portal_wizard"),

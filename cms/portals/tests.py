@@ -406,6 +406,24 @@ class MetricsProxyTests(TestCase):
             response = self.client.get(self._row_url(999))
         self.assertEqual(response.status_code, 404)
 
+    def test_guard_admits_maps_past_the_first_hundred(self):
+        def respond(method, url, params=None, **kwargs):
+            if "/api/submissions/admin" in url:
+                offset = int((params or {}).get("offset", 0))
+                if offset == 0:
+                    return mock_response(
+                        json_body=[make_entry(map_public_id=i) for i in range(100)]
+                    )
+                return mock_response(json_body=[make_entry(map_public_id=4242)])
+            if "/evaluation" in url:
+                return mock_response(json_body=self.ENVELOPE)
+            return mock_response(json_body={"token": "session-token"})
+
+        with mock.patch("moderation.services.requests.request") as request:
+            request.side_effect = respond
+            response = self.client.get(self._row_url(4242))
+        self.assertEqual(response.status_code, 200)
+
     def test_derived_row_shape(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.side_effect = backend_router(
@@ -529,6 +547,29 @@ class PortalAddMapTests(TestCase):
                 self.url, {"map_ref": "https://districtr.org/map/456?utm=x"}
             )
         self.assertEqual(request.call_args.kwargs["json"]["map_public_id"], 456)
+
+    def test_parse_public_id_reads_the_path_not_the_query(self):
+        from portals.views import parse_public_id
+
+        for ref, expected in (
+            ("123", 123),
+            (" 123 ", 123),
+            ("https://districtr.org/map/456?utm=x", 456),
+            # Digits in private_edit_id must not win ("…5bg" -> map 5).
+            (
+                "https://districtr.org/map/2566/edit?private_edit_id=mNtKdM-wRUqdrkMlEO_5bg",
+                2566,
+            ),
+            ("/map/2566/eval", 2566),
+            # UUID-only edit links carry no public ID.
+            (
+                "https://districtr.org/map/0b4c5e6a-1111-2222-3333-444455556666/edit",
+                None,
+            ),
+            ("not a map 7", None),
+            ("", None),
+        ):
+            self.assertEqual(parse_public_id(ref), expected, ref)
 
     def test_unparseable_ref_never_reaches_backend(self):
         with mock.patch("moderation.services.requests.request") as request:

@@ -61,6 +61,13 @@
                             when submitters fill a form. Leave a row blank to
                             skip it.
                         </p>
+                        {% if question_formset.non_form_errors %}
+                            <div class="w-field--error" role="alert">
+                                {% for error in question_formset.non_form_errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                         {{ question_formset.management_form }}
                         <table class="listing" style="max-width: 48rem;">
                             <thead><tr><th>Question</th><th>Type</th><th>Required</th></tr></thead>
@@ -124,20 +131,14 @@
                 });
             });
 
-            // Pagination: one step at a time, all steps at once on an error
-            // re-render (the server validates the whole form in one POST).
-            const paginate = {{ paginate|yesno:"true,false" }};
+            // Pagination: one step at a time. The server validates the whole
+            // form in one POST; an error re-render opens on the first step
+            // holding an error, with that field scrolled into view.
             const steps = Array.from(document.querySelectorAll('.wizard-step'));
             const back = document.getElementById('wizard-back');
             const next = document.getElementById('wizard-next');
             const submit = document.getElementById('wizard-submit');
             const progress = document.getElementById('wizard-progress');
-            if (!paginate) {
-                back.remove();
-                next.remove();
-                progress.remove();
-                return;
-            }
             // Auto-collected portals never show a submitter form, so the
             // form step is skipped (the server ignores its answers too).
             const formStep = steps[steps.length - 1];
@@ -173,7 +174,10 @@
                     show(current + 1);
                 }
             });
-            show(0);
+            const firstError = document.querySelector('.wizard-step .w-field--error');
+            const errorStep = firstError ? activeSteps().indexOf(firstError.closest('.wizard-step')) : -1;
+            show(Math.max(errorStep, 0));
+            if (firstError) firstError.scrollIntoView({block: 'center'});
         })();
     </script>
 {% endblock %}

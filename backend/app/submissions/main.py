@@ -446,7 +446,22 @@ async def list_submissions(
 ):
     """List visible submissions. nsfw rows are included — the frontend blurs
     them with an opt-in reveal. Everything here is public data, so portal_id
-    is optional: gallery blocks filter by tags or curated ids instead."""
+    is optional: gallery blocks filter by tags or curated ids instead.
+
+    Written entries only: a row with no public content (auto-collected, or
+    added by an admin) is a bare map, and bare maps belong to the map
+    gallery (/api/documents/list), not the written-submissions list."""
+    has_public_content = exists(
+        select(literal(1))
+        .select_from(SubmissionContent)
+        .where(
+            and_(
+                col(SubmissionContent.submission_id) == Submission.id,
+                col(SubmissionContent.field).not_in(PRIVATE_FIELDS),
+            )
+        )
+        .correlate(Submission)
+    )
     stmt = (
         select(Submission)
         # Internal-mode portals collect maps for the admin gallery only —
@@ -457,6 +472,7 @@ async def list_submissions(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
                 col(FormConfig.collection_mode) != CollectionMode.internal,
+                has_public_content,
             )
         )
         .order_by(
