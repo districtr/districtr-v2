@@ -1,18 +1,14 @@
-"""Equivalence tests: DualLevelGraph must behave like the networkx graph it
-replaces, for the slice of behavior it still exposes (``.nodes``/``.graph``
-dict-mimicry is dropped by design — see the class docstring — so there is
-nothing to test-for-equivalence there)."""
+"""Tests for DualLevelGraph: consistency checks over the committed npz
+fixtures, plus hand-computed expectations on small inline graphs."""
 
-import pickle
-import random
-
-import networkx as nx
 import numpy as np
 import pytest
 
 from app.evaluation.dual_graph import DualLevelGraph
-from app.evaluation.graph_loader import from_networkx, from_npz
+from app.evaluation.graph_loader import from_npz
+from tests.conftest import _block_geoid
 from tests.constants import FIXTURES_PATH
+from tests.graph_helpers import make_graph
 
 
 # ks_ellis_county_block: plain block adjacency graph (no attrs, larger)
@@ -21,95 +17,139 @@ from tests.constants import FIXTURES_PATH
 # grid_shatterable: larger (80-node) dual-level graph, full attrs, mixed
 #   bare-block/vtd:-prefixed id vocabulary — exercises searchsorted/dtype-width
 #   behavior at a size the 9-node simple_geos fixture can't.
-@pytest.fixture(
-    scope="module",
-    params=["ks_ellis_county_block", "simple_geos", "grid_child", "grid_shatterable"],
-)
-def nx_graph(request) -> nx.Graph:
-    with open(FIXTURES_PATH / "graph" / f"{request.param}.pkl", "rb") as f:
-        return pickle.load(f)
+#
+# The npz fixtures are written by the pipelines writer
+# (pipelines/transforms/graph.py graph_to_npz_arrays), so loading them here
+# also checks writer/reader schema compatibility across the two components.
+FIXTURE_NAMES = [
+    "ks_ellis_county_block",
+    "simple_geos",
+    "grid_child",
+    "grid_shatterable",
+]
 
 
-@pytest.fixture(scope="module")
-def dg(nx_graph) -> DualLevelGraph:
-    return from_networkx(nx_graph)
+def _fixture_path(name: str):
+    return FIXTURES_PATH / "graph" / f"{name}.npz"
 
 
-def test_membership_and_len(nx_graph, dg):
-    assert len(dg) == nx_graph.number_of_nodes()
-    for node in nx_graph.nodes():
+@pytest.fixture(scope="module", params=FIXTURE_NAMES)
+def dg(request) -> DualLevelGraph:
+    return from_npz(_fixture_path(request.param))
+
+
+# -- fixture graphs: lookups ------------------------------------------------
+
+
+def test_membership_and_len(dg):
+    node_ids = dg._node_ids.tolist()
+    assert len(dg) == len(node_ids)
+    for node in node_ids:
         assert node in dg
     assert "not_a_node" not in dg
     # Longer than any stored id: must not false-positive via dtype truncation
     assert ("x" * 64) not in dg
 
 
-def test_parents_of_matches_nx(nx_graph, dg):
-    nodes = list(nx_graph.nodes())
-    expected = [nx_graph.nodes[n].get("parent") for n in nodes]
-    assert dg.parents_of(nodes) == expected
+def test_parents_and_children_agree(dg):
+    """parents_of and children_of are two views of one relation."""
+    node_ids = dg._node_ids.tolist()
+    parents = dg.parents_of(node_ids)
+    for node, parent in zip(node_ids, parents):
+        if parent is not None:
+            assert node in dg.children_of(parent)
+    for node in node_ids:
+        children = dg.children_of(node)
+        assert isinstance(children, frozenset)
+        assert dg.parents_of(list(children)) == [node] * len(children)
     # Unknown ids map to None, same as a LEFT JOIN miss
     assert dg.parents_of(["not_a_node"]) == [None]
     assert dg.parents_of([]) == []
-
-
-def test_children_of_matches_nx(nx_graph, dg):
-    for node, data in nx_graph.nodes(data=True):
-        expected = frozenset(data["children"]) if "children" in data else frozenset()
-        got = dg.children_of(node)
-        assert got == expected
-        assert isinstance(got, frozenset)
     with pytest.raises(KeyError):
         dg.children_of("not_a_node")
 
 
-def test_num_children_of_matches_children_of(nx_graph, dg):
-    for node, data in nx_graph.nodes(data=True):
+def test_num_children_of_matches_children_of(dg):
+    for node in dg._node_ids.tolist():
         assert dg.num_children_of(node) == len(dg.children_of(node))
     # Unknown ids and non-parents return 0 (doesn't raise, unlike children_of)
     assert dg.num_children_of("not_a_node") == 0
 
 
-def test_is_shattered_parent_matches_nx(nx_graph, dg):
-    for node, data in nx_graph.nodes(data=True):
-        assert dg.is_shattered_parent(node) == bool(data.get("children"))
+def test_is_shattered_parent_matches_children_of(dg):
+    for node in dg._node_ids.tolist():
+        assert dg.is_shattered_parent(node) == bool(dg.children_of(node))
     # Unknown ids are not shattered parents (predicate, doesn't raise)
     assert dg.is_shattered_parent("not_a_node") is False
 
 
-def test_from_networkx_rejects_parent_not_in_nodes():
-    """A parent id must itself be a node — from_networkx raises rather than
-    silently accepting a phantom parent. The pipeline's combined-graph build
-    always adds parents as nodes, so this shape should never reach the graph
-    class in production."""
-    G = nx.Graph([("b1", "b2")])
-    G.nodes["b1"]["parent"] = "vtd:not_a_node"
-    with pytest.raises(ValueError, match="not_a_node"):
-        from_networkx(G)
+def test_simple_geos_structure():
+    """Known shape of simple_geos: 3 VTDs over 6 blocks."""
+    dg = from_npz(_fixture_path("simple_geos"))
+    blocks = {f"00001000000000{i}" for i in range(1, 7)}
+    vtds = {"vtd:000010000001", "vtd:000010000002", "vtd:000010000003"}
+    assert set(dg._node_ids.tolist()) == blocks | vtds
+    assert set(dg.parents_of(sorted(blocks))) <= vtds
+    assert sum(dg.num_children_of(v) for v in vtds) == len(blocks)
 
 
-def test_connected_components_match(nx_graph, dg):
-    rng = random.Random(42)
-    all_nodes = list(nx_graph.nodes())
-    sizes = {1, min(10, len(all_nodes)), max(1, len(all_nodes) // 3), len(all_nodes)}
-    for size in sizes:
-        subset = rng.sample(all_nodes, size)
-        expected = {
-            frozenset(c) for c in nx.connected_components(nx_graph.subgraph(subset))
-        }
-        got = {frozenset(c) for c in dg.connected_components(subset)}
-        assert got == expected
-        assert dg.number_connected_components(subset) == len(expected)
-        assert dg.is_connected(subset) == (len(expected) == 1)
+# -- fixture graphs: connectivity -------------------------------------------
 
 
-def test_unknown_ids_silently_dropped(nx_graph, dg):
-    """nx G.subgraph(...) drops unknown ids; DualLevelGraph must match."""
-    subset = list(nx_graph.nodes())[:5] + ["missing_1", "missing_2"]
-    expected = {
-        frozenset(c) for c in nx.connected_components(nx_graph.subgraph(subset))
+def _cells(*rcs: tuple[int, int]) -> set[str]:
+    """grid_child geo_ids by (row, col) on its 8x8 rook-adjacency grid."""
+    return {_block_geoid(r, c) for r, c in rcs}
+
+
+def _blocks(*ns: int) -> set[str]:
+    """simple_geos block geo_ids by trailing digit."""
+    return {f"00001000000000{n}" for n in ns}
+
+
+# (fixture, subset, expected components). grid_child is an 8x8 grid where
+# each cell touches only its 4 side neighbors, and its sorted geo_id order
+# jumps around the grid — so subsets exercise scattered index positions.
+# simple_geos is the dual-level graph drawn in test_contiguity.py.
+COMPONENT_CASES = [
+    ("grid_child", _cells((0, 0), (1, 1)), [_cells((0, 0)), _cells((1, 1))]),
+    (
+        "grid_child",
+        _cells(*[(0, c) for c in range(4)], *[(2, c) for c in range(4)]),
+        [_cells(*[(0, c) for c in range(4)]), _cells(*[(2, c) for c in range(4)])],
+    ),
+    (
+        "grid_child",
+        _cells((0, 0), (1, 0), (2, 0), (2, 1), (2, 2)),
+        [_cells((0, 0), (1, 0), (2, 0), (2, 1), (2, 2))],
+    ),
+    (  # block 6 and vtd 1 share an edge across the two levels
+        "simple_geos",
+        _blocks(6) | {"vtd:000010000001"},
+        [_blocks(6) | {"vtd:000010000001"}],
+    ),
+    (
+        "simple_geos",
+        _blocks(4) | {"vtd:000010000003"},
+        [_blocks(4), {"vtd:000010000003"}],
+    ),
+]
+
+
+@pytest.mark.parametrize("name,subset,expected", COMPONENT_CASES)
+def test_connected_components_hand_specified(name, subset, expected):
+    dg = from_npz(_fixture_path(name))
+    got = {frozenset(c) for c in dg.connected_components(subset)}
+    assert got == {frozenset(c) for c in expected}
+    assert dg.number_connected_components(subset) == len(expected)
+    assert dg.is_connected(subset) == (len(expected) == 1)
+
+
+def test_unknown_ids_silently_dropped(dg):
+    subset = dg._node_ids.tolist()[:5]
+    with_unknowns = subset + ["missing_1", "missing_2"]
+    assert {frozenset(c) for c in dg.connected_components(with_unknowns)} == {
+        frozenset(c) for c in dg.connected_components(subset)
     }
-    assert {frozenset(c) for c in dg.connected_components(subset)} == expected
 
 
 def test_empty_subgraph_raises(dg):
@@ -119,17 +159,19 @@ def test_empty_subgraph_raises(dg):
         dg.is_connected([])
 
 
-def test_component_ids_are_native_str(dg, nx_graph):
-    subset = list(nx_graph.nodes())[:20]
+def test_component_ids_are_native_str(dg):
+    subset = dg._node_ids.tolist()[:20]
     for component in dg.connected_components(subset):
         for node in component:
             assert node.__class__ is str
 
 
+# -- small inline graphs ----------------------------------------------------
+
+
 def test_non_shatterable_graph():
-    """Plain edge graphs (no parents / weighted_edges / ncp) keep nx semantics."""
-    G = nx.Graph([("a", "b"), ("b", "c"), ("d", "e")])
-    dg = from_networkx(G)
+    """Plain edge graphs (no parents / weighted_edges / ncp)."""
+    dg = make_graph(edges=[("a", "b"), ("b", "c"), ("d", "e")])
     assert dg.parents_of(["a"]) == [None]
     assert dg.children_of("a") == frozenset()
     assert dg.is_shattered_parent("a") is False
@@ -139,25 +181,17 @@ def test_non_shatterable_graph():
 
 
 def test_single_node_no_edges():
-    G = nx.Graph()
-    G.add_node("only")
-    dg = from_networkx(G)
+    dg = make_graph(nodes=["only"])
     assert "only" in dg
     assert dg.is_connected(["only"])
 
 
-# -- is_shattered_parent --------------------------------------------------
-
-
 def test_is_shattered_parent_direct_construction():
-    G = nx.Graph()
-    G.add_edge("a", "b")
-    G.add_node("p1", children={"a", "b"})
-    G.nodes["a"]["parent"] = "p1"
-    G.nodes["b"]["parent"] = "p1"
-    G.add_node("p2")  # parent-shaped id, but never shattered (no children)
-    dg = from_networkx(G)
-
+    dg = make_graph(
+        edges=[("a", "b")],
+        nodes=["p2"],  # parent-shaped id, but never shattered (no children)
+        parents={"a": "p1", "b": "p1"},
+    )
     assert dg.is_shattered_parent("p1") is True
     assert dg.is_shattered_parent("p2") is False
     assert dg.is_shattered_parent("a") is False  # a child, not a parent
@@ -168,14 +202,11 @@ def test_is_shattered_parent_direct_construction():
 
 
 def _ncp_graph() -> DualLevelGraph:
-    G = nx.Graph()
-    G.add_edge("a", "b")
-    G.add_edge("c", "d")
-    G.add_node("p1", children={"a", "b"})
-    G.nodes["a"]["parent"] = "p1"
-    G.nodes["b"]["parent"] = "p1"
-    G.graph["non_contiguous_parents"] = {"p1"}
-    return from_networkx(G)
+    return make_graph(
+        edges=[("a", "b"), ("c", "d")],
+        parents={"a": "p1", "b": "p1"},
+        non_contiguous_parents={"p1"},
+    )
 
 
 def test_expand_non_contiguous_mutates_in_place():
@@ -223,9 +254,7 @@ def test_cut_edges_hand_computed():
       adjacent to block 2, whose parent (vtd2) is zone 1 -> +1.
     Total: 1 (step 1) + 1 (step 2 direct) + 1 (halved mutual edge) = 3.
     """
-    with open(FIXTURES_PATH / "graph" / "simple_geos.pkl", "rb") as f:
-        nx_graph = pickle.load(f)
-    dg = from_networkx(nx_graph)
+    dg = from_npz(_fixture_path("simple_geos"))
 
     unit_to_zone = {"000010000000001": 1, "000010000000005": 2}
     parent_unit_to_zone = {"vtd:000010000002": 1, "vtd:000010000003": 2}
@@ -236,8 +265,7 @@ def test_cut_edges_no_weighted_edges_falls_back_to_unit_pass_only():
     """Non-shatterable maps (no weighted_edges) skip Step 1 entirely — every
     assignment is a plain unit, exactly like the pre-refactor algorithm's
     non-shatterable branch."""
-    G = nx.Graph([("a", "b"), ("b", "c"), ("c", "d")])
-    dg = from_networkx(G)
+    dg = make_graph(edges=[("a", "b"), ("b", "c"), ("c", "d")])
 
     # a-b cut, b-c not cut, c-d cut
     unit_to_zone = {"a": 1, "b": 1, "c": 2, "d": 1}
@@ -245,45 +273,11 @@ def test_cut_edges_no_weighted_edges_falls_back_to_unit_pass_only():
 
 
 def test_cut_edges_empty_assignment():
-    with open(FIXTURES_PATH / "graph" / "simple_geos.pkl", "rb") as f:
-        nx_graph = pickle.load(f)
-    dg = from_networkx(nx_graph)
+    dg = from_npz(_fixture_path("simple_geos"))
     assert dg.cut_edges({}, {}) == 0
 
 
 # -- from_npz ---------------------------------------------------------------
-
-
-# npz fixtures are generated from the pkl fixtures by the pipelines writer
-# (transforms/graph.py graph_to_npz_arrays), so these tests also verify
-# writer/reader schema compatibility across the two components. There's no
-# automatic check that a fixture's npz was actually regenerated after a
-# writer schema bump (GRAPH_NPZ_FORMAT_VERSION in transforms/graph.py) --
-# only convention. To regenerate ks_ellis_county_block.npz/simple_geos.npz
-# after a schema change:
-#
-#   import pickle, numpy as np
-#   from pipelines.transforms.graph import graph_to_npz_arrays
-#   for name in ("ks_ellis_county_block", "simple_geos"):
-#       with open(f"tests/fixtures/graph/{name}.pkl", "rb") as f:
-#           G = pickle.load(f)
-#       np.savez_compressed(f"tests/fixtures/graph/{name}.npz", **graph_to_npz_arrays(G))
-@pytest.mark.parametrize("name", ["simple_geos", "ks_ellis_county_block"])
-def test_from_npz_matches_from_networkx(name):
-    with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "rb") as f:
-        via_pkl = from_networkx(pickle.load(f))
-    via_npz = from_npz(FIXTURES_PATH / "graph" / f"{name}.npz")
-
-    assert via_npz._node_ids.tolist() == via_pkl._node_ids.tolist()
-    for node in via_pkl._node_ids.tolist():
-        assert via_npz.parents_of([node]) == via_pkl.parents_of([node])
-        assert via_npz.children_of(node) == via_pkl.children_of(node)
-    assert via_npz._weighted_edges == via_pkl._weighted_edges
-    assert via_npz._non_contiguous_parents == via_pkl._non_contiguous_parents
-
-    subset = via_pkl._node_ids.tolist()[: len(via_pkl) // 2]
-    expected = {frozenset(c) for c in via_pkl.connected_components(subset)}
-    assert {frozenset(c) for c in via_npz.connected_components(subset)} == expected
 
 
 def test_from_npz_rejects_unknown_version(tmp_path):
@@ -296,7 +290,7 @@ def test_from_npz_rejects_unknown_version(tmp_path):
 # -- shared mmap disk cache ---------------------------------------------------
 
 
-def test_save_load_cache_round_trip(nx_graph, dg, tmp_path):
+def test_save_load_cache_round_trip(dg, tmp_path):
     cache_dir = tmp_path / "cached"
     dg.save_cache(cache_dir)
     loaded = DualLevelGraph.load_cache(cache_dir)

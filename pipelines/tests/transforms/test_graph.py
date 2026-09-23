@@ -371,12 +371,12 @@ def test_npz_plain_graph_has_no_attr_flags(tmp_path):
         assert (d["parent_of"] == -1).all()
 
 
-def test_write_graph_dual_writes_pkl_and_npz(tmp_path, monkeypatch):
+def test_write_graph_writes_npz_only(tmp_path, monkeypatch):
     from transforms import graph as graph_module
 
     monkeypatch.setattr(graph_module.settings, "OUT_SCRATCH", str(tmp_path))
     G = Graph([("a", "b")])
-    paths = graph_module.write_graph(G, "dualtest")
-    assert [p.suffix for p in paths] == [".pkl", ".npz"]
+    paths = graph_module.write_graph(G, "npztest")
+    assert [p.suffix for p in paths] == [".npz"]
     for p in paths:
         assert p.exists()

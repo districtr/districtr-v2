@@ -1,15 +1,13 @@
 """Graph I/O and runtime utilities for contiguity evaluation.
 
 Owns every path by which a ``DualLevelGraph`` gets built from external
-storage — the pipeline's npz format, a legacy pickled networkx graph, S3 vs.
-local resolution, the shared mmap disk cache, and the per-process LRU. The
+storage — the pipeline's npz format, S3 vs. local resolution, the shared mmap disk cache, and the per-process LRU. The
 graph class itself (``app.evaluation.dual_graph``) has no knowledge of any of
 these formats; it only knows how to build itself from validated arrays.
 """
 
 import io
 import logging
-import pickle
 import shutil
 import threading
 from functools import lru_cache
@@ -19,7 +17,6 @@ from urllib.parse import urlparse
 import botocore.exceptions
 import fastapi
 import numpy as np
-from networkx import Graph
 
 from app.core.config import settings
 from app.evaluation.dual_graph import DualLevelGraph
@@ -34,68 +31,16 @@ def get_gerrydb_graph_file(
     gerrydb_name: str,
     prefix: str = settings.VOLUME_PATH,
 ) -> str:
-    """Resolve the path to a GerryDB graph file (npz preferred, pkl legacy).
+    """Resolve the path to a GerryDB graph's npz file.
 
     Prefers a local copy (e.g. docker-compose bind mounts); otherwise
-    returns the S3 npz URI — `get_gerrydb_graph` falls back to the pkl
-    object if the npz is missing, and a missing object surfaces as
-    ClientError on fetch.
+    returns the S3 URI — a missing object surfaces as ClientError on fetch.
     """
-    for suffix in ("npz", "pkl"):
-        possible_local_path = (
-            Path(prefix) / S3_GRAPH_PREFIX / f"{gerrydb_name}.{suffix}"
-        )
-        if possible_local_path.exists():
-            return str(possible_local_path)
+    local_path = Path(prefix) / S3_GRAPH_PREFIX / f"{gerrydb_name}.npz"
+    if local_path.exists():
+        return str(local_path)
 
     return f"s3://{settings.AWS_S3_BUCKET}/{S3_GRAPH_PREFIX}/{gerrydb_name}.npz"
-
-
-def from_networkx(G: Graph) -> DualLevelGraph:
-    """Convert a pipeline-built networkx graph (pkl fallback and tests).
-
-    Uses a plain dict for node-label-to-index translation, not vectorized
-    ``searchsorted``: measured on real state-scale data (TX, ~2M edges), a
-    dict lookup (one string hash, O(1) average probe) beats ``searchsorted``
-    (~log2(N) ≈ 20 string-comparison steps per query at this N) by ~30-40%
-    wall-clock — there's no per-call dispatch overhead here for batching to
-    eliminate, unlike the mmap-backed query paths elsewhere in this module.
-    """
-    node_ids = np.sort(np.asarray(list(G.nodes()), dtype=str))
-    idx = {node: i for i, node in enumerate(node_ids.tolist())}
-    if G.number_of_edges():
-        edges = np.asarray([(idx[u], idx[v]) for u, v in G.edges()], dtype=np.int32)
-    else:
-        edges = np.empty((0, 2), dtype=np.int32)
-
-    node_parents = {
-        node: p
-        for node, data in G.nodes(data=True)
-        if (p := data.get("parent")) is not None
-    }
-    parent_of = np.full(len(node_ids), -1, dtype=np.int32)
-    for node, p in node_parents.items():
-        if p not in idx:
-            raise ValueError(
-                f"Parent {p!r} of node {node!r} is not itself a node in the "
-                "graph — every referenced parent unit must be present as a "
-                "node (see _build_combined_graph in the pipeline)."
-            )
-        parent_of[idx[node]] = idx[p]
-
-    we = G.graph.get("weighted_edges")
-    ncp = G.graph.get("non_contiguous_parents")
-    return DualLevelGraph(
-        node_ids=node_ids,
-        edges=edges,
-        parent_of=parent_of,
-        weighted_edges=(
-            {(str(a), str(b)): int(w) for (a, b), w in we.items()}
-            if we is not None
-            else None
-        ),
-        non_contiguous_parents=({str(p) for p in ncp} if ncp is not None else None),
-    )
 
 
 def from_npz(file) -> DualLevelGraph:
@@ -125,21 +70,11 @@ def from_npz(file) -> DualLevelGraph:
         )
 
 
-def _parse_graph_bytes(data: bytes, file_path: str) -> DualLevelGraph:
-    if file_path.endswith(".npz"):
-        return from_npz(io.BytesIO(data))
-    # Legacy pickled networkx graph: convert to a compact DualLevelGraph
-    # (~10x less resident memory); the transient nx object is freed on return.
-    logger.warning("Loading legacy pkl graph %s — rebuild as npz", file_path)
-    return from_networkx(pickle.loads(data))
-
-
 def get_gerrydb_graph(file_path: str) -> DualLevelGraph:
-    """Load a GerryDB graph (npz, or legacy nx pkl) from a local path or S3 URI.
+    """Load a GerryDB graph's npz from a local path or S3 URI.
 
-    S3 objects are streamed straight into memory — the lru_cache on
-    `get_graph` is the only cache, so deployments need no data volume.
-    An S3 npz miss falls back to the legacy pkl object.
+    S3 objects are streamed straight into memory; the disk cache and LRU
+    in front of this are the only caches.
     """
     url = urlparse(file_path)
 
@@ -147,22 +82,11 @@ def get_gerrydb_graph(file_path: str) -> DualLevelGraph:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         key = url.path.lstrip("/")
-        try:
-            logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
-            response = s3.get_object(Bucket=url.netloc, Key=key)
-        except botocore.exceptions.ClientError as e:
-            code = e.response.get("Error", {}).get("Code")
-            if code not in ("NoSuchKey", "404", "AccessDenied") or not key.endswith(
-                ".npz"
-            ):
-                raise
-            key = key.removesuffix(".npz") + ".pkl"
-            logger.info("npz missing, falling back to s3://%s/%s", url.netloc, key)
-            response = s3.get_object(Bucket=url.netloc, Key=key)
-        return _parse_graph_bytes(response["Body"].read(), key)
+        logger.info("Streaming graph from s3://%s/%s", url.netloc, key)
+        response = s3.get_object(Bucket=url.netloc, Key=key)
+        return from_npz(io.BytesIO(response["Body"].read()))
 
-    with open(file_path, "rb") as f:
-        return _parse_graph_bytes(f.read(), file_path)
+    return from_npz(file_path)
 
 
 # Must exceed the distinct-map working set or evictions force multi-second
@@ -229,8 +153,7 @@ _graph_locks_guard = threading.Lock()
 # otherwise serialize every request for the same graph behind one lock,
 # each waiting out the full botocore timeout in turn. A bounded wait lets
 # pile-up fail fast (503) instead of accumulating in the threadpool; normal
-# cold loads (well under a second, even on the legacy pkl path) never get
-# close to it.
+# cold loads (well under a second) never get close to it.
 _GRAPH_LOCK_TIMEOUT_SECONDS = 30
 
 
