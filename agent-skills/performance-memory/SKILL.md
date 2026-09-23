@@ -12,4 +12,4 @@ user-invocable: false
 
 ## Where the rest lives
 
-The incident history behind this constraint — the ~7GB cache-growth fix (PR #540), the mmap-shared graph direction (PR #721), the assignments departitioning under lock convoy (PR #625), and the computation-placement fixes (PR #550, #470) — is in `docs/decisions.md`, each entry dated and PR-anchored.
+The incident history behind this constraint — the ~7GB cache-growth fix (PR #540), the mmap-shared graph direction (PR #721), the assignments departitioning under lock convoy (PR #625), and the computation-placement fixes (PR #550, #470) — is in `docs/adr/` (ADRs 0035, 0041, 0045, 0046, 0052), each record dated and PR-anchored.
