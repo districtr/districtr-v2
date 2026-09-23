@@ -91,7 +91,7 @@ class Migration(migrations.Migration):
                         (5,),
                         {
                             "default": [],
-                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). The review queue\'s "Add to portal gallery" appends here.',
+                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). "Pin to page gallery" in the Portals gallery appends here.',
                             "label": "Curated plan IDs",
                         },
                     ),
@@ -310,7 +310,7 @@ class Migration(migrations.Migration):
                         (5,),
                         {
                             "default": [],
-                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). The review queue\'s "Add to portal gallery" appends here.',
+                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). "Pin to page gallery" in the Portals gallery appends here.',
                             "label": "Curated plan IDs",
                         },
                     ),
@@ -529,7 +529,7 @@ class Migration(migrations.Migration):
                         (5,),
                         {
                             "default": [],
-                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). The review queue\'s "Add to portal gallery" appends here.',
+                            "help_text": 'The plans shown, in this order (empty = filter by tags instead). "Pin to page gallery" in the Portals gallery appends here.',
                             "label": "Curated plan IDs",
                         },
                     ),
