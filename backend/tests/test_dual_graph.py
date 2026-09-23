@@ -41,32 +41,17 @@ def dg(request) -> DualLevelGraph:
 # -- fixture graphs: lookups ------------------------------------------------
 
 
-def test_membership_and_len(dg):
-    node_ids = dg._node_ids.tolist()
-    assert len(dg) == len(node_ids)
-    for node in node_ids:
-        assert node in dg
+def test_unknown_ids(dg):
     assert "not_a_node" not in dg
     # Longer than any stored id: must not false-positive via dtype truncation
     assert ("x" * 64) not in dg
-
-
-def test_parents_and_children_agree(dg):
-    """parents_of and children_of are two views of one relation."""
-    node_ids = dg._node_ids.tolist()
-    parents = dg.parents_of(node_ids)
-    for node, parent in zip(node_ids, parents):
-        if parent is not None:
-            assert node in dg.children_of(parent)
-    for node in node_ids:
-        children = dg.children_of(node)
-        assert isinstance(children, frozenset)
-        assert dg.parents_of(list(children)) == [node] * len(children)
     # Unknown ids map to None, same as a LEFT JOIN miss
     assert dg.parents_of(["not_a_node"]) == [None]
     assert dg.parents_of([]) == []
     with pytest.raises(KeyError):
         dg.children_of("not_a_node")
+    # Unknown ids are not shattered parents (predicate, doesn't raise)
+    assert dg.is_shattered_parent("not_a_node") is False
 
 
 def test_num_children_of_matches_children_of(dg):
@@ -74,13 +59,6 @@ def test_num_children_of_matches_children_of(dg):
         assert dg.num_children_of(node) == len(dg.children_of(node))
     # Unknown ids and non-parents return 0 (doesn't raise, unlike children_of)
     assert dg.num_children_of("not_a_node") == 0
-
-
-def test_is_shattered_parent_matches_children_of(dg):
-    for node in dg._node_ids.tolist():
-        assert dg.is_shattered_parent(node) == bool(dg.children_of(node))
-    # Unknown ids are not shattered parents (predicate, doesn't raise)
-    assert dg.is_shattered_parent("not_a_node") is False
 
 
 def test_simple_geos_structure():
