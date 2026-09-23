@@ -67,6 +67,12 @@ export const config = {
   cmsDomain: cfg.require("cmsDomain"),
   /** `aud` claim minted by the CMS and required by the backend verifier. */
   jwtAudience: cfg.get("jwtAudience") ?? `https://${apiDomain}/`,
+  /**
+   * Legacy page-author mapping for content/0003's one-time TipTap import,
+   * "auth0|<sub>=<email>,..." or "unowned". Set it for the cutover deploy only;
+   * the migration refuses to import legacy pages without it.
+   */
+  migrateTiptapOwners: cfg.get("migrateTiptapOwners"),
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
