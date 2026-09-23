@@ -337,7 +337,12 @@ class RegenerateMapThumbnailViewTests(TestCase):
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_super_partner_allowed(self):
-        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        from core.testing import make_team
+
+        super_partner = make_admin_user(
+            email="super@districtr.org", group_name="super_partner"
+        )
+        make_team("Map Team", members=[super_partner], maps=[self.districtr_map])
         self.client.login(username="super@districtr.org", password=PASSWORD)
         with mock.patch(
             "datastore.services.regenerate_map_thumbnail",
@@ -345,6 +350,16 @@ class RegenerateMapThumbnailViewTests(TestCase):
         ) as regenerate:
             self.client.post(self.url)
         regenerate.assert_called_once_with("co_demo")
+
+    def test_team_less_super_partner_refused(self):
+        # Fail closed: without a team, a super partner used to fall back to
+        # unscoped access to every team's map modules.
+        make_admin_user(email="loner@districtr.org", group_name="super_partner")
+        self.client.login(username="loner@districtr.org", password=PASSWORD)
+        with mock.patch("datastore.services.regenerate_map_thumbnail") as regenerate:
+            response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 404)
+        regenerate.assert_not_called()
 
     def test_missing_map_is_404(self):
         url = reverse(
