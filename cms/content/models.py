@@ -2,7 +2,7 @@
 Wagtail page models replacing the legacy FastAPI CMS tables
 (cms.tags_content / cms.places_content — see backend/app/cms/models.py).
 
-Structure: two dedicated index pages (TagsIndexPage at /tags/,
+Structure: two dedicated index pages (PortalsIndexPage at /tags/,
 PlacesIndexPage at /places/) under the site home page, one per locale.
 Public lookup is therefore: page type + slug + locale — exactly the legacy
 (content_type, slug, language) key. Translations are real Wagtail
@@ -35,7 +35,7 @@ from wagtail.search import index
 from wagtail_localize.fields import SynchronizedField
 
 from content.blocks import ContentStreamBlock
-from content.forms import PlacePageForm, TagPageForm
+from content.forms import PlacePageForm, PortalPageForm
 
 
 class FrontendPageMixin:
@@ -147,8 +147,8 @@ class ContentPageBase(FrontendPageMixin, Page):
         abstract = True
 
 
-class TagsIndexPage(FrontendPageMixin, Page):
-    """Parent for all TagPages (one per locale).
+class PortalsIndexPage(FrontendPageMixin, Page):
+    """Parent for all PortalPages (one per locale).
 
     Provisioned by data migration (content/provision.py); ``max_count`` +
     ``parent_page_types`` lock the tree so partners cannot create duplicate
@@ -157,18 +157,22 @@ class TagsIndexPage(FrontendPageMixin, Page):
     """
 
     parent_page_types = ["wagtailcore.Page"]
-    subpage_types = ["content.TagPage"]
+    subpage_types = ["content.PortalPage"]
     max_count = 1
 
     class Meta:
-        verbose_name = "tags index page"
+        verbose_name = "portals index page"
+        # Kept from TagsIndexPage: content/0002 provisions index pages with the
+        # live models (treebeard can't build pages from historical ones), so on
+        # a fresh database the live model must name the table 0002 sees.
+        db_table = "content_tagsindexpage"
 
     def get_frontend_path(self):
         return "/portals"
 
 
 class PlacesIndexPage(FrontendPageMixin, Page):
-    """Parent for all PlacePages (one per locale). See TagsIndexPage on
+    """Parent for all PlacePages (one per locale). See PortalsIndexPage on
     provisioning and tree locking."""
 
     parent_page_types = ["wagtailcore.Page"]
@@ -183,7 +187,7 @@ class PlacesIndexPage(FrontendPageMixin, Page):
 
 
 class StaticIndexPage(FrontendPageMixin, Page):
-    """Parent for all StaticPages (one per locale). See TagsIndexPage on
+    """Parent for all StaticPages (one per locale). See PortalsIndexPage on
     provisioning and tree locking."""
 
     parent_page_types = ["wagtailcore.Page"]
@@ -215,18 +219,18 @@ class StaticPage(ContentPageBase):
         return f"/{self.slug}"
 
 
-class TagPage(ContentPageBase):
+class PortalPage(ContentPageBase):
     """Replaces a cms.tags_content row (one page per slug+locale)."""
 
     districtr_map_slug = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        help_text="Slug of the Districtr map module this tag page features.",
+        help_text="Slug of the Districtr map module this portal features.",
     )
 
-    api_content_type = "tags"
-    parent_page_types = ["content.TagsIndexPage"]
+    api_content_type = "portals"
+    parent_page_types = ["content.PortalsIndexPage"]
     subpage_types: list[str] = []
 
     content_panels = ContentPageBase.content_panels + [
@@ -234,13 +238,15 @@ class TagPage(ContentPageBase):
     ]
 
     # Team-scoped members only get to pick a map their teams own (content/forms.py).
-    base_form_class = TagPageForm
+    base_form_class = PortalPageForm
 
     # The slug points at shared data, not prose — never send it to translators.
     override_translatable_fields = [SynchronizedField("districtr_map_slug")]
 
     class Meta:
-        verbose_name = "tag page"
+        verbose_name = "portal page"
+        # Kept from TagPage for the same reason as PortalsIndexPage.db_table.
+        db_table = "content_tagpage"
 
     def get_frontend_path(self):
         return f"/portal/{self.slug}"

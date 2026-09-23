@@ -17,7 +17,7 @@ Response shape (consumed by app/src/app/utils/api/cms.ts successors):
         "updated_at": ...
       },
       "available_languages": ["en", ...],
-      "type": "tags" | "places"
+      "type": "portals" | "places" | "static"
     }
 
 `body` is the StreamField API representation: block values are plain JSON
@@ -28,11 +28,14 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.models import PlacePage, PreviewSnapshot, StaticPage, TagPage
+from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
 CONTENT_TYPE_PAGES = {
-    "tags": TagPage,
+    "portals": PortalPage,
+    # Old name, kept so a frontend deployed before this CMS release keeps
+    # loading portal pages. Drop once both sides are on "portals".
+    "tags": PortalPage,
     "places": PlacePage,
     "static": StaticPage,
 }
@@ -120,7 +123,7 @@ def _inject_form_config(body_data, portal_slug):
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
-    if content_type == "tags":
+    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
         body_data = _inject_portal_id(body_data, page.slug)
         body_data = _inject_form_config(body_data, page.slug)
     content = {
@@ -131,7 +134,7 @@ def _serialize_page(page, content_type):
         "body": body_data,
         "updated_at": (page.last_published_at and page.last_published_at.isoformat()),
     }
-    if content_type == "tags":
+    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
         content["districtr_map_slug"] = page.districtr_map_slug or None
     elif content_type == "places":
         content["districtr_map_slugs"] = page.districtr_map_slugs or None
@@ -230,7 +233,7 @@ def content_list(request, content_type):
         }
         # Map associations, used e.g. by the homepage PlaceMap to count
         # modules per place without fetching each page.
-        if content_type == "tags":
+        if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
             item["districtr_map_slug"] = page.districtr_map_slug or None
         elif content_type == "places":
             item["districtr_map_slugs"] = page.districtr_map_slugs or None

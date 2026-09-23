@@ -100,7 +100,7 @@ def _portal_member_ids(user, slug: str) -> set:
 
 
 def accessible_portals(user):
-    """TagPages whose submissions the user administers: all portals for
+    """PortalPages whose submissions the user administers: all portals for
     admins/superusers; for everyone else, the portals whose
     FormConfig.admin_teams intersects their team slugs — the same rule the
     backend enforces via the JWT teams claim. A team-less non-admin gets
@@ -109,9 +109,9 @@ def accessible_portals(user):
     never re-checks."""
     from wagtail.models import Locale
 
-    from content.models import TagPage
+    from content.models import PortalPage
 
-    portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
+    portals = PortalPage.objects.filter(locale=Locale.get_default()).order_by("title")
     if not user_is_unscoped_admin(user):
         portals = portals.filter(slug__in=list(portal_slugs_for_user(user)))
     return portals

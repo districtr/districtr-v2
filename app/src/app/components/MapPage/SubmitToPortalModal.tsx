@@ -21,14 +21,13 @@ import {
 } from '@/app/utils/api/apiHandlers/postSubmission';
 import {
   CUSTOM_FIELD_MAX_LENGTHS,
+  EMAIL_RE,
   FIELD_ORDER,
   FIELD_REGISTRY,
 } from '@/app/components/Forms/fieldRegistry';
 import {FormField} from '@/app/components/Forms/FormField';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
-
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /**
  * The abbreviated submission form for maps started from a portal: shown when
@@ -177,6 +176,7 @@ export const SubmitToPortalModal: React.FC = () => {
                   component={spec.component}
                   options={spec.options}
                   autoComplete={spec.autoComplete}
+                  inputMode={spec.inputMode}
                   pattern={spec.pattern}
                   validator={spec.validator}
                   invalidMessage={spec.invalidMessage}
@@ -188,7 +188,8 @@ export const SubmitToPortalModal: React.FC = () => {
                   <FormField
                     name="portal_email_confirm"
                     label="Confirm Email *"
-                    type="email"
+                    type="text"
+                    inputMode="email"
                     required
                     value={emailConfirm}
                     onChangeValue={setEmailConfirm}

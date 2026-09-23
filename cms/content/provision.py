@@ -31,6 +31,33 @@ def home_page():
     return home
 
 
+# Partner groups get "add" only under the index pages they create content in.
+# In Wagtail, editing a page you own also needs add permission on an
+# ancestor, so the grant can't simply be dropped; scoping it here keeps the
+# Static pages index and the site home out of partners' reach.
+PARTNER_GROUPS = ("partner", "super_partner")
+
+
+def grant_partner_add(page):
+    """Give the partner groups add_page on ``page`` (and so its subtree)."""
+    from django.contrib.auth.models import Group, Permission
+    from wagtail.models import GroupPagePermission
+
+    add_page = Permission.objects.get(
+        content_type__app_label="wagtailcore", codename="add_page"
+    )
+    for group in Group.objects.filter(name__in=PARTNER_GROUPS):
+        GroupPagePermission.objects.get_or_create(
+            group=group, page=page, permission=add_page
+        )
+
+
+def _partners_add_here(index_model):
+    from content.models import PlacesIndexPage, PortalsIndexPage
+
+    return index_model in (PortalsIndexPage, PlacesIndexPage)
+
+
 def ensure_index(index_model, title, slug, locale=None):
     """Get or create the singleton index page of ``index_model`` in
     ``locale`` (default locale when omitted). Translated copies are aliases
@@ -42,21 +69,25 @@ def ensure_index(index_model, title, slug, locale=None):
         index = index_model(title=title, slug=slug, locale=default_locale)
         home_page().add_child(instance=index)
         index.save_revision().publish()
+        if _partners_add_here(index_model):
+            grant_partner_add(index)
 
     if locale is None or locale == default_locale:
         return index
     translated = index.get_translation_or_none(locale)
     if translated is None:
         translated = index.copy_for_translation(locale, copy_parents=True, alias=True)
+        if _partners_add_here(index_model):
+            grant_partner_add(translated)
     return translated
 
 
 def ensure_default_index_pages():
     """Create any missing default-locale index pages under the site home."""
-    from content.models import PlacesIndexPage, StaticIndexPage, TagsIndexPage
+    from content.models import PlacesIndexPage, StaticIndexPage, PortalsIndexPage
 
     for index_model, title, slug in (
-        (TagsIndexPage, "Tags", "tags"),
+        (PortalsIndexPage, "Portals", "tags"),
         (PlacesIndexPage, "Places", "places"),
         (StaticIndexPage, "Static pages", "static-pages"),
     ):

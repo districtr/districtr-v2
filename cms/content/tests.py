@@ -31,8 +31,8 @@ from content.models import (
     PreviewSnapshot,
     StaticIndexPage,
     StaticPage,
-    TagPage,
-    TagsIndexPage,
+    PortalPage,
+    PortalsIndexPage,
 )
 from content.tiptap import (
     extract_prosemirror_text,
@@ -470,15 +470,27 @@ class PagePermissionGrantTests(TestCase):
             ).exists(),
             "partners must not hold tree-wide change_page",
         )
+        # add_page is scoped to the Portals and Places indexes, not the root:
+        # at the root it let a partner add children under Static pages.
+        from content.models import PlacesIndexPage, PortalsIndexPage, StaticIndexPage
+
         root = Page.get_first_root_node()
-        perms = root.permissions_for_user(user)
-        self.assertTrue(perms.can_add_subpage())
+        self.assertFalse(root.permissions_for_user(user).can_add_subpage())
+        for index_model in (PortalsIndexPage, PlacesIndexPage):
+            index = index_model.objects.first()
+            self.assertTrue(
+                index.permissions_for_user(user).can_add_subpage(), index_model
+            )
+        static_index = StaticIndexPage.objects.first()
+        self.assertFalse(static_index.permissions_for_user(user).can_add_subpage())
 
     def test_partner_edits_own_pages_only(self):
+        from content.models import PortalsIndexPage
+
         user = self.user_in_group("partner")
-        root = Page.get_first_root_node()
-        own = root.add_child(instance=Page(title="Mine", slug="mine-own", owner=user))
-        other = root.add_child(instance=Page(title="Other", slug="not-mine"))
+        index = PortalsIndexPage.objects.first()
+        own = index.add_child(instance=Page(title="Mine", slug="mine-own", owner=user))
+        other = index.add_child(instance=Page(title="Other", slug="not-mine"))
         self.assertTrue(own.permissions_for_user(user).can_edit())
         self.assertFalse(other.permissions_for_user(user).can_edit())
 
@@ -572,7 +584,7 @@ class ProvisioningMigrationTests(TestCase):
     def test_index_pages_provisioned_under_home(self):
         # content/0002_provision_site creates all three index pages (default locale, live).
         home = Site.objects.get(is_default_site=True).root_page
-        for model in (TagsIndexPage, PlacesIndexPage, StaticIndexPage):
+        for model in (PortalsIndexPage, PlacesIndexPage, StaticIndexPage):
             index = model.objects.get(locale__language_code="en")
             self.assertTrue(index.live)
             self.assertEqual(index.get_parent().pk, home.pk)
@@ -588,7 +600,7 @@ class ProvisioningMigrationTests(TestCase):
         # max_count=1: with the provisioned instance in place, the admin can
         # never offer creating a duplicate index under Home (or anywhere).
         home = Site.objects.get(is_default_site=True).root_page
-        for model in (TagsIndexPage, PlacesIndexPage, StaticIndexPage):
+        for model in (PortalsIndexPage, PlacesIndexPage, StaticIndexPage):
             self.assertFalse(model.can_create_at(home))
 
 
@@ -602,12 +614,12 @@ class FrontendUrlTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         en = Locale.objects.get(language_code="en")
-        cls.tags_index = TagsIndexPage.objects.get(locale=en)
+        cls.portals_index = PortalsIndexPage.objects.get(locale=en)
         cls.places_index = PlacesIndexPage.objects.get(locale=en)
         cls.static_index = StaticIndexPage.objects.get(locale=en)
 
-        cls.tag = TagPage(title="Fair Maps", slug="fair-maps")
-        cls.tags_index.add_child(instance=cls.tag)
+        cls.tag = PortalPage(title="Fair Maps", slug="fair-maps")
+        cls.portals_index.add_child(instance=cls.tag)
         cls.place = PlacePage(title="Chicago", slug="chicago")
         cls.places_index.add_child(instance=cls.place)
         cls.static = StaticPage(title="Rules", slug="rules")
@@ -626,7 +638,7 @@ class FrontendUrlTests(TestCase):
         self.assertEqual(self.static.url, "https://beta.districtr.org/rules")
 
     def test_index_page_urls(self):
-        self.assertEqual(self.tags_index.url, "https://beta.districtr.org/portals")
+        self.assertEqual(self.portals_index.url, "https://beta.districtr.org/portals")
         self.assertEqual(self.places_index.url, "https://beta.districtr.org/places")
         # No frontend listing for static pages: not routable, no "View live".
         self.assertIsNone(self.static_index.url)
@@ -635,7 +647,7 @@ class FrontendUrlTests(TestCase):
         # No Wagtail template exists; previewing raised TemplateDoesNotExist.
         # Content pages preview headlessly instead (PreviewTests); index
         # pages have nothing to preview.
-        for page in (self.tags_index, self.places_index, self.static_index):
+        for page in (self.portals_index, self.places_index, self.static_index):
             self.assertEqual(page.preview_modes, [])
             self.assertFalse(page.is_previewable())
 
@@ -675,10 +687,10 @@ class ContentApiTests(TestCase):
         cls.es = Locale.objects.get(language_code="es")
 
         # Provisioned by content/0002_provision_site (see content/provision.py).
-        cls.tags_index = TagsIndexPage.objects.get(locale=cls.en)
+        cls.portals_index = PortalsIndexPage.objects.get(locale=cls.en)
         cls.places_index = PlacesIndexPage.objects.get(locale=cls.en)
 
-        cls.tag_en = TagPage(
+        cls.tag_en = PortalPage(
             title="Fair Maps",
             slug="fair-maps",
             subtitle="A tag",
@@ -705,7 +717,7 @@ class ContentApiTests(TestCase):
                 },
             ],
         )
-        cls.tags_index.add_child(instance=cls.tag_en)
+        cls.portals_index.add_child(instance=cls.tag_en)
         cls.tag_en.save_revision(clean=False).publish()
 
         cls.tag_es = cls.tag_en.copy_for_translation(cls.es, copy_parents=True)
@@ -713,8 +725,8 @@ class ContentApiTests(TestCase):
         cls.tag_es.body = [{"type": "rich_text", "value": "<p>Prosa en español</p>"}]
         cls.tag_es.save_revision(clean=False).publish()
 
-        draft_only = TagPage(title="Draft Tag", slug="draft-tag", live=False)
-        cls.tags_index.add_child(instance=draft_only)
+        draft_only = PortalPage(title="Draft Tag", slug="draft-tag", live=False)
+        cls.portals_index.add_child(instance=draft_only)
         draft_only.save_revision(clean=False)
 
         place = PlacePage(
@@ -794,11 +806,11 @@ class ContentApiTests(TestCase):
         # (<a linktype="page" id="N">). The public API must serve expanded,
         # frontend-ready HTML (real href, no linktype/embedtype attributes) —
         # the Next.js frontend renders it verbatim.
-        target = TagPage(title="Target", slug="link-target")
-        self.tags_index.add_child(instance=target)
+        target = PortalPage(title="Target", slug="link-target")
+        self.portals_index.add_child(instance=target)
         target.save_revision(clean=False).publish()
 
-        linker = TagPage(
+        linker = PortalPage(
             title="Linker",
             slug="linker",
             body=[
@@ -816,7 +828,7 @@ class ContentApiTests(TestCase):
                 },
             ],
         )
-        self.tags_index.add_child(instance=linker)
+        self.portals_index.add_child(instance=linker)
         linker.save_revision(clean=False).publish()
 
         payload = self.client.get("/api/content/tags/slug/linker").json()
@@ -853,8 +865,8 @@ class ContentApiTests(TestCase):
         # A slug whose ONLY live page is non-English must still appear in the
         # unfiltered list: without a language param the endpoint serves live
         # pages across ALL languages (no implicit English filter).
-        es_index = self.tags_index.get_translation(self.es)
-        solo = TagPage(title="Solo Español", slug="solo-es", locale=self.es)
+        es_index = self.portals_index.get_translation(self.es)
+        solo = PortalPage(title="Solo Español", slug="solo-es", locale=self.es)
         es_index.add_child(instance=solo)
         solo.save_revision(clean=False).publish()
 
@@ -975,7 +987,7 @@ class MigrateTiptapCommandTests(TestCase):
         self._insert("tags_content", "waived", "en", published=doc())
         with mock.patch.dict(os.environ, {"MIGRATE_TIPTAP_OWNERS": "unowned"}):
             migration.import_legacy_content(None, connection.schema_editor())
-        self.assertTrue(TagPage.objects.filter(slug="waived").exists())
+        self.assertTrue(PortalPage.objects.filter(slug="waived").exists())
 
     def _insert(self, table, slug, language, published=None, draft=None, **extra):
         columns = ["id", "slug", "language", "published_content", "draft_content"]
@@ -1040,8 +1052,8 @@ class MigrateTiptapCommandTests(TestCase):
         self._seed_fixtures()
         call_command("migrate_tiptap")
 
-        tag_en = TagPage.objects.get(slug="fair-maps", locale__language_code="en")
-        tag_es = TagPage.objects.get(slug="fair-maps", locale__language_code="es")
+        tag_en = PortalPage.objects.get(slug="fair-maps", locale__language_code="en")
+        tag_es = PortalPage.objects.get(slug="fair-maps", locale__language_code="es")
         self.assertTrue(tag_en.live)
         self.assertTrue(tag_es.live)
         # Title derived from the first sectionHeaderNode.
@@ -1056,30 +1068,30 @@ class MigrateTiptapCommandTests(TestCase):
         self.assertIn("Newer draft prose", str(latest.body))
         self.assertTrue(tag_en.has_unpublished_changes)
 
-        draft_tag = TagPage.objects.get(slug="draft-tag")
+        draft_tag = PortalPage.objects.get(slug="draft-tag")
         self.assertFalse(draft_tag.live)
 
         place = PlacePage.objects.get(slug="chicago")
         self.assertTrue(place.live)
         self.assertEqual(place.districtr_map_slugs, ["chi_wards", "chi_blocks"])
         self.assertIsInstance(place.get_parent().specific, PlacesIndexPage)
-        self.assertIsInstance(tag_en.get_parent().specific, TagsIndexPage)
+        self.assertIsInstance(tag_en.get_parent().specific, PortalsIndexPage)
 
     def test_command_is_idempotent(self):
         self._seed_fixtures()
         call_command("migrate_tiptap")
         page_count = Page.objects.count()
-        tag_count = TagPage.objects.count()
+        tag_count = PortalPage.objects.count()
         revision_count = Revision.objects.count()
 
         call_command("migrate_tiptap")
 
         self.assertEqual(Page.objects.count(), page_count)
-        self.assertEqual(TagPage.objects.count(), tag_count)
+        self.assertEqual(PortalPage.objects.count(), tag_count)
         # Unchanged rows are skipped entirely: no new revisions either.
         self.assertEqual(Revision.objects.count(), revision_count)
         self.assertEqual(
-            TagPage.objects.filter(slug="fair-maps").count(), 2
+            PortalPage.objects.filter(slug="fair-maps").count(), 2
         )  # en + es, no duplicates
 
     def test_command_picks_up_legacy_edits_on_rerun(self):
@@ -1092,9 +1104,9 @@ class MigrateTiptapCommandTests(TestCase):
                 [json.dumps(doc(paragraph(text("Texto corregido"))))],
             )
         call_command("migrate_tiptap")
-        tag_es = TagPage.objects.get(slug="fair-maps", locale__language_code="es")
+        tag_es = PortalPage.objects.get(slug="fair-maps", locale__language_code="es")
         self.assertIn("Texto corregido", str(tag_es.body))
-        self.assertEqual(TagPage.objects.filter(slug="fair-maps").count(), 2)
+        self.assertEqual(PortalPage.objects.filter(slug="fair-maps").count(), 2)
 
     def test_wrapper_title_subtitle_and_body(self):
         # Real legacy rows wrap the doc: {"title", "subtitle", "body": <doc>}.
@@ -1145,7 +1157,7 @@ class MigrateTiptapCommandTests(TestCase):
         before = Page.objects.count()
         call_command("migrate_tiptap", "--dry-run")
         self.assertEqual(Page.objects.count(), before)
-        self.assertFalse(TagPage.objects.exists())
+        self.assertFalse(PortalPage.objects.exists())
 
     def test_dry_run_fails_on_text_loss(self):
         # Inline text inside a custom node has nowhere to go in the block
@@ -1327,7 +1339,7 @@ class FormConfigInjectionTests(TestCase):
 
 
 class PortalWizardTests(TestCase):
-    """The wizard creates the draft TagPage and its FormConfig atomically —
+    """The wizard creates the draft PortalPage and its FormConfig atomically —
     a half-created portal (page without config, or the reverse) is the
     failure mode it exists to prevent."""
 
@@ -1374,11 +1386,11 @@ class PortalWizardTests(TestCase):
         self.assertEqual(self.client.get(self.url).status_code, 200)
 
     def test_creates_draft_page_and_config(self):
-        from content.models import TagPage
+        from content.models import PortalPage
         from datastore.models import FormConfig
 
         response = self.client.post(self.url, self._payload())
-        page = TagPage.objects.get(slug="river-portal")
+        page = PortalPage.objects.get(slug="river-portal")
         self.assertRedirects(
             response,
             f"/admin/pages/{page.pk}/edit/",
@@ -1397,7 +1409,7 @@ class PortalWizardTests(TestCase):
         self.assertEqual(config.required_fields, ["title", "comment"])
 
     def test_collection_mode_shapes_the_generated_body(self):
-        from content.models import TagPage
+        from content.models import PortalPage
         from datastore.models import FormConfig
 
         cases = {
@@ -1426,7 +1438,7 @@ class PortalWizardTests(TestCase):
                 ),
             )
             self.assertEqual(response.status_code, 302, (mode, response.content))
-            page = TagPage.objects.get(slug=slug)
+            page = PortalPage.objects.get(slug=slug)
             body_types = set(block.block_type for block in page.body)
             self.assertTrue(expected <= body_types, (mode, body_types))
             self.assertFalse(absent & body_types, (mode, body_types))
@@ -1435,7 +1447,7 @@ class PortalWizardTests(TestCase):
             )
 
     def test_every_chosen_module_becomes_a_create_button(self):
-        from content.models import TagPage
+        from content.models import PortalPage
         from datastore.models import DistrictrMap
 
         DistrictrMap.objects.create(
@@ -1446,14 +1458,14 @@ class PortalWizardTests(TestCase):
         self.client.post(
             self.url, self._payload(map_modules=["chi_wards", "cook_county"])
         )
-        page = TagPage.objects.get(slug="river-portal")
+        page = PortalPage.objects.get(slug="river-portal")
         buttons = next(b for b in page.body if b.block_type == "map_create_buttons")
         self.assertEqual(
             [view["districtr_map_slug"] for view in buttons.value["views"]],
             ["chi_wards", "cook_county"],
         )
         self.assertEqual(buttons.value["views"][1]["name"], "Cook")
-        # The single-map TagPage field is deprecated for portals: the wizard
+        # The single-map PortalPage field is deprecated for portals: the wizard
         # leaves it blank and the buttons block is the module surface.
         self.assertEqual(page.districtr_map_slug, "")
 
@@ -1553,13 +1565,13 @@ class PortalWizardTests(TestCase):
         self.assertFalse(FormConfig.objects.filter(portal_id="river-portal").exists())
 
     def test_slug_collision_with_existing_config_creates_nothing(self):
-        from content.models import TagPage
+        from content.models import PortalPage
         from core.testing import make_form_config
 
         make_form_config("river-portal")
         response = self.client.post(self.url, self._payload())
         self.assertContains(response, "already exists")
-        self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())
+        self.assertFalse(PortalPage.objects.filter(slug="river-portal").exists())
 
     def test_required_fields_must_be_shown(self):
         response = self.client.post(
@@ -1674,7 +1686,7 @@ class PortalWizardAtomicityTests(TestCase):
 
         from django.db import IntegrityError
 
-        from content.models import TagPage
+        from content.models import PortalPage
 
         with mock.patch(
             "content.portal_wizard.FormConfig.objects.create",
@@ -1701,7 +1713,7 @@ class PortalWizardAtomicityTests(TestCase):
         self.assertContains(response, "was just created")
         # Re-rendered with a form error, page rolled back with the config.
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())
+        self.assertFalse(PortalPage.objects.filter(slug="river-portal").exists())
 
 
 class FormModeButtonSuppressionTests(TestCase):

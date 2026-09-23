@@ -1,6 +1,6 @@
 """
 Admin forms for content pages: the Districtr-map fields are proper selectors
-everywhere — a dropdown of map modules on TagPage, and an orderable
+everywhere — a dropdown of map modules on PortalPage, and an orderable
 multi-select on PlacePage (the saved order is the display order on the
 public place page).
 
@@ -75,7 +75,7 @@ class OrderedMultipleChoiceField(forms.MultipleChoiceField):
     widget = OrderedSlugSelectWidget
 
 
-class TagPageForm(WagtailAdminPageForm):
+class PortalPageForm(WagtailAdminPageForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         scoped = (
@@ -90,7 +90,7 @@ class TagPageForm(WagtailAdminPageForm):
             + _map_choices(limit_to=scoped, ensure=[current] if scoped is None else ()),
             # Optional: portals offer their modules through the page's
             # map_create_buttons block now (the wizard leaves this blank);
-            # the field remains for legacy tag pages that still carry it.
+            # the field remains for legacy portal pages that still carry it.
             required=False,
             label=original.label,
             help_text=_SCOPED_HELP_TEXT if scoped is not None else original.help_text,

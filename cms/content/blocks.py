@@ -70,7 +70,7 @@ def districtr_map_slug_choices():
     keep database access strictly lazy (form render/validation only). The
     mirror table does not exist in test databases — degrade to no choices
     rather than 500ing the whole page editor (same tolerance as
-    TagPage.clean; the savepoint keeps a failed query from aborting an
+    PortalPage.clean; the savepoint keeps a failed query from aborting an
     outer transaction).
     """
     from django.db import DatabaseError, transaction

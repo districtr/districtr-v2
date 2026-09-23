@@ -244,7 +244,7 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                 [
                     FieldPanel("uuid", read_only=True),
                     FieldPanel("name"),
-                    # Referenced by string from document.document, tag pages,
+                    # Referenced by string from document.document, portal pages,
                     # team grants and the /map/<slug> route; nothing coordinates
                     # a rename. Set once by the compose tool.
                     FieldPanel("districtr_map_slug", read_only=True),
@@ -505,7 +505,7 @@ class FormConfigAdminForm(WagtailAdminModelForm):
 
     def clean_portal_id(self):
         portal_id = self.cleaned_data["portal_id"]
-        # portal_id is the join key to the TagPage AND the backend FK target
+        # portal_id is the join key to the PortalPage AND the backend FK target
         # (ON UPDATE CASCADE drags comments.submissions.portal_id along), so
         # renames silently re-home submissions and detach the live page.
         # Only unscoped admins may set or change it, and only to a real portal
@@ -522,9 +522,9 @@ class FormConfigAdminForm(WagtailAdminModelForm):
             )
         from wagtail.models import Locale
 
-        from content.models import TagPage
+        from content.models import PortalPage
 
-        if not TagPage.objects.filter(
+        if not PortalPage.objects.filter(
             locale=Locale.get_default(), slug=portal_id
         ).exists():
             raise forms.ValidationError(
