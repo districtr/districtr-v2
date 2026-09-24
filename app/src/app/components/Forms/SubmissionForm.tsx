@@ -134,10 +134,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             <FormField
               disabled={disabled}
               name="email_confirm"
-              label="Confirm Email *"
+              label={`Confirm Email${required.has('email') ? ' *' : ''}`}
               type="text"
               inputMode="email"
-              required={true}
+              // Optional email stays optional: confirm only what was typed.
+              required={required.has('email') || !!emailValue}
               value={emailConfirm}
               onChangeValue={setEmailConfirm}
               validator={value => value === emailValue}

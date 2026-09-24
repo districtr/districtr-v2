@@ -7,6 +7,7 @@ clone-at-submission (the frozen-gallery data path).
 """
 
 import pytest
+from sqlalchemy import text
 from sqlmodel import Session, col, select
 from unittest.mock import patch
 
@@ -1339,6 +1340,37 @@ class TestSubmissionSideEffects:
             moderate_submission(submission_id, session)
         assert "Keep the river whole." in scored[0]
         assert VALID_FIELDS["email"] not in scored[0]
+
+    def test_form_config_by_submission_survives_a_rename(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        # A prompt draft stores the slug it started on; after a rename that
+        # slug 404s, but the draft's submission_id still finds its form.
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": PORTAL},
+        )
+        submission_id = response.json()["submission_id"]
+        session.execute(
+            text(
+                "UPDATE comments.form_configs SET portal_id = 'renamed' WHERE portal_id = :p"
+            ),
+            {"p": PORTAL},
+        )
+        session.commit()
+        assert (
+            client.get(f"/api/submissions/form_config?portal_id={PORTAL}").status_code
+            == 404
+        )
+        config = client.get(
+            f"/api/submissions/form_config?submission_id={submission_id}"
+        )
+        assert config.status_code == 200, config.json()
+        assert config.json()["portal_id"] == "renamed"
+        unknown = client.get(
+            "/api/submissions/form_config?submission_id=00000000-0000-4000-8000-000000000000"
+        )
+        assert unknown.status_code == 404
 
     def test_admin_list_filters_by_map(self, client, form_config, document_id, session):
         _, public_id = _submitted_clone(client, session, document_id)

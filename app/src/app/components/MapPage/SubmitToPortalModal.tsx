@@ -16,7 +16,7 @@ import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
 import {getDraftSubmission, updateDraftSubmission} from '@/app/utils/draftSubmissions';
 import {
   finalizeSubmission,
-  getFormConfig,
+  getFormConfigForSubmission,
   type FormConfigPublic,
 } from '@/app/utils/api/apiHandlers/postSubmission';
 import {
@@ -61,20 +61,29 @@ export const SubmitToPortalModal: React.FC = () => {
     setAcknowledged(false);
     setError('');
     if (!draft) return;
-    getFormConfig(draft.portalId).then(response => {
+    getFormConfigForSubmission(draft.submissionId).then(response => {
       if (response.ok) {
         setConfig(response.response);
-        // Self-heal stale/legacy records: the stored mode is a snapshot
-        // from draft creation; the config is the server truth.
-        if (draft.collectionMode !== response.response.collection_mode) {
+        // Self-heal stale/legacy records: the stored mode and slug are
+        // snapshots from draft creation; the config is the server truth.
+        if (
+          draft.collectionMode !== response.response.collection_mode ||
+          draft.portalId !== response.response.portal_id
+        ) {
           updateDraftSubmission(promptDocumentId!, {
             collectionMode: response.response.collection_mode,
+            portalId: response.response.portal_id,
           });
         }
+      } else if (response.error.status === 404) {
+        // The draft or its portal is gone for good: retire the record so
+        // the prompt stops reopening on every ready flip.
+        updateDraftSubmission(promptDocumentId!, {submitted: true});
+        closePrompt();
       } else setError('Could not load the portal form. Please try again later.');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft?.portalId, promptDocumentId]);
+  }, [draft?.submissionId, promptDocumentId]);
 
   // The prompt id must match the map on screen: the store is module-global,
   // so a stale id from a previous map would otherwise finalize (publish) a

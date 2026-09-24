@@ -58,10 +58,30 @@ export interface CommentFilters {
 const toSnakeCase = (str: string): string =>
   str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 
+// ponytail: the label comes from the key ('custom_' + the label's slug), so
+// case and punctuation are lost. Fetch the portal's form config for exact
+// labels if that matters.
+const customLabel = (key: string) => {
+  const words = key.slice('custom_'.length).replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/** The comment plus any custom-question answers. Custom answers are public,
+ * and an entry with only those would otherwise render as a blank card. */
+const body = (fields: Record<string, string>) =>
+  [
+    fields.comment,
+    ...Object.entries(fields)
+      .filter(([key]) => key.startsWith('custom_'))
+      .map(([key, value]) => `${customLabel(key)}: ${value}`),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
 const flatten = (row: SubmissionPublic): CommentListing => ({
   id: row.id,
   title: row.fields.title ?? '',
-  comment: row.fields.comment ?? '',
+  comment: body(row.fields),
   first_name: row.fields.first_name ?? null,
   last_name: row.fields.last_name ?? null,
   place: row.fields.place ?? null,
