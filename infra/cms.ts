@@ -51,6 +51,9 @@ export function createCms(
   addSecret("JWT_VERIFYING_KEY", config.jwtVerifyingKey);
   addSecret("JWT_NEXT_VERIFYING_KEY", config.jwtNextVerifyingKey);
   addSecret("RESEND_API_KEY", config.resendApiKey);
+  // Only the one-off migrate task gets this one (content/0003).
+  addSecret("MIGRATE_TIPTAP_OWNERS", config.migrateTiptapOwners);
+  const MIGRATE_ONLY_SECRETS = ["MIGRATE_TIPTAP_OWNERS"];
 
   // --- IAM ---
   const executionRole = new aws.iam.Role(`${name}-cms-exec-role`, {
@@ -112,7 +115,8 @@ export function createCms(
     {name: "AWS_USE_DEFAULT_CREDENTIALS", value: "true"},
     {name: "AWS_DEFAULT_REGION", value: region},
   ];
-  const secrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
+  const migrateSecrets = secretParams.map(s => ({name: s.envName, valueFrom: s.param.arn}));
+  const secrets = migrateSecrets.filter(s => !MIGRATE_ONLY_SECRETS.includes(s.name));
   // Discrete POSTGRES_* vars (Django settings contract); password is a secret.
   const dbEnvironment = [
     {name: "POSTGRES_DB", value: database.dbName},
@@ -175,15 +179,8 @@ export function createCms(
           "-c",
           "python manage.py bootstrap_schema && python manage.py migrate --noinput",
         ],
-        environment: [
-          ...environment,
-          ...dbEnvironment,
-          // Only the one-off migrate task needs it (content/0003).
-          ...(config.migrateTiptapOwners
-            ? [{name: "MIGRATE_TIPTAP_OWNERS", value: config.migrateTiptapOwners}]
-            : []),
-        ],
-        secrets,
+        environment: [...environment, ...dbEnvironment],
+        secrets: migrateSecrets,
         logConfiguration: logConfiguration(logGroups.cmsMigrate),
       },
     ]),

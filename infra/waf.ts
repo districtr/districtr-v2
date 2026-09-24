@@ -86,7 +86,9 @@ export function createWaf(alb: Alb) {
               searchString: "/api/submissions/flag",
               fieldToMatch: {uriPath: {}},
               positionalConstraint: "EXACTLY",
-              textTransformations: [{priority: 0, type: "NONE"}],
+              // Starlette routes the decoded path, so /api/submissions/fla%67
+              // reaches the handler; match it decoded too.
+              textTransformations: [{priority: 0, type: "URL_DECODE"}],
             },
           },
         },

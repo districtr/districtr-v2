@@ -206,7 +206,10 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
 
 - **Rollback**: set `backendImageTag` / `frontendImageTag` / `cmsImageTag` to a known-good SHA
   and `pulumi up` (or re-run the deploy workflow for that SHA). ECR keeps the
-  last 20 images.
+  last 20 images. An image rollback can't cross a migration that dropped
+  something the old code reads; the Wagtail cutover's legacy-comment drop is
+  one, and rolling it back means restoring the pre-deploy RDS snapshot
+  (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`).
 - **Secrets**: `pulumi config set --secret <key> <value>` then `pulumi up`; the
   encrypted value is committed to the stack YAML and lands in SSM.
 - **Database**: the password is Pulumi-generated; `pulumi stack output
