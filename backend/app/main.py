@@ -23,7 +23,7 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
-from sqlalchemy.sql import and_, exists
+from sqlalchemy.sql import and_, exists, or_
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -476,7 +476,7 @@ def create_document(
         # FormConfig (config deleted, cached page), and losing the draft
         # must degrade to "a normal map", never "no map".
         try:
-            submissions.get_form_config(data.portal_id, session)
+            submissions.get_form_config(data.portal_id, session, require_accepting=True)
         except HTTPException as exc:
             if exc.status_code != status.HTTP_404_NOT_FOUND:
                 raise
@@ -1462,12 +1462,19 @@ def get_document_list(
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
     portal_ids: list[str] = Query(default=[]),
+    tags: list[str] = Query(
+        default=[],
+        deprecated=True,
+        description="Alias of portal_ids for frontends built before the "
+        "cutover. Remove one release after it ships.",
+    ),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
     include_hidden: bool = Query(
         default=False,
-        description="Keep maps taken down by a moderator (the CMS's own "
-        "metadata lookups). A listing convenience, not an access check: any "
-        "map's metadata is fetchable by its public_id.",
+        description="Keep maps taken down by a moderator or collected by "
+        "internal or closed portals (the CMS's own metadata lookups). A "
+        "listing convenience, not an access check: any map's metadata is "
+        "fetchable by its public_id.",
     ),
 ):
     def _submission_exists(*conditions):
@@ -1503,6 +1510,35 @@ def get_document_list(
         .limit(limit)
     )
 
+    # ponytail: tags alias for one release; an old bundle's ?tags= would
+    # otherwise hit the unfiltered branch and list every map.
+    portal_ids = portal_ids + tags
+
+    # Public listings drop taken-down maps (Hide is the one moderation
+    # lever) and maps of internal-mode or closed portals. include_hidden is
+    # the CMS hub's own metadata lookup, which shows all of them. (A LISTING
+    # guarantee: any map's metadata remains fetchable by its sequential
+    # public_id, as it always has been.)
+    if not include_hidden:
+        stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
+        stmt = stmt.where(
+            ~exists(
+                select(literal(1))
+                .select_from(Submission)
+                .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+                .where(
+                    and_(
+                        Submission.map_public_id == Document.public_id,
+                        or_(
+                            col(FormConfig.collection_mode) == CollectionMode.internal,
+                            col(FormConfig.accepting).is_(False),
+                        ),
+                    )
+                )
+                .correlate(Document)
+            )
+        )
+
     if len(portal_ids) > 0:
         # A map is in a portal's gallery when it belongs to that portal
         # (document.portal_id) and a visible submission row carries it.
@@ -1519,11 +1555,8 @@ def get_document_list(
                     col(Submission.portal_id) == Document.portal_id,
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
-                    # Internal-mode portals never surface in tag galleries
-                    # or the public submissions list. (This is a LISTING
-                    # guarantee: any map's metadata remains fetchable by its
-                    # sequential public_id, as it always has been.)
                     col(FormConfig.collection_mode) != CollectionMode.internal,
+                    col(FormConfig.accepting).is_(True),
                 )
             )
             .correlate(Document)
@@ -1546,10 +1579,6 @@ def get_document_list(
 
     if len(ids) > 0:
         stmt = stmt.where(col(Document.public_id).in_(ids))
-        # A curated (pinned) gallery must honour a takedown too: Hide is the
-        # one moderation lever, and it has to reach every public listing.
-        if not include_hidden:
-            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
 
     results = session.exec(stmt).all()
     return [

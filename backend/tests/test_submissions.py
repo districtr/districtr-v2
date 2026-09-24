@@ -970,6 +970,9 @@ class TestInternalExclusion:
         assert (
             client.get(f"/api/documents/list?portal_ids={INTERNAL_PORTAL}").json() == []
         )
+        # Unfiltered map list (an empty PlanGalleryBlock): absent too.
+        listed = client.get("/api/documents/list").json()
+        assert doc["public_id"] not in [d["public_id"] for d in listed]
 
         # Admin list: present.
         _set_auth(TEAM_A_PAYLOAD)
@@ -1201,3 +1204,147 @@ def test_submission_routes_keep_blocking_work_off_the_event_loop():
         if inspect.iscoroutinefunction(route.endpoint)
     }
     assert async_routes == {"create_submission", "finalize_submission"}
+
+
+# ---------------------------------------------------------------------------
+# Public listing reach: unfiltered lists, the tags alias, closed portals
+# ---------------------------------------------------------------------------
+
+
+def _submitted_clone(client, session, document_id, portal_id=PORTAL):
+    _mark_ready(session, document_id)
+    response = _submit(client, map_ref=document_id, portal_id=portal_id)
+    assert response.status_code == 201, response.json()
+    submission = session.get(Submission, response.json()["id"])
+    return submission.id, submission.map_public_id
+
+
+def _listed_ids(client, query=""):
+    return [d["public_id"] for d in client.get(f"/api/documents/list?{query}").json()]
+
+
+class TestPublicListingReach:
+    def test_takedown_reaches_the_unfiltered_list(
+        self, client, form_config, document_id, session
+    ):
+        submission_id, public_id = _submitted_clone(client, session, document_id)
+        assert public_id in _listed_ids(client)
+
+        _set_auth(TEAM_A_PAYLOAD)
+        client.post(
+            f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
+        )
+        assert public_id not in _listed_ids(client)
+        assert public_id not in _listed_ids(client, "draft_status=ready_to_share")
+        assert public_id in _listed_ids(client, "include_hidden=true")
+
+    def test_tags_is_an_alias_of_portal_ids(
+        self, client, form_config, document_id, session
+    ):
+        # An old frontend's ?tags= must narrow like ?portal_ids=, not fall
+        # through to the unfiltered list.
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert _listed_ids(client, f"tags={PORTAL}") == [public_id]
+        assert _listed_ids(client, f"tags={OTHER_PORTAL}") == []
+
+    def test_scratch_live_map_leaves_the_portal_gallery(
+        self, client, form_config, document_id, session
+    ):
+        # Admin-added maps are live references: when the author moves the
+        # map back to scratch, the gallery drops it.
+        client.put(
+            f"/api/document/{document_id}/metadata",
+            json={"draft_status": "ready_to_share"},
+        )
+        public_id = client.get(f"/api/document/{document_id}").json()["public_id"]
+        _set_auth(TEAM_A_PAYLOAD)
+        added = client.post(
+            "/api/submissions/admin/add",
+            json={"portal_id": PORTAL, "map_public_id": public_id},
+        )
+        assert added.status_code == 201, added.json()
+        assert _listed_ids(client, f"portal_ids={PORTAL}") == [public_id]
+
+        client.put(
+            f"/api/document/{document_id}/metadata", json={"draft_status": "scratch"}
+        )
+        assert _listed_ids(client, f"portal_ids={PORTAL}") == []
+
+
+class TestClosedPortal:
+    """A portal whose page is unpublished or deleted (accepting=false) takes
+    no public submissions and lists nothing publicly."""
+
+    def _close(self, session, form_config):
+        form_config.accepting = False
+        session.add(form_config)
+        session.commit()
+
+    def test_closed_portal_refuses_intake(self, client, form_config, session):
+        self._close(session, form_config)
+        assert _submit(client).status_code == 404
+        assert (
+            client.get(f"/api/submissions/form_config?portal_id={PORTAL}").status_code
+            == 404
+        )
+
+    def test_closed_portal_lists_nothing(
+        self, client, form_config, document_id, session
+    ):
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert _submit(client).status_code == 201
+        self._close(session, form_config)
+
+        assert client.get(f"/api/submissions?portal_id={PORTAL}").json() == []
+        assert _listed_ids(client, f"portal_ids={PORTAL}") == []
+        assert public_id not in _listed_ids(client)
+        # The CMS hub still sees it, and so do the portal's admins.
+        assert public_id in _listed_ids(client, "include_hidden=true")
+        _set_auth(TEAM_A_PAYLOAD)
+        assert len(client.get(f"/api/submissions/admin?portal_id={PORTAL}").json()) == 2
+
+    def test_closed_portal_starts_no_draft(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        self._close(session, form_config)
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": PORTAL},
+        )
+        assert response.status_code == 201, response.json()
+        assert response.json().get("submission_id") is None
+
+
+class TestSubmissionSideEffects:
+    def test_clone_gets_a_thumbnail(
+        self, client, form_config, document_id, session, monkeypatch
+    ):
+        # Nobody holds the clone's edit id, so its stats must be published
+        # at submission time or the gallery card stays a placeholder.
+        published = []
+        monkeypatch.setattr(
+            "app.submissions.main.publish_district_stats_to_s3",
+            lambda document_id, public_id: published.append(public_id),
+        )
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert published == [public_id]
+
+    def test_private_email_is_never_scored(self, client, form_config, session):
+        submission_id = _submit(client).json()["id"]
+        scored = []
+        with patch(
+            "app.submissions.moderation.score_text",
+            side_effect=lambda text: scored.append(text) or 0.0,
+        ):
+            moderate_submission(submission_id, session)
+        assert "Keep the river whole." in scored[0]
+        assert VALID_FIELDS["email"] not in scored[0]
+
+    def test_admin_list_filters_by_map(self, client, form_config, document_id, session):
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert _submit(client).status_code == 201
+        _set_auth(TEAM_A_PAYLOAD)
+        rows = client.get(
+            f"/api/submissions/admin?portal_id={PORTAL}&map_public_id={public_id}"
+        ).json()
+        assert [r["map_public_id"] for r in rows] == [public_id]
