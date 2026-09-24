@@ -10,11 +10,12 @@ districtr_map_slugs is a module their teams hold. Structural pages
 (index/home) carry no team association and are left to Wagtail's normal,
 tree-based page permissions.
 
-Pages use tree-based GroupPagePermission rather than per-object querysets, so
-this overlays hooks: construct_explorer_page_queryset hides out-of-scope pages
-from the explorer, and before_{edit,delete,unpublish,copy,move}_page +
-before_bulk_action hard-block every direct-URL mutation path. Creation is
-constrained by the team-aware page forms (content/forms.py) instead.
+The main enforcement point is the page permission tester
+(content/permissions.py), which every Wagtail and wagtail-localize view
+consults. These hooks add defense in depth on the mutation paths and hide
+out-of-scope pages from the explorer; all of them share
+content.scoping.page_out_of_scope. Creation is constrained by the team-aware
+page forms (content/forms.py).
 
 Known ceiling: /admin/pages/search/ runs no queryset hook, so a team-scoped
 member can still SEE out-of-scope page titles there — every action on them is
@@ -29,11 +30,8 @@ from wagtail.models import Locale, Page
 
 from core.menu import GroupMenuItem
 
-from authapi.teams import (
-    districtr_map_slugs_for_user,
-    portal_slugs_for_user,
-    user_is_team_scoped,
-)
+from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
+from content.scoping import in_scope_portal_translation_keys, page_out_of_scope
 from content.models import (
     PlacePage,
     PlacesIndexPage,
@@ -43,27 +41,17 @@ from content.models import (
 
 
 def _is_out_of_scope_page(request, page):
-    """True when a team-scoped user is acting on a content page outside their
-    groups. Non-content pages return False — they are not team-scoped here."""
-    if not user_is_team_scoped(request.user):
-        return False
-    specific = page.specific
-    if isinstance(specific, PortalPage):
-        return specific.slug not in portal_slugs_for_user(request.user)
-    if isinstance(specific, PlacePage):
-        # In scope when the page features at least one map the team owns.
-        return districtr_map_slugs_for_user(request.user).isdisjoint(
-            specific.districtr_map_slugs
-        )
-    return False
+    return page_out_of_scope(request.user, page)
 
 
 @hooks.register("construct_explorer_page_queryset")
 def scope_content_pages_in_explorer(parent_page, pages, request):
     if not user_is_team_scoped(request.user):
         return pages
+    # By translation_key, so every locale of an in-scope portal stays listed
+    # and no locale of another team's portal slips in under a stale slug.
     out_of_scope = PortalPage.objects.exclude(
-        slug__in=list(portal_slugs_for_user(request.user))
+        translation_key__in=in_scope_portal_translation_keys(request.user)
     ).values_list("pk", flat=True)
     out_of_scope_places = PlacePage.objects.exclude(
         districtr_map_slugs__overlap=list(districtr_map_slugs_for_user(request.user))

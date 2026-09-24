@@ -65,8 +65,8 @@ def _inject_form_config(body_data, portal_slug):
     """Attach the portal's FormConfig (which fields the form shows, camelCase
     per the constants/cms.ts contract) to every form block.
 
-    Translations share their source page's slug, so the default-locale slug
-    IS this page's slug — one lookup covers every locale. Tolerates a missing
+    ``portal_slug`` is the page's portal_id (the default-locale slug), so every
+    locale serves the same form. Tolerates a missing
     mirror table the same way districtr_map_slug_choices does (test
     databases); a portal with no config serves ``fields: null`` and the
     frontend renders no form.
@@ -124,8 +124,10 @@ def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
     if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
-        body_data = _inject_portal_id(body_data, page.slug)
-        body_data = _inject_form_config(body_data, page.slug)
+        # Translations resolve to their default-locale portal, not their own
+        # slug (PortalPage.portal_id).
+        body_data = _inject_portal_id(body_data, page.portal_id)
+        body_data = _inject_form_config(body_data, page.portal_id)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,
