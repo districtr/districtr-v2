@@ -216,7 +216,11 @@ class PortalWizardForm(forms.Form):
                 "The Portals index page is missing — run content provisioning first."
             )
         cleaned["parent"] = parent
-        if parent.get_children().filter(slug=slug).exists():
+        # Any locale: a translated portal can still carry a slug its source was
+        # renamed away from, and claiming that slug would hijack its identity.
+        from content.models import PortalPage
+
+        if PortalPage.objects.filter(slug=slug).exists():
             self.add_error("slug", f"A portal at '{slug}' already exists.")
         if FormConfig.objects.filter(portal_id=slug).exists():
             self.add_error("slug", f"A form config for portal '{slug}' already exists.")
@@ -352,6 +356,9 @@ def portal_wizard(request):
                     slug=slug,
                     body=json.dumps(body),
                     live=False,
+                    # Wagtail's own create view sets this; add_child doesn't.
+                    # Owners with add permission can edit their page.
+                    owner=request.user,
                 )
                 data["parent"].add_child(instance=page)
                 page.save_revision(user=request.user)

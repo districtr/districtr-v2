@@ -1745,3 +1745,111 @@ class FormModeButtonSuppressionTests(TestCase):
             if block["type"] == "map_create_buttons"
         )
         self.assertNotIn("portalId", buttons)
+
+
+class PortalOwnershipAndIdentityTests(TestCase):
+    """Who can edit a portal page, and which portal a translation belongs to.
+
+    A wizard portal is editable by its creator and the rest of its team; an
+    owner outside the portal's team loses every page view, not just the six
+    hooked ones. A translation keeps its source portal's identity after a
+    rename, so its stale slug can't be claimed by another team.
+    """
+
+    WIZARD = {
+        "title": "River Portal",
+        "slug": "river-portal",
+        "map_modules": ["chi_wards"],
+        "collection_mode": "prompt",
+        "fields": ["title", "comment"],
+        "required_fields": ["title"],
+        "admin_teams": ["mine-team"],
+        "questions-TOTAL_FORMS": "1",
+        "questions-INITIAL_FORMS": "0",
+        "questions-MIN_NUM_FORMS": "0",
+        "questions-MAX_NUM_FORMS": "1000",
+        "questions-0-label": "",
+    }
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_team, make_user
+        from datastore.models import (
+            DistrictrMap,
+            FormConfig,
+            FormFieldCustom,
+            GerryDBTable,
+        )
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
+        layer = GerryDBTable.objects.create(name="blocks")
+        chi = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.teammate = make_user("partner", "t@d.org", access_admin=True)
+        self.outsider = make_user("partner", "o@d.org", access_admin=True)
+        make_team("Mine Team", members=[self.partner, self.teammate], maps=[chi])
+        make_team("Other Team", members=[self.outsider], maps=[chi])
+
+    def _wizard_portal(self):
+        from content.models import PortalPage
+
+        self.client.force_login(self.partner)
+        response = self.client.post("/admin/portals/new/", self.WIZARD)
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None))
+        return PortalPage.objects.get(slug="river-portal")
+
+    def test_wizard_portal_is_editable_by_creator_and_team(self):
+        page = self._wizard_portal()
+        self.assertEqual(page.owner, self.partner)
+        self.assertTrue(page.permissions_for_user(self.partner).can_edit())
+        self.assertTrue(page.permissions_for_user(self.teammate).can_edit())
+        self.assertFalse(page.permissions_for_user(self.outsider).can_edit())
+
+        self.client.force_login(self.teammate)
+        self.assertEqual(
+            self.client.get(f"/admin/pages/{page.pk}/edit/").status_code, 200
+        )
+
+    def test_owner_outside_the_portals_team_loses_every_view(self):
+        page = self._wizard_portal()
+        page.owner = self.outsider
+        page.save()
+        perms = page.permissions_for_user(self.outsider)
+        for capability in ("can_edit", "can_copy", "can_view_revisions", "can_delete"):
+            self.assertFalse(getattr(perms, capability)(), capability)
+
+        self.client.force_login(self.outsider)
+        for url in (
+            f"/admin/pages/{page.pk}/edit/",
+            f"/admin/pages/{page.pk}/history/",
+        ):
+            self.assertNotEqual(self.client.get(url).status_code, 200, url)
+
+    def test_translation_keeps_its_portal_after_a_rename(self):
+        from wagtail.models import Locale
+
+        from content.portal_wizard import PortalWizardForm
+        from content.scoping import page_out_of_scope
+
+        page = self._wizard_portal()
+        es_page = page.copy_for_translation(
+            Locale.objects.get(language_code="es"), copy_parents=True
+        )
+        page.slug = "renamed-portal"
+        page.save_revision().publish()
+        es_page.refresh_from_db()
+
+        # The Spanish page still carries the old slug, but it belongs to the
+        # renamed portal, so it stays in its own team's scope only.
+        self.assertEqual(es_page.slug, "river-portal")
+        self.assertEqual(es_page.portal_id, "renamed-portal")
+        self.assertFalse(page_out_of_scope(self.teammate, es_page))
+        self.assertTrue(page_out_of_scope(self.outsider, es_page))
+
+        # And another team can't claim the stale slug to take it over.
+        form = PortalWizardForm(
+            {**self.WIZARD, "admin_teams": ["other-team"]}, user=self.outsider
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("slug", form.errors)
