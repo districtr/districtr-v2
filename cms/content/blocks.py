@@ -153,6 +153,8 @@ class PlanGalleryBlock(CompatStructBlock):
     ``ids`` IS the curated gallery: an ordered, reorderable list of plan ids
     maintained on the page itself (the Portals gallery's "Pin to page
     gallery" appends here). ``tags`` filters instead when no ids are curated.
+    ``thisPortal`` lists the page's own portal instead; the slug is injected
+    when serving (content/api.py), so a rename can't strand it.
     """
 
     ids = blocks.ListBlock(
@@ -168,8 +170,22 @@ class PlanGalleryBlock(CompatStructBlock):
         default=[],
         help_text="Portal slugs whose submitted plans to list (empty = no filter).",
     )
+    thisPortal = blocks.BooleanBlock(
+        required=False,
+        default=False,
+        label="List this portal's plans",
+        help_text="On a portal page, list the plans submitted to this portal. "
+        "Follows slug renames. Ignored when plan IDs are curated.",
+    )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
+    includeInProgress = blocks.BooleanBlock(
+        required=False,
+        default=False,
+        label="Include in-progress plans",
+        help_text="Filtered galleries show ready-to-share plans only unless "
+        "this is ticked.",
+    )
     paginate = blocks.BooleanBlock(required=False, default=True)
     showListView = blocks.BooleanBlock(required=False, default=True)
     showThumbnails = blocks.BooleanBlock(required=False, default=True)
@@ -200,7 +216,8 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Portal slugs whose submissions to list (empty = no filter).",
+        help_text="Portal slugs whose submissions to list. A portal page's "
+        "gallery always lists that portal's submissions.",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)

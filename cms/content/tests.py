@@ -76,6 +76,8 @@ PLAN_GALLERY_ATTRS = {
     "showTags": True,
     "showModule": False,
     "limit": 6,
+    "includeInProgress": False,
+    "thisPortal": False,
 }
 
 COMMENT_GALLERY_ATTRS = {
@@ -596,6 +598,27 @@ class ProvisioningMigrationTests(TestCase):
         ensure_default_index_pages()
         self.assertEqual(Page.objects.count(), before)
 
+    def test_translated_indexes_grant_partners_add(self):
+        # wagtail-localize creates a locale's indexes on first translation;
+        # partners need add_page there to create and edit their pages.
+        from content.provision import ensure_index
+
+        es = Locale.objects.get(language_code="es")
+        for model, title, slug in (
+            (PortalsIndexPage, "Portals", "tags"),
+            (PlacesIndexPage, "Places", "places"),
+        ):
+            translated = ensure_index(model, title, slug, locale=es)
+            self.assertEqual(
+                set(
+                    GroupPagePermission.objects.filter(
+                        page=translated, permission__codename="add_page"
+                    ).values_list("group__name", flat=True)
+                ),
+                {"partner", "super_partner"},
+                model,
+            )
+
     def test_index_pages_are_singletons(self):
         # max_count=1: with the provisioned instance in place, the admin can
         # never offer creating a duplicate index under Home (or anywhere).
@@ -748,25 +771,25 @@ class ContentApiTests(TestCase):
         rules.save_revision(clean=False).publish()
 
     def test_detail_serves_requested_language(self):
-        response = self.client.get("/api/content/tags/slug/fair-maps?language=es")
+        response = self.client.get("/api/content/portals/slug/fair-maps?language=es")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Access-Control-Allow-Origin"], "*")
         payload = response.json()
-        self.assertEqual(payload["type"], "tags")
+        self.assertEqual(payload["type"], "portals")
         self.assertEqual(payload["available_languages"], ["en", "es"])
         self.assertEqual(payload["content"]["language"], "es")
         self.assertEqual(payload["content"]["title"], "Mapas Justos")
         self.assertEqual(payload["content"]["slug"], "fair-maps")
 
     def test_detail_falls_back_to_english(self):
-        response = self.client.get("/api/content/tags/slug/fair-maps?language=zh")
+        response = self.client.get("/api/content/portals/slug/fair-maps?language=zh")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["content"]["language"], "en")
         self.assertEqual(payload["available_languages"], ["en", "es"])
 
     def test_detail_body_shape_and_null_compat(self):
-        payload = self.client.get("/api/content/tags/slug/fair-maps").json()
+        payload = self.client.get("/api/content/portals/slug/fair-maps").json()
         content = payload["content"]
         self.assertEqual(content["districtr_map_slug"], "chi_wards")
         body = content["body"]
@@ -789,12 +812,12 @@ class ContentApiTests(TestCase):
         )
 
     def test_detail_unknown_slug_404(self):
-        response = self.client.get("/api/content/tags/slug/missing")
+        response = self.client.get("/api/content/portals/slug/missing")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response["Access-Control-Allow-Origin"], "*")
 
     def test_detail_draft_only_page_404(self):
-        response = self.client.get("/api/content/tags/slug/draft-tag")
+        response = self.client.get("/api/content/portals/slug/draft-tag")
         self.assertEqual(response.status_code, 404)
 
     def test_detail_unknown_type_404(self):
@@ -831,7 +854,7 @@ class ContentApiTests(TestCase):
         self.portals_index.add_child(instance=linker)
         linker.save_revision(clean=False).publish()
 
-        payload = self.client.get("/api/content/tags/slug/linker").json()
+        payload = self.client.get("/api/content/portals/slug/linker").json()
         body = payload["content"]["body"]
         self.assertNotIn("linktype=", json.dumps(body))
         self.assertIn(f'<a href="{target.url}">go</a>', body[0]["value"])
@@ -840,7 +863,7 @@ class ContentApiTests(TestCase):
         )
 
     def test_list_endpoint(self):
-        response = self.client.get("/api/content/tags/list")
+        response = self.client.get("/api/content/portals/list")
         self.assertEqual(response.status_code, 200)
         rows = response.json()
         self.assertEqual(
@@ -870,10 +893,10 @@ class ContentApiTests(TestCase):
         es_index.add_child(instance=solo)
         solo.save_revision(clean=False).publish()
 
-        rows = self.client.get("/api/content/tags/list").json()
+        rows = self.client.get("/api/content/portals/list").json()
         self.assertIn(("solo-es", "es"), [(r["slug"], r["language"]) for r in rows])
         # ... and explicit filtering still excludes it.
-        en_rows = self.client.get("/api/content/tags/list?language=en").json()
+        en_rows = self.client.get("/api/content/portals/list?language=en").json()
         self.assertNotIn("solo-es", [r["slug"] for r in en_rows])
 
     def test_static_detail_has_no_map_fields(self):
@@ -889,12 +912,12 @@ class ContentApiTests(TestCase):
 
     def test_list_negative_pagination_clamped(self):
         # Negative offset/limit must clamp to 0, not 500 on a negative slice.
-        response = self.client.get("/api/content/tags/list?limit=-1&offset=-5")
+        response = self.client.get("/api/content/portals/list?limit=-1&offset=-5")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
 
     def test_list_language_filter(self):
-        rows = self.client.get("/api/content/tags/list?language=es").json()
+        rows = self.client.get("/api/content/portals/list?language=es").json()
         self.assertEqual(
             rows,
             [
@@ -1267,7 +1290,7 @@ class FormConfigInjectionTests(TestCase):
         )
 
     def _form_block(self, slug):
-        payload = self.client.get(f"/api/content/tags/slug/{slug}").json()
+        payload = self.client.get(f"/api/content/portals/slug/{slug}").json()
         return next(
             block["value"]
             for block in payload["content"]["body"]
@@ -1285,6 +1308,27 @@ class FormConfigInjectionTests(TestCase):
         # Bug fix: an empty allow-list serves null ("all modules"), not [].
         self.assertIsNone(value["allowListModules"])
 
+    def test_old_tags_route_still_serves_portals(self):
+        payload = self.client.get("/api/content/tags/slug/configured").json()
+        self.assertEqual(payload["content"]["slug"], "configured")
+
+    def test_galleries_list_their_own_portal(self):
+        self.portal.body = [
+            {"type": "comment_gallery", "value": {}},
+            {"type": "plan_gallery", "value": {"thisPortal": True}},
+            {"type": "plan_gallery", "value": {}},
+        ]
+        self.portal.save_revision(clean=False).publish()
+        body = self.client.get("/api/content/portals/slug/configured").json()[
+            "content"
+        ]["body"]
+        comments, own, unfiltered = (block["value"] for block in body)
+        self.assertEqual(comments["portalId"], "configured")
+        self.assertEqual(own["tags"], ["configured"])
+        self.assertNotIn("thisPortal", own)
+        # Without thisPortal an empty gallery keeps its legacy meaning.
+        self.assertIsNone(unfiltered["tags"])
+
     def test_map_create_buttons_carry_portal_id(self):
         self.portal.body = [
             {"type": "form", "value": {}},
@@ -1294,7 +1338,7 @@ class FormConfigInjectionTests(TestCase):
             },
         ]
         self.portal.save_revision(clean=False).publish()
-        payload = self.client.get("/api/content/tags/slug/configured").json()
+        payload = self.client.get("/api/content/portals/slug/configured").json()
         buttons = next(
             block["value"]
             for block in payload["content"]["body"]
@@ -1324,7 +1368,7 @@ class FormConfigInjectionTests(TestCase):
             {"type": "map_create_buttons", "value": {"views": [], "type": "simple"}}
         ]
         bare.save_revision(clean=False).publish()
-        payload = self.client.get("/api/content/tags/slug/bare-buttons").json()
+        payload = self.client.get("/api/content/portals/slug/bare-buttons").json()
         buttons = next(
             block["value"]
             for block in payload["content"]["body"]
@@ -1738,7 +1782,7 @@ class FormModeButtonSuppressionTests(TestCase):
         ]
         portal.save_revision(clean=False).publish()
 
-        payload = self.client.get("/api/content/tags/slug/form-portal").json()
+        payload = self.client.get("/api/content/portals/slug/form-portal").json()
         buttons = next(
             block["value"]
             for block in payload["content"]["body"]
@@ -1826,6 +1870,24 @@ class PortalOwnershipAndIdentityTests(TestCase):
         ):
             self.assertNotEqual(self.client.get(url).status_code, 200, url)
 
+    def test_wizard_portal_opens_on_publish(self):
+        from datastore.models import FormConfig
+
+        page = self._wizard_portal()
+        self.assertFalse(FormConfig.objects.get(portal_id="river-portal").accepting)
+        page.save_revision().publish()
+        self.assertTrue(FormConfig.objects.get(portal_id="river-portal").accepting)
+
+    def test_wizard_gallery_follows_a_rename(self):
+        page = self._wizard_portal()
+        page.slug = "renamed-portal"
+        page.save_revision().publish()
+        body = self.client.get("/api/content/portals/slug/renamed-portal").json()[
+            "content"
+        ]["body"]
+        gallery = next(b["value"] for b in body if b["type"] == "plan_gallery")
+        self.assertEqual(gallery["tags"], ["renamed-portal"])
+
     def test_translation_keeps_its_portal_after_a_rename(self):
         from wagtail.models import Locale
 
@@ -1853,3 +1915,43 @@ class PortalOwnershipAndIdentityTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("slug", form.errors)
+
+
+class PortalAcceptingTests(TestCase):
+    """FormConfig.accepting mirrors whether the portal page is live. The
+    backend refuses public submissions and listings for a closed portal, so
+    drafts, unpublished and deleted portals must read closed."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_form_config, make_portal
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
+        self.portal = make_portal("open-portal")
+        self.portal.unpublish()
+        make_form_config("open-portal")
+
+    def _accepting(self):
+        from datastore.models import FormConfig
+
+        return FormConfig.objects.get(portal_id="open-portal").accepting
+
+    def test_publish_unpublish_and_delete_drive_accepting(self):
+        self.assertFalse(self._accepting())
+        self.portal.save_revision().publish()
+        self.assertTrue(self._accepting())
+        self.portal.refresh_from_db()
+        self.portal.unpublish()
+        self.assertFalse(self._accepting())
+        self.portal.save_revision().publish()
+        self.portal.delete()
+        self.assertFalse(self._accepting())
+
+    def test_a_live_translation_keeps_the_portal_open(self):
+        es_page = self.portal.copy_for_translation(
+            Locale.objects.get(language_code="es"), copy_parents=True
+        )
+        es_page.save_revision().publish()
+        self.assertTrue(self._accepting())
+        es_page.delete()
+        self.assertFalse(self._accepting())

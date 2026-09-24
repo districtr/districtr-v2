@@ -313,6 +313,10 @@ class FormConfig(models.Model):
     # How the portal collects map submissions; see backend
     # app/submissions/models.py::CollectionMode for the vocabulary.
     collection_mode = models.CharField(max_length=16, default="prompt")
+    # Whether the portal page is live; the backend refuses public intake and
+    # listing when it isn't. Derived, never edited: set here on every save
+    # and by PortalPage on publish, unpublish and delete.
+    accepting = models.BooleanField(default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -324,6 +328,22 @@ class FormConfig(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.portal_id})"
+
+    def save(self, *args, **kwargs):
+        from content.models import PortalPage
+
+        self.accepting = PortalPage.portal_is_live(self.portal_id)
+        super().save(*args, **kwargs)
+
+
+def custom_field_key(label: str) -> str | None:
+    """A custom question's key: 'custom_' + the label's slug, capped at the
+    column width. None when the label has no letters or digits, which would
+    leave a bare 'custom_' key."""
+    from django.utils.text import slugify
+
+    slug = slugify(label or "").replace("-", "_")
+    return f"custom_{slug}"[:64] if slug else None
 
 
 class FormFieldCustom(models.Model):

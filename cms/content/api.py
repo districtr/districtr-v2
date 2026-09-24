@@ -53,11 +53,16 @@ def _language_sort_key(code):
 
 
 def _inject_portal_id(body_data, portal_slug):
-    """A portal page's comment gallery lists ITS portal's submissions. Without
-    this, an empty editor `tags` field would list every portal's submissions."""
+    """A portal page's galleries list ITS portal's entries. The comment
+    gallery always gets the portal id. A plan gallery marked thisPortal gets
+    it as its filter. Injected when serving, never stored, so a slug rename
+    can't leave a gallery on the old slug."""
     for block in body_data:
+        value = block.get("value")
         if block.get("type") == "comment_gallery":
-            block["value"]["portalId"] = portal_slug
+            value["portalId"] = portal_slug
+        elif block.get("type") == "plan_gallery" and value.pop("thisPortal", False):
+            value["tags"] = [portal_slug] if portal_slug else None
     return body_data
 
 

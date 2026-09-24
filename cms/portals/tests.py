@@ -326,6 +326,7 @@ class AddToPortalGalleryTests(TestCase):
         return self.client.post(self.url, data)
 
     def _gallery_ids(self):
+        self.portal.refresh_from_db()
         page = self.portal.get_latest_revision_as_object()
         return [
             list(block.value["ids"])
@@ -352,9 +353,34 @@ class AddToPortalGalleryTests(TestCase):
         self.portal.refresh_from_db()
         self.assertEqual(self._gallery_ids(), [[42]])
 
+    def test_pins_append_to_the_curated_gallery_in_order(self):
+        self.add(public_id="42")
+        self.add(public_id="7")
+        self.assertEqual(self._gallery_ids(), [[42, 7]])
+
+    def test_pin_leaves_the_automatic_gallery_alone(self):
+        # A wizard portal's gallery has no ids; pinning into it would turn
+        # "every map in this portal" into a one-map curated list.
+        self.portal.body = [
+            {"type": "plan_gallery", "value": {"ids": [], "thisPortal": True}}
+        ]
+        self.portal.save_revision(clean=False).publish()
+        self.add()
+        self.assertEqual(self._gallery_ids(), [[], [42]])
+
     def test_inaccessible_portal_denied(self):
         response = self.add(portal="not-a-portal")
         self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_another_teams_real_portal_is_denied(self):
+        # The per-URL guard, against a portal that exists: the partner's
+        # own team doesn't administer it, so the page stays untouched.
+        other = make_portal("other-portal")
+        make_form_config("other-portal", admin_teams=["someone-else"])
+        response = self.add(portal="other-portal")
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+        page = other.get_latest_revision_as_object()
+        self.assertEqual([b for b in page.body if b.block_type == "plan_gallery"], [])
 
     def test_invalid_input_is_400(self):
         self.assertEqual(self.add(public_id="not-a-number").status_code, 400)
@@ -368,6 +394,7 @@ class MetricsProxyTests(TestCase):
         from portals import views
 
         views._METRICS_CACHE.clear()
+        views._MEMBERSHIP_CACHE.clear()
         create_mirror_tables_for_form_config()
         self.portal = make_portal("midwest-portal")
         reviewer = make_admin_user(email="reviewer@districtr.org", group_name="partner")
@@ -405,14 +432,13 @@ class MetricsProxyTests(TestCase):
             response = self.client.get(self._row_url(999))
         self.assertEqual(response.status_code, 404)
 
-    def test_guard_admits_maps_past_the_first_hundred(self):
+    def test_guard_asks_about_the_one_map(self):
+        # One filtered call per map, however large the portal.
+        admin_calls = []
+
         def respond(method, url, params=None, **kwargs):
             if "/api/submissions/admin" in url:
-                offset = int((params or {}).get("offset", 0))
-                if offset == 0:
-                    return mock_response(
-                        json_body=[make_entry(map_public_id=i) for i in range(100)]
-                    )
+                admin_calls.append(params)
                 return mock_response(json_body=[make_entry(map_public_id=4242)])
             if "/evaluation" in url:
                 return mock_response(json_body=self.ENVELOPE)
@@ -422,6 +448,8 @@ class MetricsProxyTests(TestCase):
             request.side_effect = respond
             response = self.client.get(self._row_url(4242))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(admin_calls), 1)
+        self.assertEqual(admin_calls[0]["map_public_id"], 4242)
 
     def test_derived_row_shape(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -567,6 +595,13 @@ class PortalAddMapTests(TestCase):
             ),
             ("not a map 7", None),
             ("", None),
+            ("/coi/31", 31),
+            # A classic districtr link or a Wagtail editor URL isn't a map.
+            ("https://districtr.org/plan/12345", None),
+            ("https://cms.districtr.org/admin/pages/123/edit/", None),
+            # Non-ASCII digits ('²'.isdigit() is true) fail cleanly.
+            ("²", None),
+            ("/map/²", None),
         ):
             self.assertEqual(parse_public_id(ref), expected, ref)
 

@@ -37,6 +37,7 @@ from datastore.models import (
     DistrictrMap,
     FormConfig,
     FormFieldCustom,
+    custom_field_key,
 )
 
 DEFAULT_FIELDS = [
@@ -75,7 +76,7 @@ INTRO_PLACEHOLDER = (
 )
 
 
-def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
+def _starter_body(mode: str, *, title: str, views: list[dict]):
     """The templated StreamField body, generated from the answers.
 
     Map modules render as a create-buttons card grid (there is no
@@ -101,17 +102,26 @@ def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
             _section("Make a submission"),
             {"type": "form", "value": {"allowListModules": []}},
         ]
-    # tags=[slug]: the block attribute is the portal slug list, so with no
-    # curated ids these galleries list this portal's submissions automatically.
+    # The slug is never stored: the plan gallery's thisPortal and the comment
+    # gallery's portalId are injected when serving (content/api.py), so a
+    # rename can't strand them. auto_public promises in-progress maps too.
     if mode in ("prompt", "auto_public"):
         body += [
             _section("Map gallery"),
-            {"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}},
+            {
+                "type": "plan_gallery",
+                "value": {
+                    "ids": [],
+                    "tags": [],
+                    "thisPortal": True,
+                    "includeInProgress": mode == "auto_public",
+                },
+            },
         ]
     elif mode == "form":
         body += [
             _section("Submissions"),
-            {"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}},
+            {"type": "comment_gallery", "value": {"ids": [], "tags": []}},
         ]
     return body
 
@@ -269,8 +279,9 @@ def _portals_index():
 def _question_rows(question_formset):
     """Validated (key, label, field_type, required) rows from the formset.
 
-    Key derivation mirrors CustomFieldInlineFormSet: 'custom_' + slugified
-    label. Duplicate or empty-slug labels get a formset-level error HERE —
+    Keys come from datastore.models.custom_field_key, shared with the
+    snippet's question formset. Duplicate or empty-slug labels get a
+    formset-level error HERE —
     letting them reach the DB's UNIQUE/CHECK constraints would surface as a
     misleading 'portal was just created' message (or a 500).
     """
@@ -280,14 +291,13 @@ def _question_rows(question_formset):
         label = (question.get("label") or "").strip()
         if not label:
             continue
-        slug_part = slugify(label).replace("-", "_")
-        if not slug_part:
+        key = custom_field_key(label)
+        if key is None:
             question_formset._non_form_errors = question_formset.non_form_errors()
             question_formset._non_form_errors.append(
                 f"Question label '{label}' must contain letters or numbers."
             )
             continue
-        key = f"custom_{slug_part}"[:64]
         if key in seen:
             question_formset._non_form_errors = question_formset.non_form_errors()
             question_formset._non_form_errors.append(
@@ -343,9 +353,7 @@ def portal_wizard(request):
             {"name": names.get(map_slug) or map_slug, "districtr_map_slug": map_slug}
             for map_slug in data["map_modules"]
         ]
-        body = _starter_body(
-            data["collection_mode"], title=data["title"], slug=slug, views=views
-        )
+        body = _starter_body(data["collection_mode"], title=data["title"], views=views)
         try:
             with transaction.atomic():
                 # districtr_map_slug (the single-map field) is deliberately
