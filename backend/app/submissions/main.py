@@ -18,6 +18,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from starlette.concurrency import run_in_threadpool
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -340,6 +341,14 @@ async def create_submission(
     await turnstile.verify_turnstile(
         data.turnstile_token, client_ip_from_request(request)
     )
+    # The sync Session and the map clone block, so they run in the threadpool
+    # rather than on the event loop (the #729 convention in app/main.py).
+    return await run_in_threadpool(_create_submission, data, background_tasks, session)
+
+
+def _create_submission(
+    data: SubmissionCreate, background_tasks: BackgroundTasks, session: Session
+) -> SubmissionCreated:
     config = get_form_config(data.portal_id, session)
     _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
@@ -383,6 +392,17 @@ async def finalize_submission(
     await turnstile.verify_turnstile(
         data.turnstile_token, client_ip_from_request(request)
     )
+    return await run_in_threadpool(
+        _finalize_submission, submission_id, data, background_tasks, session
+    )
+
+
+def _finalize_submission(
+    submission_id: str,
+    data: SubmissionFinalize,
+    background_tasks: BackgroundTasks,
+    session: Session,
+) -> SubmissionCreated:
     submission = session.exec(
         # Row lock: two overlapping finalizes must serialize so the loser
         # sees status=submitted (409) instead of racing into a duplicate
@@ -423,7 +443,7 @@ async def finalize_submission(
 
 
 @router.get("", response_model=list[SubmissionPublic])
-async def list_submissions(
+def list_submissions(
     portal_id: str | None = Query(default=None),
     ids: list[int] | None = Query(default=None),
     portal_ids: list[str] | None = Query(default=None),
@@ -529,7 +549,7 @@ async def list_submissions(
 
 
 @router.get("/form_config", response_model=FormConfigPublic)
-async def get_form_config_public(
+def get_form_config_public(
     portal_id: str,
     session: Session = Depends(get_session),
 ):
@@ -561,7 +581,7 @@ async def get_form_config_public(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def flag_submission(
+def flag_submission(
     body: FlagSubmissionRequest,
     session: Session = Depends(get_session),
 ):
@@ -593,7 +613,7 @@ async def flag_submission(
 
 
 @router.get("/admin", response_model=list[SubmissionAdmin])
-async def list_submissions_admin(
+def list_submissions_admin(
     portal_id: str | None = Query(default=None),
     submission_status: str | None = Query(
         default=None, alias="status", description="draft | submitted; default both"
@@ -681,7 +701,7 @@ def _get_submission_for_admin(
 
 
 @router.post("/admin/{submission_pk}/nsfw")
-async def set_submission_nsfw(
+def set_submission_nsfw(
     submission_pk: int,
     body: NsfwUpdate,
     session: Session = Depends(get_session),
@@ -698,7 +718,7 @@ async def set_submission_nsfw(
 
 
 @router.post("/admin/{submission_pk}/hidden")
-async def set_submission_hidden(
+def set_submission_hidden(
     submission_pk: int,
     body: HiddenUpdate,
     session: Session = Depends(get_session),
@@ -743,7 +763,7 @@ async def set_submission_hidden(
 @router.post(
     "/admin/add", response_model=SubmissionCreated, status_code=status.HTTP_201_CREATED
 )
-async def admin_add_submission(
+def admin_add_submission(
     data: SubmissionAdminAdd,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
