@@ -69,10 +69,11 @@ export const config = {
   jwtAudience: cfg.get("jwtAudience") ?? `https://${apiDomain}/`,
   /**
    * Legacy page-author mapping for content/0003's one-time TipTap import,
-   * "auth0|<sub>=<email>,..." or "unowned". Set it for the cutover deploy only;
-   * the migration refuses to import legacy pages without it.
+   * "auth0|<sub>=<email>,..." or "unowned". A secret: it names people by
+   * email and the stack files are public. Set it for the cutover deploy
+   * only; the migration refuses to import legacy pages without it.
    */
-  migrateTiptapOwners: cfg.get("migrateTiptapOwners"),
+  migrateTiptapOwners: cfg.getSecret("migrateTiptapOwners"),
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),

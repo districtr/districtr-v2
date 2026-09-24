@@ -119,7 +119,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # The source rows were never deleted, so dropping the table restores the
-    # pre-migration state minus any edits made after upgrading.
+    # Downgrading only this revision restores the pre-migration state minus
+    # any note edits made after upgrading: the source rows are still there.
+    # A FULL downgrade runs d8f1b52c96e3's downgrade first, which recreates
+    # the legacy tables empty, so this drop then deletes every zone note.
+    # Dump comments.district_notes before a full downgrade.
     op.drop_index("idx_district_notes_document", "district_notes", schema="comments")
     op.drop_table("district_notes", schema="comments")

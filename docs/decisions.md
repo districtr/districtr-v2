@@ -2,6 +2,20 @@
 
 Why the system is shaped the way it is, in reverse-chronological order. Each entry is PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md) (the what); this file is the why.
 
+## Wagtail cutover and portal submissions (PRs #710–#719, merged to dev 2026-09-23; stack #745–#772)
+
+The custom CMS and Auth0 are replaced by Wagtail, and the comment system by portal submissions. The choices that shape it, with where to re-verify each:
+
+- **The CMS is the only token issuer.** It mints RS256 tokens with a `kid` per request (`mint_user_access_token`), with no refresh tokens and no login endpoint. The backend verifies against the CMS's JWKS. A role or team change applies on the next action.
+- **Team scoping fails closed.** A non-admin with no team, or a token without a `teams` claim, reaches nothing in the CMS or the backend (`require_portal_admin`). `review:review-all` is the one bypass. Bypass-by-URL is this repo's historical bug class, so every scoped view resolves the portal and checks it.
+- **No approval gate on submissions.** Entries are public on arrival. Automatic scoring blurs, and a reviewer can Hide. Hide delists everywhere but never deletes the map.
+- **Clone at submission.** A submitted map is a frozen copy whose edit id nobody holds, so gallery entries can't drift from what was consented to. Auto-collect modes keep live references instead, and there is no consent form.
+- **One portal per map** (`document.portal_id`). Membership and moderation authority share one key, so no map is listed where its reviewers can't take it down.
+- **Portal identity is the default-locale slug**, resolved through `translation_key`. A translation's stale slug can't be claimed by another team.
+- **A portal is open only while its page is live** (`form_configs.accepting`).
+- **Legacy comments are dropped, not converted.** Production held five, four of them tests. The pg_dump in the runbook is the recovery path, and rollback past the cutover is a snapshot restore.
+- **`tags` stays as an alias for one release**, on both the CMS content API and `/api/documents/list`, so a frontend deployed before the cutover keeps working during the rollout.
+
 ## Graphs become mmap-shared (PR #721, merged to dev 2026-08-28)
 
 Every uvicorn worker unpickled its own private copy of every district graph it touched (~500MB per worker for Pennsylvania-scale data). `DualLevelDualGraph` replaces the pickled `networkx.Graph` with a numpy/scipy representation whose arrays are memory-mapped, so all workers in a container share one physical copy. Measured at PA-scale (346K nodes / 1.08M edges): per-process resident memory 428MB → 70MB; whole-US across 5 workers 44.7GB → ~3GB flat; cold load 1.3–2.2s → ~0.25s; contiguity check ~5–9x faster. An `igraph` alternative was measured and set aside — its sharing depends on `fork()` copy-on-write surviving sustained traffic, weaker than mmap's guarantee. Validation method worth copying: both implementations run against 152 sampled production documents and diffed. The PR also migrated every runtime reader off the `ParentChildEdges` table, and its migration (`2ecf1bdc582b`) dropped the dependent UDFs (`shatter_parent`, `unshatter_parent`, the `get_block_assignments` overloads) as dead code — interactive shattering is applied client-side from graph children served by `GET /api/gerrydb/edges/`. The table itself survives write-only: onboarding still populates it, nothing reads it, and dropping it is the remaining follow-up.
@@ -36,6 +50,6 @@ Three deliberate choices in the edit-sync model (see `overview.md` for the mecha
 - **`overlays`/`statefps` are server-owned** — never locally editable; even a local-wins merge layers them in from the server, because local values of fields no UI edits are never information.
 - **District-comment sync replaces a zone's comments wholesale** — an incoming batch is not merged with what's stored. A defeasible UX decision, not an invariant.
 
-## CMS publishing: two columns, no status enum
+## CMS publishing: two columns, no status enum (retired by the Wagtail cutover)
 
-`draft_content` and `published_content` are separate JSONB columns; publishing moves and clears. There is deliberately no "in review" state on content — review status belongs to comments. Rejected comments are masked with a placeholder in public responses rather than omitted, keeping zone-scoped counts truthful for admins.
+The custom CMS kept `draft_content` and `published_content` as separate JSONB columns; publishing moved and cleared. Wagtail's revisions and the "Admin approval" workflow replace it, and the legacy `cms.*_content` tables are read only by the one-time content import.
