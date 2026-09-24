@@ -87,6 +87,7 @@ def moderate_submission(submission_id: int, session: Session) -> None:
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
     from app.models import Document
+    from app.submissions.fields import PRIVATE_FIELDS
     from app.submissions.models import Submission, SubmissionContent
 
     submission = session.get(Submission, submission_id)
@@ -94,7 +95,10 @@ def moderate_submission(submission_id: int, session: Session) -> None:
         return
     values = session.scalars(
         select(SubmissionContent.value).where(
-            col(SubmissionContent.submission_id) == submission_id
+            col(SubmissionContent.submission_id) == submission_id,
+            # Private answers (email) never leave the backend, and aren't
+            # shown publicly, so they have nothing to be scored for.
+            col(SubmissionContent.field).not_in(PRIVATE_FIELDS),
         )
     ).all()
     map_texts: list[str] = []

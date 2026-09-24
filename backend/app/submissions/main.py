@@ -49,6 +49,7 @@ from app.core.security import (
 )
 from app.district_notes.services import duplicate_district_notes
 from app.models import Document
+from app.utils import publish_district_stats_to_s3
 from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (
     PRIVATE_FIELDS,
@@ -85,16 +86,34 @@ router = APIRouter(tags=["submissions"], prefix="/api/submissions")
 # ---------------------------------------------------------------------------
 
 
-def get_form_config(portal_id: str, session: Session) -> FormConfig:
+def get_form_config(
+    portal_id: str, session: Session, *, require_accepting: bool = False
+) -> FormConfig:
+    """A portal's form config, or 404. Public intake passes require_accepting:
+    a portal whose page is unpublished or deleted takes no submissions, and
+    answers the same 404 as one that never existed."""
     config = session.exec(
         select(FormConfig).where(col(FormConfig.portal_id) == portal_id)
     ).first()
-    if config is None:
+    if config is None or (require_accepting and not config.accepting):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No form config for portal {portal_id!r}",
         )
     return config
+
+
+def _schedule_clone_thumbnail(
+    background_tasks: BackgroundTasks, clone: Document | None
+) -> None:
+    """Publish the clone's stats (the gallery thumbnail source). Nobody holds
+    the clone's edit id, so nothing could request it later."""
+    if clone is not None and clone.document_id and clone.public_id:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=clone.document_id,
+            public_id=clone.public_id,
+        )
 
 
 def auto_finalize_draft_submissions(
@@ -349,10 +368,11 @@ async def create_submission(
 def _create_submission(
     data: SubmissionCreate, background_tasks: BackgroundTasks, session: Session
 ) -> SubmissionCreated:
-    config = get_form_config(data.portal_id, session)
+    config = get_form_config(data.portal_id, session, require_accepting=True)
     _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     map_public_id = None
+    clone = None
     if data.map_ref is not None:
         source = _resolve_ready_document(data.map_ref, session)
         clone = clone_document_for_submission(session, source, config.portal_id)
@@ -372,6 +392,7 @@ def _create_submission(
     session.refresh(submission)
 
     background_tasks.add_task(moderate_submission_in_background, submission.id)
+    _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
 
 
@@ -419,7 +440,7 @@ def _finalize_submission(
             detail="Submission has already been finalized",
         )
 
-    config = get_form_config(submission.portal_id, session)
+    config = get_form_config(submission.portal_id, session, require_accepting=True)
     _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     if submission.map_public_id is None:
@@ -439,6 +460,7 @@ def _finalize_submission(
     session.commit()
 
     background_tasks.add_task(moderate_submission_in_background, submission.id)
+    _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission_id)
 
 
@@ -484,15 +506,13 @@ def list_submissions(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
                 col(FormConfig.collection_mode) != CollectionMode.internal,
+                col(FormConfig.accepting).is_(True),
                 has_public_content,
             )
         )
-        .order_by(
-            func.coalesce(
-                col(Submission.submitted_at), col(Submission.created_at)
-            ).desc(),
-            col(Submission.id).desc(),
-        )
+        # Submitted rows always have submitted_at (submitted_iff_timestamp),
+        # so this matches the idx_submissions_visible_* partial indexes.
+        .order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
         .offset(offset)
         .limit(limit)
     )
@@ -555,7 +575,7 @@ def get_form_config_public(
 ):
     """Public read of a portal's form shape (used by the abbreviated
     map-submission form; the CMS injects the same data into portal pages)."""
-    config = get_form_config(portal_id, session)
+    config = get_form_config(portal_id, session, require_accepting=True)
     return FormConfigPublic(
         portal_id=config.portal_id,
         name=config.name,
@@ -599,7 +619,9 @@ def flag_submission(
     config = session.exec(
         select(FormConfig).where(col(FormConfig.portal_id) == submission.portal_id)
     ).first()
-    if config is not None and config.collection_mode == CollectionMode.internal:
+    if config is not None and (
+        config.collection_mode == CollectionMode.internal or not config.accepting
+    ):
         raise HTTPException(status_code=404, detail="Submission not found")
     submission.flagged = True
     session.add(submission)
@@ -622,6 +644,7 @@ def list_submissions_admin(
     nsfw: bool | None = Query(default=None),
     hidden: bool | None = Query(default=None),
     has_map: bool | None = Query(default=None),
+    map_public_id: int | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -666,6 +689,8 @@ def list_submissions_admin(
             if has_map
             else col(Submission.map_public_id).is_(None)
         )
+    if map_public_id is not None:
+        stmt = stmt.where(col(Submission.map_public_id) == map_public_id)
 
     submissions = session.exec(stmt).all()
     fields = _fields_by_submission(
