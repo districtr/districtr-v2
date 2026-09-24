@@ -2,7 +2,7 @@
 Team-based Wagtail admin scoping (see authapi.models.Team).
 
 A non-admin user who belongs to one or more Teams is "team-scoped": the admin
-listings/editing for portal forms, tag pages, and Districtr map modules are
+listings/editing for portal forms, portal pages, and Districtr map modules are
 narrowed to their teams' resources. Superusers and members of the `admin`
 group are never scoped. Every other signed-in user is scoped, including a
 non-admin with no team, who therefore reaches nothing (fail closed) until an
@@ -11,7 +11,7 @@ admin adds them to one. The JWT side agrees: such a user gets `teams: []`.
 Each resource reaches a Team differently:
 - DistrictrMap relates through TeamDistrictrMap (team_links);
 - FormConfig (submission moderation) carries team slugs in admin_teams;
-- TagPage (a portal) relates through its FormConfig (portal_id = page slug),
+- PortalPage (a portal) relates through its FormConfig (portal_id = page slug),
   so page access and submission moderation share one key. Module grants
   decide which modules a team may use, never which portals it may edit.
 
@@ -83,9 +83,9 @@ def team_slugs_for_user(user) -> list[str]:
 
 
 def portal_slugs_for_user(user) -> set[str]:
-    """Slugs of the portals (TagPages) whose FormConfig.admin_teams include
+    """Slugs of the portals (PortalPages) whose FormConfig.admin_teams include
     one of ``user``'s teams — the same rule the backend enforces via the JWT
-    teams claim. A TagPage is in a team-scoped user's scope exactly when its
+    teams claim. A PortalPage is in a team-scoped user's scope exactly when its
     slug is in this set; a portal with no FormConfig belongs to no team."""
     from datastore.models import FormConfig
 
@@ -114,7 +114,8 @@ def districtr_map_slugs_for_user(user) -> set[str]:
 
 def instance_in_scope(user, model, team_filter_field, pk) -> bool:
     """False exactly when a team-scoped ``user`` may not act on ``model`` row
-    ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
+    ``pk``. Only admins and superusers are unscoped and always pass. A
+    non-admin with no team is scoped to nothing, so it fails closed."""
     if not user_is_team_scoped(user):
         return True
     return scoped_queryset(model, team_filter_field, user).filter(pk=pk).exists()
@@ -135,8 +136,8 @@ def scoped_queryset(model, team_filter_field, user):
 
 class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
     """Model permissions, plus: a team-scoped user may only act on instances
-    belonging to their teams. Admins / superusers / team-less users are
-    unaffected (full model-permission behaviour).
+    belonging to their teams. Admins and superusers are unaffected (full
+    model-permission behaviour). A non-admin with no team gets no instances.
 
     Used for resources a member may *edit*. ``team_filter_field``
     is the lookup passed to :func:`scoped_queryset`.

@@ -2,7 +2,7 @@
 Wagtail page models replacing the legacy FastAPI CMS tables
 (cms.tags_content / cms.places_content — see backend/app/cms/models.py).
 
-Structure: two dedicated index pages (TagsIndexPage at /tags/,
+Structure: two dedicated index pages (PortalsIndexPage at /tags/,
 PlacesIndexPage at /places/) under the site home page, one per locale.
 Public lookup is therefore: page type + slug + locale — exactly the legacy
 (content_type, slug, language) key. Translations are real Wagtail
@@ -25,7 +25,9 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, models, transaction
+from django.db import DatabaseError, ProgrammingError, models, transaction
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.shortcuts import redirect
 from django.utils import timezone
 from wagtail.admin.panels import FieldPanel
@@ -35,7 +37,7 @@ from wagtail.search import index
 from wagtail_localize.fields import SynchronizedField
 
 from content.blocks import ContentStreamBlock
-from content.forms import PlacePageForm, TagPageForm
+from content.forms import PlacePageForm, PortalPageForm
 
 
 class FrontendPageMixin:
@@ -147,8 +149,8 @@ class ContentPageBase(FrontendPageMixin, Page):
         abstract = True
 
 
-class TagsIndexPage(FrontendPageMixin, Page):
-    """Parent for all TagPages (one per locale).
+class PortalsIndexPage(FrontendPageMixin, Page):
+    """Parent for all PortalPages (one per locale).
 
     Provisioned by data migration (content/provision.py); ``max_count`` +
     ``parent_page_types`` lock the tree so partners cannot create duplicate
@@ -157,18 +159,22 @@ class TagsIndexPage(FrontendPageMixin, Page):
     """
 
     parent_page_types = ["wagtailcore.Page"]
-    subpage_types = ["content.TagPage"]
+    subpage_types = ["content.PortalPage"]
     max_count = 1
 
     class Meta:
-        verbose_name = "tags index page"
+        verbose_name = "portals index page"
+        # Kept from TagsIndexPage: content/0002 provisions index pages with the
+        # live models (treebeard can't build pages from historical ones), so on
+        # a fresh database the live model must name the table 0002 sees.
+        db_table = "content_tagsindexpage"
 
     def get_frontend_path(self):
         return "/portals"
 
 
 class PlacesIndexPage(FrontendPageMixin, Page):
-    """Parent for all PlacePages (one per locale). See TagsIndexPage on
+    """Parent for all PlacePages (one per locale). See PortalsIndexPage on
     provisioning and tree locking."""
 
     parent_page_types = ["wagtailcore.Page"]
@@ -183,7 +189,7 @@ class PlacesIndexPage(FrontendPageMixin, Page):
 
 
 class StaticIndexPage(FrontendPageMixin, Page):
-    """Parent for all StaticPages (one per locale). See TagsIndexPage on
+    """Parent for all StaticPages (one per locale). See PortalsIndexPage on
     provisioning and tree locking."""
 
     parent_page_types = ["wagtailcore.Page"]
@@ -215,18 +221,18 @@ class StaticPage(ContentPageBase):
         return f"/{self.slug}"
 
 
-class TagPage(ContentPageBase):
+class PortalPage(ContentPageBase):
     """Replaces a cms.tags_content row (one page per slug+locale)."""
 
     districtr_map_slug = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        help_text="Slug of the Districtr map module this tag page features.",
+        help_text="Slug of the Districtr map module this portal features.",
     )
 
-    api_content_type = "tags"
-    parent_page_types = ["content.TagsIndexPage"]
+    api_content_type = "portals"
+    parent_page_types = ["content.PortalsIndexPage"]
     subpage_types: list[str] = []
 
     content_panels = ContentPageBase.content_panels + [
@@ -234,16 +240,28 @@ class TagPage(ContentPageBase):
     ]
 
     # Team-scoped members only get to pick a map their teams own (content/forms.py).
-    base_form_class = TagPageForm
+    base_form_class = PortalPageForm
 
-    # The slug points at shared data, not prose — never send it to translators.
-    override_translatable_fields = [SynchronizedField("districtr_map_slug")]
+    # These point at shared data, not prose, so translators never change them.
+    # The slug is the portal's identity (FormConfig.portal_id); a translated
+    # slug that drifted from its source could be claimed by another portal.
+    override_translatable_fields = [
+        SynchronizedField("districtr_map_slug"),
+        SynchronizedField("slug", overridable=False),
+    ]
 
     class Meta:
-        verbose_name = "tag page"
+        verbose_name = "portal page"
+        # Kept from TagPage for the same reason as PortalsIndexPage.db_table.
+        db_table = "content_tagpage"
 
     def get_frontend_path(self):
         return f"/portal/{self.slug}"
+
+    def permissions_for_user(self, user):
+        from content.permissions import TeamScopedPagePermissionTester
+
+        return TeamScopedPagePermissionTester(user, self)
 
     # The portal's FormConfig is keyed by the default-locale page slug
     # (FormConfig.portal_id), so renaming the page must carry the config along
@@ -263,28 +281,87 @@ class TagPage(ContentPageBase):
 
         return self.locale_id == Locale.get_default().id
 
+    @property
+    def portal_id(self):
+        """This portal's identity: the default-locale translation's slug.
+
+        Every locale resolves through translation_key, never its own slug, so
+        a translation whose slug fell behind a rename still belongs to its
+        portal and can't be matched to another portal that later takes the
+        old slug. None for a translation with no default-locale source, which
+        then belongs to no portal (fail closed).
+        """
+        if self._owns_form_config_key():
+            return self.slug
+        from wagtail.models import Locale
+
+        return (
+            PortalPage.objects.filter(
+                translation_key=self.translation_key, locale=Locale.get_default()
+            )
+            .values_list("slug", flat=True)
+            .first()
+        )
+
     @staticmethod
     def _form_configs():
         """FormConfig mirror queryset, or None when the table is absent (the
-        mirror is managed=False, so test databases may not have it)."""
+        mirror is managed=False, so test databases may not have it). Only a
+        missing table counts; any other database error propagates."""
         from datastore.models import FormConfig
 
         try:
             with transaction.atomic():
                 FormConfig.objects.exists()
-        except DatabaseError:
-            return None
+        except ProgrammingError as exc:
+            if getattr(exc.__cause__, "sqlstate", None) == "42P01":  # undefined_table
+                return None
+            raise
         return FormConfig.objects
 
     def save(self, *args, **kwargs):
-        old_slug = self._stored_slug() if self._owns_form_config_key() else None
-        super().save(*args, **kwargs)
-        # Compare what's stored, not self.slug: draft saves keep a pending
-        # slug in memory without writing it; only a publish changes the row.
-        new_slug = self._stored_slug() if old_slug else None
-        configs = self._form_configs() if old_slug and new_slug != old_slug else None
+        # One transaction: the new slug and the FormConfig move commit
+        # together, so a failure can't leave the page and its form split.
+        with transaction.atomic():
+            old_slug = self._stored_slug() if self._owns_form_config_key() else None
+            super().save(*args, **kwargs)
+            # Compare what's stored, not self.slug: draft saves keep a pending
+            # slug in memory without writing it; only a publish changes the row.
+            new_slug = self._stored_slug() if old_slug else None
+            configs = (
+                self._form_configs() if old_slug and new_slug != old_slug else None
+            )
+            if configs is not None:
+                configs.filter(portal_id=old_slug).update(portal_id=new_slug)
+            # Publish and unpublish both land here.
+            self.sync_accepting(
+                self._stored_slug() if self._owns_form_config_key() else self.portal_id
+            )
+
+    @staticmethod
+    def portal_is_live(portal_id):
+        """Whether any translation of the portal's default-locale page is
+        live. That is what FormConfig.accepting mirrors: the backend refuses
+        public submissions and listings for a closed portal."""
+        from wagtail.models import Locale
+
+        source = (
+            PortalPage.objects.filter(slug=portal_id, locale=Locale.get_default())
+            .values_list("translation_key", flat=True)
+            .first()
+        )
+        return (
+            source is not None
+            and PortalPage.objects.filter(translation_key=source, live=True).exists()
+        )
+
+    @classmethod
+    def sync_accepting(cls, portal_id):
+        configs = cls._form_configs() if portal_id else None
         if configs is not None:
-            configs.filter(portal_id=old_slug).update(portal_id=new_slug)
+            configs.filter(portal_id=portal_id).update(
+                accepting=cls.portal_is_live(portal_id)
+            )
 
     def clean(self):
         super().clean()
@@ -357,3 +434,29 @@ class PlacePage(ContentPageBase):
 
     def get_frontend_path(self):
         return f"/place/{self.slug}"
+
+    def permissions_for_user(self, user):
+        from content.permissions import TeamScopedPagePermissionTester
+
+        return TeamScopedPagePermissionTester(user, self)
+
+
+@receiver(post_delete, sender=PortalPage)
+def _close_deleted_portal(sender, instance, **kwargs):
+    # A deleted default-locale page closes its portal; a deleted translation
+    # re-checks whether any translation is still live.
+    PortalPage.sync_accepting(
+        instance.slug if instance._owns_form_config_key() else instance.portal_id
+    )
+
+
+@receiver(post_save, sender=PortalsIndexPage)
+@receiver(post_save, sender=PlacesIndexPage)
+def _grant_partners_add_on_new_index(sender, instance, created, **kwargs):
+    # Partners create pages under these indexes, including the per-locale
+    # copies wagtail-localize makes on first translation. Every new index
+    # gets the grant here, wherever it came from.
+    if created:
+        from content.provision import grant_partner_add
+
+        grant_partner_add(instance)

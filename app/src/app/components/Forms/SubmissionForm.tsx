@@ -123,6 +123,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           component={spec.component}
           options={spec.options}
           autoComplete={spec.autoComplete}
+          inputMode={spec.inputMode}
           pattern={spec.pattern}
           validator={spec.validator}
           required={required.has(name)}
@@ -133,9 +134,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             <FormField
               disabled={disabled}
               name="email_confirm"
-              label="Confirm Email *"
-              type="email"
-              required={true}
+              label={`Confirm Email${required.has('email') ? ' *' : ''}`}
+              type="text"
+              inputMode="email"
+              // Optional email stays optional: confirm only what was typed.
+              required={required.has('email') || !!emailValue}
               value={emailConfirm}
               onChangeValue={setEmailConfirm}
               validator={value => value === emailValue}

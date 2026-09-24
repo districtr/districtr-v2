@@ -15,7 +15,7 @@ export const CMS_API_URL =
     ? (process.env.CMS_URL ?? process.env.NEXT_PUBLIC_CMS_URL)
     : process.env.NEXT_PUBLIC_CMS_URL;
 
-export type CmsContentTypes = 'tags' | 'places' | 'static';
+export type CmsContentTypes = 'portals' | 'places' | 'static';
 
 /** StreamField blocks returned in `content.body` */
 export interface RichTextBlock {
@@ -99,7 +99,7 @@ export interface CMSContent {
   updated_at: string;
 }
 
-export interface TagsCMSContent extends CMSContent {
+export interface PortalCMSContent extends CMSContent {
   districtr_map_slug: string | null;
 }
 export interface PlacesCMSContent extends CMSContent {
@@ -109,7 +109,7 @@ export interface PlacesCMSContent extends CMSContent {
 export type StaticCMSContent = CMSContent;
 
 interface CmsContentTypesEnum {
-  tags: TagsCMSContent;
+  portals: PortalCMSContent;
   places: PlacesCMSContent;
   static: StaticCMSContent;
 }
@@ -126,7 +126,7 @@ export interface CMSContentListItem {
   slug: string;
   title: string;
   language: string;
-  /** Map association for tags entries */
+  /** Map association for portal entries */
   districtr_map_slug?: string | null;
   /** Map associations for places entries */
   districtr_map_slugs?: string[] | null;

@@ -15,7 +15,7 @@ unless MIGRATE_TIPTAP_OWNERS is set — either to the mapping
 with admin-only pages. Otherwise a deploy would silently strip attribution
 from every legacy page.
 
-Reverse: deletes every TagPage/PlacePage translation whose (slug, language)
+Reverse: deletes every PortalPage/PlacePage translation whose (slug, language)
 matches a legacy row — INCLUDING any edits made to those pages after the
 import. Pages with no legacy counterpart (hand-created portals, StaticPages)
 are untouched.
@@ -76,7 +76,7 @@ def import_legacy_content(apps, schema_editor):
 def remove_imported_content(apps, schema_editor):
     if not _legacy_tables_exist(schema_editor):
         return
-    from content.models import PlacePage, TagPage
+    from content.models import PlacePage, PortalPage
 
     with schema_editor.connection.cursor() as cursor:
         cursor.execute("SELECT slug, language FROM cms.tags_content")
@@ -84,7 +84,7 @@ def remove_imported_content(apps, schema_editor):
         cursor.execute("SELECT slug, language FROM cms.places_content")
         place_rows = cursor.fetchall()
 
-    for model, rows in ((TagPage, tag_rows), (PlacePage, place_rows)):
+    for model, rows in ((PortalPage, tag_rows), (PlacePage, place_rows)):
         for slug, language in rows:
             page = model.objects.filter(
                 slug=slug, locale__language_code=language

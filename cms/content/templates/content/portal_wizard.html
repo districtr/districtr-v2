@@ -122,7 +122,9 @@
             // Checked modules stay visible (and stay submitted regardless),
             // so a filter can never silently drop a selection.
             const moduleBoxes = Array.from(document.querySelectorAll('input[name="map_modules"]'))
-                .map(input => ({row: input.closest('li') || input.parentElement, input}));
+                // Django renders each checkbox in its own <div> inside the
+                // field's wrapper; closest('li') would find the whole list.
+                .map(input => ({row: input.closest('#id_map_modules > div') || input.parentElement, input}));
             document.getElementById('module-search').addEventListener('input', (event) => {
                 const query = event.target.value.trim().toLowerCase();
                 moduleBoxes.forEach(({row, input}) => {

@@ -17,7 +17,7 @@ Response shape (consumed by app/src/app/utils/api/cms.ts successors):
         "updated_at": ...
       },
       "available_languages": ["en", ...],
-      "type": "tags" | "places"
+      "type": "portals" | "places" | "static"
     }
 
 `body` is the StreamField API representation: block values are plain JSON
@@ -28,11 +28,14 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.models import PlacePage, PreviewSnapshot, StaticPage, TagPage
+from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
 CONTENT_TYPE_PAGES = {
-    "tags": TagPage,
+    "portals": PortalPage,
+    # Old name, kept so a frontend deployed before this CMS release keeps
+    # loading portal pages. Drop once both sides are on "portals".
+    "tags": PortalPage,
     "places": PlacePage,
     "static": StaticPage,
 }
@@ -50,11 +53,16 @@ def _language_sort_key(code):
 
 
 def _inject_portal_id(body_data, portal_slug):
-    """A portal page's comment gallery lists ITS portal's submissions. Without
-    this, an empty editor `tags` field would list every portal's submissions."""
+    """A portal page's galleries list ITS portal's entries. The comment
+    gallery always gets the portal id. A plan gallery marked thisPortal gets
+    it as its filter. Injected when serving, never stored, so a slug rename
+    can't leave a gallery on the old slug."""
     for block in body_data:
+        value = block.get("value")
         if block.get("type") == "comment_gallery":
-            block["value"]["portalId"] = portal_slug
+            value["portalId"] = portal_slug
+        elif block.get("type") == "plan_gallery" and value.pop("thisPortal", False):
+            value["tags"] = [portal_slug] if portal_slug else None
     return body_data
 
 
@@ -62,8 +70,8 @@ def _inject_form_config(body_data, portal_slug):
     """Attach the portal's FormConfig (which fields the form shows, camelCase
     per the constants/cms.ts contract) to every form block.
 
-    Translations share their source page's slug, so the default-locale slug
-    IS this page's slug — one lookup covers every locale. Tolerates a missing
+    ``portal_slug`` is the page's portal_id (the default-locale slug), so every
+    locale serves the same form. Tolerates a missing
     mirror table the same way districtr_map_slug_choices does (test
     databases); a portal with no config serves ``fields: null`` and the
     frontend renders no form.
@@ -120,9 +128,11 @@ def _inject_form_config(body_data, portal_slug):
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
-    if content_type == "tags":
-        body_data = _inject_portal_id(body_data, page.slug)
-        body_data = _inject_form_config(body_data, page.slug)
+    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
+        # Translations resolve to their default-locale portal, not their own
+        # slug (PortalPage.portal_id).
+        body_data = _inject_portal_id(body_data, page.portal_id)
+        body_data = _inject_form_config(body_data, page.portal_id)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,
@@ -131,7 +141,7 @@ def _serialize_page(page, content_type):
         "body": body_data,
         "updated_at": (page.last_published_at and page.last_published_at.isoformat()),
     }
-    if content_type == "tags":
+    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
         content["districtr_map_slug"] = page.districtr_map_slug or None
     elif content_type == "places":
         content["districtr_map_slugs"] = page.districtr_map_slugs or None
@@ -230,7 +240,7 @@ def content_list(request, content_type):
         }
         # Map associations, used e.g. by the homepage PlaceMap to count
         # modules per place without fetching each page.
-        if content_type == "tags":
+        if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
             item["districtr_map_slug"] = page.districtr_map_slug or None
         elif content_type == "places":
             item["districtr_map_slugs"] = page.districtr_map_slugs or None

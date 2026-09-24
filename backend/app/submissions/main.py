@@ -16,8 +16,9 @@ Replaces /api/comments/*. Key decisions:
 
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+from starlette.concurrency import run_in_threadpool
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -48,6 +49,7 @@ from app.core.security import (
 )
 from app.district_notes.services import duplicate_district_notes
 from app.models import Document
+from app.utils import publish_district_stats_to_s3
 from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (
     PRIVATE_FIELDS,
@@ -84,16 +86,34 @@ router = APIRouter(tags=["submissions"], prefix="/api/submissions")
 # ---------------------------------------------------------------------------
 
 
-def get_form_config(portal_id: str, session: Session) -> FormConfig:
+def get_form_config(
+    portal_id: str, session: Session, *, require_accepting: bool = False
+) -> FormConfig:
+    """A portal's form config, or 404. Public intake passes require_accepting:
+    a portal whose page is unpublished or deleted takes no submissions, and
+    answers the same 404 as one that never existed."""
     config = session.exec(
         select(FormConfig).where(col(FormConfig.portal_id) == portal_id)
     ).first()
-    if config is None:
+    if config is None or (require_accepting and not config.accepting):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No form config for portal {portal_id!r}",
         )
     return config
+
+
+def _schedule_clone_thumbnail(
+    background_tasks: BackgroundTasks, clone: Document | None
+) -> None:
+    """Publish the clone's stats (the gallery thumbnail source). Nobody holds
+    the clone's edit id, so nothing could request it later."""
+    if clone is not None and clone.document_id and clone.public_id:
+        background_tasks.add_task(
+            publish_district_stats_to_s3,
+            document_id=clone.document_id,
+            public_id=clone.public_id,
+        )
 
 
 def auto_finalize_draft_submissions(
@@ -340,10 +360,19 @@ async def create_submission(
     await turnstile.verify_turnstile(
         data.turnstile_token, client_ip_from_request(request)
     )
-    config = get_form_config(data.portal_id, session)
+    # The sync Session and the map clone block, so they run in the threadpool
+    # rather than on the event loop (the #729 convention in app/main.py).
+    return await run_in_threadpool(_create_submission, data, background_tasks, session)
+
+
+def _create_submission(
+    data: SubmissionCreate, background_tasks: BackgroundTasks, session: Session
+) -> SubmissionCreated:
+    config = get_form_config(data.portal_id, session, require_accepting=True)
     _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     map_public_id = None
+    clone = None
     if data.map_ref is not None:
         source = _resolve_ready_document(data.map_ref, session)
         clone = clone_document_for_submission(session, source, config.portal_id)
@@ -363,6 +392,7 @@ async def create_submission(
     session.refresh(submission)
 
     background_tasks.add_task(moderate_submission_in_background, submission.id)
+    _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
 
 
@@ -383,6 +413,17 @@ async def finalize_submission(
     await turnstile.verify_turnstile(
         data.turnstile_token, client_ip_from_request(request)
     )
+    return await run_in_threadpool(
+        _finalize_submission, submission_id, data, background_tasks, session
+    )
+
+
+def _finalize_submission(
+    submission_id: str,
+    data: SubmissionFinalize,
+    background_tasks: BackgroundTasks,
+    session: Session,
+) -> SubmissionCreated:
     submission = session.exec(
         # Row lock: two overlapping finalizes must serialize so the loser
         # sees status=submitted (409) instead of racing into a duplicate
@@ -399,7 +440,7 @@ async def finalize_submission(
             detail="Submission has already been finalized",
         )
 
-    config = get_form_config(submission.portal_id, session)
+    config = get_form_config(submission.portal_id, session, require_accepting=True)
     _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     if submission.map_public_id is None:
@@ -419,11 +460,12 @@ async def finalize_submission(
     session.commit()
 
     background_tasks.add_task(moderate_submission_in_background, submission.id)
+    _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission_id)
 
 
 @router.get("", response_model=list[SubmissionPublic])
-async def list_submissions(
+def list_submissions(
     portal_id: str | None = Query(default=None),
     ids: list[int] | None = Query(default=None),
     portal_ids: list[str] | None = Query(default=None),
@@ -464,15 +506,13 @@ async def list_submissions(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
                 col(FormConfig.collection_mode) != CollectionMode.internal,
+                col(FormConfig.accepting).is_(True),
                 has_public_content,
             )
         )
-        .order_by(
-            func.coalesce(
-                col(Submission.submitted_at), col(Submission.created_at)
-            ).desc(),
-            col(Submission.id).desc(),
-        )
+        # Submitted rows always have submitted_at (submitted_iff_timestamp),
+        # so this matches the idx_submissions_visible_* partial indexes.
+        .order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
         .offset(offset)
         .limit(limit)
     )
@@ -529,13 +569,31 @@ async def list_submissions(
 
 
 @router.get("/form_config", response_model=FormConfigPublic)
-async def get_form_config_public(
-    portal_id: str,
+def get_form_config_public(
+    portal_id: str | None = Query(default=None),
+    submission_id: UUID | None = Query(
+        default=None,
+        description="A draft's capability. Resolves its portal's form even "
+        "after a slug rename, which the draft's stored slug can't.",
+    ),
     session: Session = Depends(get_session),
 ):
     """Public read of a portal's form shape (used by the abbreviated
     map-submission form; the CMS injects the same data into portal pages)."""
-    config = get_form_config(portal_id, session)
+    if submission_id is not None:
+        portal_id = session.exec(
+            select(Submission.portal_id).where(
+                col(Submission.submission_id) == str(submission_id)
+            )
+        ).first()
+        if portal_id is None:
+            raise HTTPException(status_code=404, detail="Submission not found")
+    if portal_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="portal_id or submission_id is required",
+        )
+    config = get_form_config(portal_id, session, require_accepting=True)
     return FormConfigPublic(
         portal_id=config.portal_id,
         name=config.name,
@@ -551,7 +609,7 @@ async def get_form_config_public(
                 required=c.required,
                 sort_order=c.sort_order,
             )
-            for c in get_custom_fields(portal_id, session)
+            for c in get_custom_fields(config.portal_id, session)
         ],
     )
 
@@ -561,7 +619,7 @@ async def get_form_config_public(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def flag_submission(
+def flag_submission(
     body: FlagSubmissionRequest,
     session: Session = Depends(get_session),
 ):
@@ -579,7 +637,9 @@ async def flag_submission(
     config = session.exec(
         select(FormConfig).where(col(FormConfig.portal_id) == submission.portal_id)
     ).first()
-    if config is not None and config.collection_mode == CollectionMode.internal:
+    if config is not None and (
+        config.collection_mode == CollectionMode.internal or not config.accepting
+    ):
         raise HTTPException(status_code=404, detail="Submission not found")
     submission.flagged = True
     session.add(submission)
@@ -593,7 +653,7 @@ async def flag_submission(
 
 
 @router.get("/admin", response_model=list[SubmissionAdmin])
-async def list_submissions_admin(
+def list_submissions_admin(
     portal_id: str | None = Query(default=None),
     submission_status: str | None = Query(
         default=None, alias="status", description="draft | submitted; default both"
@@ -602,6 +662,7 @@ async def list_submissions_admin(
     nsfw: bool | None = Query(default=None),
     hidden: bool | None = Query(default=None),
     has_map: bool | None = Query(default=None),
+    map_public_id: int | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -646,6 +707,8 @@ async def list_submissions_admin(
             if has_map
             else col(Submission.map_public_id).is_(None)
         )
+    if map_public_id is not None:
+        stmt = stmt.where(col(Submission.map_public_id) == map_public_id)
 
     submissions = session.exec(stmt).all()
     fields = _fields_by_submission(
@@ -681,7 +744,7 @@ def _get_submission_for_admin(
 
 
 @router.post("/admin/{submission_pk}/nsfw")
-async def set_submission_nsfw(
+def set_submission_nsfw(
     submission_pk: int,
     body: NsfwUpdate,
     session: Session = Depends(get_session),
@@ -698,7 +761,7 @@ async def set_submission_nsfw(
 
 
 @router.post("/admin/{submission_pk}/hidden")
-async def set_submission_hidden(
+def set_submission_hidden(
     submission_pk: int,
     body: HiddenUpdate,
     session: Session = Depends(get_session),
@@ -743,7 +806,7 @@ async def set_submission_hidden(
 @router.post(
     "/admin/add", response_model=SubmissionCreated, status_code=status.HTTP_201_CREATED
 )
-async def admin_add_submission(
+def admin_add_submission(
     data: SubmissionAdminAdd,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
