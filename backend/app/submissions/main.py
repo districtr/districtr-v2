@@ -16,7 +16,7 @@ Replaces /api/comments/*. Key decisions:
 
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from starlette.concurrency import run_in_threadpool
 from fastapi import (
@@ -570,11 +570,29 @@ def list_submissions(
 
 @router.get("/form_config", response_model=FormConfigPublic)
 def get_form_config_public(
-    portal_id: str,
+    portal_id: str | None = Query(default=None),
+    submission_id: UUID | None = Query(
+        default=None,
+        description="A draft's capability. Resolves its portal's form even "
+        "after a slug rename, which the draft's stored slug can't.",
+    ),
     session: Session = Depends(get_session),
 ):
     """Public read of a portal's form shape (used by the abbreviated
     map-submission form; the CMS injects the same data into portal pages)."""
+    if submission_id is not None:
+        portal_id = session.exec(
+            select(Submission.portal_id).where(
+                col(Submission.submission_id) == str(submission_id)
+            )
+        ).first()
+        if portal_id is None:
+            raise HTTPException(status_code=404, detail="Submission not found")
+    if portal_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="portal_id or submission_id is required",
+        )
     config = get_form_config(portal_id, session, require_accepting=True)
     return FormConfigPublic(
         portal_id=config.portal_id,
@@ -591,7 +609,7 @@ def get_form_config_public(
                 required=c.required,
                 sort_order=c.sort_order,
             )
-            for c in get_custom_fields(portal_id, session)
+            for c in get_custom_fields(config.portal_id, session)
         ],
     )
 

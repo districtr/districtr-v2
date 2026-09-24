@@ -39,6 +39,8 @@ export const make = (path: string) => {
           ok: false;
           error: {
             detail: string;
+            /** HTTP status, when the server answered. */
+            status?: number;
           };
         }
     > => {
@@ -76,10 +78,10 @@ export const make = (path: string) => {
         const response = await fetchWithSession(fullPath, fetchOptions);
 
         if (!response.ok) {
-          const error = await response.json();
+          const error = await response.json().catch(() => ({detail: response.statusText}));
           return {
             ok: false,
-            error: error,
+            error: {...error, status: response.status},
           };
         }
         let responseContent = await response.text();
