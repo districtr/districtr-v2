@@ -1185,3 +1185,19 @@ class TestAdminAdd:
     def test_unknown_map_404(self, client, form_config):
         _set_auth(TEAM_A_PAYLOAD)
         assert self._add(client, 99999999).status_code == 404
+
+
+def test_submission_routes_keep_blocking_work_off_the_event_loop():
+    # The sync Session blocks, so a coroutine handler stalls every other
+    # request on the worker (#729). Only the two Turnstile handlers may be
+    # async, and they hand their database work to the threadpool.
+    import inspect
+
+    from app.submissions.main import router
+
+    async_routes = {
+        route.endpoint.__name__
+        for route in router.routes
+        if inspect.iscoroutinefunction(route.endpoint)
+    }
+    assert async_routes == {"create_submission", "finalize_submission"}
