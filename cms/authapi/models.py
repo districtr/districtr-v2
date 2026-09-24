@@ -13,17 +13,18 @@ class Team(ClusterableModel):
 
     Team membership scopes a non-admin user's Wagtail admin to their teams'
     resources: the portal forms a team administers (FormConfig.admin_teams), the Districtr map
-    modules assigned to it (TeamDistrictrMap), and the tag/place pages tied
-    to those modules (authapi/teams.py). Admins and superusers are never
-    scoped, nor are non-admin users with no team. Managed by admins in the
-    "Teams" snippet (authapi/wagtail_hooks.py).
+    modules assigned to it (TeamDistrictrMap), and the portal/place pages
+    tied to those modules (authapi/teams.py). Admins and superusers are never
+    scoped. A non-admin with no team is scoped to nothing (fail closed).
+    Managed by admins in the "Teams" snippet (authapi/wagtail_hooks.py).
 
-    The slug is minted into the JWT `teams` claim at login and matched by
-    the backend against form_configs.admin_teams — renaming a team is safe,
-    but changing its slug PERMANENTLY revokes the team's moderation reach:
-    form_configs.admin_teams keeps the old string, re-login mints the new
-    one, and they never match again (an admin must re-edit every affected
-    portal form). Treat slugs as immutable after creation.
+    The slug is minted into the JWT `teams` claim on every backend call and
+    matched by the backend against form_configs.admin_teams — renaming a
+    team is safe, but changing its slug PERMANENTLY revokes the team's
+    moderation reach: form_configs.admin_teams keeps the old string, the
+    next token carries the new one, and they never match again (an admin
+    must re-edit every affected portal form). Treat slugs as immutable
+    after creation.
 
     Deleting a team leaves its slug in those portals' admin_teams (the record
     of who moderated what). Retire a deleted team's slug for good: a new team

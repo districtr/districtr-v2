@@ -114,7 +114,8 @@ def districtr_map_slugs_for_user(user) -> set[str]:
 
 def instance_in_scope(user, model, team_filter_field, pk) -> bool:
     """False exactly when a team-scoped ``user`` may not act on ``model`` row
-    ``pk``. Unscoped users (admins, superusers, team-less) always pass."""
+    ``pk``. Only admins and superusers are unscoped and always pass. A
+    non-admin with no team is scoped to nothing, so it fails closed."""
     if not user_is_team_scoped(user):
         return True
     return scoped_queryset(model, team_filter_field, user).filter(pk=pk).exists()
@@ -135,8 +136,8 @@ def scoped_queryset(model, team_filter_field, user):
 
 class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
     """Model permissions, plus: a team-scoped user may only act on instances
-    belonging to their teams. Admins / superusers / team-less users are
-    unaffected (full model-permission behaviour).
+    belonging to their teams. Admins and superusers are unaffected (full
+    model-permission behaviour). A non-admin with no team gets no instances.
 
     Used for resources a member may *edit*. ``team_filter_field``
     is the lookup passed to :func:`scoped_queryset`.

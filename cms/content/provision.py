@@ -1,5 +1,5 @@
 """
-Idempotent provisioning of the three per-type index pages (Tags, Places,
+Idempotent provisioning of the three per-type index pages (Portals, Places,
 Static pages) under the site home page.
 
 Shared by the ``0008_provision_index_pages`` data migration (fresh sites get
@@ -34,7 +34,9 @@ def home_page():
 # Partner groups get "add" only under the index pages they create content in.
 # In Wagtail, editing a page you own also needs add permission on an
 # ancestor, so the grant can't simply be dropped; scoping it here keeps the
-# Static pages index and the site home out of partners' reach.
+# Static pages index and the site home out of partners' reach. A post_save
+# receiver in content/models.py grants it on every new Portals or Places
+# index, in any locale.
 PARTNER_GROUPS = ("partner", "super_partner")
 
 
@@ -52,12 +54,6 @@ def grant_partner_add(page):
         )
 
 
-def _partners_add_here(index_model):
-    from content.models import PlacesIndexPage, PortalsIndexPage
-
-    return index_model in (PortalsIndexPage, PlacesIndexPage)
-
-
 def ensure_index(index_model, title, slug, locale=None):
     """Get or create the singleton index page of ``index_model`` in
     ``locale`` (default locale when omitted). Translated copies are aliases
@@ -69,16 +65,12 @@ def ensure_index(index_model, title, slug, locale=None):
         index = index_model(title=title, slug=slug, locale=default_locale)
         home_page().add_child(instance=index)
         index.save_revision().publish()
-        if _partners_add_here(index_model):
-            grant_partner_add(index)
 
     if locale is None or locale == default_locale:
         return index
     translated = index.get_translation_or_none(locale)
     if translated is None:
         translated = index.copy_for_translation(locale, copy_parents=True, alias=True)
-        if _partners_add_here(index_model):
-            grant_partner_add(translated)
     return translated
 
 

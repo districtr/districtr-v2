@@ -1,9 +1,9 @@
 """
 Wagtail admin registration for teams (the tenancy boundary).
 
-Team changes take effect at the member's next login — claims are minted on
-the refresh token at token obtain (authapi/serializers.py), so an existing
-session keeps its old `teams` claim through silent refreshes.
+Team changes take effect on the member's next request: the CMS mints a
+fresh backend token for every call (mint_user_access_token), reading the
+`teams` claim from current membership. There are no refresh tokens.
 
 The user field uses a generic ChooserViewSet (searchable, paginated) rather
 than an unbounded <select>. register_widget stays False so the chooser only

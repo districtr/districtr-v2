@@ -26,6 +26,8 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, ProgrammingError, models, transaction
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.shortcuts import redirect
 from django.utils import timezone
 from wagtail.admin.panels import FieldPanel
@@ -331,6 +333,35 @@ class PortalPage(ContentPageBase):
             )
             if configs is not None:
                 configs.filter(portal_id=old_slug).update(portal_id=new_slug)
+            # Publish and unpublish both land here.
+            self.sync_accepting(
+                self._stored_slug() if self._owns_form_config_key() else self.portal_id
+            )
+
+    @staticmethod
+    def portal_is_live(portal_id):
+        """Whether any translation of the portal's default-locale page is
+        live. That is what FormConfig.accepting mirrors: the backend refuses
+        public submissions and listings for a closed portal."""
+        from wagtail.models import Locale
+
+        source = (
+            PortalPage.objects.filter(slug=portal_id, locale=Locale.get_default())
+            .values_list("translation_key", flat=True)
+            .first()
+        )
+        return (
+            source is not None
+            and PortalPage.objects.filter(translation_key=source, live=True).exists()
+        )
+
+    @classmethod
+    def sync_accepting(cls, portal_id):
+        configs = cls._form_configs() if portal_id else None
+        if configs is not None:
+            configs.filter(portal_id=portal_id).update(
+                accepting=cls.portal_is_live(portal_id)
+            )
 
     def clean(self):
         super().clean()
@@ -408,3 +439,24 @@ class PlacePage(ContentPageBase):
         from content.permissions import TeamScopedPagePermissionTester
 
         return TeamScopedPagePermissionTester(user, self)
+
+
+@receiver(post_delete, sender=PortalPage)
+def _close_deleted_portal(sender, instance, **kwargs):
+    # A deleted default-locale page closes its portal; a deleted translation
+    # re-checks whether any translation is still live.
+    PortalPage.sync_accepting(
+        instance.slug if instance._owns_form_config_key() else instance.portal_id
+    )
+
+
+@receiver(post_save, sender=PortalsIndexPage)
+@receiver(post_save, sender=PlacesIndexPage)
+def _grant_partners_add_on_new_index(sender, instance, created, **kwargs):
+    # Partners create pages under these indexes, including the per-locale
+    # copies wagtail-localize makes on first translation. Every new index
+    # gets the grant here, wherever it came from.
+    if created:
+        from content.provision import grant_partner_add
+
+        grant_partner_add(instance)

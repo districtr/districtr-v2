@@ -95,6 +95,7 @@ EXPECTED_COLUMNS = {
         "require_email_confirm",
         "admin_teams",
         "collection_mode",
+        "accepting",
         "created_at",
         "updated_at",
     },
@@ -508,6 +509,19 @@ class PortalSlugRenameTests(TestCase):
         # the form it's joined to) keep the old one until publish.
         self.portal.slug = "pending-slug"
         self.portal.save_revision()
+        self.assertEqual(self._config_slugs(), {"old-slug"})
+
+    def test_publishing_a_translated_slug_moves_nothing(self):
+        # Only the default-locale page owns the form's key. A translator's
+        # slug change must not move the English portal's form and cascade
+        # its submissions.
+        from wagtail.models import Locale
+
+        es_page = self.portal.copy_for_translation(
+            Locale.objects.get(language_code="es"), copy_parents=True
+        )
+        es_page.slug = "nuevo-slug"
+        es_page.save_revision().publish()
         self.assertEqual(self._config_slugs(), {"old-slug"})
 
     def test_rename_onto_another_portals_form_is_refused(self):

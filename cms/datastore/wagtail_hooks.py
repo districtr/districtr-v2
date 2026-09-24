@@ -69,6 +69,7 @@ from datastore.models import (
     FormConfig,
     FormFieldCustom,
     Overlay,
+    custom_field_key,
 )
 from datastore.views import (
     DATASTORE_ADMIN_PERMISSION,
@@ -626,10 +627,13 @@ class CustomFieldInlineFormSet(forms.BaseInlineFormSet):
                 continue
             instance = form.instance
             if not instance.key:
-                from django.utils.text import slugify as dj_slugify
-
-                slug = dj_slugify(form.cleaned_data.get("label", "")).replace("-", "_")
-                instance.key = f"custom_{slug}"[:64]
+                key = custom_field_key(form.cleaned_data.get("label", ""))
+                if key is None:
+                    form.add_error(
+                        "label", "The label must contain letters or numbers."
+                    )
+                    continue
+                instance.key = key
             if instance.key in seen:
                 form.add_error(
                     "label",
@@ -703,9 +707,9 @@ class FormConfigViewSet(SnippetViewSet):
         [
             FieldPanel(
                 "portal_id",
-                help_text="Must equal the portal page's slug — the wizard "
-                "sets this; admins only, and only when renaming the page "
-                "slug too (the rename cascades to existing submissions).",
+                help_text="The portal page's slug. The wizard sets it, and "
+                "renaming the page's slug moves it (and the portal's "
+                "submissions) automatically. Admins only.",
             ),
             FieldPanel("name"),
             FieldPanel("collection_mode"),
