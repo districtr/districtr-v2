@@ -523,7 +523,7 @@ class SiteContentMenuTests(TestCase):
         user.groups.add(Group.objects.get(name=group_name))
         return user
 
-    def test_partner_sees_only_portal_entry_with_resolved_url(self):
+    def test_partner_sees_only_portal_entries_with_resolved_urls(self):
         from content.wagtail_hooks import register_site_content_menu_item
 
         submenu = register_site_content_menu_item()
@@ -533,9 +533,12 @@ class SiteContentMenuTests(TestCase):
             for item in submenu.menu.registered_menu_items
             if item.is_shown(request)
         ]
-        self.assertEqual([item.label for item in shown], ["Edit portal pages"])
-        # is_shown resolves the index's explorer URL lazily (our logic).
-        self.assertRegex(shown[0].url, r"^/admin/pages/\d+/$")
+        self.assertEqual(
+            [item.label for item in shown], ["New portal", "Edit portal pages"]
+        )
+        # is_shown resolves each URL lazily (our logic).
+        self.assertEqual(shown[0].url, "/admin/portals/new/")
+        self.assertRegex(shown[1].url, r"^/admin/pages/\d+/$")
         self.assertTrue(submenu.is_shown(request))
 
 
@@ -1223,3 +1226,264 @@ class PreviewTests(TestCase):
         )
         self.draft.serve_preview(RequestFactory().get("/"), "frontend")
         self.assertFalse(PreviewSnapshot.objects.filter(token=stale.token).exists())
+
+
+# ---------------------------------------------------------------------------
+# Form-config injection (portal detail API)
+# ---------------------------------------------------------------------------
+
+
+class FormConfigInjectionTests(TestCase):
+    """The portal detail API attaches the portal's form config (camelCase per
+    the constants/cms.ts contract) to every form block."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_form_config, make_portal
+        from datastore.models import FormConfig
+
+        create_mirror_tables(FormConfig)
+        self.portal = make_portal("configured")
+        self.portal.body = [{"type": "form", "value": {}}]
+        self.portal.save_revision(clean=False).publish()
+        make_form_config(
+            "configured",
+            fields=["first_name", "email", "title", "comment"],
+            required=["title", "comment"],
+        )
+
+    def _form_block(self, slug):
+        payload = self.client.get(f"/api/content/tags/slug/{slug}").json()
+        return next(
+            block["value"]
+            for block in payload["content"]["body"]
+            if block["type"] == "form"
+        )
+
+    def test_form_block_carries_config_and_portal_tag(self):
+        value = self._form_block("configured")
+        self.assertEqual(value["portalId"], "configured")
+        self.assertEqual(value["fields"], ["first_name", "email", "title", "comment"])
+        self.assertEqual(value["requiredFields"], ["title", "comment"])
+        self.assertFalse(value["requireEmailConfirm"])
+        self.assertEqual(value["mandatoryTags"], ["configured"])
+        # Bug fix: an empty allow-list serves null ("all modules"), not [].
+        self.assertIsNone(value["allowListModules"])
+
+    def test_portal_without_config_serves_null_fields(self):
+        from core.testing import make_portal
+
+        bare = make_portal("bare")
+        bare.body = [{"type": "form", "value": {}}]
+        bare.save_revision(clean=False).publish()
+        value = self._form_block("bare")
+        self.assertIsNone(value["fields"])
+
+
+# ---------------------------------------------------------------------------
+# Portal wizard
+# ---------------------------------------------------------------------------
+
+
+class PortalWizardTests(TestCase):
+    """The wizard creates the draft TagPage and its FormConfig atomically —
+    a half-created portal (page without config, or the reverse) is the
+    failure mode it exists to prevent."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        layer = GerryDBTable.objects.create(name="blocks")
+        self.map = DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.admin = make_admin_user(group_name="admin")
+        self.client.force_login(self.admin)
+        self.url = "/admin/portals/new/"
+
+    def _payload(self, **overrides):
+        data = {
+            "title": "River Portal",
+            "slug": "river-portal",
+            "districtr_map_slug": "chi_wards",
+            "template": "map_collection",
+            "fields": ["first_name", "email", "title", "comment"],
+            "required_fields": ["title", "comment"],
+        }
+        data.update(overrides)
+        return data
+
+    def test_creates_draft_page_and_config(self):
+        from content.models import TagPage
+        from datastore.models import FormConfig
+
+        response = self.client.post(self.url, self._payload())
+        page = TagPage.objects.get(slug="river-portal")
+        self.assertRedirects(
+            response,
+            f"/admin/pages/{page.pk}/edit/",
+            fetch_redirect_response=False,
+        )
+        # Draft, not live; body follows the chosen starter template.
+        self.assertFalse(page.live)
+        body_types = [block.block_type for block in page.body]
+        self.assertIn("form", body_types)
+        self.assertIn("map_create_buttons", body_types)
+        self.assertIn("plan_gallery", body_types)
+
+        config = FormConfig.objects.get(portal_id="river-portal")
+        self.assertEqual(config.name, "River Portal")
+        self.assertEqual(config.required_fields, ["title", "comment"])
+
+    def test_slug_collision_with_existing_page_creates_nothing(self):
+        from core.testing import make_portal
+        from datastore.models import FormConfig
+
+        make_portal("river-portal", districtr_map_slug="chi_wards")
+        response = self.client.post(self.url, self._payload())
+        self.assertContains(response, "already exists")
+        self.assertFalse(FormConfig.objects.filter(portal_id="river-portal").exists())
+
+    def test_slug_collision_with_existing_config_creates_nothing(self):
+        from content.models import TagPage
+        from core.testing import make_form_config
+
+        make_form_config("river-portal")
+        response = self.client.post(self.url, self._payload())
+        self.assertContains(response, "already exists")
+        self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())
+
+    def test_required_fields_must_be_shown(self):
+        response = self.client.post(
+            self.url,
+            self._payload(fields=["title"], required_fields=["title", "comment"]),
+        )
+        self.assertContains(response, "must also be shown")
+
+    def test_team_scoped_member_cannot_use_out_of_scope_map(self):
+        from core.testing import make_admin_user, make_team
+
+        partner = make_admin_user(email="scoped@districtr.org", group_name="partner")
+        make_team("Elsewhere Team", members=[partner])  # no maps assigned
+        self.client.force_login(partner)
+        response = self.client.post(self.url, self._payload())
+        # chi_wards is not one of the member's team maps: not offered, and
+        # rejected on POST (the choice set is the guard).
+        self.assertContains(response, "valid choice")
+
+    def test_groupless_user_denied(self):
+        from core.testing import make_admin_user
+
+        user = make_admin_user(email="lone@districtr.org", group_name="partner")
+        user.groups.clear()
+        self.client.force_login(user)
+        response = self.client.get(self.url)
+        self.assertRedirects(response, "/admin/")
+
+
+class PortalWizardScopingTests(TestCase):
+    """Non-admins fail closed: only their own teams/maps are offered, and a
+    portal they create must keep one of their teams as moderator."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_team, make_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        layer = GerryDBTable.objects.create(name="blocks")
+        self.my_map = DistrictrMap.objects.create(
+            name="Mine", districtr_map_slug="my_map", parent_layer=layer
+        )
+        DistrictrMap.objects.create(
+            name="Theirs", districtr_map_slug="their_map", parent_layer=layer
+        )
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.my_team = make_team(
+            "Mine Team", members=[self.partner], maps=[self.my_map]
+        )
+        self.other_team = make_team("Other Team")
+
+    def _form(self, user, **data):
+        from content.portal_wizard import PortalWizardForm
+
+        base = {
+            "title": "P",
+            "slug": "p",
+            "districtr_map_slug": "my_map",
+            "template": "map_collection",
+            "fields": ["title", "comment"],
+            "required_fields": ["title"],
+            "admin_teams": ["mine-team"],
+        }
+        base.update(data)
+        return PortalWizardForm(base, user=user)
+
+    def test_scoped_partner_cannot_use_other_teams_map_or_team(self):
+        form = self._form(self.partner, districtr_map_slug="their_map")
+        self.assertFalse(form.is_valid())
+        self.assertIn("districtr_map_slug", form.errors)
+
+        form = self._form(self.partner, admin_teams=["other-team"])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_scoped_partner_must_keep_own_team_as_moderator(self):
+        form = self._form(self.partner, admin_teams=[])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_team_less_partner_fails_closed(self):
+        from core.testing import make_user
+
+        loner = make_user("partner", "loner@d.org", access_admin=True)
+        form = self._form(loner)
+        # No team -> no map choices, no team choices: nothing is grantable.
+        self.assertFalse(form.is_valid())
+
+    def test_own_team_and_map_accepted(self):
+        form = self._form(self.partner)
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class PortalWizardAtomicityTests(TestCase):
+    """A failure between the page write and the config write must roll BOTH
+    back — a half-created portal is the failure mode the wizard exists to
+    prevent, and the form-level collision checks are TOCTOU-advisory only."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user
+        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        layer = GerryDBTable.objects.create(name="blocks")
+        DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.client.force_login(make_admin_user(group_name="admin"))
+
+    def test_config_failure_rolls_back_the_page(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+
+        from content.models import TagPage
+
+        with mock.patch(
+            "content.portal_wizard.FormConfig.objects.create",
+            side_effect=IntegrityError("duplicate key"),
+        ):
+            response = self.client.post(
+                "/admin/portals/new/",
+                {
+                    "title": "River Portal",
+                    "slug": "river-portal",
+                    "districtr_map_slug": "chi_wards",
+                    "template": "map_collection",
+                    "fields": ["title", "comment"],
+                    "required_fields": ["title"],
+                },
+            )
+        # Re-rendered with a form error, page rolled back with the config.
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TagPage.objects.filter(slug="river-portal").exists())

@@ -12,15 +12,18 @@ class Team(ClusterableModel):
     """A partner organization — the access-control boundary of the CMS.
 
     Team membership scopes a non-admin user's Wagtail admin to their teams'
-    resources: the galleries a team owns (Gallery.team), the Districtr map
+    resources: the portal forms a team administers (FormConfig.admin_teams), the Districtr map
     modules assigned to it (TeamDistrictrMap), and the tag/place pages tied
     to those modules (authapi/teams.py). Admins and superusers are never
     scoped, nor are non-admin users with no team. Managed by admins in the
     "Teams" snippet (authapi/wagtail_hooks.py).
 
     The slug is minted into the JWT `teams` claim at login and matched by
-    the galleries API for group_only galleries — renaming a team is safe,
-    changing its slug invalidates members' access until re-login.
+    the backend against form_configs.admin_teams — renaming a team is safe,
+    but changing its slug PERMANENTLY revokes the team's moderation reach:
+    form_configs.admin_teams keeps the old string, re-login mints the new
+    one, and they never match again (an admin must re-edit every affected
+    portal form). Treat slugs as immutable after creation.
     """
 
     name = models.CharField(max_length=255, unique=True)
@@ -28,8 +31,9 @@ class Team(ClusterableModel):
         max_length=255,
         unique=True,
         help_text=(
-            "Stable identifier, minted into members' JWT `teams` claim. "
-            "Changing it revokes group_only gallery access until re-login."
+            "Stable identifier, minted into members' JWT `teams` claim and "
+            "stored in portal forms' admin_teams. Changing it permanently "
+            "orphans those grants — treat as immutable."
         ),
     )
 

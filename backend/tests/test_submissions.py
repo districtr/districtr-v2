@@ -312,9 +312,7 @@ class TestCloneAtSubmission:
         ).one()
         source.color_scheme = ["#123456"]
         session.add(source)
-        session.add(
-            DistrictNote(document_id=document_id, zone=1, note="source note")
-        )
+        session.add(DistrictNote(document_id=document_id, zone=1, note="source note"))
         session.commit()
         _mark_ready(session, document_id)
 
