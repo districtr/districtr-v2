@@ -62,6 +62,9 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 /** Props for CommentGallery - matches attributes defined in CommentGalleryNode */
 export interface CommentGalleryProps {
   ids?: number[];
+  /** Injected by the CMS on portal pages: scopes the gallery to one portal
+   * regardless of tag filters (tags are OR'd and user-extendable). */
+  portalId?: string;
   tags?: string[];
   place?: string;
   state?: string;
@@ -247,6 +250,7 @@ const FilterControls: React.FC<{
 
 export const CommentGallery: React.FC<CommentGalleryProps> = ({
   ids,
+  portalId,
   tags: initialTags,
   place: initialPlace,
   state: initialState,
@@ -288,6 +292,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   const filters: CommentFilters = useMemo(
     () => ({
       ids: ids,
+      portalId: portalId,
       // Merge initial tags with user-added tags
       tags:
         initialTags || debouncedUserFilters.tags.length > 0
@@ -304,6 +309,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
     }),
     [
       ids,
+      portalId,
       initialTags,
       debouncedUserFilters,
       initialPlace,

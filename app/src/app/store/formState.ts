@@ -1,7 +1,7 @@
 import {create} from 'zustand';
-import {CommentCreate, CommenterCreate} from '../utils/api/apiHandlers/types';
-import {postComment} from '../utils/api/mutations/postComment';
 import {createJSONStorage, persist} from 'zustand/middleware';
+import {postSubmission} from '../utils/api/apiHandlers/postSubmission';
+import {parseMapRef} from '../utils/map/editUrl';
 
 export interface FormState {
   formRef: React.RefObject<HTMLFormElement> | null;
@@ -9,18 +9,20 @@ export interface FormState {
   formIsValid: boolean;
   highlightErrors: boolean;
   setHighlightErrors: (highlight: boolean) => void;
-  comment: Partial<CommentCreate>;
-  commenter: Partial<CommenterCreate>;
-  setFormState: <T extends 'comment' | 'commenter'>(
-    formPart: T,
-    formProperty: keyof FormState[T],
-    value: string
-  ) => void;
+  /** Sparse field values keyed by registry field name (fieldRegistry.tsx). */
+  fields: Record<string, string>;
+  setField: (name: string, value: string) => void;
+  /** Client-side email re-entry for portals with require_email_confirm. */
+  emailConfirm: string;
+  setEmailConfirm: (value: string) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
   tags: string[];
   setTags: (tag: string, action: 'add' | 'remove') => void;
-  submitForm: () => Promise<void>;
+  /** The pasted/selected map link; parsed to a document ref at submit. */
+  mapRef: string;
+  setMapRef: (mapRef: string) => void;
+  submitForm: (portalId: string, allowedFields: string[]) => Promise<void>;
   clear: () => void;
   error: string;
   setError: (error: string) => void;
@@ -49,16 +51,12 @@ export const useFormState = create<FormState>()(
         set({formRef: ref});
       },
       formIsValid: false,
-      comment: {
-        title: '',
-        comment: '',
-      },
-      commenter: {
-        first_name: '',
-        email: '',
-        salutation: '',
-        state: '',
-        zip_code: '',
+      fields: {},
+      emailConfirm: '',
+      setEmailConfirm: (value: string) => {
+        const {checkFormValidity} = get();
+        set({emailConfirm: value});
+        checkFormValidity();
       },
       acknowledgement: {},
       isSubmitting: false,
@@ -74,14 +72,15 @@ export const useFormState = create<FormState>()(
           checkFormValidity();
         }, 100);
       },
-      setFormState: (formPart, formProperty, value) => {
-        const {checkFormValidity} = get();
-        set({
-          [formPart]: {
-            ...get()[formPart],
-            [formProperty]: value?.trim()?.length ? value : undefined,
-          },
-        });
+      setField: (name, value) => {
+        const {checkFormValidity, fields} = get();
+        const next = {...fields};
+        if (value?.trim()?.length) {
+          next[name] = value;
+        } else {
+          delete next[name];
+        }
+        set({fields: next});
         checkFormValidity();
       },
       setTags: (tag: string, action: 'add' | 'remove') => {
@@ -99,16 +98,23 @@ export const useFormState = create<FormState>()(
         set({tags: Array.from(new Set(newTags))});
       },
       tags: new Array<string>(),
+      mapRef: '',
+      setMapRef: (mapRef: string) => {
+        const {checkFormValidity} = get();
+        set({mapRef});
+        checkFormValidity();
+      },
       error: '',
       success: '',
-      submitForm: async () => {
+      submitForm: async (portalId: string, allowedFields: string[]) => {
         const {
           clear,
           setIsSubmitting,
           isSubmitting,
-          comment,
-          commenter,
+          fields,
           tags,
+          mapRef,
+          showMapSelector,
           acknowledgement,
           captchaToken,
         } = get();
@@ -117,21 +123,30 @@ export const useFormState = create<FormState>()(
         }
         setIsSubmitting(true);
         if (!Object.values(acknowledgement).every(Boolean)) {
-          set({error: 'Please acknowledge all statements'});
+          set({error: 'Please acknowledge all statements', isSubmitting: false});
           return;
         }
-        // clean up to just document ID
-        const cleanDocumentId = comment.document_id?.trim()?.length
-          ? comment.document_id.split('/').pop()?.replace('?pw=true', '')
-          : null;
-        //  todo, some validation
-        const response = await postComment.mutate({
-          comment: {
-            ...comment,
-            document_id: cleanDocumentId,
-          } as CommentCreate,
-          commenter: commenter as CommenterCreate,
-          tags: Array.from(tags).map(tag => ({tag})),
+        // The persisted store is shared across portals, so it can hold keys
+        // this portal's config doesn't allow — posting them verbatim would
+        // 422 with an error about a field that has no input on the page,
+        // unrecoverably (clear() only runs on success).
+        const allowed = new Set(allowedFields);
+        const portalFields = Object.fromEntries(
+          Object.entries(fields).filter(([key]) => allowed.has(key))
+        );
+        const mapRefParsed = showMapSelector ? parseMapRef(mapRef) : null;
+        if (showMapSelector && mapRef.trim() && !mapRefParsed) {
+          set({
+            error: 'We could not read that map link — paste the share URL or map id.',
+            isSubmitting: false,
+          });
+          return;
+        }
+        const response = await postSubmission({
+          portal_id: portalId,
+          fields: portalFields,
+          tags: Array.from(tags),
+          map_ref: mapRefParsed,
           turnstile_token: captchaToken,
         });
         set({
@@ -146,9 +161,10 @@ export const useFormState = create<FormState>()(
       },
       clear: () => {
         set({
-          comment: {},
-          commenter: {},
+          fields: {},
+          emailConfirm: '',
           tags: new Array<string>(),
+          mapRef: '',
           acknowledgement: {},
           showMapSelector: false,
           formIsValid: false,
@@ -181,10 +197,16 @@ export const useFormState = create<FormState>()(
     {
       name: 'form-state',
       storage: createJSONStorage(() => localStorage),
+      // v2: comment/commenter split replaced by the sparse fields record.
+      // migrate: dropping v0/v1 drafts is deliberate (the shape changed);
+      // without it zustand logs a scary console.error for returning
+      // visitors while doing the same thing.
+      version: 2,
+      migrate: () => ({}),
       partialize: state => ({
-        comment: state.comment,
-        commenter: state.commenter,
+        fields: state.fields,
         tags: state.tags,
+        mapRef: state.mapRef,
         acknowledgement: state.acknowledgement,
         showMapSelector: state.showMapSelector,
       }),
