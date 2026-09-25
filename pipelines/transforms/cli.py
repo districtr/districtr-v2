@@ -2,6 +2,7 @@ import click
 import logging
 from transforms.models import AggregateConfig
 from transforms.graph import build_combined_graph_from_gpkg, write_graph, GraphBatch
+from transforms.block_columns import add_block_columns
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -204,3 +205,55 @@ def batch_create_graphs(
     """Build dual-level graph pkls for all maps in a batch config file."""
     batch = GraphBatch.from_file(file_path=config_path)
     batch.create_all(data_dir=data_dir, replace=replace, upload=upload)
+
+
+@transforms.command("add-block-columns")
+@click.option(
+    "--blocks-gpkg",
+    "-b",
+    required=True,
+    help="Path or s3 URI of the block GeoPackage; layer name = file stem",
+)
+@click.option(
+    "--parent-gpkg",
+    "-p",
+    required=True,
+    help="Path or s3 URI of the parent GeoPackage; layer name = file stem",
+)
+@click.option("--csv", "csv_path", required=True, help="Block-level CSV to add")
+@click.option(
+    "--id-column", default="geoid20", help="CSV column holding the block path"
+)
+@click.option(
+    "--columns",
+    default=None,
+    help="Comma-separated CSV columns to add (default: all but the id column)",
+)
+@click.option("--out-dir", default=None, help="Output directory (default: OUT_SCRATCH)")
+@click.option(
+    "--replace",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Overwrite columns that already exist in either layer",
+)
+def add_block_columns_cmd(
+    blocks_gpkg: str,
+    parent_gpkg: str,
+    csv_path: str,
+    id_column: str,
+    columns: str | None,
+    out_dir: str | None,
+    replace: bool,
+) -> None:
+    """Add block-level CSV columns to a block GeoPackage and sum them into its parent."""
+    blocks_out, parent_out = add_block_columns(
+        blocks_gpkg=blocks_gpkg,
+        parent_gpkg=parent_gpkg,
+        csv_path=csv_path,
+        id_column=id_column,
+        columns=columns.split(",") if columns else None,
+        out_dir=out_dir,
+        replace=replace,
+    )
+    logger.info(f"Wrote {blocks_out} and {parent_out}")
