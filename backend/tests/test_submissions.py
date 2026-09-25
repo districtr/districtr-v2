@@ -650,3 +650,453 @@ class TestPublicListParams:
             select(Submission.id).where(col(Submission.portal_id) == PORTAL)
         ).one()
         assert client.get(f"/api/submissions?ids={draft_pk}").json() == []
+
+
+# ---------------------------------------------------------------------------
+# Collection modes: server-side auto-finalize + internal exclusion
+# ---------------------------------------------------------------------------
+
+AUTO_PORTAL = "auto-portal"
+INTERNAL_PORTAL = "internal-portal"
+
+
+@pytest.fixture(name="mode_portals")
+def mode_portals_fixture(session: Session, form_config):
+    """One portal per auto mode, next to the prompt-mode `form_config`."""
+    for portal_id, mode in (
+        (AUTO_PORTAL, "auto_public"),
+        (INTERNAL_PORTAL, "internal"),
+    ):
+        session.add(
+            FormConfig(
+                portal_id=portal_id,
+                name=portal_id,
+                fields=[],
+                required_fields=[],
+                admin_teams=["team-a"],
+                collection_mode=mode,
+            )
+        )
+    session.commit()
+
+
+class TestAutoFinalize:
+    @pytest.fixture(autouse=True)
+    def _map_module(self, ks_demo_view_census_blocks_districtrmap, mode_portals):
+        """create_document needs the map module; portals need configs."""
+
+    def _create_draft(self, client, portal_id):
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": portal_id},
+        )
+        assert response.status_code == 201, response.json()
+        return response.json()
+
+    def _set_status(self, client, document_id, draft_status):
+        return client.put(
+            f"/api/document/{document_id}/metadata", json={"draft_status": draft_status}
+        )
+
+    def test_ready_to_share_flips_auto_draft_live_no_clone(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        documents_before = len(session.exec(select(Document)).all())
+
+        assert (
+            self._set_status(client, doc["document_id"], "ready_to_share").status_code
+            == 200
+        )
+
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "submitted"
+        # The live map, not a clone — and no new Document row exists.
+        assert submission.map_public_id == doc["public_id"]
+        assert len(session.exec(select(Document)).all()) == documents_before
+
+        # Live references stay marked as such: takedown must never demote
+        # a real user's working map, only clones.
+        assert submission.map_is_clone is False
+
+        # ...and the entry actually SURFACES publicly — the whole point of
+        # auto_public vs internal.
+        listed = client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()
+        assert [e["id"] for e in listed] == [submission.id]
+        gallery = client.get(f"/api/documents/list?tags={AUTO_PORTAL}").json()
+        assert [d["public_id"] for d in gallery] == [doc["public_id"]]
+
+        # Idempotent: a second submitted-tier PUT is a no-op.
+        first_submitted_at = submission.submitted_at
+        assert (
+            self._set_status(client, doc["document_id"], "in_progress").status_code
+            == 200
+        )
+        session.refresh(submission)
+        assert submission.submitted_at == first_submitted_at
+
+    def test_regressing_status_withdraws_a_live_auto_entry(self, client, session):
+        # The author never filled a consent form, so pulling the map back to
+        # scratch must un-publish everywhere (/api/submissions has no
+        # draft_status filter of its own).
+        doc = self._create_draft(client, AUTO_PORTAL)
+        self._set_status(client, doc["document_id"], "ready_to_share")
+        assert len(client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()) == 1
+
+        assert (
+            self._set_status(client, doc["document_id"], "scratch").status_code == 200
+        )
+        assert client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json() == []
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "draft"
+        assert submission.submitted_at is None
+
+        # Re-promoting re-publishes.
+        self._set_status(client, doc["document_id"], "in_progress")
+        assert len(client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()) == 1
+
+    def test_takedown_of_auto_entry_never_demotes_the_live_map(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        self._set_status(client, doc["document_id"], "ready_to_share")
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+
+        _set_auth(UNRESTRICTED_PAYLOAD)
+        response = client.post(
+            f"/api/submissions/admin/{submission.id}/hidden", json={"hidden": True}
+        )
+        assert response.status_code == 200
+        # The author's LIVE working map keeps its status; only clone-backed
+        # gallery entries get demoted on takedown.
+        session.expire_all()
+        live = client.get(f"/api/document/{doc['public_id']}").json()
+        assert live["map_metadata"]["draft_status"] == "ready_to_share"
+
+    def test_create_document_with_submitted_tier_metadata_flips_immediately(
+        self, client, session
+    ):
+        # A creation payload can already carry a submitted-tier status
+        # (e.g. copies) — the flip and its moderation pass run at create.
+        # (The real task opens its own DB session, invisible to this test
+        # transaction, so scheduling is asserted via a patched task.)
+        with patch("app.submissions.main.moderate_submission_by_id") as task:
+            response = client.post(
+                "/api/create_document",
+                json={
+                    "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                    "portal_id": AUTO_PORTAL,
+                    "metadata": {"name": "spicy", "draft_status": "ready_to_share"},
+                },
+            )
+        assert response.status_code == 201, response.json()
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == response.json()["submission_id"]
+            )
+        ).one()
+        assert submission.status == "submitted"
+        # The auto path is NOT a moderation bypass: the flipped entry gets
+        # scored (the gallery card renders the map's name).
+        task.assert_called_once_with(submission.id)
+
+        # The scoring itself sees the map card text: in-session run.
+        with patch("app.submissions.moderation.score_text", return_value=0.9):
+            moderate_submission_by_id(submission.id, session=session)
+        session.refresh(submission)
+        assert submission.nsfw is True
+
+    def test_renaming_a_live_auto_map_rescores(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        self._set_status(client, doc["document_id"], "ready_to_share")
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+
+        # The card text is live — a later abusive rename must re-schedule
+        # scoring for the submitted live-referenced entry.
+        with patch("app.main.submissions.moderate_submission_by_id") as task:
+            response = client.put(
+                f"/api/document/{doc['document_id']}/metadata",
+                json={"name": "now abusive"},
+            )
+            assert response.status_code == 200
+        task.assert_called_once_with(submission.id)
+
+        # ...and the score sees the new name.
+        with patch("app.submissions.moderation.score_text", return_value=0.9):
+            moderate_submission_by_id(submission.id, session=session)
+        session.refresh(submission)
+        assert submission.nsfw is True
+
+    def test_in_progress_also_triggers(self, client, session):
+        doc = self._create_draft(client, INTERNAL_PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "in_progress").status_code
+            == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "submitted"
+
+    def test_scratch_does_not_trigger(self, client, session):
+        doc = self._create_draft(client, AUTO_PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "scratch").status_code == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "draft"
+
+    def test_prompt_portal_draft_is_not_flipped(self, client, session):
+        # Deliberate-submission portals keep the modal/clone flow: the
+        # backend must not auto-submit their drafts.
+        doc = self._create_draft(client, PORTAL)
+        assert (
+            self._set_status(client, doc["document_id"], "ready_to_share").status_code
+            == 200
+        )
+        submission = session.exec(
+            select(Submission).where(
+                col(Submission.submission_id) == doc["submission_id"]
+            )
+        ).one()
+        assert submission.status == "draft"
+
+
+class TestInternalExclusion:
+    @pytest.fixture(autouse=True)
+    def _map_module(self, ks_demo_view_census_blocks_districtrmap, mode_portals):
+        pass
+
+    def _submitted_internal(self, client, session):
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                "portal_id": INTERNAL_PORTAL,
+            },
+        )
+        doc = response.json()
+        client.put(
+            f"/api/document/{doc['document_id']}/metadata",
+            json={"draft_status": "ready_to_share"},
+        )
+        return doc
+
+    def test_internal_submissions_hidden_from_public_surfaces(self, client, session):
+        doc = self._submitted_internal(client, session)
+
+        # Public submissions list: absent (with or without portal filter).
+        assert client.get("/api/submissions?portal_id=internal-portal").json() == []
+        assert all(
+            s["portal_id"] != INTERNAL_PORTAL
+            for s in client.get("/api/submissions").json()
+        )
+        # Tag gallery: absent (the auto-applied portal tag would match).
+        assert client.get(f"/api/documents/list?tags={INTERNAL_PORTAL}").json() == []
+
+        # Admin list: present.
+        _set_auth(TEAM_A_PAYLOAD)
+        admin = client.get(f"/api/submissions/admin?portal_id={INTERNAL_PORTAL}").json()
+        assert [s["map_public_id"] for s in admin] == [doc["public_id"]]
+        assert admin[0]["status"] == "submitted"
+
+
+# ---------------------------------------------------------------------------
+# Custom fields
+# ---------------------------------------------------------------------------
+
+
+class TestInternalFlagOracle:
+    @pytest.fixture(autouse=True)
+    def _map_module(self, ks_demo_view_census_blocks_districtrmap, mode_portals):
+        pass
+
+    def test_flag_refuses_internal_portal_submissions(self, client, session):
+        # Internal rows aren't publicly visible; flagging them would spam
+        # the staff queue and leak an existence oracle.
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                "portal_id": INTERNAL_PORTAL,
+            },
+        )
+        assert response.status_code == 201
+        client.put(
+            f"/api/document/{response.json()['document_id']}/metadata",
+            json={"draft_status": "ready_to_share"},
+        )
+        submission = session.exec(
+            select(Submission).where(col(Submission.portal_id) == INTERNAL_PORTAL)
+        ).one()
+        assert submission.status == "submitted"
+        flag = client.post("/api/submissions/flag", json={"id": submission.id})
+        assert flag.status_code == 404
+        session.refresh(submission)
+        assert submission.flagged is False
+
+
+class TestCustomFields:
+    @pytest.fixture(autouse=True)
+    def _customs(self, session: Session, form_config):
+        from app.submissions.models import FormFieldCustom
+
+        session.add(
+            FormFieldCustom(
+                portal_id=PORTAL,
+                key="custom_neighborhood",
+                label="What neighborhood do you live in?",
+                field_type="text",
+                required=True,
+                sort_order=0,
+            )
+        )
+        session.add(
+            FormFieldCustom(
+                portal_id=PORTAL,
+                key="custom_story",
+                label="Tell us your story",
+                field_type="textarea",
+                required=False,
+                sort_order=1,
+            )
+        )
+        session.commit()
+
+    def test_form_config_read_includes_mode_and_customs(self, client):
+        config = client.get(f"/api/submissions/form_config?portal_id={PORTAL}").json()
+        assert config["collection_mode"] == "prompt"
+        assert [c["key"] for c in config["custom_fields"]] == [
+            "custom_neighborhood",
+            "custom_story",
+        ]
+        assert config["custom_fields"][0]["required"] is True
+        assert config["custom_fields"][1]["field_type"] == "textarea"
+
+    def test_missing_required_custom_reported_with_other_errors(self, client):
+        response = _submit(client, fields={"bogus": "x"})
+        assert response.status_code == 422
+        errors = response.json()["detail"]
+        assert any("custom_neighborhood" in e for e in errors)
+        assert any("bogus" in e for e in errors)
+
+    def test_custom_values_stored_and_public(self, client):
+        response = _submit(
+            client,
+            fields={
+                **VALID_FIELDS,
+                "custom_neighborhood": "Hyde Park",
+                "custom_story": "We moved here in 1998.",
+            },
+        )
+        assert response.status_code == 201, response.json()
+        listed = client.get(f"/api/submissions?portal_id={PORTAL}").json()
+        assert listed[0]["fields"]["custom_neighborhood"] == "Hyde Park"
+        assert listed[0]["fields"]["custom_story"] == "We moved here in 1998."
+
+    def test_custom_text_length_cap(self, client):
+        response = _submit(
+            client,
+            fields={
+                **VALID_FIELDS,
+                "custom_neighborhood": "x" * 300,  # text caps at 255
+            },
+        )
+        assert response.status_code == 422
+        assert any("custom_neighborhood" in e for e in response.json()["detail"])
+        # Exactly at the cap passes.
+        response = _submit(
+            client, fields={**VALID_FIELDS, "custom_neighborhood": "x" * 255}
+        )
+        assert response.status_code == 201, response.json()
+
+    def test_custom_textarea_length_cap(self, client):
+        # textarea has its OWN cap (5000) — a fallback to the text default
+        # (255) would reject real testimony.
+        base = {**VALID_FIELDS, "custom_neighborhood": "Pilsen"}
+        response = _submit(client, fields={**base, "custom_story": "x" * 5000})
+        assert response.status_code == 201, response.json()
+        response = _submit(client, fields={**base, "custom_story": "x" * 5001})
+        assert response.status_code == 422
+        assert any("custom_story" in e for e in response.json()["detail"])
+
+
+# ---------------------------------------------------------------------------
+# Admin add-to-portal (retroactive association)
+# ---------------------------------------------------------------------------
+
+
+class TestAdminAdd:
+    """Retroactive portal membership is a Submission row: team-scoped like
+    every other admin action, duplicate-safe, and live-referenced (no clone,
+    so takedown can never demote the author's working map)."""
+
+    def _add(self, client, public_id, portal_id=PORTAL):
+        return client.post(
+            "/api/submissions/admin/add",
+            json={"portal_id": portal_id, "map_public_id": public_id},
+        )
+
+    def _public_id(self, client, document_id):
+        return client.get(f"/api/document/{document_id}").json()["public_id"]
+
+    def test_scoped_admin_adds_live_reference(
+        self, client, form_config, document_id, session
+    ):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_A_PAYLOAD)
+        response = self._add(client, public_id)
+        assert response.status_code == 201, response.json()
+        submission = session.get(Submission, response.json()["id"])
+        assert submission.status == "submitted"
+        # The LIVE map, not a snapshot: no clone row, no demotable copy.
+        assert submission.map_public_id == public_id
+        assert submission.map_is_clone is False
+        assert submission.tags == [PORTAL]
+
+    def test_one_map_can_join_multiple_portals(
+        self, client, form_config, document_id, session
+    ):
+        public_id = self._public_id(client, document_id)
+        _set_auth(UNRESTRICTED_PAYLOAD)
+        assert self._add(client, public_id).status_code == 201
+        assert self._add(client, public_id, portal_id=OTHER_PORTAL).status_code == 201
+        rows = session.exec(
+            select(Submission).where(col(Submission.map_public_id) == public_id)
+        ).all()
+        assert sorted(r.portal_id for r in rows) == sorted([PORTAL, OTHER_PORTAL])
+
+    def test_wrong_team_cannot_add(self, client, form_config, document_id):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_B_PAYLOAD)  # form_config's portal is team-a's
+        assert self._add(client, public_id).status_code == 403
+
+    def test_duplicate_add_conflicts(self, client, form_config, document_id):
+        public_id = self._public_id(client, document_id)
+        _set_auth(TEAM_A_PAYLOAD)
+        assert self._add(client, public_id).status_code == 201
+        response = self._add(client, public_id)
+        assert response.status_code == 409
+        assert "already has" in response.json()["detail"]
+
+    def test_unknown_map_404(self, client, form_config):
+        _set_auth(TEAM_A_PAYLOAD)
+        assert self._add(client, 99999999).status_code == 404

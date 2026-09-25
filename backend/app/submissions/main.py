@@ -48,7 +48,7 @@ from app.core.security import (
 )
 from app.district_notes import duplicate_district_notes
 from app.models import Document
-from app.save_share.models import DocumentDraftStatus
+from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from app.submissions.fields import (
     PRIVATE_FIELDS,
     slugify,
@@ -56,13 +56,17 @@ from app.submissions.fields import (
 )
 from app.submissions.moderation import moderate_submission_by_id
 from app.submissions.models import (
+    CollectionMode,
+    CustomFieldPublic,
     FlagSubmissionRequest,
     FormConfig,
     FormConfigPublic,
+    FormFieldCustom,
     HiddenUpdate,
     NsfwUpdate,
     Submission,
     SubmissionAdmin,
+    SubmissionAdminAdd,
     SubmissionContent,
     SubmissionCreate,
     SubmissionCreated,
@@ -91,6 +95,69 @@ def get_form_config(portal_id: str, session: Session) -> FormConfig:
             detail=f"No form config for portal {portal_id!r}",
         )
     return config
+
+
+def auto_finalize_draft_submissions(
+    session: Session, public_id: int | None, draft_status: str | None
+) -> list[int]:
+    """Sync auto-mode submissions with their map's draft_status.
+
+    The auto-collect contract: entries keep their LIVE map reference — no
+    clone, no form. Reaching a submitted-tier status (in_progress /
+    ready_to_share) flips drafts to submitted; REGRESSING below it flips a
+    live-referenced (map_is_clone=false) submission back to draft — the
+    author never filled a consent form, so withdrawing their map must
+    un-publish it everywhere (/api/submissions has no draft_status filter,
+    so one-way would strand the entry there). Clone-backed submissions stay
+    one-way: those were deliberate, consented submissions.
+
+    Idempotent; called inside the caller's transaction; does not commit.
+    Returns the ids of rows flipped to submitted — callers MUST enqueue
+    moderate_submission_by_id for each AFTER commit: the gallery card
+    renders the map's name/description, so an unscored auto entry would let
+    an abusive map title sail past the nsfw filter.
+    """
+    if public_id is None:
+        return []
+    submitted_tier = draft_status in [s.value for s in SUBMITTED_DRAFT_STATUSES]
+    rows = session.exec(
+        select(Submission)
+        .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+        .where(
+            and_(
+                col(Submission.map_public_id) == public_id,
+                col(FormConfig.collection_mode).in_(CollectionMode.auto_modes),
+            )
+        )
+        .with_for_update(of=Submission)
+    ).all()
+    flipped: list[int] = []
+    for row in rows:
+        if submitted_tier and row.status == SubmissionStatus.draft:
+            row.status = SubmissionStatus.submitted
+            row.submitted_at = datetime.now(timezone.utc)
+            session.add(row)
+            flipped.append(row.id)
+        elif (
+            not submitted_tier
+            and row.status == SubmissionStatus.submitted
+            and not row.map_is_clone
+        ):
+            row.status = SubmissionStatus.draft
+            row.submitted_at = None
+            session.add(row)
+    return flipped
+
+
+def get_custom_fields(portal_id: str, session: Session) -> list[FormFieldCustom]:
+    """A portal's admin-defined questions, in display order."""
+    return list(
+        session.exec(
+            select(FormFieldCustom)
+            .where(col(FormFieldCustom.portal_id) == portal_id)
+            .order_by(col(FormFieldCustom.sort_order), col(FormFieldCustom.id))
+        ).all()
+    )
 
 
 def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
@@ -214,8 +281,14 @@ def _insert_content(
         )
 
 
-def _validate_or_422(config: FormConfig, values: dict[str, str]) -> None:
-    errors = validate_submission_fields(config.fields, config.required_fields, values)
+def _validate_or_422(
+    config: FormConfig,
+    values: dict[str, str],
+    custom_specs: list[FormFieldCustom],
+) -> None:
+    errors = validate_submission_fields(
+        config.fields, config.required_fields, values, custom_specs
+    )
     if errors:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors
@@ -274,7 +347,7 @@ async def create_submission(
         data.turnstile_token, client_ip_from_request(request)
     )
     config = get_form_config(data.portal_id, session)
-    _validate_or_422(config, data.fields)
+    _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     map_public_id = None
     if data.map_ref is not None:
@@ -334,7 +407,7 @@ async def finalize_submission(
         )
 
     config = get_form_config(submission.portal_id, session)
-    _validate_or_422(config, data.fields)
+    _validate_or_422(config, data.fields, get_custom_fields(config.portal_id, session))
 
     if submission.map_public_id is None:
         raise HTTPException(
@@ -376,10 +449,14 @@ async def list_submissions(
     is optional: gallery blocks filter by tags or curated ids instead."""
     stmt = (
         select(Submission)
+        # Internal-mode portals collect maps for the admin gallery only —
+        # their submissions never appear in any public listing.
+        .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
         .where(
             and_(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
+                col(FormConfig.collection_mode) != CollectionMode.internal,
             )
         )
         .order_by(
@@ -451,7 +528,25 @@ async def get_form_config_public(
 ):
     """Public read of a portal's form shape (used by the abbreviated
     map-submission form; the CMS injects the same data into portal pages)."""
-    return get_form_config(portal_id, session)
+    config = get_form_config(portal_id, session)
+    return FormConfigPublic(
+        portal_id=config.portal_id,
+        name=config.name,
+        fields=config.fields,
+        required_fields=config.required_fields,
+        require_email_confirm=config.require_email_confirm,
+        collection_mode=config.collection_mode,
+        custom_fields=[
+            CustomFieldPublic(
+                key=c.key,
+                label=c.label,
+                field_type=c.field_type,
+                required=c.required,
+                sort_order=c.sort_order,
+            )
+            for c in get_custom_fields(portal_id, session)
+        ],
+    )
 
 
 @router.post(
@@ -464,14 +559,20 @@ async def flag_submission(
     session: Session = Depends(get_session),
 ):
     """Report a submission for reviewer attention. Only publicly visible
-    submissions can be flagged — flagging hidden ones gives moderators no
-    signal and is a way to harass the queue."""
+    submissions can be flagged — flagging hidden or internal-portal ones
+    gives moderators no signal, is a way to harass the queue, and would
+    leak an existence oracle for staff-only galleries."""
     submission = session.get(Submission, body.id)
     if (
         submission is None
         or submission.hidden
         or submission.status != SubmissionStatus.submitted
     ):
+        raise HTTPException(status_code=404, detail="Submission not found")
+    config = session.exec(
+        select(FormConfig).where(col(FormConfig.portal_id) == submission.portal_id)
+    ).first()
+    if config is not None and config.collection_mode == CollectionMode.internal:
         raise HTTPException(status_code=404, detail="Submission not found")
     submission.flagged = True
     session.add(submission)
@@ -631,3 +732,57 @@ async def set_submission_hidden(
         )
     session.commit()
     return {"id": submission_pk, "hidden": body.hidden}
+
+
+@router.post(
+    "/admin/add", response_model=SubmissionCreated, status_code=status.HTTP_201_CREATED
+)
+async def admin_add_submission(
+    data: SubmissionAdminAdd,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+):
+    """Retroactively associate an existing map with a portal.
+
+    Portal membership is a Submission row, so one map can join any number of
+    portals — each row is hidden/blurred independently. The row references
+    the LIVE map (map_is_clone=False, like auto-collection): no snapshot is
+    taken, and takedown never demotes the author's working document. The
+    entry surfaces in the public gallery only once the map's draft_status is
+    past scratch, exactly like an auto-collected entry. No moderation task —
+    there is no text content to score, and an admin vouched for the map.
+    """
+    config = get_form_config(data.portal_id, session)
+    require_portal_admin(auth_result, config)
+    document = session.exec(
+        select(Document).where(col(Document.public_id) == data.map_public_id)
+    ).first()
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Map {data.map_public_id} not found",
+        )
+    existing = session.exec(
+        select(Submission).where(
+            col(Submission.portal_id) == config.portal_id,
+            col(Submission.map_public_id) == data.map_public_id,
+        )
+    ).first()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Map {data.map_public_id} already has a {existing.status} "
+            f"submission in portal {config.portal_id!r}",
+        )
+    submission = Submission(
+        portal_id=config.portal_id,
+        map_public_id=data.map_public_id,
+        tags=[config.portal_id],
+        status=SubmissionStatus.submitted,
+        submitted_at=datetime.now(timezone.utc),
+        map_is_clone=False,
+    )
+    session.add(submission)
+    session.commit()
+    session.refresh(submission)
+    return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
