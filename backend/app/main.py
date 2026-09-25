@@ -19,10 +19,10 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text, or_, cast as sa_cast
-from sqlalchemy.dialects.postgresql import JSONB, array as pg_array
+from sqlalchemy import text, or_
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
+from sqlalchemy.sql import and_, exists
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -69,6 +69,8 @@ import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
+import app.submissions.main as submissions
+from app.submissions.models import Submission, SubmissionStatus
 import app.thumbnails.main as thumbnails
 from app.models import (
     Assignments,
@@ -148,6 +150,7 @@ app.include_router(admin_ops.router)
 app.include_router(cms.router)
 app.include_router(exports.router)
 app.include_router(comments.router)
+app.include_router(submissions.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
@@ -450,6 +453,24 @@ def create_document(
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
 
+    # Map-from-portal pathway: create a draft submission alongside the
+    # document. Its submission_id UUID is the capability the client later
+    # uses to finalize (submit to the portal's gallery).
+    draft_submission_id: str | None = None
+    if data.portal_id is not None:
+        # Reuse the submissions module's resolver (single source of the
+        # portal-validity rule and its 404 message).
+        submissions.get_form_config(data.portal_id, session)
+        draft = Submission(
+            portal_id=data.portal_id,
+            map_public_id=new_document.public_id,
+            status=SubmissionStatus.draft,
+            tags=[data.portal_id],
+        )
+        session.add(draft)
+        session.flush()
+        draft_submission_id = draft.submission_id
+
     total_assignments = 0
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
@@ -649,6 +670,7 @@ def create_document(
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
+    doc_dict["submission_id"] = draft_submission_id
     return doc_dict
 
 
@@ -1419,23 +1441,42 @@ def get_document_list(
     )
 
     if len(tags) > 0:
-        # A document matches a tag either via a comment-form submission or via
-        # its own metadata tags (set at creation, e.g. workshop modules).
-        comment_tagged = (
-            select(FormDocumentComment.document_id)
-            .join(
-                CommentTag,
-                col(CommentTag.comment_id) == col(FormDocumentComment.comment_id),
+        # Transitional dual read: legacy tagged form comments AND the new
+        # submissions rows both qualify a document for the tag gallery. The
+        # legacy half goes away with the comment tables.
+        legacy_tagged = exists(
+            select(literal(1))
+            .select_from(FormDocumentComment)
+            .join(CommentTag, CommentTag.comment_id == FormDocumentComment.comment_id)
+            .join(Tag, Tag.id == CommentTag.tag_id)
+            .where(
+                and_(
+                    FormDocumentComment.document_id == Document.document_id,
+                    col(Tag.slug).in_(tags),
+                )
             )
-            .join(Tag, col(Tag.id) == col(CommentTag.tag_id))
-            .where(col(Tag.slug).in_(tags))
+            .correlate(Document)
         )
-        metadata_tagged = sa_cast(col(Document.map_metadata)["tags"], JSONB).op("?|")(
-            pg_array(tags)
+        submission_tagged = exists(
+            select(literal(1))
+            .select_from(Submission)
+            .where(
+                and_(
+                    Submission.map_public_id == Document.public_id,
+                    # Gallery membership is the submission's OWN portal, never
+                    # its free-form tags: visibility and moderation authority
+                    # must share a key, or an attacker submits to a portal
+                    # they choose (whose reviewers they picked) while tagging
+                    # a victim portal whose reviewers can't see the row.
+                    col(Submission.portal_id).in_(tags),
+                    col(Submission.status) == SubmissionStatus.submitted,
+                    col(Submission.hidden).is_(False),
+                    col(Submission.nsfw).is_(False),
+                )
+            )
+            .correlate(Document)
         )
-        stmt = stmt.where(
-            or_(col(Document.document_id).in_(comment_tagged), metadata_tagged)
-        )
+        stmt = stmt.where(or_(legacy_tagged, submission_tagged))
         # Tagged listings only surface maps past scratch: moving a map to
         # in_progress or ready_to_share is what "submits" it to the gallery.
         if len(draft_status) == 0:
@@ -1448,7 +1489,7 @@ def get_document_list(
         # this is fine to keep as ->> because you're comparing to text
         stmt = stmt.where(
             col(Document.map_metadata)["draft_status"].astext.in_(
-                [s.value for s in draft_status]
+                [st.value for st in draft_status]
             )
         )
 
