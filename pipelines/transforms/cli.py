@@ -1,7 +1,7 @@
 import click
 import logging
-from transforms.models import AggregateConfig
 from transforms.graph import build_combined_graph_from_gpkg, write_graph, GraphBatch
+from transforms.block_columns import add_block_columns
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,104 +11,6 @@ logger = logging.getLogger(__name__)
 def transforms() -> None:
     """Data transforms pipeline commands."""
     pass
-
-
-@transforms.command("aggregate")
-@click.option(
-    "--blocks-gpkg",
-    "-b",
-    help="Path or URL to blocks GeoPackage file. If URL, must be s3 URI",
-    required=True,
-)
-@click.option(
-    "--layer-name",
-    "-l",
-    help="Name of the layer in the GeoPackage file",
-    required=True,
-)
-@click.option(
-    "--aggregate-to",
-    "-a",
-    type=click.Choice(["block-group", "tract", "county"]),
-    help="Geographic level to aggregate to",
-    required=True,
-)
-@click.option(
-    "--parent-gpkg",
-    "-p",
-    help="Path or URL to parent GeoPackage file. If URL, must be s3 URI",
-    required=True,
-)
-@click.option(
-    "--parent-layer-name",
-    "-n",
-    help="Name of the layer in the parent GeoPackage file",
-    required=True,
-)
-@click.option(
-    "--parent-id-column",
-    "-i",
-    help="Name of the column in the parent GeoPackage file that contains the ID",
-    required=True,
-)
-@click.option(
-    "--graph-layer-name",
-    "-g",
-    help="Name of the graph edges layer in output GeoPackage",
-    default="gerrydb_graph_edge",
-)
-@click.option(
-    "--out-path",
-    "-o",
-    help="Output path for the aggregated GeoPackage",
-    required=True,
-)
-@click.option(
-    "--replace",
-    "-f",
-    help="Replace files if they exist",
-    is_flag=True,
-    default=False,
-)
-@click.option(
-    "--upload",
-    "-u",
-    help="Upload the output to S3",
-    is_flag=True,
-    default=False,
-)
-def aggregate(
-    blocks_gpkg: str,
-    layer_name: str,
-    aggregate_to: str,
-    parent_gpkg: str,
-    parent_layer_name: str,
-    parent_id_column: str,
-    graph_layer_name: str,
-    out_path: str,
-    replace: bool,
-    upload: bool,
-) -> None:
-    """
-    Aggregate block-level data to a higher geographic level (block group, tract, or county).
-    Optionally builds graph edges between adjacent geometries.
-    """
-    config = AggregateConfig(
-        blocks_geopackage=blocks_gpkg,
-        layer_name=layer_name,
-        parent_gpkg=parent_gpkg,
-        parent_layer_name=parent_layer_name,
-        parent_id_column=parent_id_column,
-        aggregate_to=aggregate_to,
-        graph_layer_name=graph_layer_name,
-        out_path=out_path,
-        replace=replace,
-        upload=upload,
-    )
-
-    logger.info(f"Aggregating {layer_name} to {aggregate_to} level")
-    config.generate_aggregated_gpkg()
-    logger.info(f"Aggregation complete. Output saved to {out_path}")
 
 
 @transforms.command("create-graph")
@@ -204,3 +106,55 @@ def batch_create_graphs(
     """Build dual-level graph pkls for all maps in a batch config file."""
     batch = GraphBatch.from_file(file_path=config_path)
     batch.create_all(data_dir=data_dir, replace=replace, upload=upload)
+
+
+@transforms.command("add-block-columns")
+@click.option(
+    "--blocks-gpkg",
+    "-b",
+    required=True,
+    help="Path or s3 URI of the block GeoPackage; layer name = file stem",
+)
+@click.option(
+    "--parent-gpkg",
+    "-p",
+    required=True,
+    help="Path or s3 URI of the parent GeoPackage; layer name = file stem",
+)
+@click.option("--csv", "csv_path", required=True, help="Block-level CSV to add")
+@click.option(
+    "--id-column", default="geoid20", help="CSV column holding the block path"
+)
+@click.option(
+    "--columns",
+    default=None,
+    help="Comma-separated CSV columns to add (default: all but the id column)",
+)
+@click.option("--out-dir", default=None, help="Output directory (default: OUT_SCRATCH)")
+@click.option(
+    "--replace",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Overwrite columns that already exist in either layer",
+)
+def add_block_columns_cmd(
+    blocks_gpkg: str,
+    parent_gpkg: str,
+    csv_path: str,
+    id_column: str,
+    columns: str | None,
+    out_dir: str | None,
+    replace: bool,
+) -> None:
+    """Add block-level CSV columns to a block GeoPackage and sum them into its parent."""
+    blocks_out, parent_out = add_block_columns(
+        blocks_gpkg=blocks_gpkg,
+        parent_gpkg=parent_gpkg,
+        csv_path=csv_path,
+        id_column=id_column,
+        columns=columns.split(",") if columns else None,
+        out_dir=out_dir,
+        replace=replace,
+    )
+    logger.info(f"Wrote {blocks_out} and {parent_out}")

@@ -28,6 +28,47 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+def ogr2ogr_to_gerrydb(
+    path: str,
+    layer: str,
+    table_name: str,
+    overwrite: bool = False,
+    with_geometry: bool = True,
+) -> None:
+    """Load one GeoPackage layer into `gerrydb.<table_name>` with ogr2ogr.
+
+    ogr2ogr opens its own database connection, so the table it writes is
+    committed independently of any SQLAlchemy session. `overwrite=True`
+    drops an existing table first, which also drops every materialized view
+    built on it — only safe for tables nothing depends on. `with_geometry=False`
+    loads the attributes only.
+    """
+    geometry_args = (
+        ["-lco", "GEOMETRY_NAME=geometry", "-nlt", "MULTIPOLYGON"]
+        if with_geometry
+        else ["-nlt", "NONE"]
+    )
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            f"PG:host={settings.POSTGRES_SERVER} port={settings.POSTGRES_PORT} dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD}",
+            path,
+            layer,  # must match layer name in gpkg
+            "-lco",
+            f"OVERWRITE={'yes' if overwrite else 'no'}",
+            *geometry_args,
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{table_name}",
+        ],
+    )
+
+    if result.returncode != 0:
+        logger.error("ogr2ogr failed. Got %s", result)
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
 def import_gerrydb_view(
     session: Session,
     layer: str,
@@ -42,28 +83,7 @@ def import_gerrydb_view(
     if table_name is None:
         table_name = layer
 
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            f"PG:host={settings.POSTGRES_SERVER} port={settings.POSTGRES_PORT} dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD}",
-            path,
-            layer,  # must match layer name in gpkg
-            "-lco",
-            "OVERWRITE=no",  # overwriting drops materialized views
-            "-lco",
-            "GEOMETRY_NAME=geometry",
-            "-nlt",
-            "MULTIPOLYGON",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{table_name}",
-        ],
-    )
-
-    if result.returncode != 0:
-        logger.error("ogr2ogr failed. Got %s", result)
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+    ogr2ogr_to_gerrydb(path=path, layer=layer, table_name=table_name)
 
     # Commit before trying to build index
     session.commit()

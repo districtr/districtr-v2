@@ -162,7 +162,7 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 - `tileset create-gerrydb-tileset` - Generate PMTiles from GeoPackage
 - `tileset merge-gerrydb-tilesets` - Combine parent+child for shatterable maps
 - `tabular build-parquet` / `batch-build-parquet` - Parquet generation for demographic data
-- `transforms aggregate` - Aggregate block-level data to higher geographies
+- `transforms add-block-columns` - Add block-level CSV columns to a block GeoPackage and sum them into its parent
 - `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
 - `transforms batch-create-graphs` - Batch build graph pkls from a config file
 
