@@ -488,12 +488,14 @@ class TestGalleryExclusion:
         listed = client.get(f"/api/documents/list?tags={PORTAL}").json()
         assert listed == []
 
-    def test_hidden_and_nsfw_submissions_leave_the_tag_gallery(
+    def test_nsfw_blurs_and_hidden_removes_in_every_gallery(
         self, client, form_config, document_id, session
     ):
         self._ready_map(client, session, document_id)
         submission_id = _submit(client, map_ref=document_id).json()["id"]
-        assert len(client.get(f"/api/documents/list?tags={PORTAL}").json()) == 1
+        public_id = session.get(Submission, submission_id).map_public_id
+        listed = client.get(f"/api/documents/list?tags={PORTAL}").json()
+        assert [d["nsfw"] for d in listed] == [False]
 
         _set_auth(TEAM_A_PAYLOAD)
         assert (
@@ -502,7 +504,25 @@ class TestGalleryExclusion:
             ).status_code
             == 200
         )
-        assert client.get(f"/api/documents/list?tags={PORTAL}").json() == []
+        # nsfw stays listed, flagged for the frontend's blur.
+        for query in (f"tags={PORTAL}", f"ids={public_id}"):
+            listed = client.get(f"/api/documents/list?{query}").json()
+            assert [d["nsfw"] for d in listed] == [True], query
+
+        assert (
+            client.post(
+                f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
+            ).status_code
+            == 200
+        )
+        # Hidden leaves the tag gallery AND curated (pinned) id galleries...
+        for query in (f"tags={PORTAL}", f"ids={public_id}"):
+            assert client.get(f"/api/documents/list?{query}").json() == [], query
+        # ...while the CMS can still fetch its metadata for the takedown row.
+        listed = client.get(
+            f"/api/documents/list?ids={public_id}&include_hidden=true"
+        ).json()
+        assert [d["public_id"] for d in listed] == [public_id]
 
     def test_cross_portal_tags_cannot_inject_into_another_gallery(
         self, client, form_config, document_id, session
@@ -721,12 +741,12 @@ class TestAutoFinalize:
         # a real user's working map, only clones.
         assert submission.map_is_clone is False
 
-        # ...and the entry actually SURFACES publicly — the whole point of
-        # auto_public vs internal.
-        listed = client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()
-        assert [e["id"] for e in listed] == [submission.id]
+        # ...and the map actually SURFACES in the map gallery — the whole
+        # point of auto_public vs internal. It carries no written content,
+        # so the written-submissions list leaves it out.
         gallery = client.get(f"/api/documents/list?tags={AUTO_PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [doc["public_id"]]
+        assert client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json() == []
 
         # Idempotent: a second submitted-tier PUT is a no-op.
         first_submitted_at = submission.submitted_at
@@ -742,13 +762,14 @@ class TestAutoFinalize:
         # scratch must un-publish everywhere (/api/submissions has no
         # draft_status filter of its own).
         doc = self._create_draft(client, AUTO_PORTAL)
+        gallery_url = f"/api/documents/list?tags={AUTO_PORTAL}"
         self._set_status(client, doc["document_id"], "ready_to_share")
-        assert len(client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()) == 1
+        assert len(client.get(gallery_url).json()) == 1
 
         assert (
             self._set_status(client, doc["document_id"], "scratch").status_code == 200
         )
-        assert client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json() == []
+        assert client.get(gallery_url).json() == []
         submission = session.exec(
             select(Submission).where(
                 col(Submission.submission_id) == doc["submission_id"]
@@ -759,7 +780,7 @@ class TestAutoFinalize:
 
         # Re-promoting re-publishes.
         self._set_status(client, doc["document_id"], "in_progress")
-        assert len(client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json()) == 1
+        assert len(client.get(gallery_url).json()) == 1
 
     def test_takedown_of_auto_entry_never_demotes_the_live_map(self, client, session):
         doc = self._create_draft(client, AUTO_PORTAL)

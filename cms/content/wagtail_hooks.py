@@ -2,11 +2,13 @@
 Team-based scoping for content pages (TagPage, PlacePage) in the Wagtail page
 explorer.
 
-A team-scoped member sees and edits only the content pages tied to a Districtr
-map their teams own (TagPage.districtr_map_slug / any of
-PlacePage.districtr_map_slugs -> DistrictrMap -> DistrictrMapsToGroups ->
-MapGroup). Structural pages (index/home) carry no map association and are left
-to Wagtail's normal, tree-based page permissions.
+A team-scoped member sees and edits only the content pages their teams own:
+a TagPage (portal) when its FormConfig.admin_teams names one of their teams
+(authapi.teams.portal_slugs_for_user — the same key the Portals hub and the
+backend's moderation checks use), a PlacePage when any of its
+districtr_map_slugs is a module their teams hold. Structural pages
+(index/home) carry no team association and are left to Wagtail's normal,
+tree-based page permissions.
 
 Pages use tree-based GroupPagePermission rather than per-object querysets, so
 this overlays hooks: construct_explorer_page_queryset hides out-of-scope pages
@@ -19,23 +21,25 @@ member can still SEE out-of-scope page titles there — every action on them is
 blocked by the hooks above.
 """
 
-from django.urls import path, reverse
+from django.urls import reverse
 from wagtail import hooks
-from wagtail.admin.auth import permission_denied, user_passes_test
+from wagtail.admin.auth import permission_denied
 from wagtail.admin.menu import Menu, SubmenuMenuItem
 from wagtail.models import Locale, Page
 
 from core.menu import GroupMenuItem
 
-from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
+from authapi.teams import (
+    districtr_map_slugs_for_user,
+    portal_slugs_for_user,
+    user_is_team_scoped,
+)
 from content.models import (
     PlacePage,
     PlacesIndexPage,
     StaticIndexPage,
     TagPage,
-    TagsIndexPage,
 )
-from content.portal_wizard import portal_wizard
 
 
 def _is_out_of_scope_page(request, page):
@@ -44,12 +48,13 @@ def _is_out_of_scope_page(request, page):
     if not user_is_team_scoped(request.user):
         return False
     specific = page.specific
-    scoped = districtr_map_slugs_for_user(request.user)
     if isinstance(specific, TagPage):
-        return specific.districtr_map_slug not in scoped
+        return specific.slug not in portal_slugs_for_user(request.user)
     if isinstance(specific, PlacePage):
         # In scope when the page features at least one map the team owns.
-        return scoped.isdisjoint(specific.districtr_map_slugs)
+        return districtr_map_slugs_for_user(request.user).isdisjoint(
+            specific.districtr_map_slugs
+        )
     return False
 
 
@@ -57,12 +62,11 @@ def _is_out_of_scope_page(request, page):
 def scope_content_pages_in_explorer(parent_page, pages, request):
     if not user_is_team_scoped(request.user):
         return pages
-    scoped = list(districtr_map_slugs_for_user(request.user))
-    out_of_scope = TagPage.objects.exclude(districtr_map_slug__in=scoped).values_list(
-        "pk", flat=True
-    )
+    out_of_scope = TagPage.objects.exclude(
+        slug__in=list(portal_slugs_for_user(request.user))
+    ).values_list("pk", flat=True)
     out_of_scope_places = PlacePage.objects.exclude(
-        districtr_map_slugs__overlap=scoped
+        districtr_map_slugs__overlap=list(districtr_map_slugs_for_user(request.user))
     ).values_list("pk", flat=True)
     return pages.exclude(pk__in=out_of_scope).exclude(pk__in=out_of_scope_places)
 
@@ -98,7 +102,6 @@ def deny_out_of_team_bulk_action(request, action_type, objects, action):
 # (the raw Pages tree buries them — "how do I edit /place/colorado?").
 # ---------------------------------------------------------------------------
 
-PORTAL_EDITOR_GROUPS = frozenset({"admin", "partner", "super_partner"})
 ADMIN_ONLY_GROUPS = frozenset({"admin"})
 
 
@@ -130,54 +133,15 @@ class ContentIndexMenuItem(GroupMenuItem):
         return super().is_shown(request)
 
 
-def _is_portal_editor(user):
-    return (
-        user.is_superuser or user.groups.filter(name__in=PORTAL_EDITOR_GROUPS).exists()
-    )
-
-
-@hooks.register("register_admin_urls")
-def register_content_admin_urls():
-    # Mounted under /admin/ and wrapped in require_admin_access by Wagtail;
-    # the wizard additionally requires a portal-editor group.
-    return [
-        path(
-            "portals/new/",
-            user_passes_test(_is_portal_editor)(portal_wizard),
-            name="content_portal_wizard",
-        ),
-    ]
-
-
-class PortalWizardMenuItem(GroupMenuItem):
-    """Resolves the wizard URL lazily, at first menu render."""
-
-    def is_shown(self, request):
-        self.url = reverse("content_portal_wizard")
-        return super().is_shown(request)
-
-
 @hooks.register("register_admin_menu_item")
 def register_site_content_menu_item():
-    # Right after Pages; SubmenuMenuItem self-hides when no child is shown.
+    # Places and static pages only — portals moved to the Portals hub
+    # (portals/wagtail_hooks.py). SubmenuMenuItem self-hides when no child
+    # is shown.
     return SubmenuMenuItem(
         "Site content",
         Menu(
             items=[
-                PortalWizardMenuItem(
-                    "New portal",
-                    url="",
-                    groups=PORTAL_EDITOR_GROUPS,
-                    icon_name="plus",
-                    order=0,
-                ),
-                ContentIndexMenuItem(
-                    "Edit portal pages",
-                    TagsIndexPage,
-                    groups=PORTAL_EDITOR_GROUPS,
-                    icon_name="tag",
-                    order=1,
-                ),
                 ContentIndexMenuItem(
                     "Edit place pages",
                     PlacesIndexPage,

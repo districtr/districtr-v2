@@ -446,7 +446,22 @@ async def list_submissions(
 ):
     """List visible submissions. nsfw rows are included — the frontend blurs
     them with an opt-in reveal. Everything here is public data, so portal_id
-    is optional: gallery blocks filter by tags or curated ids instead."""
+    is optional: gallery blocks filter by tags or curated ids instead.
+
+    Written entries only: a row with no public content (auto-collected, or
+    added by an admin) is a bare map, and bare maps belong to the map
+    gallery (/api/documents/list), not the written-submissions list."""
+    has_public_content = exists(
+        select(literal(1))
+        .select_from(SubmissionContent)
+        .where(
+            and_(
+                col(SubmissionContent.submission_id) == Submission.id,
+                col(SubmissionContent.field).not_in(PRIVATE_FIELDS),
+            )
+        )
+        .correlate(Submission)
+    )
     stmt = (
         select(Submission)
         # Internal-mode portals collect maps for the admin gallery only —
@@ -457,6 +472,7 @@ async def list_submissions(
                 col(Submission.status) == SubmissionStatus.submitted,
                 col(Submission.hidden).is_(False),
                 col(FormConfig.collection_mode) != CollectionMode.internal,
+                has_public_content,
             )
         )
         .order_by(
@@ -700,9 +716,9 @@ async def set_submission_hidden(
 ):
     """Hard takedown/restore for spam and abuse. Resolves the flag report.
 
-    Takedown removes the entry from the portal gallery and the submissions
-    list; it does not delete the map, which stays reachable at its public_id
-    by design. For submitted clone-backed entries, takedown also sets the
+    Takedown removes the entry from every public listing (portal galleries,
+    curated galleries, and the submissions list); it does not delete the map,
+    which stays reachable at its public_id by design. For submitted clone-backed entries, takedown also sets the
     clone's draft_status to scratch, and restore puts it back to
     ready_to_share (the status every clone has by construction). That label
     is bookkeeping; the `hidden` filters are what remove the entry.

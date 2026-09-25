@@ -5,6 +5,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Security,
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
@@ -49,6 +50,8 @@ from app.core.dependencies import (
 from app.core.models import DocumentID
 from app.core.config import settings
 from app.core.security import (
+    TokenScope,
+    auth,
     client_ip_from_request,
     mint_session_token,
     require_session,
@@ -264,6 +267,17 @@ async def create_session(data: SessionCreate, request: Request):
         await verify_session_turnstile(
             data.turnstile_token, client_ip_from_request(request)
         )
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
+@app.post("/api/session/admin")
+async def create_admin_session(
+    _auth: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+):
+    """Mint a session token for a signed-in moderator (the CMS metrics page
+    calls the session-gated /evaluation server-side and cannot solve
+    Turnstile). The scoped access token stands in for the human check."""
     token, expires_at = mint_session_token()
     return {"token": token, "expires_at": expires_at.isoformat()}
 
@@ -1437,7 +1451,21 @@ def get_document_list(
     ids: list[int] = Query(default=[]),
     tags: list[str] = Query(default=[]),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
+    include_hidden: bool = Query(
+        default=False,
+        description="Keep maps taken down by a moderator (the CMS's own "
+        "metadata lookups). A listing convenience, not an access check: any "
+        "map's metadata is fetchable by its public_id.",
+    ),
 ):
+    def _submission_exists(*conditions):
+        return exists(
+            select(literal(1))
+            .select_from(Submission)
+            .where(and_(Submission.map_public_id == Document.public_id, *conditions))
+            .correlate(Document)
+        )
+
     stmt = (
         select(  # type: ignore[no-matching-overload]
             Document.public_id,
@@ -1445,6 +1473,11 @@ def get_document_list(
             Document.updated_at,
             Document.document_type,
             col(DistrictrMap.name).label("map_module"),
+            # Blur, don't drop: galleries render nsfw maps behind an opt-in
+            # reveal, the same as written submissions.
+            _submission_exists(
+                col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
+            ).label("nsfw"),
         )
         .distinct(
             Document.public_id,
@@ -1476,7 +1509,6 @@ def get_document_list(
                     col(Submission.portal_id).in_(tags),
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
-                    col(Submission.nsfw).is_(False),
                     # Internal-mode portals never surface in tag galleries
                     # or the public submissions list. (This is a LISTING
                     # guarantee: any map's metadata remains fetchable by its
@@ -1504,6 +1536,10 @@ def get_document_list(
 
     if len(ids) > 0:
         stmt = stmt.where(col(Document.public_id).in_(ids))
+        # A curated (pinned) gallery must honour a takedown too: Hide is the
+        # one moderation lever, and it has to reach every public listing.
+        if not include_hidden:
+            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
 
     results = session.exec(stmt).all()
     return [
@@ -1513,6 +1549,7 @@ def get_document_list(
             "updated_at": row[2],
             "document_type": row[3],
             "map_module": row[4],
+            "nsfw": row[5],
         }
         for row in results
     ]

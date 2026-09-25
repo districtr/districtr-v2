@@ -24,6 +24,7 @@ from datastore.models import (
     DistrictrMapsToGroups,
     GeoUnitType,
     FormConfig,
+    FormFieldCustom,
     GerryDBTable,
     MapGroup,
     MapType,
@@ -41,6 +42,7 @@ EXPECTED_TABLES = {
     DistrictrMapOverlays: "districtrmap_overlays",
     Overlay: "overlay",
     FormConfig: 'comments"."form_configs',
+    FormFieldCustom: 'comments"."form_fields_custom',
 }
 
 EXPECTED_COLUMNS = {
@@ -93,6 +95,17 @@ EXPECTED_COLUMNS = {
         "require_email_confirm",
         "admin_teams",
         "collection_mode",
+        "created_at",
+        "updated_at",
+    },
+    FormFieldCustom: {
+        "id",
+        "portal_id",
+        "key",
+        "label",
+        "field_type",
+        "required",
+        "sort_order",
         "created_at",
         "updated_at",
     },
@@ -237,9 +250,9 @@ class FormConfigScopingTests(TestCase):
             make_team,
             make_user,
         )
-        from datastore.models import FormConfig
+        from datastore.models import FormConfig, FormFieldCustom
 
-        create_mirror_tables(FormConfig)
+        create_mirror_tables(FormConfig, FormFieldCustom)
         self.partner = make_user("partner", "p@d.org", access_admin=True)
         self.team = make_team("Mine Team", members=[self.partner])
         make_team("Other Team")
@@ -301,9 +314,14 @@ class FormConfigAdminFormTests(TestCase):
             make_team,
             make_user,
         )
-        from datastore.models import DistrictrMap, FormConfig, GerryDBTable
+        from datastore.models import (
+            DistrictrMap,
+            FormConfig,
+            FormFieldCustom,
+            GerryDBTable,
+        )
 
-        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
         # TagPage.full_clean validates districtr_map_slug once the mirror
         # exists, so the referenced map row must too.
         layer = GerryDBTable.objects.create(name="blocks")
@@ -323,6 +341,7 @@ class FormConfigAdminFormTests(TestCase):
         data = {
             "portal_id": "my-portal",
             "name": "My Portal",
+            "collection_mode": "prompt",
             "fields": ["title", "comment"],
             "required_fields": ["title"],
             "admin_teams": ["mine-team"],
@@ -364,9 +383,9 @@ class FormConfigDeleteGuardTests(TestCase):
 
     def setUp(self):
         from core.testing import create_mirror_tables, make_admin_user, make_form_config
-        from datastore.models import FormConfig
+        from datastore.models import FormConfig, FormFieldCustom
 
-        create_mirror_tables(FormConfig)
+        create_mirror_tables(FormConfig, FormFieldCustom)
         self.config = make_form_config("busy-portal")
         self.client.force_login(make_admin_user())
         self.url = f"/admin/snippets/datastore/formconfig/delete/{self.config.pk}/"

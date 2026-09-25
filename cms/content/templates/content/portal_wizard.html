@@ -2,26 +2,182 @@
 {% block titletag %}New portal{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Create a portal page and its submission form in one step" icon="tag" %}
+    <style>
+        /* The module list can be long; keep it scannable and scrollable. */
+        #id_map_modules {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+    </style>
+    {% include "wagtailadmin/shared/header.html" with title="New portal" subtitle="Answer a few questions — the page is generated for you" icon="tag" %}
 
     <div class="nice-padding">
         <p>
-            This creates a <strong>draft</strong> portal page from a starter
-            template plus the portal's form configuration. Everything can be
-            adjusted afterwards — the page in the page editor, the form in
-            <em>Portal forms</em>.
+            This creates a <strong>draft</strong> portal page and its
+            submission settings from your answers. Everything can be adjusted
+            afterwards — the page in the page editor, the form in
+            <em>Portal forms</em>. Staff review the page before it goes live;
+            submissions themselves are public on arrival.
         </p>
-        <form action="" method="POST" novalidate>
+        <form action="" method="POST" novalidate id="portal-wizard">
             {% csrf_token %}
             {% include "wagtailadmin/shared/non_field_errors.html" %}
-            <ul class="fields">
-                {% for field in form %}
+
+            <fieldset class="wizard-step" data-step-title="About the portal">
+                <legend><h2>About the portal</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.title %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.slug %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.admin_teams %}</li>
+                </ul>
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step-title="Maps">
+                <legend><h2>Maps</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.collection_mode %}</li>
                     <li>
-                        {% include "wagtailadmin/shared/field.html" with field=field %}
+                        <label for="module-search">Find a map module</label>
+                        <input type="search" id="module-search" placeholder="Type to filter the modules below…" autocomplete="off" style="max-width: 24rem;">
                     </li>
-                {% endfor %}
-            </ul>
-            <button type="submit" class="button">Create portal</button>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.map_modules %}</li>
+                </ul>
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step-title="The submission form">
+                <legend><h2>The submission form</h2></legend>
+                <ul class="fields">
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.fields %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.required_fields %}</li>
+                    <li>{% include "wagtailadmin/shared/field.html" with field=form.require_email_confirm %}</li>
+                    <li>
+                        <h3>Custom questions</h3>
+                        <p class="help">
+                            Extra questions beyond the standard fields (short
+                            answer or paragraph). Answers are PUBLIC and cannot
+                            be made private — do not ask for email, phone, or
+                            address here (the standard email field is the
+                            private channel, never shown publicly). Only used
+                            when submitters fill a form. Leave a row blank to
+                            skip it.
+                        </p>
+                        {% if question_formset.non_form_errors %}
+                            <div class="w-field--error" role="alert">
+                                {% for error in question_formset.non_form_errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {{ question_formset.management_form }}
+                        <table class="listing" style="max-width: 48rem;">
+                            <thead><tr><th>Question</th><th>Type</th><th>Required</th></tr></thead>
+                            <tbody id="question-rows">
+                                {% for qform in question_formset %}
+                                    <tr>
+                                        <td>{{ qform.label }}</td>
+                                        <td>{{ qform.field_type }}</td>
+                                        <td>{{ qform.required }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <template id="question-row-template">
+                            <tr>
+                                <td>{{ question_formset.empty_form.label }}</td>
+                                <td>{{ question_formset.empty_form.field_type }}</td>
+                                <td>{{ question_formset.empty_form.required }}</td>
+                            </tr>
+                        </template>
+                        <button type="button" class="button button-small button-secondary" id="add-question">
+                            Add another question
+                        </button>
+                    </li>
+                </ul>
+            </fieldset>
+
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem;">
+                <button type="button" class="button button-secondary" id="wizard-back">Back</button>
+                <button type="button" class="button" id="wizard-next">Next</button>
+                <button type="submit" class="button" id="wizard-submit">Create portal</button>
+                <span class="help" id="wizard-progress"></span>
+            </div>
         </form>
     </div>
+
+    <script>
+        (function () {
+            // Unlimited custom questions: clone the empty-form template,
+            // renumber __prefix__, bump the management form's TOTAL_FORMS.
+            const total = document.querySelector('input[name="questions-TOTAL_FORMS"]');
+            document.getElementById('add-question').addEventListener('click', () => {
+                const index = parseInt(total.value, 10);
+                const html = document.getElementById('question-row-template')
+                    .innerHTML.replaceAll('__prefix__', index);
+                document.getElementById('question-rows')
+                    .insertAdjacentHTML('beforeend', html);
+                total.value = index + 1;
+            });
+
+            // Module filter: hide non-matching checkboxes as you type.
+            // Checked modules stay visible (and stay submitted regardless),
+            // so a filter can never silently drop a selection.
+            const moduleBoxes = Array.from(document.querySelectorAll('input[name="map_modules"]'))
+                .map(input => ({row: input.closest('li') || input.parentElement, input}));
+            document.getElementById('module-search').addEventListener('input', (event) => {
+                const query = event.target.value.trim().toLowerCase();
+                moduleBoxes.forEach(({row, input}) => {
+                    row.hidden = Boolean(query) && !input.checked
+                        && !row.textContent.toLowerCase().includes(query);
+                });
+            });
+
+            // Pagination: one step at a time. The server validates the whole
+            // form in one POST; an error re-render opens on the first step
+            // holding an error, with that field scrolled into view.
+            const steps = Array.from(document.querySelectorAll('.wizard-step'));
+            const back = document.getElementById('wizard-back');
+            const next = document.getElementById('wizard-next');
+            const submit = document.getElementById('wizard-submit');
+            const progress = document.getElementById('wizard-progress');
+            // Auto-collected portals never show a submitter form, so the
+            // form step is skipped (the server ignores its answers too).
+            const formStep = steps[steps.length - 1];
+            const activeSteps = () => {
+                const mode = document.querySelector('input[name="collection_mode"]:checked');
+                return mode && ['internal', 'auto_public'].includes(mode.value)
+                    ? steps.filter(step => step !== formStep) : steps;
+            };
+            let current = 0;
+            const show = (index) => {
+                const active = activeSteps();
+                current = Math.min(index, active.length - 1);
+                steps.forEach(step => { step.hidden = true; });
+                active[current].hidden = false;
+                back.hidden = current === 0;
+                next.hidden = current === active.length - 1;
+                submit.hidden = current !== active.length - 1;
+                progress.textContent =
+                    `Step ${current + 1} of ${active.length}: ${active[current].dataset.stepTitle}`;
+            };
+            back.addEventListener('click', () => show(current - 1));
+            next.addEventListener('click', () => show(current + 1));
+            // Picking an auto mode on the Maps step turns it into the last
+            // step — refresh the Next/Create buttons in place.
+            document.querySelectorAll('input[name="collection_mode"]').forEach(radio => {
+                radio.addEventListener('change', () => show(current));
+            });
+            // Enter mid-wizard advances instead of submitting a half-read form.
+            document.getElementById('portal-wizard').addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA'
+                    && current < activeSteps().length - 1) {
+                    event.preventDefault();
+                    show(current + 1);
+                }
+            });
+            const firstError = document.querySelector('.wizard-step .w-field--error');
+            const errorStep = firstError ? activeSteps().indexOf(firstError.closest('.wizard-step')) : -1;
+            show(Math.max(errorStep, 0));
+            if (firstError) firstError.scrollIntoView({block: 'center'});
+        })();
+    </script>
 {% endblock %}

@@ -23,6 +23,7 @@ EXCLUDED_COLUMNS: dict[str, frozenset[str]] = {
     "districtrmap_overlays": frozenset(),
     "overlay": frozenset(),
     'comments"."form_configs': frozenset(),
+    'comments"."form_fields_custom': frozenset(),
 }
 
 

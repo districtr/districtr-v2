@@ -1,0 +1,96 @@
+{% extends "wagtailadmin/base.html" %}
+{% block titletag %}Gallery: {{ portal.title }}{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title=portal.title subtitle="Submissions — public by default; hide abusive material here" icon="tag" %}
+
+    <div class="nice-padding">
+        <p>
+            <a href="{% url 'portals_index' %}">← All portals</a>
+            · <a href="{% url 'portals_metrics' portal.slug %}">Map metrics</a>
+            {% if config %}· collection mode: <code>{{ config.collection_mode }}</code>{% endif %}
+        </p>
+
+        <form method="get" novalidate style="display:flex; gap:1rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
+            <label>Status
+                <select name="status">
+                    <option value="" {% if not filters.status %}selected{% endif %}>All</option>
+                    <option value="submitted" {% if filters.status == "submitted" %}selected{% endif %}>Submitted</option>
+                    <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>Draft (map started)</option>
+                </select>
+            </label>
+            <label>Reported
+                <select name="flagged">
+                    <option value="">All</option>
+                    <option value="1" {% if filters.flagged == "1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if filters.flagged == "0" %}selected{% endif %}>No</option>
+                </select>
+            </label>
+            <label>Blurred
+                <select name="nsfw">
+                    <option value="">All</option>
+                    <option value="1" {% if filters.nsfw == "1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if filters.nsfw == "0" %}selected{% endif %}>No</option>
+                </select>
+            </label>
+            <label>Hidden
+                <select name="hidden">
+                    <option value="">All</option>
+                    <option value="1" {% if filters.hidden == "1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if filters.hidden == "0" %}selected{% endif %}>No</option>
+                </select>
+            </label>
+            <label>Has map
+                <select name="has_map">
+                    <option value="">All</option>
+                    <option value="1" {% if filters.has_map == "1" %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if filters.has_map == "0" %}selected{% endif %}>No</option>
+                </select>
+            </label>
+            <button type="submit" class="button">Filter</button>
+            <a class="button button-secondary" href="{% url 'portals_gallery' portal.slug %}">Clear</a>
+        </form>
+
+        <form method="post" action="{% url 'portals_add_map' portal.slug %}" novalidate style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+            {% csrf_token %}
+            <label>Add an existing map
+                <input type="text" name="map_ref" placeholder="Map public ID or link" required>
+            </label>
+            <button type="submit" class="button">Add to portal</button>
+        </form>
+        <p class="help">
+            Adds the live map to this portal (a map can belong to several
+            portals). It appears publicly once its status is in progress or
+            ready to share; hide it here like any other entry.
+        </p>
+
+        <hr />
+
+        {% if error %}
+            <div class="help-block help-critical"><p>{{ error }}</p></div>
+        {% endif %}
+
+        {% if entries %}
+            <p class="help">
+                <strong>Hide</strong> and <strong>Blur</strong> change the
+                public site immediately. Pinning a plan saves a draft of the
+                portal page; the pin shows once the page is published.
+            </p>
+        {% endif %}
+        {% for entry in entries %}
+            {% include "portals/_entry.html" %}
+        {% empty %}
+            {% if not error %}<p>No submissions match the current filters.</p>{% endif %}
+        {% endfor %}
+
+        <nav>
+            {% if page > 1 %}
+                <a class="button button-secondary" href="?p={{ prev_page }}{% if base_qs %}&{{ base_qs }}{% endif %}">Previous</a>
+            {% endif %}
+            <span style="margin: 0 0.5rem;">Page {{ page }}</span>
+            {% if has_next %}
+                <a class="button button-secondary" href="?p={{ next_page }}{% if base_qs %}&{{ base_qs }}{% endif %}">Next</a>
+            {% endif %}
+        </nav>
+    </div>
+{% endblock %}
