@@ -82,6 +82,17 @@ def _drop_table_autocommit(session: Session, table: str) -> None:
         conn.execute(sa.text(f'DROP TABLE IF EXISTS {GERRY_DB_SCHEMA}."{table}"'))
 
 
+def _drop_columns_autocommit(session: Session, table: str, columns: list[str]) -> None:
+    """Drop columns on a fresh connection, independent of the session's transaction."""
+    if not columns:
+        return
+    engine = session.get_bind().engine
+    drops = ", ".join(f"DROP COLUMN IF EXISTS {_quote_ident(c)}" for c in columns)
+    with engine.begin() as conn:
+        conn.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
+        conn.execute(sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {drops}"))
+
+
 @dataclass
 class AddColumnsResult:
     added: list[str]
@@ -106,8 +117,9 @@ def add_gerrydb_columns(
     in which case its values are overwritten.
 
     Every staging `path` must match a table row and every table row must
-    match a staging `path`; any mismatch aborts with nothing changed. The
-    caller commits the session.
+    match a staging `path`; any mismatch aborts with nothing changed. New
+    columns are committed before the UPDATE, and dropped again if the UPDATE
+    fails. The caller commits the UPDATE.
     """
     assert_safe_ident(table)
     if replace and not columns:
@@ -130,28 +142,81 @@ def add_gerrydb_columns(
         _drop_table_autocommit(session, staging)
         raise
 
-    # Everything touching the staging table runs inside a savepoint: rolling
-    # it back releases the locks it took, so the failure path can drop the
-    # staging table from another connection.
+    # Validation runs inside a savepoint: rolling it back releases the locks
+    # it took, so the failure path can drop the staging table from another
+    # connection.
     savepoint = session.begin_nested()
     try:
-        result = _apply_staged_columns(session, table, staging, columns, replace)
-        session.execute(sa.text(f'DROP TABLE {GERRY_DB_SCHEMA}."{staging}"'))
+        selected, added, staging_types = _select_columns(
+            session, table, staging, columns, replace
+        )
         savepoint.commit()
     except Exception:
         savepoint.rollback()
         _drop_table_autocommit(session, staging)
         raise
-    return result
+
+    # Adding a nullable column is instant but needs an exclusive lock, which
+    # would block every reader of the table until the UPDATE finished. It is
+    # committed on its own; the new columns stay invisible to requests until
+    # the shatterable view is rebuilt, because stats read the view.
+    if added:
+        clauses = []
+        for name in added:
+            type_ = staging_types[name]
+            if not _SAFE_TYPE_RE.match(type_):
+                _drop_table_autocommit(session, staging)
+                raise ValueError(f"Unexpected type {type_!r} for column {name}")
+            clauses.append(f"ADD COLUMN {_quote_ident(name)} {type_}")
+        try:
+            session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
+            session.execute(
+                sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {', '.join(clauses)}")
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+            _drop_table_autocommit(session, staging)
+            raise
+
+    try:
+        session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
+        assignments = ", ".join(
+            f"{_quote_ident(name)} = s.{_quote_ident(name)}" for name in selected
+        )
+        rows_updated = session.execute(
+            sa.text(
+                f"UPDATE {GERRY_DB_SCHEMA}.{table} AS t SET {assignments} "
+                f'FROM {GERRY_DB_SCHEMA}."{staging}" AS s WHERE t.path = s.path'
+            )
+        ).rowcount
+        session.execute(sa.text(f'DROP TABLE {GERRY_DB_SCHEMA}."{staging}"'))
+    except Exception:
+        session.rollback()
+        _drop_columns_autocommit(session, table, added)
+        _drop_table_autocommit(session, staging)
+        raise
+
+    replaced = [c for c in selected if c not in added]
+    logger.info(
+        "Updated %s rows of %s.%s (added %s, replaced %s)",
+        rows_updated,
+        GERRY_DB_SCHEMA,
+        table,
+        added,
+        replaced,
+    )
+    return AddColumnsResult(added=added, replaced=replaced, rows_updated=rows_updated)
 
 
-def _apply_staged_columns(
+def _select_columns(
     session: Session,
     table: str,
     staging: str,
     columns: list[str] | None,
     replace: bool,
-) -> AddColumnsResult:
+) -> tuple[list[str], list[str], dict[str, str]]:
+    """Validate the staged layer against the table; return the columns to write."""
     session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
 
     staging_types = _column_types(session, staging)
@@ -219,37 +284,7 @@ def _apply_staged_columns(
         )
 
     added = [c for c in selected if c not in table_types]
-    replaced = [c for c in selected if c in table_types]
-    if added:
-        session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
-        clauses = []
-        for name in added:
-            type_ = staging_types[name]
-            if not _SAFE_TYPE_RE.match(type_):
-                raise ValueError(f"Unexpected type {type_!r} for column {name}")
-            clauses.append(f"ADD COLUMN {_quote_ident(name)} {type_}")
-        session.execute(
-            sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {', '.join(clauses)}")
-        )
-
-    assignments = ", ".join(
-        f"{_quote_ident(name)} = s.{_quote_ident(name)}" for name in selected
-    )
-    rows_updated = session.execute(
-        sa.text(
-            f"UPDATE {GERRY_DB_SCHEMA}.{table} AS t SET {assignments} "
-            f'FROM {GERRY_DB_SCHEMA}."{staging}" AS s WHERE t.path = s.path'
-        )
-    ).rowcount
-    logger.info(
-        "Updated %s rows of %s.%s (added %s, replaced %s)",
-        rows_updated,
-        GERRY_DB_SCHEMA,
-        table,
-        added,
-        replaced,
-    )
-    return AddColumnsResult(added=added, replaced=replaced, rows_updated=rows_updated)
+    return selected, added, staging_types
 
 
 @dataclass
