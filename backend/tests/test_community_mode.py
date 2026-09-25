@@ -168,7 +168,7 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
         .execute(
             text("""
             SELECT zone
-            FROM comments.document_comment
+            FROM comments.district_notes
             WHERE document_id = :document_id
             """),
             {"document_id": community_document_id},
@@ -367,7 +367,7 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
         .execute(
             text("""
             SELECT COUNT(*)
-            FROM comments.document_comment
+            FROM comments.district_notes
             WHERE document_id = :document_id
             """),
             {"document_id": community_document_id},
@@ -602,11 +602,10 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
         session.connection()
         .execute(
             text("""
-            SELECT dc.zone, c.id, c.title, c.comment
-            FROM comments.document_comment dc
-            JOIN comments.comment c ON c.id = dc.comment_id
-            WHERE dc.document_id = :document_id
-            ORDER BY dc.zone
+            SELECT zone, id, note
+            FROM comments.district_notes
+            WHERE document_id = :document_id
+            ORDER BY zone
             """),
             {"document_id": community_document_id},
         )
@@ -614,7 +613,7 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
     )
     assert len(remaining_comment_rows) == 2
     assert remaining_comment_rows[0][0] == 1  # zone
-    assert remaining_comment_rows[0][3] == "Community 1 updated note"  # comment text
+    assert remaining_comment_rows[0][2] == "Community 1 updated note"  # note text
 
     delete_all_response = client.put(
         "/api/assignments",
@@ -639,7 +638,7 @@ def test_sync_community_comments_updates_and_deletes_existing_rows(
         .execute(
             text("""
             SELECT COUNT(*)
-            FROM comments.document_comment
+            FROM comments.district_notes
             WHERE document_id = :document_id
             """),
             {"document_id": community_document_id},

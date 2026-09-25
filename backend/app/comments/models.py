@@ -363,7 +363,6 @@ class CommentFilterParams(BaseModel):
     limit: int = 100
     offset: int = 0
     public_id: int | None = None
-    document_id: str | None = None  # For district comments: filter by document UUID
     comment_id: int | None = None  # Look up specific comment by ID
     review_flagged: bool | None = (
         None  # When True, filter to comments flagged for review
@@ -372,9 +371,3 @@ class CommentFilterParams(BaseModel):
 
 class FlagCommentRequest(BaseModel):
     comment_id: int
-
-
-class DistrictCommentInput(BaseModel):
-    comment_id: int | None = None
-    zone: int
-    text: str

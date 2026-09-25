@@ -16,15 +16,13 @@ from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
 )
-from app.comments.models import DocumentComment, Comment
-from app.comments.moderation import MODERATION_THRESHOLD
-from app.comments.models import ReviewStatus
-from app.comments.settings import (
+from app.district_notes import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+    DistrictNote,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -208,57 +206,30 @@ def get_document_public(
                 for overlay in overlays
             ]
 
-    # Fetch scoped map comments from comments schema.
-    # Both district and community maps use DocumentComment.zone as the scoped identifier.
-    # Apply moderation: if comment fails threshold, show placeholder text.
+    # Fetch zone notes. Both district and community maps use zone as the
+    # scoped identifier. Edit access always sees the real text; public access
+    # sees a placeholder for nsfw notes.
     MODERATION_PLACEHOLDER = "Comment removed due to moderation."
     document_comments_list = None
     if result.real_document_id:
-        stmt = (
-            select(  # type: ignore[n-matching-overload]
-                DocumentComment.comment_id,
-                DocumentComment.zone,
-                Comment.comment,
-                Comment.created_at,
-                Comment.updated_at,
-                Comment.moderation_score,
-                Comment.review_status,
+        notes = session.exec(
+            select(DistrictNote).where(
+                col(DistrictNote.document_id) == result.real_document_id
             )
-            .select_from(DocumentComment)
-            .join(Comment, Comment.id == DocumentComment.comment_id)
-            .where(
-                and_(
-                    col(DocumentComment.document_id) == result.real_document_id,
-                    col(DocumentComment.zone).is_not(None),
-                )
-            )
-        )
-        doc_comments = session.exec(stmt).all()
-        if len(doc_comments) > 0:
+        ).all()
+        if len(notes) > 0:
             document_comments_list = []
             is_edit_access = not document_id.is_public
-            for dc in doc_comments:
-                # Check moderation: show placeholder if rejected or exceeds threshold
-                fails_moderation = dc.review_status == ReviewStatus.REJECTED or (
-                    dc.moderation_score is not None
-                    and dc.moderation_score > MODERATION_THRESHOLD
-                    and dc.review_status != ReviewStatus.APPROVED
-                )
-                # Edit access: show full comment + moderated flag. Public: show placeholder only.
-                if fails_moderation:
-                    text = dc.comment if is_edit_access else MODERATION_PLACEHOLDER
-                    moderated = True
-                else:
-                    text = dc.comment
-                    moderated = False
+            for note in notes:
+                show_text = is_edit_access or not note.nsfw
                 document_comments_list.append(
                     DocumentCommentPublic(
-                        comment_id=str(dc.comment_id),
-                        zone=dc.zone,
-                        text=text,
-                        moderated=moderated,
-                        created_at=dc.created_at,
-                        updated_at=dc.updated_at,
+                        comment_id=str(note.id),
+                        zone=note.zone,
+                        text=note.note if show_text else MODERATION_PLACEHOLDER,
+                        moderated=note.nsfw,
+                        created_at=note.created_at,
+                        updated_at=note.updated_at,
                     )
                 )
 
