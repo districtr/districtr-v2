@@ -16,6 +16,7 @@ export function FormField({
   options,
   validator,
   pattern,
+  maxLength,
   invalidMessage,
   value: valueOverride,
   onChangeValue,
@@ -59,6 +60,7 @@ export function FormField({
     'data-invalid': invalid,
     'aria-invalid': invalid,
     pattern,
+    maxLength,
   };
   return (
     <Tooltip

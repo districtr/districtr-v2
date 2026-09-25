@@ -24,6 +24,10 @@ class Team(ClusterableModel):
     form_configs.admin_teams keeps the old string, re-login mints the new
     one, and they never match again (an admin must re-edit every affected
     portal form). Treat slugs as immutable after creation.
+
+    Deleting a team leaves its slug in those portals' admin_teams (the record
+    of who moderated what). Retire a deleted team's slug for good: a new team
+    created under the same slug would inherit that moderation reach.
     """
 
     name = models.CharField(max_length=255, unique=True)

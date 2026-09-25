@@ -24,6 +24,9 @@ import {Box, Button, Flex, Grid, SegmentedControl, Spinner, Table, Text} from '@
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {nanoid} from 'nanoid';
 
+/** FastAPI `limit: int = Query(le=100)` on the submissions and documents lists. */
+const API_MAX_LIMIT = 100;
+
 /** Returns responsive column counts based on the number of items */
 const getDefaultColumns = (numItems: number) => ({
   initial: '1',
@@ -105,7 +108,9 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   // Unique ID to avoid query key collisions when multiple galleries exist on the same page
   const galleryQueryId = useRef(nanoid());
   const [page, setPage] = useState(0);
-  const [displayLimit] = useState<number>(Number(limit) || 12);
+  // The list endpoints cap `limit` at 100 and we peek one ahead, so 99 is the
+  // largest page that actually works; an editor typing 100 got a 422 and a blank region.
+  const [displayLimit] = useState<number>(Math.min(Number(limit) || 12, API_MAX_LIMIT - 1));
   const [view, setView] = useState<'grid' | 'list'>(initialView);
 
   const {data, isLoading} = useQuery({

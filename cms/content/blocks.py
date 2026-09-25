@@ -4,9 +4,12 @@ nodes used by the Next.js frontend.
 
 CRITICAL CONTRACT: struct-child names keep the EXACT camelCase attribute
 names defined in app/src/app/constants/cms.ts (PLAN_GALLERY_ATTRIBUTES,
-COMMENT_GALLERY_ATTRIBUTES, FORM_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES,
-and the boilerplate/sectionHeader node attrs) so the frontend can spread a
-block's ``value`` straight into the matching React component as props.
+COMMENT_GALLERY_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES, and the
+boilerplate/sectionHeader node attrs) so the frontend can spread a block's
+``value`` straight into the matching React component as props. The form
+block has no attribute list: its value is typed by FormBlock in
+app/src/app/utils/api/cmsContent.ts and spread into SubmissionFormProps
+(see the note in constants/cms.ts).
 
 TipTap node name (app/src/app/components/Cms/RichTextEditor/extensions/)
 maps to stream block name as follows:
@@ -163,7 +166,7 @@ class PlanGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to plans with these tags (empty = no filter).",
+        help_text="Portal slugs whose submitted plans to list (empty = no filter).",
     )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
@@ -197,7 +200,7 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to comments with these tags (empty = no filter).",
+        help_text="Portal slugs whose submissions to list (empty = no filter).",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
@@ -221,7 +224,8 @@ class CommentGalleryBlock(CompatStructBlock):
 
 
 class FormBlock(CompatStructBlock):
-    """The submission-form placement marker; mirrors FORM_ATTRIBUTES.
+    """The submission-form placement marker; its value is FormBlock in
+    app/src/app/utils/api/cmsContent.ts.
 
     Which fields the form shows lives portal-level in the FormConfig mirror
     (datastore.models.FormConfig), injected into the API representation by
@@ -231,12 +235,6 @@ class FormBlock(CompatStructBlock):
     ``allowListModules.includes(slug)`` rejects every module.
     """
 
-    mandatoryTags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        label="Mandatory tags",
-        help_text="Tags automatically applied to every submission.",
-    )
     allowListModules = blocks.ListBlock(
         blocks.ChoiceBlock(choices=districtr_map_slug_choices),
         default=[],

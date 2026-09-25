@@ -245,8 +245,65 @@ class TagPage(ContentPageBase):
     def get_frontend_path(self):
         return f"/portal/{self.slug}"
 
+    # The portal's FormConfig is keyed by the default-locale page slug
+    # (FormConfig.portal_id), so renaming the page must carry the config along
+    # or the submission form silently disappears. The backend FKs on
+    # form_configs.portal_id are ON UPDATE CASCADE, so submissions, custom
+    # questions and document ownership follow the config.
+
+    def _stored_slug(self):
+        if not self.pk:
+            return None
+        return (
+            type(self).objects.filter(pk=self.pk).values_list("slug", flat=True).first()
+        )
+
+    def _owns_form_config_key(self):
+        from wagtail.models import Locale
+
+        return self.locale_id == Locale.get_default().id
+
+    @staticmethod
+    def _form_configs():
+        """FormConfig mirror queryset, or None when the table is absent (the
+        mirror is managed=False, so test databases may not have it)."""
+        from datastore.models import FormConfig
+
+        try:
+            with transaction.atomic():
+                FormConfig.objects.exists()
+        except DatabaseError:
+            return None
+        return FormConfig.objects
+
+    def save(self, *args, **kwargs):
+        old_slug = self._stored_slug() if self._owns_form_config_key() else None
+        super().save(*args, **kwargs)
+        # Compare what's stored, not self.slug: draft saves keep a pending
+        # slug in memory without writing it; only a publish changes the row.
+        new_slug = self._stored_slug() if old_slug else None
+        configs = self._form_configs() if old_slug and new_slug != old_slug else None
+        if configs is not None:
+            configs.filter(portal_id=old_slug).update(portal_id=new_slug)
+
     def clean(self):
         super().clean()
+        old_slug = self._stored_slug() if self._owns_form_config_key() else None
+        if old_slug and self.slug != old_slug:
+            configs = self._form_configs()
+            if (
+                configs is not None
+                and configs.filter(portal_id=old_slug).exists()
+                and configs.filter(portal_id=self.slug).exists()
+            ):
+                raise ValidationError(
+                    {
+                        "slug": (
+                            f"Another portal form already uses {self.slug!r}, "
+                            "so this portal's form can't move to it."
+                        )
+                    }
+                )
         if not self.districtr_map_slug:
             return
         # Validate against the datastore mirror when it is reachable. The

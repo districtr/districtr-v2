@@ -15,8 +15,8 @@ class Migration(migrations.Migration):
             name="FormConfig",
             fields=[
                 ("id", models.AutoField(primary_key=True, serialize=False)),
-                ("portal_id", models.CharField(unique=True)),
-                ("name", models.CharField()),
+                ("portal_id", models.CharField(max_length=255, unique=True)),
+                ("name", models.CharField(max_length=255)),
                 (
                     "fields",
                     django.contrib.postgres.fields.ArrayField(
