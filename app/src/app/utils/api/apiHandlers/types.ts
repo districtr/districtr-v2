@@ -83,6 +83,9 @@ export interface Community {
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
+  /** Draft-submission finalize capability, present when the document was
+   * created with a portal_id (map-from-portal pathway). */
+  submission_id?: string | null;
   /** True when the map has an edit password; lets read-only viewers unlock draw mode. */
   password_required?: boolean;
   districtr_map_slug: string;
@@ -138,6 +141,9 @@ export interface DocumentCreate {
   map_type?: MapType;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
+  /** Portal slug: creates a draft submission alongside the document
+   * (the map-from-portal auto-submit pathway). */
+  portal_id?: string | null;
 }
 
 export type ShatterResult = Array<{

@@ -1,4 +1,4 @@
-import {post, put} from '../factory';
+import {get, post, put} from '../factory';
 
 export interface SubmissionCreate {
   portal_id: string;
@@ -53,3 +53,15 @@ export const finalizeSubmission = async (
   }
   return {ok: true, data: response.response};
 };
+
+export interface FormConfigPublic {
+  portal_id: string;
+  name: string;
+  fields: string[];
+  required_fields: string[];
+  require_email_confirm: boolean;
+}
+
+/** Public read of a portal's form shape (the abbreviated map-submission form). */
+export const getFormConfig = async (portalId: string) =>
+  get<FormConfigPublic>('submissions/form_config')({queryParams: {portal_id: portalId}});
