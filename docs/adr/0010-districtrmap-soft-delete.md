@@ -4,7 +4,7 @@ Date: 2024-11-18 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted. Amended by [0056](0056-cms-schema-ownership.md)
 
 ## Context
 

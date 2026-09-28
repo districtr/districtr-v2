@@ -4,7 +4,7 @@ Date: 2025-09-02 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Superseded by [0059](0059-submissions-form-configs.md) and [0060](0060-submissions-public-on-arrival.md)
 
 ## Context
 

@@ -59,3 +59,11 @@ To add a decision: copy the section structure of any record into the next-number
 | [0051](0051-pr-previews-dev-stack.md) | Ephemeral PR previews as label-driven clones on the dev stack | 2026-08-05 |
 | [0052](0052-mmap-shared-graphs.md) | Graphs memory-mapped and shared across workers | 2026-08-28 |
 | [0053](0053-fastapi-handler-dispatch.md) | FastAPI handler dispatch: `def` vs `async def` | 2026-09-04 |
+| [0054](0054-wagtail-cms-service.md) | The Districtr CMS: a separate Wagtail service for content, users, and data admin | 2026-09-23 |
+| [0055](0055-cms-identity-provider.md) | The CMS issues every JWT; the backend verifies any JWKS-published token by scope | 2026-09-23 |
+| [0056](0056-cms-schema-ownership.md) | One database, split schema ownership: Django owns `admin`, Alembic owns the rest | 2026-09-23 |
+| [0057](0057-roles-team-scoped-moderation.md) | Roles are Django groups; moderation is scoped by a fail-closed `teams` claim | 2026-09-23 |
+| [0058](0058-district-notes-table.md) | District notes split from public testimony into their own table | 2026-09-25 |
+| [0059](0059-submissions-form-configs.md) | Submissions: per-portal form configs over field/value rows replace the comment tables | 2026-09-25 |
+| [0060](0060-submissions-public-on-arrival.md) | Submissions are public on arrival; moderation is automatic scoring plus admin takedown | 2026-09-25 |
+| [0061](0061-map-portal-ownership-collection-modes.md) | A map belongs to at most one portal; each portal chooses a collection mode | 2026-09-25 |

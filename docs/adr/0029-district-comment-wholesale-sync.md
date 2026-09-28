@@ -4,7 +4,7 @@ Date: 2026-02-23 (PR #489; semantics found at code level, not stated in the PR b
 
 ## Status
 
-Accepted
+Accepted. Amended by [0058](0058-district-notes-table.md)
 
 ## Context
 

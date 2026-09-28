@@ -4,7 +4,7 @@ Date: 2026-07-22 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted. Amended by [0055](0055-cms-identity-provider.md)
 
 ## Context
 

@@ -4,7 +4,7 @@ Date: 2025-05-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Superseded by [0055](0055-cms-identity-provider.md)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Districtr v2 is a community redistricting platform that lets users draw and evaluate electoral district maps interactively in the browser. The system is a monorepo with four main components.
+Districtr v2 is a community redistricting platform that lets users draw and evaluate electoral district maps interactively in the browser. The system is a monorepo with five main components: the frontend, the backend, the Wagtail CMS, the data pipelines, and the infrastructure code.
 
 ## System Diagram
 
@@ -16,8 +16,9 @@ graph TD
         Parquet["Parquet<br/>(demographic tables)"]
     end
 
-    subgraph Auth["Auth0 (OAuth2)"]
-        JWT["JWT tokens"]
+    subgraph CMS["Wagtail CMS (Django)"]
+        Content["Pages · Users/teams<br/>Portals & moderation · Map admin"]
+        Issuer["JWT issuer (JWKS)"]
     end
 
     subgraph Browser["Browser"]
@@ -29,12 +30,12 @@ graph TD
         subgraph App["Next.js Frontend (React)"]
             Zustand["Zustand stores"]
             IDB["IndexedDB<br/>(draft cache)"]
-            UI["Map UI · Toolbar · Demographics · CMS"]
+            UI["Map UI · Toolbar · Demographics · CMS pages"]
         end
     end
 
     subgraph API["FastAPI Backend"]
-        Endpoints["Assignments (COPY bulk) · Documents<br/>Contiguity · CMS · Comments<br/>Exports · Share/Access Control"]
+        Endpoints["Assignments (COPY bulk) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control · Admin ops"]
         Note["Does NOT serve tiles or demographic data"]
     end
 
@@ -46,16 +47,18 @@ graph TD
     P2 -->|upload| Parquet
     Tiles -->|HTTP range requests| MapLibre
     Parquet -->|HTTP range requests| PW
-    JWT -->|session cookie| App
+    Content -->|"page content (JSON)"| App
+    Issuer -->|"short-lived RS256 JWT"| API
+    CMS -->|"Django ORM (admin schema + mirrors)"| DB
     MapLibre --> Zustand
     PW --> Zustand
     GW --> Zustand
-    App -->|"direct fetch (CORS)<br/>+ JWT bearer token"| API
+    App -->|"direct fetch (CORS)<br/>+ session token"| API
     API -->|SQLAlchemy / SQLModel| DB
 
     style Pipelines fill:#f0f0f0,stroke:#999
     style S3 fill:#fff3cd,stroke:#d4a017
-    style Auth fill:#d4edda,stroke:#28a745
+    style CMS fill:#d4edda,stroke:#28a745
     style Browser fill:#cce5ff,stroke:#007bff
     style Workers fill:#e2e3f1,stroke:#6c6fbd
     style App fill:#dbeafe,stroke:#3b82f6
@@ -67,8 +70,8 @@ graph TD
 ### Key wiring details
 
 - **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
-- **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI with Auth0 JWT tokens in headers.
-- **Auth0 session managed by Next.js.** The Next.js server handles OAuth2 login/callback and stores the JWT in an httpOnly session cookie. Client-side code extracts the token for API requests.
+- **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI; gated endpoints take a stateless session token ([ADR 0049](adr/0049-waf-session-tokens.md)), not a user login.
+- **The public site has no sign-in.** The Wagtail admin is the only signed-in surface. The CMS mints short-lived RS256 JWTs in-process for its own calls to FastAPI, which verifies them against the CMS's `/.well-known/jwks.json` ([ADR 0055](adr/0055-cms-identity-provider.md)). Public pages fetch their content from the CMS's anonymous `/api/content/` JSON API.
 - **IndexedDB is a local draft cache**, not a sync layer. Debounced writes store in-progress assignments; the server remains source of truth via optimistic concurrency (`updated_at`).
 - **Pipelines are offline/batch.** They produce static artifacts (PMTiles, Parquet) uploaded to S3. No runtime connection to the backend.
 
@@ -79,8 +82,7 @@ graph TD
 ### Routing
 
 - `(interactive)/map/[map_id]` - Map viewer; `(interactive)/map/edit/[map_id]` - Map editor
-- `(static)/` - Landing, about, guide, places, portals, tags, changelog
-- `admin/` - Auth0-protected CMS and admin panels
+- `(static)/` - Landing, about, guide, places, portals, changelog; `portal/`, `place/`, and `[slug]` render CMS pages
 
 ### State Management
 
@@ -109,7 +111,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 
 ## Backend (`backend/`)
 
-**Stack**: FastAPI, Python 3.12, SQLModel/SQLAlchemy, Alembic, PostGIS, Auth0
+**Stack**: FastAPI, Python 3.12, SQLModel/SQLAlchemy, Alembic, PostGIS, PyJWT
 
 ### Core Models
 
@@ -128,7 +130,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 - **Bulk assignments**: `PUT /api/assignments` uses PostgreSQL COPY for performance with optimistic concurrency
 - **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
 - **Contiguity**: Graph-based checking via `DualLevelGraph` (numpy/scipy `csgraph`, not NetworkX at runtime)
-- **Auth**: Auth0 JWT with scopes (default/editor/admin), Cloudflare Turnstile for public forms
+- **Auth**: CMS-issued JWTs verified by scope against the CMS's JWKS ([ADR 0055](adr/0055-cms-identity-provider.md)); portal moderation scoped by the `teams` claim ([ADR 0057](adr/0057-roles-team-scoped-moderation.md)); Cloudflare Turnstile for public forms
 
 ### Database Design
 
@@ -166,11 +168,20 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 - `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
 - `transforms batch-create-graphs` - Batch build graph pkls from a config file
 
+## CMS (`cms/`)
+
+**Stack**: Django 5.2, Wagtail 7, SimpleJWT
+
+A separate service that owns pages, users and teams, portals and submission moderation, and map-module and overlay admin ([ADR 0054](adr/0054-wagtail-cms-service.md)). Apps: `authapi` (identity, roles, token minting), `content` (pages and the public content API), `datastore` (unmanaged mirrors of backend tables), `moderation` (site settings), `portals` (the per-portal hub).
+
+- **One database, split ownership** ([ADR 0056](adr/0056-cms-schema-ownership.md)): Django owns the `admin` schema and runs its own migrations; Alembic owns everything else and excludes `admin`. Backend tables the CMS edits are mirrored as `managed=False` models, checked in CI by `check_mirror_drift`.
+- **Single-row edits use the ORM; operations call FastAPI** (GeoPackage import, map-module compose, thumbnails, submission moderation) with a CMS-minted token.
+
 ## Infrastructure
 
 ### Local Development
 
-Docker Compose with 5 services: `db` (PostGIS), `backend` (Uvicorn), `frontend` (Bun dev), `pre-commit` (linting), `pipelines`. Hot reload via bind mounts.
+Docker Compose services: `db` (PostGIS), `backend` (Uvicorn), `frontend` (Bun dev; `frontend-prod` for a production build), `cms` (Django dev server), `pre-commit` (linting), `pipelines`. Hot reload via bind mounts.
 
 ### Production (AWS)
 
@@ -178,9 +189,10 @@ ECS Fargate services behind an ALB, RDS PostGIS, images in ECR, secrets in SSM �
 
 ### CI/CD (GitHub Actions)
 
-- `deploy-app.yml` / `deploy-api.yml` - Deploy to AWS (ECS via Pulumi) on push to `main`/`dev`
+- `deploy-app.yml` / `deploy-api.yml` / `deploy-cms.yml` - Deploy to AWS (ECS via Pulumi) on push to `main`/`dev`; the CMS rollout is gated on its migrate task
 - `preview.yml` - Label-driven ephemeral PR previews on the dev AWS stack
 - `test-backend.yml` - pytest against PostGIS on backend changes
+- `test-cms.yml` - CMS tests, `makemigrations --check`, and the mirror-drift check against a migrated backend schema
 
 ## Key Architectural Decisions
 
