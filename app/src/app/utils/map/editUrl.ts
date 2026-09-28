@@ -54,3 +54,42 @@ export const editPath = (
  */
 export const evalPath = (routePrefix: string, public_id: number): string =>
   `/${routePrefix}/${public_id}/eval`;
+
+/**
+ * Extract a document reference (UUID or numeric public id) from any map link
+ * or bare id a user might paste: edit links, read links, legacy ?pw=true
+ * links, or the id itself. Null when nothing parseable is found.
+ *
+ * Order: a numeric public id in the path first, then the private_edit_id
+ * token, then a UUID path segment. The backend resolves a public id and a
+ * UUID to the same map, and a token damaged in transit can still decode to a
+ * well-formed UUID for some other document, so the path id is the safer
+ * source whenever the link carries one (every current edit link does).
+ */
+export const parseMapRef = (input: string, base?: string): string | null => {
+  const trimmed = (input ?? '').trim();
+  if (!trimmed) return null;
+  if (isUUID(trimmed) || /^\d+$/.test(trimmed)) return trimmed;
+  let url: URL;
+  try {
+    url = new URL(
+      trimmed,
+      base ?? (typeof window !== 'undefined' ? window.location.href : undefined)
+    );
+  } catch {
+    return null;
+  }
+  const segments = url.pathname.split('/').filter(Boolean);
+  while (segments.length && ['edit', 'eval'].includes(segments[segments.length - 1])) {
+    segments.pop();
+  }
+  const last = segments.pop() ?? '';
+  if (/^\d+$/.test(last)) return last;
+  const privateId = url.searchParams.get(PRIVATE_EDIT_ID_PARAM);
+  if (privateId) {
+    const uuid = expandUUID(privateId);
+    if (uuid) return uuid;
+  }
+  if (isUUID(last)) return last;
+  return null;
+};

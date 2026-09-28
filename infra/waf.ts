@@ -67,6 +67,33 @@ export function createWaf(alb: Alb) {
       visibilityConfig: visibility(`${name}-waf-rate-limit-api`),
     },
     {
+      // Reporting a submission only sets a flag for moderators, so the harm
+      // of abuse is a noisy queue, not a takedown. But with portal_id
+      // optional on the public list, collecting every visible submission id
+      // is one paginated sweep, and the 10k API limit would let one script
+      // flag all of them. A person reports a handful at most.
+      // ponytail: per-IP only; a distributed sweep needs session enforcement
+      // on /flag (require_session refusing instead of warning).
+      name: "rate-limit-flag",
+      priority: 6,
+      action: {block: {}},
+      statement: {
+        rateBasedStatement: {
+          limit: 20,
+          aggregateKeyType: "IP",
+          scopeDownStatement: {
+            byteMatchStatement: {
+              searchString: "/api/submissions/flag",
+              fieldToMatch: {uriPath: {}},
+              positionalConstraint: "EXACTLY",
+              textTransformations: [{priority: 0, type: "NONE"}],
+            },
+          },
+        },
+      },
+      visibilityConfig: visibility(`${name}-waf-rate-limit-flag`),
+    },
+    {
       // Coarse backstop for everything else the ALB serves (frontend pages
       // and assets) — high enough that shared-IP browsing never trips it.
       name: "rate-limit-any",

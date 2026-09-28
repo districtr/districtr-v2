@@ -17,10 +17,13 @@ export const getPlans = async ({
 }) => {
   const queryParams: Record<string, string | number | (string | number)[]> = {};
 
-  if (ids) {
+  // An empty ids array must NOT fall through to an unfiltered query: the
+  // backend's no-ids branch returns ALL public documents.
+  if (ids?.length) {
     queryParams.ids = ids;
   } else if (tags) {
-    queryParams.tags = tags;
+    // The CMS block calls them tags; the API keys galleries on portal ids.
+    queryParams.portal_ids = tags;
   }
 
   if (draftStatuses?.length) {
