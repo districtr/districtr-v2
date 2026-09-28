@@ -26,7 +26,7 @@ from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
 )
-from management.load_data import create_or_copy_parent_child_edges, import_gerrydb_view
+from management.load_data import import_gerrydb_view
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -235,12 +235,6 @@ def _compose_districtr_map(
     logger.info("Adding extent for %s", districtr_map_slug)
     add_extent_to_districtrmap(session=session, districtr_map_uuid=districtr_map_uuid)
 
-    if child_layer is not None:
-        logger.info("Creating parent-child edges for %s", districtr_map_slug)
-        create_or_copy_parent_child_edges(
-            session=session, districtr_map_uuid=districtr_map_uuid
-        )
-
     if group_slug is not None:
         logger.info("Adding %s to map group %s", districtr_map_slug, group_slug)
         add_districtr_map_to_map_group(
@@ -278,9 +272,8 @@ def run_districtr_map_compose(
 
     Chains the same steps as the CLI commands create-shatterable-districtr-view
     (when there is a child layer), create-districtr-map (including its default
-    extent calculation), create-parent-child-edges (copying a
-    compatible map's edges when possible), and add-districtr-map-to-map-group. Background tasks must NOT receive the
-    request-scoped session (see ``run_gerrydb_import``); called with
+    extent calculation), and add-districtr-map-to-map-group. Background tasks
+    must NOT receive the request-scoped session (see ``run_gerrydb_import``); called with
     ``session=None`` this opens, commits, and closes its own session. Tests may
     pass a session to share their transaction.
     """
@@ -335,8 +328,7 @@ async def schedule_districtr_map_compose(
 
     Validates cheap preconditions in-request, then chains the same steps as
     the CLI commands (create-shatterable-districtr-view, create-districtr-map,
-    create-parent-child-edges, add-districtr-map-to-map-group) as a background
-    task so the CMS admin can compose map modules over HTTP.
+    add-districtr-map-to-map-group) as a background task so the CMS admin can compose map modules over HTTP.
     """
     for layer in (data.parent_layer, data.child_layer):
         if layer is not None and not _gerrydb_layer_exists(session, layer):

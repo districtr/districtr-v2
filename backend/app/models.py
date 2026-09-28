@@ -168,39 +168,6 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     name: str = Field(nullable=False, unique=True)
 
 
-class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    # The last partitioned table in this schema: document.assignments and
-    # document.community_assignments were departitioned (PR #625, lock convoy), and a
-    # drop of this table was tried and reverted pending the PR #721 graph work — see
-    # docs/decisions.md before changing anything partition-adjacent here.
-    __table_args__ = (
-        UniqueConstraint(
-            "districtr_map",
-            "parent_path",
-            "child_path",
-            name="districtr_map_parent_child_edge_unique",
-        ),
-        Index(
-            "idx_parentchildedges_child_path_districtr_map",
-            "child_path",
-            "districtr_map",
-        ),
-        {"postgresql_partition_by": "LIST (districtr_map)"},
-    )
-    __tablename__ = "parentchildedges"
-
-    districtr_map: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            nullable=False,
-            primary_key=True,
-        )
-    )
-    parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-    child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-
-
 class DocumentMetadata(BaseModel):
     name: str | None = None
     group: str | None = None

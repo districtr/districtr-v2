@@ -80,18 +80,7 @@ docker-compose exec backend python cli.py create-districtr-map \
 
 **Verify**: `SELECT * FROM districtrmap WHERE districtr_map_slug = '<slug>'` shows the expected row; the map is initially safe to leave `visible=false` until the remaining steps pass. Check `statefps` on the new row: the CLI does not fill it automatically (issue #633), and county-brush behavior is silently disabled on any map whose document metadata lacks it.
 
-### 6. (Shatterable maps only) Create parent-child edges
-
-```bash
-docker-compose exec backend python cli.py create-parent-child-edges \
-  --districtr-map-slug <slug>
-```
-
-**Verify**: `SELECT count(*) FROM parentchildedges WHERE districtr_map = (SELECT uuid FROM districtrmap WHERE districtr_map_slug = '<slug>')` is nonzero and roughly matches the expected child-row count.
-
-This step is slated for retirement: since PR #721 (merged to dev 2026-08-28) nothing reads `parentchildedges` — runtime readers use the graph, and migration `2ecf1bdc582b` dropped the `shatter_parent`/`unshatter_parent` UDFs. The step exists only to keep the write-only table populated until its announced drop lands; confirm with the team before being the first to skip it.
-
-### 7. End-to-end verification
+### 6. End-to-end verification
 
 - `docker-compose exec backend python cli.py check-missing-graphs --skip-alert` confirms the graph pkl this map needs is actually reachable in S3.
 - Hit `GET /api/gerrydb/views` and create a test `Document` via `POST /api/document` against the new slug; confirm the map loads, shatters (if applicable), and a contiguity check returns without error.
