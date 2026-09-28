@@ -64,18 +64,20 @@ This file describes the cutover as merged. It covers what the merged code does, 
 
 Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`) behind the shared ALB on `cms.districtr.org` and `cms.dev.districtr.org`. `.github/workflows/deploy-cms.yml` deploys it.
 
-**Before merging this stack to `dev`**, dump the dev stack's `comments` schema. `deploy-api.yml` runs `alembic upgrade head` on every push to `dev` that touches `backend/**`, and migration `d8f1b52c96e3` drops the legacy comment tables. Dev holds live legacy testimony from the TN workshop. Use the same `pg_dump` command as step 1 against the dev database.
-
 **Rollback.** The legacy-table drop ships with the code switch. While old backend tasks drain during the rolling deploy, document loads on those tasks return 500. An image-tag rollback past the cutover doesn't work, because the old code reads the dropped tables. Rolling back means restoring the step 1 snapshot.
 
 1. Take an RDS snapshot. Then dump the legacy comments schema:
    `pg_dump --schema=comments --format=custom -f legacy-comments.dump "$DATABASE_URL"`.
    Migration `d8f1b52c96e3` drops the legacy comment tables without converting their rows. This dump is the backfill source if any row is ever wanted.
-2. Set the stack secrets with `pulumi config set --secret` on each stack. `infra/config.ts` requires `djangoSecretKey`, `jwtSigningKey` and `jwtVerifyingKey`. Neither stack file has them yet. Generate the key pair with `manage.py generate_jwt_keys`. `secretKey` and `s3BucketName` are also required and already set. Set `resendApiKey` too, because `provision_users` emails through Resend. Verify the Resend sending domain.
+2. Set the stack secrets with `pulumi config set --secret` on each stack. `infra/config.ts` requires `djangoSecretKey`, `jwtSigningKey` and `jwtVerifyingKey`. The dev stack has them; prod doesn't yet. Generate the key pair with `manage.py generate_jwt_keys`. `secretKey` and `s3BucketName` are also required and already set. Set `resendApiKey` too, because `provision_users` emails through Resend. Verify the Resend sending domain.
 3. Set the GitHub repo variables `CMS_URL_DEV` and `CMS_URL_PROD`. `deploy-app.yml` bakes them into the frontend as `NEXT_PUBLIC_CMS_URL`.
-4. Run `pulumi preview` on prod and read the certificate diff. `infra/alb.ts` adds `cmsDomain` to the certificate SANs, which replaces the ACM certificate. Create the validation and `cms.*` records from `pulumi stack output dnsRecords`.
-5. Get the legacy page-author mapping ready. `content/0003` needs `MIGRATE_TIPTAP_OWNERS="auth0|<sub>=<email>,..."` for any legacy content to import. Use `unowned` to import admin-only pages on purpose. The mapping names people by email and the stack files are public, so set it as a secret: `pulumi config set --secret migrateTiptapOwners '<mapping>'`. `infra/cms.ts` passes it to the `cms-migrate` task only, through SSM. Remove it after the cutover deploy.
-6. Find the legacy galleries that filter by map tags. Production's old create button stamped `metadata.tags`, and old galleries matched on it. The new gallery matches `document.portal_id` plus a visible submission, and nothing backfills those, so these galleries go empty. Count the tagged maps on prod first:
+4. Run `pulumi preview` on prod and read the certificate diff. `infra/alb.ts` adds `cmsDomain` to the certificate SANs, which replaces the ACM certificate. Create the validation and `cms.*` records from `pulumi stack output dnsRecords`. The `cms` CNAME to the ALB is required even though `*.districtr.org` already points there: the validation record at `_<hash>.cms.districtr.org` makes `cms.districtr.org` an existing name, and a DNS wildcard never answers for an existing name, so without the explicit record `cms.districtr.org` resolves to nothing. Dev hit this.
+5. Confirm the CMS image-tag seed exists. `infra/cms.ts` reads it before `deploy-cms.yml` has ever pushed an image, so a missing seed fails the infra apply. `infra/scripts/bootstrap.sh` seeds it; to check or seed by hand:
+   ```bash
+   aws ssm get-parameter --name /districtr/prod/meta/cms-image-tag || aws ssm put-parameter --name /districtr/prod/meta/cms-image-tag --type String --value bootstrap
+   ```
+6. Get the legacy page-author mapping ready. `content/0003` needs `MIGRATE_TIPTAP_OWNERS="auth0|<sub>=<email>,..."` for any legacy content to import. Use `unowned` to import admin-only pages on purpose. The mapping names people by email and the stack files are public, so set it as a secret: `pulumi config set --secret migrateTiptapOwners '<mapping>'`. `infra/cms.ts` passes it to the `cms-migrate` task only, through SSM. Remove it after the cutover deploy.
+7. Find the legacy galleries that filter by map tags. Production's old create button stamped `metadata.tags`, and old galleries matched on it. The new gallery matches `document.portal_id` plus a visible submission, and nothing backfills those, so these galleries go empty. Count the tagged maps on prod first:
    ```sql
    SELECT tag, count(*)
    FROM document.document,
@@ -91,16 +93,16 @@ Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`
      AND map_metadata->>'draft_status' = 'ready_to_share'
    ORDER BY updated_at DESC;
    ```
-7. Rehearse the full sequence on the dev stack. Run `manage.py migrate_tiptap --dry-run` and review its report. Afterward, run `alembic check` in the backend. The only drift it may report is pre-existing and outside this stack: `evaluation.county_demographics`, the `overlay` timestamps, `custom_style` and `overlay_id` constraint, the `district_unions` indexes and timestamps, and `ix_document_document_num_districts`. Anything else, and especially a dropped `document_portal_id_fkey`, is a real diff.
-8. Merge to `main` with `AWS_DEPLOY_CMS_PROD` unset. `infra.yml` applies the stack, including the owner-mapping secret, and the api workflow migrates the backend. Before the CMS migrates, confirm the migrate task has the secret:
+8. Rehearse the full sequence on the dev stack. Run `manage.py migrate_tiptap --dry-run` and review its report. Afterward, run `alembic check` in the backend. The only drift it may report is pre-existing and outside this stack: `evaluation.county_demographics`, the `overlay` timestamps, `custom_style` and `overlay_id` constraint, the `district_unions` indexes and timestamps, and `ix_document_document_num_districts`. Anything else, and especially a dropped `document_portal_id_fkey`, is a real diff.
+9. Merge to `main` with `AWS_DEPLOY_CMS_PROD` unset. `infra.yml` applies the stack, including the owner-mapping secret, and the api workflow migrates the backend. Before the CMS migrates, confirm the migrate task has the secret:
    ```bash
    aws ecs describe-task-definition --task-definition cms-migrate --query 'taskDefinition.containerDefinitions[0].secrets[].name'
    ```
-   The list must include `MIGRATE_TIPTAP_OWNERS`. Then run `deploy-cms.yml` by hand, or set `AWS_DEPLOY_CMS_PROD=true`. It runs the CMS migrations as a one-off task before rolling the service. Without the secret, `content/0003` refuses to run, and a retry fails the same way.
-9. Run `manage.py provision_users users.csv`. The CSV columns are `email,name,group`, and the groups are `admin`, `partner` and `super_partner`. The command emails each user a password-setup link.
-10. Right after step 9, create the Teams as an admin. Add their members and map modules. `provision_users` has no team column, and a partner with no team sees nothing.
-11. As an admin, add a Portal forms entry for each legacy portal. Set `portal_id` to the portal's slug and `admin_teams` to the owning teams. Until then the portal page shows no form and no partner can reach it. The entry opens for submissions when its page is live.
-12. Smoke test:
+   The list must include `MIGRATE_TIPTAP_OWNERS`. Then run `deploy-cms.yml` by hand, or set `AWS_DEPLOY_CMS_PROD=true`. It runs the CMS migrations as a one-off task before rolling the service. Without the secret, `content/0003` refuses to run, and a retry fails the same way. Start every deploy with `gh workflow run <workflow> --ref main`, never GitHub's Re-run: a re-run checks out the original commit, so it misses any stack-file fix made since. After the CMS migrations, run `manage.py update_index` as a one-off `cms-migrate` task: `content/0003` imports pages before `wagtailsearch` creates its index table, so the imported pages are missing from admin search until then. The `wagtailsearch_indexentry does not exist` tracebacks in the migrate log are that same ordering and are harmless.
+10. Run `manage.py provision_users users.csv`. The CSV columns are `email,name,group`, and the groups are `admin`, `partner` and `super_partner`. The command emails each user a password-setup link.
+11. Right after step 10, create the Teams as an admin. Add their members and map modules. `provision_users` has no team column, and a partner with no team sees nothing.
+12. As an admin, add a Portal forms entry for each legacy portal. Set `portal_id` to the portal's slug and `admin_teams` to the owning teams. Until then the portal page shows no form and no partner can reach it. The entry opens for submissions when its page is live.
+13. Smoke test:
     - Sign in to the Wagtail admin with a provisioned account.
     - Edit and publish a page as an admin. Edit a page as a partner and submit it for moderation.
     - In the Portals hub, create a portal with the wizard as a partner. On a portal gallery, hide an entry and restore it. Toggle an entry's blur.
@@ -108,15 +110,15 @@ Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`
     - Regenerate a map module's thumbnail from its edit page.
     - Compose a throwaway module with Create map module. It is created hidden.
     - Load a portal page and a place page on the public site.
-13. Disable the Auth0 tenant. Do not delete it. Delete it after two quiet weeks.
-14. One month after cutover, rename `cms.tags_content` and `cms.places_content` to `*_legacy`. They must survive until then because `content/0003` reads them. Alembic's `include_object` already ignores the `cms` schema.
+14. Disable the Auth0 tenant. Do not delete it. Delete it after two quiet weeks.
+15. One month after cutover, rename `cms.tags_content` and `cms.places_content` to `*_legacy`. They must survive until then because `content/0003` reads them. Alembic's `include_object` already ignores the `cms` schema.
 
 ## Open items
 
 | Item | Where | Status |
 |---|---|---|
 | Cache CMS-rendered pages before the first public portal launch. Portal, place and static pages read the language cookie, which forces dynamic rendering. `/portals` and `/places` are `force-dynamic`. Every pageview hits the CMS. | `app/src/app/(static)/` | Tracked |
-| Backfill a FormConfig for each legacy portal. Nothing creates them, so checklist step 11 is manual. | `cms/datastore/` | Tracked |
+| Backfill a FormConfig for each legacy portal. Nothing creates them, so checklist step 12 is manual. | `cms/datastore/` | Tracked |
 | Pass `MIGRATE_TIPTAP_OWNERS` to the `cms-migrate` task. | `infra/cms.ts` | Done |
 | Add a team column to `provision_users`. | `cms/authapi/management/commands/provision_users.py` | Tracked |
 | Show empty-state help to partners with no team and to teams with no map modules. | CMS admin | Tracked |
