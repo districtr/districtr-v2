@@ -29,6 +29,12 @@ class TokenScope:
     delete_all_content = "delete:delete-all"
 
     review_content = "create:content_review"
+    # Explicit bypass of per-reviewer scoping (the `teams` claim; formerly
+    # the review_tags claim).
+    # Deliberately separate from read:read-all: the *-all read/update/delete
+    # scopes govern access across CMS authorship boundaries, while this one
+    # widens moderation reach.
+    review_all_content = "review:review-all"
 
 
 class UnauthorizedException(HTTPException):
@@ -52,8 +58,7 @@ class VerifyToken:
 
         # This gets the JWKS from a given URL and does processing so you can
         # use any of the keys available
-        jwks_url = f"https://{self.config.AUTH0_DOMAIN}/.well-known/jwks.json"
-        self.jwks_client = jwt.PyJWKClient(jwks_url)
+        self.jwks_client = jwt.PyJWKClient(self.config.AUTH_JWKS_URL)
 
     def verify(
         self,
@@ -76,18 +81,15 @@ class VerifyToken:
             payload = jwt.decode(
                 token.credentials,
                 signing_key,
-                algorithms=self.config.AUTH0_ALGORITHMS,  # type: ignore
-                audience=self.config.AUTH0_API_AUDIENCE,
-                issuer=self.config.AUTH0_ISSUER,
+                algorithms=self.config.AUTH_ALGORITHMS.split(","),
+                audience=self.config.AUTH_AUDIENCE,
+                issuer=self.config.AUTH_ISSUER,
             )
         except Exception as error:
             raise UnauthorizedException(str(error))
 
         if not payload:
             raise UnauthorizedException("Invalid token")
-
-        if payload.get("gty") == "client-credentials":
-            return payload
 
         token_scopes = payload.get("scope", "").split()
 

@@ -16,7 +16,7 @@ const KEEP_LAST_20 = JSON.stringify({
   ],
 });
 
-function createRepo(suffix: "backend" | "frontend") {
+function createRepo(suffix: "backend" | "frontend" | "cms") {
   const repo = new aws.ecr.Repository(`${config.name}-${suffix}`, {
     name: `${config.name}-${suffix}`,
     imageTagMutability: "IMMUTABLE",
@@ -36,6 +36,7 @@ export function createRepos() {
   return {
     backendRepo: createRepo("backend"),
     frontendRepo: createRepo("frontend"),
+    cmsRepo: createRepo("cms"),
   };
 }
 

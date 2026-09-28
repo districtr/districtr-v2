@@ -13,7 +13,7 @@ EXCLUSIVE on the parent and every partition, but with zero readers and
 writers only at onboarding time, there is nothing to conflict with.
 
 Revision ID: bf8c58301816
-Revises: 2ecf1bdc582b
+Revises: f3a9c1d27e58
 Create Date: 2026-09-22 21:19:58.486551
 
 """
@@ -27,7 +27,7 @@ import app.models
 
 # revision identifiers, used by Alembic.
 revision: str = "bf8c58301816"
-down_revision: Union[str, None] = "2ecf1bdc582b"
+down_revision: Union[str, None] = "f3a9c1d27e58"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

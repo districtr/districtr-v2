@@ -42,10 +42,12 @@ jobs:
           if [ "${{ github.ref_name }}" = "dev" ]; then
             echo "stack=dev" >> "$GITHUB_OUTPUT"
             echo "api_url=${{ vars.API_URL_DEV }}" >> "$GITHUB_OUTPUT"
+            echo "cms_url=${{ vars.CMS_URL_DEV }}" >> "$GITHUB_OUTPUT"
             echo "environment=development" >> "$GITHUB_OUTPUT"
           else
             echo "stack=prod" >> "$GITHUB_OUTPUT"
             echo "api_url=${{ vars.API_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "cms_url=${{ vars.CMS_URL_PROD }}" >> "$GITHUB_OUTPUT"
             echo "environment=production" >> "$GITHUB_OUTPUT"
           fi
       # NEXT_PUBLIC_* values are baked into the bundle at build time; this
@@ -63,6 +65,7 @@ jobs:
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
           NEXT_PUBLIC_API_URL=${{ steps.cfg.outputs.api_url }}
+          NEXT_PUBLIC_CMS_URL=${{ steps.cfg.outputs.cms_url }}
           NEXT_PUBLIC_ENVIRONMENT=${{ steps.cfg.outputs.environment }}
           NEXT_PUBLIC_BUILD_TAG=${{ github.sha }}
           EOF
