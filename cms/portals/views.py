@@ -508,7 +508,8 @@ def _default_gallery_block(public_id):
 
 @group_required(PORTAL_EDITOR_GROUPS)
 def add_to_portal_gallery(request):
-    """Append a submitted plan to the portal page's own CURATED gallery block.
+    """Append a submitted plan to the portal page's CURATED gallery block,
+    adding one if the page has no plan gallery yet.
 
     Optional curation, not review: the gallery lives IN the portal page (the
     plan_gallery block's ids), so this mutates the page's latest revision as
@@ -529,24 +530,34 @@ def add_to_portal_gallery(request):
 
     page = portal.get_latest_revision_as_object()
     body_data = page.body.get_prep_value()
-    # Curated = has ids. A block with no ids is the portal's automatic
-    # gallery (or a tag filter); pinning into it would shrink it to one map.
-    gallery_blocks = [
-        b
-        for b in body_data
-        if b.get("type") == "plan_gallery" and (b["value"].get("ids") or [])
-    ]
-    if gallery_blocks:
-        ids = list(gallery_blocks[0]["value"].get("ids") or [])
+    # A portal page has at most one plan gallery (PortalPage.clean), so Pin
+    # has one target. Legacy pages with several edit the first.
+    gallery = next((b for b in body_data if b.get("type") == "plan_gallery"), None)
+    if gallery is None:
+        body_data.append(_default_gallery_block(public_id))
+    else:
+        # get_prep_value renders ListBlock items as {"id", "type", "value"}.
+        ids = [
+            item["value"] if isinstance(item, dict) else item
+            for item in gallery["value"].get("ids") or []
+        ]
+        if not ids:
+            # No ids = the automatic gallery (or a slug filter); pinning into
+            # it would shrink "every map in this portal" to one map.
+            messages.warning(
+                request,
+                "This portal's gallery lists its submissions automatically, "
+                "so there is nothing to pin. To curate it instead, add plan "
+                "IDs to the gallery on the portal page.",
+            )
+            return redirect(_next_url(request))
         if public_id in ids:
             messages.warning(
                 request,
                 f"Plan {public_id} is already in this portal's curated gallery.",
             )
             return redirect(_next_url(request))
-        gallery_blocks[0]["value"]["ids"] = [*ids, public_id]
-    else:
-        body_data.append(_default_gallery_block(public_id))
+        gallery["value"]["ids"] = list(dict.fromkeys([*ids, public_id]))
     page.body = page.body.stream_block.to_python(body_data)
     page.save_revision(user=request.user)
     messages.success(

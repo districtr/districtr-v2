@@ -1317,21 +1317,38 @@ class FormConfigInjectionTests(TestCase):
         self.portal.body = [
             {"type": "comment_gallery", "value": {}},
             {"type": "plan_gallery", "value": {}},
-            {"type": "plan_gallery", "value": {"thisPortal": False}},
-            {"type": "plan_gallery", "value": {"tags": ["elsewhere"]}},
         ]
         self.portal.save_revision(clean=False).publish()
         body = self.client.get("/api/content/portals/slug/configured").json()[
             "content"
         ]["body"]
-        comments, fresh, site_wide, cross = (block["value"] for block in body)
+        comments, fresh = (block["value"] for block in body)
         self.assertEqual(comments["portalId"], "configured")
         # A fresh plan gallery lists this portal, not the whole site.
         self.assertEqual(fresh["tags"], ["configured"])
         self.assertNotIn("thisPortal", fresh)
-        # Site-wide takes unticking; an explicit slug filter is kept.
-        self.assertIsNone(site_wide["tags"])
+
+    def test_plan_gallery_keeps_its_own_filter(self):
+        from content.api import _inject_portal_id
+
+        site_wide, cross, curated = (
+            b["value"]
+            for b in _inject_portal_id(
+                [
+                    {"type": "plan_gallery", "value": {"thisPortal": False}},
+                    {
+                        "type": "plan_gallery",
+                        "value": {"thisPortal": True, "tags": ["elsewhere"]},
+                    },
+                    {"type": "plan_gallery", "value": {"thisPortal": True, "ids": [3]}},
+                ],
+                "configured",
+            )
+        )
+        # Site-wide takes unticking; explicit slugs and curated ids are kept.
+        self.assertNotIn("tags", site_wide)
         self.assertEqual(cross["tags"], ["elsewhere"])
+        self.assertNotIn("tags", curated)
 
     def test_map_create_buttons_carry_portal_id(self):
         self.portal.body = [

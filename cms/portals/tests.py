@@ -360,13 +360,34 @@ class AddToPortalGalleryTests(TestCase):
 
     def test_pin_leaves_the_automatic_gallery_alone(self):
         # A wizard portal's gallery has no ids; pinning into it would turn
-        # "every map in this portal" into a one-map curated list.
+        # "every map in this portal" into a one-map curated list, and adding
+        # a second gallery would split the page. Pin refuses instead.
         self.portal.body = [
             {"type": "plan_gallery", "value": {"ids": [], "thisPortal": True}}
         ]
         self.portal.save_revision(clean=False).publish()
         self.add()
-        self.assertEqual(self._gallery_ids(), [[], [42]])
+        self.assertEqual(self._gallery_ids(), [[]])
+
+    def test_duplicate_check_reads_a_saved_gallery(self):
+        # A saved page stores list items as {"id", "type", "value"} dicts;
+        # the duplicate guard compared the int against those and never hit.
+        self.portal.body = [{"type": "plan_gallery", "value": {"ids": [42, 7, 7]}}]
+        self.portal.save_revision(clean=False).publish()
+        self.add(public_id="42")
+        self.assertEqual(self._gallery_ids(), [[42, 7, 7]])
+        self.add(public_id="9")
+        self.assertEqual(self._gallery_ids(), [[42, 7, 9]])
+
+    def test_portal_page_allows_one_plan_gallery(self):
+        from django.core.exceptions import ValidationError
+
+        self.portal.body = [
+            {"type": "plan_gallery", "value": {"ids": [1]}},
+            {"type": "plan_gallery", "value": {"ids": [2]}},
+        ]
+        with self.assertRaises(ValidationError):
+            self.portal.full_clean()
 
     def test_inaccessible_portal_denied(self):
         response = self.add(portal="not-a-portal")
