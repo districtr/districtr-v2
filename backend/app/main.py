@@ -106,6 +106,7 @@ from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
     get_gerrydb_numeric_cols,
@@ -1498,9 +1499,6 @@ def get_document_list(
                 col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
             ).label("nsfw"),
         )
-        .distinct(
-            Document.public_id,
-        )
         .join(
             DistrictrMap,
             col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
@@ -1577,8 +1575,18 @@ def get_document_list(
             )
         )
 
+    # A fixed order is what makes offset paging safe: without it a reader
+    # could meet the same map on two pages and never see another. Curated
+    # galleries keep the editor's order; everything else lists newest first.
+    # (public_id is unique and the module join is many-to-one, so rows
+    # never repeat and no DISTINCT is needed.)
     if len(ids) > 0:
-        stmt = stmt.where(col(Document.public_id).in_(ids))
+        stmt = stmt.where(col(Document.public_id).in_(ids)).order_by(
+            func.array_position(pg_array(ids, type_=Integer), col(Document.public_id)),
+            col(Document.public_id),
+        )
+    else:
+        stmt = stmt.order_by(col(Document.public_id).desc())
 
     results = session.exec(stmt).all()
     return [

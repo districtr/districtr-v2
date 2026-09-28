@@ -1272,6 +1272,26 @@ class TestPublicListingReach:
         assert _listed_ids(client, f"portal_ids={PORTAL}") == []
 
 
+def test_document_list_pages_in_a_fixed_order(client, document_id):
+    # Offset paging needs a deterministic order: curated ids keep the
+    # editor's order, every other listing is newest first.
+    public_ids = [client.get(f"/api/document/{document_id}").json()["public_id"]]
+    for _ in range(2):
+        created = client.post(
+            "/api/create_document", json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME}
+        ).json()
+        public_ids.append(created["public_id"])
+    first, second, third = public_ids
+
+    curated = f"ids={second}&ids={third}&ids={first}"
+    assert _listed_ids(client, curated) == [second, third, first]
+    assert [
+        _listed_ids(client, f"{curated}&limit=1&offset={page}") for page in range(3)
+    ] == [[second], [third], [first]]
+    newest_first = _listed_ids(client)
+    assert newest_first == sorted(newest_first, reverse=True)
+
+
 class TestClosedPortal:
     """A portal whose page is unpublished or deleted (accepting=false) takes
     no public submissions and lists nothing publicly."""
