@@ -197,9 +197,9 @@ AWS_USE_DEFAULT_CREDENTIALS = (
 OVERLAY_PUBLIC_URL_BASE = os.environ.get("OVERLAY_PUBLIC_URL_BASE", "")
 
 
-# JWT issuance. This service replaces Auth0 as the token issuer for both the
-# Next.js frontend (login/refresh) and the FastAPI backend (verification via
-# the /.well-known/jwks.json endpoint + the space-delimited `scope` claim).
+# JWT issuance. This service is the only token issuer: it mints short-lived
+# access tokens for its own calls to the FastAPI backend, which verifies them
+# via the /.well-known/jwks.json endpoint + the space-delimited `scope` claim.
 def _pem_from_env(name: str) -> str:
     """PEMs arrive via env/secrets; tolerate literal \\n escapes."""
     value = os.environ.get(name, "")

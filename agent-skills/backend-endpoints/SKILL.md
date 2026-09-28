@@ -20,4 +20,4 @@ user-invocable: false
 ## Where the rest lives
 
 - Data-model narrative (document/assignments split, module anatomy): `docs/overview.md`.
-- The grounds and history behind the constraints above: `docs/decisions.md`.
+- The grounds and history behind the constraints above: `docs/adr/`.
