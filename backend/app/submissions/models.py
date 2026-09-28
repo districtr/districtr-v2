@@ -50,7 +50,9 @@ from app.models import Document
 class CollectionMode:
     """How a portal collects map submissions.
 
-    internal    — auto-collected, visible only in the admin gallery
+    internal    — auto-collected; no gallery on the page by default. Maps
+                  list publicly only in a gallery the owner adds (the
+                  portal's own, or curated ids), never site-wide
     auto_public — auto-collected into the public gallery (live references)
     prompt      — SubmitToPortalModal on ready-to-share (clone-at-submission)
     form        — manual form block only

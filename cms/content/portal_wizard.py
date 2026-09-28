@@ -62,7 +62,10 @@ MAP_COLLECTION_CHOICES = [
         "optional short form.",
     ),
     ("form", "Users must complete a form on the portal."),
-    ("internal", "Do not publish maps. Only collect an admin gallery I can see."),
+    (
+        "internal",
+        "Collect maps without a public gallery. I can add one to the page later.",
+    ),
 ]
 # Modes where mapmaking is the point: the portal must offer map modules.
 MAP_COLLECTING_MODES = {"prompt", "auto_public", "internal"}

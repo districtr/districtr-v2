@@ -958,22 +958,27 @@ class TestInternalExclusion:
         )
         return doc
 
-    def test_internal_submissions_hidden_from_public_surfaces(self, client, session):
+    def test_internal_maps_list_only_where_the_owner_puts_a_gallery(
+        self, client, session
+    ):
+        # Internal means no gallery on the page by default. A gallery the
+        # owner adds later (the portal's own, or curated ids from Pin) lists
+        # the maps; the site-wide list never does.
         doc = self._submitted_internal(client, session)
 
-        # Public submissions list: absent (with or without portal filter).
+        # Written submissions: none (auto-collected entries have no text).
         assert client.get("/api/submissions?portal_id=internal-portal").json() == []
         assert all(
             s["portal_id"] != INTERNAL_PORTAL
             for s in client.get("/api/submissions").json()
         )
-        # Tag gallery: absent (the auto-applied portal tag would match).
-        assert (
-            client.get(f"/api/documents/list?portal_ids={INTERNAL_PORTAL}").json() == []
-        )
-        # Unfiltered map list (an empty PlanGalleryBlock): absent too.
-        listed = client.get("/api/documents/list").json()
-        assert doc["public_id"] not in [d["public_id"] for d in listed]
+        # The portal's own gallery and a curated gallery: present.
+        assert _listed_ids(client, f"portal_ids={INTERNAL_PORTAL}") == [
+            doc["public_id"]
+        ]
+        assert _listed_ids(client, f"ids={doc['public_id']}") == [doc["public_id"]]
+        # Unfiltered map list (a site-wide PlanGalleryBlock): absent.
+        assert doc["public_id"] not in _listed_ids(client)
 
         # Admin list: present.
         _set_auth(TEAM_A_PAYLOAD)

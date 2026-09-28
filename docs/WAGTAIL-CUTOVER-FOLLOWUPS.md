@@ -41,7 +41,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 
 `FormConfig.collection_mode` (`cms/datastore/models.py`, checked in `backend/app/submissions/models.py`) takes one of four values:
 
-- `internal` collects maps made from the portal and shows them only in the admin gallery.
+- `internal` collects maps made from the portal, and the portal page starts with no gallery. The owner can add a plan gallery later or pin maps from the Portals hub, and those galleries list the maps. They never appear in a site-wide list.
 - `auto_public` collects maps into the public gallery once they are marked in progress or ready to share. There is no form.
 - `prompt` asks the author to submit with a short form when a map is marked ready to share. This is the default.
 - `form` shows a form on the portal page. Maps are not collected automatically.

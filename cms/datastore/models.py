@@ -264,8 +264,10 @@ SUBMISSION_FIELD_CHOICES = [
 COLLECTION_MODE_CHOICES = [
     (
         "internal",
-        "Internal gallery only — maps made from the portal are collected "
-        "automatically but shown only in the admin gallery, never publicly.",
+        "Collect without a public gallery — maps made from the portal are "
+        "collected automatically and the page has no gallery by default. Add "
+        "a plan gallery to the page, or pin maps from the Portals hub, to "
+        "show some or all of them.",
     ),
     (
         "auto_public",

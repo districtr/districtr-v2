@@ -498,8 +498,8 @@ def list_submissions(
     )
     stmt = (
         select(Submission)
-        # Internal-mode portals collect maps for the admin gallery only —
-        # their submissions never appear in any public listing.
+        # Written submissions only. Internal-mode entries are auto-collected
+        # maps with no text; plan galleries list their maps instead.
         .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
         .where(
             and_(

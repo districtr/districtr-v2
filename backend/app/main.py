@@ -1513,11 +1513,20 @@ def get_document_list(
     portal_ids = portal_ids + tags
 
     # Public listings drop taken-down maps (Hide is the one moderation
-    # lever) and maps of internal-mode or closed portals. include_hidden is
-    # the CMS hub's own metadata lookup, which shows all of them. (A LISTING
-    # guarantee: any map's metadata remains fetchable by its sequential
-    # public_id, as it always has been.)
+    # lever) and maps of closed portals. Internal-mode maps stay off the
+    # site-wide list only: internal means no gallery on the page by default,
+    # and an owner who adds one (their portal's gallery, or curated ids from
+    # Pin) has chosen to show them. include_hidden is the CMS hub's own
+    # metadata lookup, which shows all of them. (A LISTING guarantee: any
+    # map's metadata remains fetchable by its sequential public_id, as it
+    # always has been.)
     if not include_hidden:
+        excluded_portal = col(FormConfig.accepting).is_(False)
+        if not portal_ids and not ids:
+            excluded_portal = or_(
+                excluded_portal,
+                col(FormConfig.collection_mode) == CollectionMode.internal,
+            )
         stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
         stmt = stmt.where(
             ~exists(
@@ -1527,10 +1536,7 @@ def get_document_list(
                 .where(
                     and_(
                         Submission.map_public_id == Document.public_id,
-                        or_(
-                            col(FormConfig.collection_mode) == CollectionMode.internal,
-                            col(FormConfig.accepting).is_(False),
-                        ),
+                        excluded_portal,
                     )
                 )
                 .correlate(Document)
@@ -1553,7 +1559,6 @@ def get_document_list(
                     col(Submission.portal_id) == Document.portal_id,
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
-                    col(FormConfig.collection_mode) != CollectionMode.internal,
                     col(FormConfig.accepting).is_(True),
                 )
             )
