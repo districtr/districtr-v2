@@ -1888,6 +1888,22 @@ class PortalOwnershipAndIdentityTests(TestCase):
         gallery = next(b["value"] for b in body if b["type"] == "plan_gallery")
         self.assertEqual(gallery["tags"], ["renamed-portal"])
 
+    def test_draft_rename_keeps_the_team_in_the_editor(self):
+        # A saved-but-unpublished slug change must not move scope: the config
+        # still names the stored slug, and the editor checks the draft.
+        page = self._wizard_portal()
+        page.slug = "pending-rename"
+        page.save_revision(user=self.partner)
+
+        draft = page.get_latest_revision_as_object()
+        self.assertEqual(draft.slug, "pending-rename")
+        self.assertEqual(draft.portal_id, "river-portal")
+        self.assertTrue(draft.permissions_for_user(self.partner).can_edit())
+        self.client.force_login(self.partner)
+        self.assertEqual(
+            self.client.get(f"/admin/pages/{page.pk}/edit/").status_code, 200
+        )
+
     def test_translation_keeps_its_portal_after_a_rename(self):
         from wagtail.models import Locale
 

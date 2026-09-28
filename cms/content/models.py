@@ -290,9 +290,13 @@ class PortalPage(ContentPageBase):
         portal and can't be matched to another portal that later takes the
         old slug. None for a translation with no default-locale source, which
         then belongs to no portal (fail closed).
+
+        Read from the stored row, not self.slug: a draft revision carries a
+        pending slug that no FormConfig names yet, and resolving scope from
+        it locked the page's own team out of the editor mid-rename.
         """
         if self._owns_form_config_key():
-            return self.slug
+            return self._stored_slug() or self.slug
         from wagtail.models import Locale
 
         return (
