@@ -62,9 +62,9 @@ docker-compose exec pipelines python cli.py transforms create-graph \
   --gerrydb-name <gerrydb-table-name> --upload
 ```
 
-The child GeoPackage must contain a `gerrydb_graph_edge` layer (produced by the aggregate/transform step upstream, if the child geography wasn't produced directly with one). `--gerrydb-name` becomes the S3 key (`graphs/<gerrydb-name>.pkl`, read at runtime by `app/evaluation/graph.get_graph`) — it must match the `gerrydb-table-name` used in step 5, or contiguity lookups for the finished map will silently miss the graph.
+The child GeoPackage must contain a `gerrydb_graph_edge` layer (produced by the aggregate/transform step upstream, if the child geography wasn't produced directly with one). `--gerrydb-name` becomes the S3 key (`graphs/<gerrydb-name>.npz`, read at runtime by `app/evaluation/graph_loader.get_graph`) — it must match the `gerrydb-table-name` used in step 5, or contiguity lookups for the finished map will silently miss the graph.
 
-**Verify**: the command reports a written path; if `--upload`, confirm the object lands at `s3://<bucket>/graphs/<gerrydb-name>.pkl`.
+**Verify**: the command reports a written path; if `--upload`, confirm the object lands at `s3://<bucket>/graphs/<gerrydb-name>.npz`.
 
 ### 5. Create the DistrictrMap record
 
@@ -93,7 +93,7 @@ This step is slated for retirement: since PR #721 (merged to dev 2026-08-28) not
 
 ### 7. End-to-end verification
 
-- `docker-compose exec backend python cli.py check-missing-graphs --skip-alert` confirms the graph pkl this map needs is actually reachable in S3.
+- `docker-compose exec backend python cli.py check-missing-graphs --skip-alert` confirms the graph npz this map needs is actually reachable in S3.
 - Hit `GET /api/gerrydb/views` and create a test `Document` via `POST /api/document` against the new slug; confirm the map loads, shatters (if applicable), and a contiguity check returns without error.
 - Only then flip `visible` to `true` (via `update-districtr-map --visibility true`, or leave it visible from creation).
 

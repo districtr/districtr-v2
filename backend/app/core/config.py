@@ -175,7 +175,7 @@ class Settings(BaseSettings):
     # "S3 not configured", so this must stay opt-in for local dev.
     AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
-    # SNS topic ARN for operational alerts (e.g. missing graph pkl files).
+    # SNS topic ARN for operational alerts (e.g. missing graph npz files).
     # Populated by the ECS task definition; absent in local dev.
     ALARM_SNS_TOPIC_ARN: str | None = None
 

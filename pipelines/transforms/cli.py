@@ -168,7 +168,7 @@ def create_graph(
     upload: bool,
     graph_edge_layer: str,
 ) -> None:
-    """Build a dual-level combined graph pkl from two GeoPackage files.
+    """Build a dual-level combined graph npz from two GeoPackage files.
 
     No database access required — parent-child relationships are derived from
     a spatial join of the child and parent GeoPackage geometries.
@@ -201,6 +201,6 @@ def create_graph(
 def batch_create_graphs(
     config_path: str, data_dir: str | None, replace: bool, upload: bool
 ) -> None:
-    """Build dual-level graph pkls for all maps in a batch config file."""
+    """Build dual-level graph npz files for all maps in a batch config file."""
     batch = GraphBatch.from_file(file_path=config_path)
     batch.create_all(data_dir=data_dir, replace=replace, upload=upload)

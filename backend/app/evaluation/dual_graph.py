@@ -1,17 +1,14 @@
-"""Compact, immutable, numpy/scipy-backed replacement for the networkx dual-level
-district graph (parent units + optional shattered child units, e.g. VTDs and the
-census blocks that make them up).
+"""Compact, immutable, numpy/scipy-backed dual-level district graph (parent
+units + optional shattered child units, e.g. VTDs and the census blocks that
+make them up).
 
-Same data as the pipeline-built networkx.Graph (~10x less memory: ~50 MB vs
-~500 MB for a state block graph), but with an explicit, narrower API instead of
-mirroring ``networkx.Graph``'s dict-like ``.nodes``/``.graph`` surface — every
-method below exists because a real backend call site needs exactly that
-operation, not because networkx happened to expose it.
+A narrow, explicit API — every method below exists because a real backend
+call site needs exactly that operation.
 
 - ``geo_id in G``, ``len(G)``
 - ``G.parents_of(geo_ids)`` / ``G.children_of(geo_id)`` / ``G.is_shattered_parent(geo_id)``
 - subset connectivity: ``connected_components`` / ``number_connected_components``
-  / ``is_connected`` over an id subset, matching nx ``G.subgraph(...)`` semantics
+  / ``is_connected`` over an id subset, on the subgraph induced by that subset
   (unknown ids are silently dropped) — backed by ``scipy.sparse.csgraph``
 - ``G.expand_non_contiguous(geo_ids)`` — in-place NCP-aware expansion for the
   contiguity endpoints
@@ -24,10 +21,9 @@ share across request threads. All returned ids are native ``str``, never
 ``np.str_`` (they flow into psycopg bind params, msgpack, and CSV writers).
 
 This class has no knowledge of external storage formats — constructing one
-from a pipeline-built networkx graph or an npz file is ``app.evaluation.
-graph_loader``'s job; this module only knows how to build itself from
-validated arrays (``__init__``) and how to read/write its own mmap disk
-cache (``save_cache``/``load_cache``).
+from the pipeline's npz file is ``app.evaluation.graph_loader``'s job; this
+module only knows how to build itself from validated arrays (``__init__``)
+and how to read/write its own mmap disk cache (``save_cache``/``load_cache``).
 """
 
 import json
@@ -56,7 +52,7 @@ class DualLevelGraph:
             edges: (E, 2) int32 array of node indices (undirected, one row per edge).
             parent_of: (N,) int32 array of indices into node_ids, -1 = no parent.
                 Every referenced parent must itself be a node — callers
-                (``from_networkx``/``from_npz``) enforce this at construction.
+                (``from_npz``, via the pipeline writer) enforce this at construction.
             weighted_edges: {(parent_a, parent_b): block-edge count} or None for
                 non-shatterable graphs.
             non_contiguous_parents: parent ids whose blocks are disconnected.
@@ -345,8 +341,7 @@ class DualLevelGraph:
     def connected_components(self, subset: Iterable[Hashable]) -> list[set[str]]:
         """Connected components of the induced subgraph, as sets of geo_ids.
 
-        Matches nx ``connected_components(G.subgraph(subset))``: ids not in the
-        graph are silently dropped.
+        Ids not in the graph are silently dropped.
         """
         idxs = self._subset_indices(subset)
         if idxs.size == 0:
@@ -367,7 +362,6 @@ class DualLevelGraph:
     def is_connected(self, subset: Iterable[Hashable]) -> bool:
         n = self.number_connected_components(subset)
         if n == 0:
-            # Parity with nx is_connected on an empty subgraph
             raise ValueError("Connectivity is undefined for an empty subgraph")
         return n == 1
 
@@ -413,7 +407,7 @@ class DualLevelGraph:
         Ids in either dict that aren't in this graph are silently excluded
         from both passes rather than raising — same convention as
         ``num_children_of``/``is_shattered_parent`` (unknown ids are just
-        not there), and matches nx ``subgraph()`` semantics. Deliberate:
+        not there), and the same as connected_components. Deliberate:
         reachable whenever a document's assignments predate a graph
         regeneration with a different unit vocabulary (this branch's own
         v1->v2 gerrydb migration is exactly that case), and the alternative
