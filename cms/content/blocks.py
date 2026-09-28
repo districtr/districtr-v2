@@ -153,8 +153,10 @@ class PlanGalleryBlock(CompatStructBlock):
     ``ids`` IS the curated gallery: an ordered, reorderable list of plan ids
     maintained on the page itself (the Portals gallery's "Pin to page
     gallery" appends here). ``tags`` filters instead when no ids are curated.
-    ``thisPortal`` lists the page's own portal instead; the slug is injected
-    when serving (content/api.py), so a rename can't strand it.
+    With neither, ``thisPortal`` lists the page's own portal; the slug is
+    injected when serving (content/api.py), so a rename can't strand it.
+    It defaults on, so a fresh gallery on a portal page lists that portal and
+    a site-wide listing takes unticking it.
     """
 
     ids = blocks.ListBlock(
@@ -172,10 +174,11 @@ class PlanGalleryBlock(CompatStructBlock):
     )
     thisPortal = blocks.BooleanBlock(
         required=False,
-        default=False,
+        default=True,
         label="List this portal's plans",
         help_text="On a portal page, list the plans submitted to this portal. "
-        "Follows slug renames. Ignored when plan IDs are curated.",
+        "Follows slug renames. Ignored when plan IDs or portal slugs are set; "
+        "untick to list plans from the whole site.",
     )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)

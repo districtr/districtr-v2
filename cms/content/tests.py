@@ -800,7 +800,8 @@ class ContentApiTests(TestCase):
         gallery = body[1]["value"]
         # Empty list filters are served as null, matching the legacy attrs.
         self.assertIsNone(gallery["ids"])
-        self.assertIsNone(gallery["tags"])
+        # No filter of its own, so it lists its portal (thisPortal default).
+        self.assertEqual(gallery["tags"], ["fair-maps"])
         self.assertEqual(gallery["limit"], 12)
         self.assertTrue(gallery["showListView"])
 
@@ -1315,19 +1316,22 @@ class FormConfigInjectionTests(TestCase):
     def test_galleries_list_their_own_portal(self):
         self.portal.body = [
             {"type": "comment_gallery", "value": {}},
-            {"type": "plan_gallery", "value": {"thisPortal": True}},
             {"type": "plan_gallery", "value": {}},
+            {"type": "plan_gallery", "value": {"thisPortal": False}},
+            {"type": "plan_gallery", "value": {"tags": ["elsewhere"]}},
         ]
         self.portal.save_revision(clean=False).publish()
         body = self.client.get("/api/content/portals/slug/configured").json()[
             "content"
         ]["body"]
-        comments, own, unfiltered = (block["value"] for block in body)
+        comments, fresh, site_wide, cross = (block["value"] for block in body)
         self.assertEqual(comments["portalId"], "configured")
-        self.assertEqual(own["tags"], ["configured"])
-        self.assertNotIn("thisPortal", own)
-        # Without thisPortal an empty gallery keeps its legacy meaning.
-        self.assertIsNone(unfiltered["tags"])
+        # A fresh plan gallery lists this portal, not the whole site.
+        self.assertEqual(fresh["tags"], ["configured"])
+        self.assertNotIn("thisPortal", fresh)
+        # Site-wide takes unticking; an explicit slug filter is kept.
+        self.assertIsNone(site_wide["tags"])
+        self.assertEqual(cross["tags"], ["elsewhere"])
 
     def test_map_create_buttons_carry_portal_id(self):
         self.portal.body = [

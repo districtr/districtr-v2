@@ -42,11 +42,13 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   includeInProgress = false,
   ...flags
 }: PlanGalleryProps) => {
-  const isTagBased = Boolean(tags?.length && !ids?.length);
+  // Curated ids show exactly what was pinned. Every other gallery, tag
+  // filtered or site-wide, lists submitted plans only, never scratch maps.
+  const isFiltered = !ids?.length;
   const draftStatuses = includeInProgress ? SUBMITTED_STATUSES : [DRAFT_STATUSES.READY_TO_SHARE];
   // Mixed-status lists annotate each plan with its status; ready-only lists
   // are uniform, so a badge would be noise.
-  const showStatus = isTagBased && includeInProgress;
+  const showStatus = isFiltered && includeInProgress;
   return (
     <Gallery<MinPublicDocument, PlanGalleryFilters, MinPublicDocument[] | null>
       title={title}
@@ -54,7 +56,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
       paginate={paginate}
       limit={limit}
       showListView={showListView}
-      filters={{ids, tags, draftStatuses: isTagBased ? draftStatuses : undefined}}
+      filters={{ids, tags, draftStatuses: isFiltered ? draftStatuses : undefined}}
       queryKey={['plans']}
       queryFunction={async ({filters, limit, offset}) => {
         const result = await getPlans({
