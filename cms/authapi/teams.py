@@ -2,16 +2,18 @@
 Team-based Wagtail admin scoping (see authapi.models.Team).
 
 A non-admin user who belongs to one or more Teams is "team-scoped": the admin
-listings/editing for galleries, tag pages, and Districtr map modules are
+listings/editing for portal forms, tag pages, and Districtr map modules are
 narrowed to their teams' resources. Superusers and members of the `admin`
-group are never scoped; a non-admin user with no team keeps their role's
-default (unscoped) access.
+group are never scoped. Every other signed-in user is scoped, including a
+non-admin with no team, who therefore reaches nothing (fail closed) until an
+admin adds them to one. The JWT side agrees: such a user gets `teams: []`.
 
 Each resource reaches a Team differently:
-- Gallery.team is a direct FK;
 - DistrictrMap relates through TeamDistrictrMap (team_links);
-- TagPage relates indirectly through districtr_map_slug -> DistrictrMap ->
-  TeamDistrictrMap.
+- FormConfig (submission moderation) carries team slugs in admin_teams;
+- TagPage (a portal) relates through its FormConfig (portal_id = page slug),
+  so page access and submission moderation share one key. Module grants
+  decide which modules a team may use, never which portals it may edit.
 
 so the per-resource queryset filters live with each resource's wagtail_hooks;
 this module only answers "is this user scoped, and to which teams".
@@ -25,14 +27,37 @@ from wagtail.permission_policies.base import ModelPermissionPolicy
 from authapi.models import TeamMembership
 
 
+def user_is_unscoped_admin(user) -> bool:
+    """True for superusers and admin-group members — the only users the
+    team-scoping machinery never narrows. Everyone else is restricted to
+    their teams; a non-admin with NO team must fail closed (see the
+    FormConfig policy), not inherit admin reach."""
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or user.groups.filter(name="admin").exists()
+
+
 def user_is_team_scoped(user) -> bool:
-    """True when ``user``'s Wagtail admin should be narrowed to their teams
-    (see module docstring for who is exempt)."""
-    if not user.is_authenticated or user.is_superuser:
-        return False
-    if user.groups.filter(name="admin").exists():
-        return False
-    return TeamMembership.objects.filter(user=user).exists()
+    """True when ``user``'s Wagtail admin should be narrowed to their teams:
+    every signed-in non-admin, with or without a team (see module docstring)."""
+    return user.is_authenticated and not user_is_unscoped_admin(user)
+
+
+def user_administers(user, admin_teams) -> bool:
+    """True when ``user`` may act on a resource administered by ``admin_teams``
+    (a FormConfig's admin_teams): unscoped admins always, anyone else only
+    through one of their own teams. The one copy of this rule; the backend's
+    require_portal_admin applies the same test to the JWT teams claim."""
+    if user_is_unscoped_admin(user):
+        return True
+    return bool(set(admin_teams or []) & set(team_slugs_for_user(user)))
+
+
+def administered_by_user(queryset, user):
+    """``queryset`` (FormConfigs) narrowed to those ``user`` administers."""
+    if user_is_unscoped_admin(user):
+        return queryset
+    return queryset.filter(admin_teams__overlap=team_slugs_for_user(user))
 
 
 def team_ids_for_user(user) -> set[int]:
@@ -42,12 +67,41 @@ def team_ids_for_user(user) -> set[int]:
     )
 
 
+def team_slugs_for_user(user) -> list[str]:
+    """Slugs of every Team ``user`` belongs to, sorted.
+
+    Minted into the JWT `teams` claim and matched by the backend against
+    form_configs.admin_teams to scope submission moderation per portal
+    (backend/app/submissions/main.py::require_portal_admin). Renaming a team
+    is safe; changing its slug invalidates members' access until re-login.
+    """
+    from authapi.models import Team
+
+    return sorted(
+        Team.objects.filter(memberships__user=user).values_list("slug", flat=True)
+    )
+
+
+def portal_slugs_for_user(user) -> set[str]:
+    """Slugs of the portals (TagPages) whose FormConfig.admin_teams include
+    one of ``user``'s teams — the same rule the backend enforces via the JWT
+    teams claim. A TagPage is in a team-scoped user's scope exactly when its
+    slug is in this set; a portal with no FormConfig belongs to no team."""
+    from datastore.models import FormConfig
+
+    return set(
+        FormConfig.objects.filter(
+            admin_teams__overlap=team_slugs_for_user(user)
+        ).values_list("portal_id", flat=True)
+    )
+
+
 def districtr_map_slugs_for_user(user) -> set[str]:
     """districtr_map_slugs of the DistrictrMaps assigned to the user's teams.
 
-    A TagPage is in the user's scope exactly when its ``districtr_map_slug`` is
-    in this set (TagPage -> DistrictrMap by slug -> TeamDistrictrMap). Imported
-    lazily to keep authapi free of a load-time dependency on datastore.
+    Scopes PlacePages and the map-module choices offered in page forms and
+    the portal wizard. Imported lazily to keep authapi free of a load-time
+    dependency on datastore.
     """
     from datastore.models import DistrictrMap
 
@@ -55,34 +109,6 @@ def districtr_map_slugs_for_user(user) -> set[str]:
         DistrictrMap.objects.filter(
             team_links__team__memberships__user=user
         ).values_list("districtr_map_slug", flat=True)
-    )
-
-
-def review_portal_slugs_for_user(user) -> list[str]:
-    """Portal (TagPage) slugs whose submissions the user may review — minted
-    as the JWT `review_tags` claim (a portal's page slug is its comment tag
-    slug).
-
-    DEFAULT LOCALE ONLY, for two reasons: translations legitimately share a
-    slug with their source (so per-locale rows would be duplicates), and page
-    slugs are unique only per parent — each locale has its own tags index, so
-    without this filter a member could create a page in a translated index
-    carrying ANOTHER team's portal slug and mint themselves that team's
-    review scope. This matches moderation's _accessible_portals filter.
-
-    Imported lazily to avoid a load-time dependency on content.
-    """
-    from wagtail.models import Locale
-
-    from content.models import TagPage
-
-    return sorted(
-        set(
-            TagPage.objects.filter(
-                locale=Locale.get_default(),
-                districtr_map_slug__in=districtr_map_slugs_for_user(user),
-            ).values_list("slug", flat=True)
-        )
     )
 
 
@@ -98,7 +124,7 @@ def scoped_queryset(model, team_filter_field, user):
     """``model`` rows belonging to one of ``user``'s teams.
 
     ``team_filter_field`` is the ORM lookup from the model to Team's pk,
-    e.g. ``team_id`` (Gallery, direct FK) or ``team_links__team_id``
+    e.g. ``team_links__team_id``
     (DistrictrMap, via TeamDistrictrMap).
     """
     team_ids = team_ids_for_user(user)
@@ -112,7 +138,7 @@ class TeamScopedModelPermissionPolicy(ModelPermissionPolicy):
     belonging to their teams. Admins / superusers / team-less users are
     unaffected (full model-permission behaviour).
 
-    Used for resources a member may *edit* (e.g. Gallery). ``team_filter_field``
+    Used for resources a member may *edit*. ``team_filter_field``
     is the lookup passed to :func:`scoped_queryset`.
     """
 
@@ -153,7 +179,13 @@ class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
     _VIEW_ACTIONS = {"view", "inspect"}
 
     def user_has_permission(self, user, action):
-        if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
+        # Team members only: a scoped user with no team would get the menu
+        # and an empty list, since their queryset is empty.
+        if (
+            action in self._VIEW_ACTIONS
+            and user_is_team_scoped(user)
+            and team_ids_for_user(user)
+        ):
             return True
         return super().user_has_permission(user, action)
 

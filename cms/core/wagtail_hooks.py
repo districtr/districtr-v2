@@ -4,9 +4,11 @@ Site-wide Wagtail admin customisations:
 - a role-aware "Districtr shortcuts" dashboard panel (construct_homepage_panels)
   rendered as action cards whose labels match the sidebar actions exactly
   (Site content, Review, Map modules, admin screens);
-- main-menu trimming (construct_main_menu): Reports and the raw Pages tree
-  are hidden for non-admins (Site content covers page editing); Reports is
-  relabelled "Admin analytics" for admins. Images/Documents stay for everyone
+- main-menu trimming (construct_main_menu): Reports, the raw Pages tree and
+  the generic Snippets listing are hidden for non-admins (the Portals hub
+  covers portal pages and forms); Reports is relabelled "Admin analytics"
+  for admins. The dashboard's "n Pages" summary link into that same tree is
+  dropped for non-admins too (construct_homepage_summary_items). Images/Documents stay for everyone
   because RICH_TEXT_FEATURES (content/blocks.py) includes image, embed, and
   document-link;
 - Districtr branding CSS (insert_global_admin_css, core/static/core/admin.css).
@@ -21,17 +23,20 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
 from wagtail import hooks
+from wagtail.admin.site_summary import PagesSummaryItem
 from wagtail.admin.ui.components import Component
+
+from core.menu import in_groups
 
 SHORTCUT_GROUPS = ("partner", "super_partner", "admin")
 
 
 def _is_admin(user):
-    return user.is_superuser or user.groups.filter(name="admin").exists()
+    return in_groups(user, ("admin",))
 
 
 def _in_shortcut_groups(user):
-    return user.is_superuser or user.groups.filter(name__in=SHORTCUT_GROUPS).exists()
+    return in_groups(user, SHORTCUT_GROUPS)
 
 
 def _index_explorer_url(index_model):
@@ -56,22 +61,20 @@ class DistrictrShortcutsPanel(Component):
         self.request = request
 
     def get_context_data(self, parent_context):
-        from content.models import PlacesIndexPage, StaticIndexPage, TagsIndexPage
+        from content.models import PlacesIndexPage, StaticIndexPage
 
         user = self.request.user
         cards = []
 
         if _in_shortcut_groups(user):
-            portal_url = _index_explorer_url(TagsIndexPage)
-            if portal_url:
-                cards.append(
-                    {"label": "Edit portal pages", "url": portal_url, "icon": "tag"}
-                )
+            cards.append(
+                {"label": "Portals", "url": reverse("portals_index"), "icon": "tag"}
+            )
             cards.append(
                 {
-                    "label": "Review",
-                    "url": reverse("moderation_review_portals"),
-                    "icon": "glasses",
+                    "label": "New portal",
+                    "url": reverse("content_portal_wizard"),
+                    "icon": "plus",
                 }
             )
 
@@ -145,15 +148,28 @@ def trim_main_menu(request, menu_items):
     # partners and super partners never need it. For admins it reads better
     # as "Admin analytics".
     if not _is_admin(request.user):
-        # Site content's direct index links cover page editing for partners;
-        # the raw Pages tree stays admin-only.
+        # The Portals hub covers portal pages and their forms ("Edit page",
+        # "Edit form" per row); the raw Pages tree and the generic Snippets
+        # listing (which holds only Portal forms for partners) stay
+        # admin-only. Map modules and Teams have their own named menus.
         menu_items[:] = [
-            item for item in menu_items if item.name not in ("reports", "explorer")
+            item
+            for item in menu_items
+            if item.name not in ("reports", "explorer", "snippets")
         ]
     else:
         for item in menu_items:
             if item.name == "reports":
                 item.label = "Admin analytics"
+
+
+@hooks.register("construct_homepage_summary_items")
+def trim_homepage_summary(request, summary_items):
+    # The stock "n Pages" item links into the explorer the sidebar hides.
+    if not _is_admin(request.user):
+        summary_items[:] = [
+            item for item in summary_items if not isinstance(item, PagesSummaryItem)
+        ]
 
 
 @hooks.register("insert_global_admin_css")

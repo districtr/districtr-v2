@@ -16,10 +16,10 @@ export const RICH_TEXT_NODE_TYPES = {
 export const BOILERPLATE_ATTRIBUTE_NAME = 'data-custom-content';
 export const SECTION_HEADER_ATTRIBUTE_NAME = 'data-title';
 
-export const FORM_ATTRIBUTES = [
-  {name: 'mandatoryTags', default: []},
-  {name: 'allowListModules', default: []},
-] as const;
+// NOTE: form blocks render through StreamRenderer, which spreads the
+// CMS-injected block.value straight into SubmissionForm — there is no
+// DOM-attribute plumbing for them (the legacy FORM_ATTRIBUTES list was dead
+// code and was removed).
 
 type MapCreateButtonsAttrSpec<K extends keyof MapCreateButtonsProps> = {
   name: K;
@@ -33,7 +33,9 @@ type AnyMapCreateButtonsAttrSpec = {
 export const MAP_CREATE_BUTTONS_ATTRIBUTES = [
   {name: 'views', default: []},
   {name: 'type', default: 'simple'},
-  {name: 'createTag', default: null},
+  // Injected by the CMS content API on portal pages.
+  {name: 'portalId', default: null},
+  {name: 'collectionMode', default: null},
 ] as const satisfies readonly AnyMapCreateButtonsAttrSpec[];
 
 type PlanGalleryAttrSpec<K extends keyof PlanGalleryProps> = {

@@ -49,16 +49,71 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
-def _inject_portal_tag(body_data, portal_slug):
-    """Guarantee comment-form blocks tag their submissions with the portal's
-    slug — the slug IS the portal's comment tag (review scoping and the
-    moderation queues key on it), so it must not depend on authors remembering
-    to add it to mandatoryTags."""
+def _inject_portal_id(body_data, portal_slug):
+    """A portal page's comment gallery lists ITS portal's submissions. Without
+    this, an empty editor `tags` field would list every portal's submissions."""
+    for block in body_data:
+        if block.get("type") == "comment_gallery":
+            block["value"]["portalId"] = portal_slug
+    return body_data
+
+
+def _inject_form_config(body_data, portal_slug):
+    """Attach the portal's FormConfig (which fields the form shows, camelCase
+    per the constants/cms.ts contract) to every form block.
+
+    Translations share their source page's slug, so the default-locale slug
+    IS this page's slug — one lookup covers every locale. Tolerates a missing
+    mirror table the same way districtr_map_slug_choices does (test
+    databases); a portal with no config serves ``fields: null`` and the
+    frontend renders no form.
+    """
+    from django.db import DatabaseError, transaction
+
+    from datastore.models import FormConfig, FormFieldCustom
+
+    config, custom_fields = None, []
+    try:
+        with transaction.atomic():
+            config = FormConfig.objects.filter(portal_id=portal_slug).first()
+            if config is not None:
+                custom_fields = [
+                    {
+                        "key": custom.key,
+                        "label": custom.label,
+                        "fieldType": custom.field_type,
+                        "required": custom.required,
+                    }
+                    for custom in FormFieldCustom.objects.filter(
+                        form_config_id=portal_slug
+                    )
+                ]
+    except DatabaseError:
+        pass
     for block in body_data:
         if block.get("type") == "form":
-            tags = list(block.get("value", {}).get("mandatoryTags") or [])
-            if portal_slug not in tags:
-                block["value"]["mandatoryTags"] = [portal_slug, *tags]
+            block["value"].update(
+                {
+                    "portalId": portal_slug,
+                    "collectionMode": config.collection_mode if config else None,
+                    "fields": list(config.fields) if config else None,
+                    "requiredFields": list(config.required_fields) if config else None,
+                    "requireEmailConfirm": bool(config.require_email_confirm)
+                    if config
+                    else False,
+                    "customFields": custom_fields if config else None,
+                }
+            )
+        elif (
+            block.get("type") == "map_create_buttons"
+            and config is not None
+            and config.collection_mode != "form"
+        ):
+            # Maps started from a portal page get a draft submission for the
+            # portal (the auto-submit pathway). Manual-form portals collect
+            # only through the form, so their map buttons stay plain.
+            block["value"]["portalId"] = portal_slug
+            block["value"]["collectionMode"] = config.collection_mode
     return body_data
 
 
@@ -66,7 +121,8 @@ def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
     if content_type == "tags":
-        body_data = _inject_portal_tag(body_data, page.slug)
+        body_data = _inject_portal_id(body_data, page.slug)
+        body_data = _inject_form_config(body_data, page.slug)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,

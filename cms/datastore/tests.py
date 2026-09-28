@@ -9,19 +9,22 @@ after the backend's Alembic migrations).
 """
 
 from django.db import models
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from datastore.drift import (
     EXCLUDED_COLUMNS,
     compare_columns,
     mirrored_models,
     model_column_spec,
+    parse_db_table,
 )
 from datastore.models import (
     DistrictrMap,
     DistrictrMapOverlays,
     DistrictrMapsToGroups,
     GeoUnitType,
+    FormConfig,
+    FormFieldCustom,
     GerryDBTable,
     MapGroup,
     MapType,
@@ -38,6 +41,8 @@ EXPECTED_TABLES = {
     DistrictrMapsToGroups: "districtrmaps_to_groups",
     DistrictrMapOverlays: "districtrmap_overlays",
     Overlay: "overlay",
+    FormConfig: 'comments"."form_configs',
+    FormFieldCustom: 'comments"."form_fields_custom',
 }
 
 EXPECTED_COLUMNS = {
@@ -81,6 +86,29 @@ EXPECTED_COLUMNS = {
         "created_at",
         "updated_at",
     },
+    FormConfig: {
+        "id",
+        "portal_id",
+        "name",
+        "fields",
+        "required_fields",
+        "require_email_confirm",
+        "admin_teams",
+        "collection_mode",
+        "created_at",
+        "updated_at",
+    },
+    FormFieldCustom: {
+        "id",
+        "portal_id",
+        "key",
+        "label",
+        "field_type",
+        "required",
+        "sort_order",
+        "created_at",
+        "updated_at",
+    },
 }
 
 
@@ -105,6 +133,13 @@ class MirrorMetaTests(SimpleTestCase):
 
     def test_every_excluded_columns_table_is_mirrored(self):
         self.assertEqual(set(EXCLUDED_COLUMNS), set(EXPECTED_TABLES.values()))
+
+    def test_parse_db_table(self):
+        self.assertEqual(parse_db_table("districtrmap"), ("public", "districtrmap"))
+        self.assertEqual(
+            parse_db_table('comments"."form_configs'),
+            ("comments", "form_configs"),
+        )
 
     def test_foreign_keys_do_nothing_and_unconstrained(self):
         for model in EXPECTED_TABLES:
@@ -201,3 +236,327 @@ class CompareColumnsTests(SimpleTestCase):
         db_spec = {"uuid": True, "name": False, "added": False}
         problems = compare_columns("t", self.MODEL_SPEC, db_spec)
         self.assertEqual(len(problems), 3)
+
+
+class FormConfigScopingTests(TestCase):
+    """Team scoping on the portal-form snippet — the ACL the backend's
+    require_portal_admin reads. Bypass-by-URL and fail-open-for-team-less
+    are the repo's historical bug class."""
+
+    def setUp(self):
+        from core.testing import (
+            create_mirror_tables,
+            make_form_config,
+            make_team,
+            make_user,
+        )
+        from datastore.models import FormConfig, FormFieldCustom
+
+        create_mirror_tables(FormConfig, FormFieldCustom)
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.team = make_team("Mine Team", members=[self.partner])
+        make_team("Other Team")
+        self.mine = make_form_config("my-portal", admin_teams=["mine-team"])
+        self.theirs = make_form_config("their-portal", admin_teams=["other-team"])
+
+    def _policy(self):
+        from datastore.wagtail_hooks import FormConfigPermissionPolicy
+        from datastore.models import FormConfig
+
+        return FormConfigPermissionPolicy(FormConfig)
+
+    def test_scoped_partner_sees_only_own_configs(self):
+        instances = self._policy().instances_user_has_permission_for(
+            self.partner, "change"
+        )
+        self.assertEqual([c.portal_id for c in instances], ["my-portal"])
+        self.assertFalse(
+            self._policy().user_has_permission_for_instance(
+                self.partner, "change", self.theirs
+            )
+        )
+
+    def test_team_less_partner_fails_closed(self):
+        from core.testing import make_user
+
+        loner = make_user("partner", "loner@d.org", access_admin=True)
+        instances = self._policy().instances_user_has_permission_for(loner, "change")
+        self.assertEqual(list(instances), [])
+
+    def test_out_of_scope_edit_by_url_denied(self):
+        self.client.force_login(self.partner)
+        response = self.client.get(
+            f"/admin/snippets/datastore/formconfig/edit/{self.theirs.pk}/"
+        )
+        self.assertEqual(response.status_code, 404)
+        ok = self.client.get(
+            f"/admin/snippets/datastore/formconfig/edit/{self.mine.pk}/"
+        )
+        self.assertEqual(ok.status_code, 200)
+
+    def test_partner_cannot_add_or_copy_a_config(self):
+        # Creating the first config for a portal names its moderating teams,
+        # so a partner doing it could claim any unconfigured portal and read
+        # its submitters' emails. Both /add/ and /copy/ check "add".
+        from core.testing import make_admin_user, make_portal
+        from datastore.models import FormConfig
+
+        self.assertFalse(self._policy().user_has_permission(self.partner, "add"))
+        self.assertTrue(self._policy().user_has_permission(make_admin_user(), "add"))
+
+        make_portal("unclaimed")
+        self.client.force_login(self.partner)
+        base = "/admin/snippets/datastore/formconfig"
+        for url in (f"{base}/add/", f"{base}/copy/{self.mine.pk}/"):
+            self.assertNotEqual(self.client.get(url).status_code, 200, url)
+        self.client.post(
+            f"{base}/add/",
+            {
+                "portal_id": "unclaimed",
+                "name": "Mine now",
+                "collection_mode": "prompt",
+                "admin_teams": ["mine-team"],
+            },
+        )
+        self.assertFalse(FormConfig.objects.filter(portal_id="unclaimed").exists())
+
+    def test_out_of_scope_history_by_url_404s(self):
+        self.client.force_login(self.partner)
+        response = self.client.get(
+            f"/admin/snippets/datastore/formconfig/history/{self.theirs.pk}/"
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class FormConfigAdminFormTests(TestCase):
+    """The form's own scoping: restricted editors only grant/revoke their
+    own teams, must keep one, and cannot re-point portal_id."""
+
+    def setUp(self):
+        from core.testing import (
+            create_mirror_tables,
+            make_form_config,
+            make_portal,
+            make_team,
+            make_user,
+        )
+        from datastore.models import (
+            DistrictrMap,
+            FormConfig,
+            FormFieldCustom,
+            GerryDBTable,
+        )
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
+        # TagPage.full_clean validates districtr_map_slug once the mirror
+        # exists, so the referenced map row must too.
+        layer = GerryDBTable.objects.create(name="blocks")
+        DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.partner = make_user("partner", "p@d.org", access_admin=True)
+        self.admin = make_user("admin", "a@d.org", access_admin=True)
+        self.team = make_team("Mine Team", members=[self.partner])
+        make_team("Other Team")
+        self.portal = make_portal("my-portal")
+        self.config = make_form_config("my-portal", admin_teams=["mine-team"])
+
+    def _form(self, user, **overrides):
+        from datastore.wagtail_hooks import FormConfigAdminForm
+
+        data = {
+            "portal_id": "my-portal",
+            "name": "My Portal",
+            "collection_mode": "prompt",
+            "fields": ["title", "comment"],
+            "required_fields": ["title"],
+            "admin_teams": ["mine-team"],
+        }
+        data.update(overrides)
+        return FormConfigAdminForm(data, instance=self.config, for_user=user)
+
+    def test_partner_cannot_grant_other_team(self):
+        form = self._form(self.partner, admin_teams=["other-team"])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_partner_cannot_drop_own_last_team(self):
+        form = self._form(self.partner, admin_teams=[])
+        self.assertFalse(form.is_valid())
+        self.assertIn("admin_teams", form.errors)
+
+    def test_admin_may_grant_any_team(self):
+        form = self._form(self.admin, admin_teams=["other-team"])
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_partner_cannot_repoint_portal_id(self):
+        from core.testing import make_portal
+
+        make_portal("other-portal")
+        form = self._form(self.partner, portal_id="other-portal")
+        self.assertFalse(form.is_valid())
+        self.assertIn("portal_id", form.errors)
+
+    def test_saving_keeps_a_co_administering_team(self):
+        # The other team's checkbox isn't rendered for this partner, so it's
+        # absent from the POST; saving must not revoke it.
+        self.config.admin_teams = ["other-team", "mine-team"]
+        self.config.save()
+        form = self._form(self.partner, name="Renamed", admin_teams=["mine-team"])
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["admin_teams"], ["other-team", "mine-team"])
+        form.save()
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.admin_teams, ["other-team", "mine-team"])
+
+    def test_partner_cannot_set_portal_id_on_create(self):
+        from core.testing import make_portal
+        from datastore.models import FormConfig
+        from datastore.wagtail_hooks import FormConfigAdminForm
+
+        make_portal("unclaimed")
+        form = FormConfigAdminForm(
+            {
+                "portal_id": "unclaimed",
+                "name": "Claim",
+                "collection_mode": "prompt",
+                "admin_teams": ["mine-team"],
+            },
+            instance=FormConfig(),
+            for_user=self.partner,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("portal_id", form.errors)
+
+    def test_portal_id_must_name_a_real_portal_page(self):
+        form = self._form(self.admin, portal_id="ghost-portal")
+        self.assertFalse(form.is_valid())
+        self.assertIn("portal_id", form.errors)
+
+
+class FormConfigDeleteGuardTests(TestCase):
+    """Deleting a portal form with submissions is refused (data-loss guard;
+    the DB FK is ON DELETE RESTRICT, this is the friendly layer)."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_admin_user, make_form_config
+        from datastore.models import FormConfig, FormFieldCustom
+
+        create_mirror_tables(FormConfig, FormFieldCustom)
+        self.config = make_form_config("busy-portal")
+        self.client.force_login(make_admin_user())
+        self.url = f"/admin/snippets/datastore/formconfig/delete/{self.config.pk}/"
+
+    def test_delete_with_submissions_refused(self):
+        from unittest import mock
+
+        from datastore.models import FormConfig
+
+        with mock.patch(
+            "datastore.wagtail_hooks._portals_with_submissions",
+            return_value={"busy-portal": 3},
+        ):
+            response = self.client.post(self.url, follow=True)
+        self.assertContains(response, "Cannot delete portal forms")
+        self.assertTrue(FormConfig.objects.filter(pk=self.config.pk).exists())
+
+    def test_delete_without_submissions_proceeds(self):
+        from unittest import mock
+
+        from datastore.models import FormConfig
+
+        with mock.patch(
+            "datastore.wagtail_hooks._portals_with_submissions", return_value={}
+        ):
+            self.client.post(self.url)
+        self.assertFalse(FormConfig.objects.filter(pk=self.config.pk).exists())
+
+
+class PortalSlugRenameTests(TestCase):
+    """The portal's form is keyed by its page slug, so renaming the page must
+    carry the form along; otherwise the submission form silently vanishes."""
+
+    def setUp(self):
+        from core.testing import create_mirror_tables, make_form_config, make_portal
+        from datastore.models import (
+            DistrictrMap,
+            FormConfig,
+            FormFieldCustom,
+            GerryDBTable,
+        )
+
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig, FormFieldCustom)
+        layer = GerryDBTable.objects.create(name="blocks")
+        DistrictrMap.objects.create(
+            name="Chi", districtr_map_slug="chi_wards", parent_layer=layer
+        )
+        self.portal = make_portal("old-slug")
+        make_form_config("old-slug")
+
+    def _config_slugs(self):
+        from datastore.models import FormConfig
+
+        return set(FormConfig.objects.values_list("portal_id", flat=True))
+
+    def test_publishing_a_rename_moves_the_form(self):
+        self.portal.slug = "new-slug"
+        self.portal.save_revision().publish()
+        self.assertEqual(self._config_slugs(), {"new-slug"})
+
+    def test_draft_rename_moves_nothing(self):
+        # A draft keeps the pending slug in the revision; the live page (and
+        # the form it's joined to) keep the old one until publish.
+        self.portal.slug = "pending-slug"
+        self.portal.save_revision()
+        self.assertEqual(self._config_slugs(), {"old-slug"})
+
+    def test_rename_onto_another_portals_form_is_refused(self):
+        from django.core.exceptions import ValidationError
+
+        from core.testing import make_form_config
+
+        make_form_config("taken")
+        self.portal.slug = "taken"
+        with self.assertRaises(ValidationError):
+            self.portal.full_clean()
+
+
+class FieldRegistryLockstepTests(TestCase):
+    """The built-in submission field keys live in three hand-kept copies: the
+    CMS choices (labels), the backend registry (validation and length caps),
+    and the frontend registry (input widgets). A key missing from one lets an
+    editor tick a field the backend discards or the form never renders."""
+
+    def test_three_registries_agree(self):
+        import ast
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from datastore.models import SUBMISSION_FIELD_CHOICES
+
+        root = Path(settings.BASE_DIR).parent
+        backend = root / "backend/app/submissions/fields.py"
+        frontend = root / "app/src/app/components/Forms/fieldRegistry.tsx"
+        if not (backend.exists() and frontend.exists()):
+            self.skipTest("backend/ and app/ are not checked out alongside cms/")
+
+        cms_keys = {key for key, _ in SUBMISSION_FIELD_CHOICES}
+
+        tree = ast.parse(backend.read_text())
+        registry = next(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.AnnAssign)
+            and getattr(node.target, "id", None) == "FIELD_REGISTRY"
+        )
+        backend_keys = {k.value for k in registry.keys}
+
+        body = frontend.read_text()
+        block = body[body.index("export const FIELD_REGISTRY") :]
+        block = block[: block.index("\n};")]
+        frontend_keys = set(re.findall(r"^  ([a-z_]+): \{", block, re.M))
+
+        self.assertEqual(backend_keys, cms_keys, "backend vs CMS")
+        self.assertEqual(frontend_keys, cms_keys, "frontend vs CMS")

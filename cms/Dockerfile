@@ -17,4 +17,8 @@ RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
 
 EXPOSE 8080
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "60"]
+# --threads (gthread): a slow backend call (a cold map evaluation on the
+# Portals metrics page, up to ~2 min) holds one thread, not a whole worker, so
+# the rest of the admin stays responsive. --timeout 120 matches the ALB idle
+# timeout (infra/alb.ts); nothing longer can reach the browser anyway.
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "120"]

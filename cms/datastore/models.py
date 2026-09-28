@@ -235,3 +235,130 @@ class DistrictrMapOverlays(models.Model):
 
     def __str__(self):
         return f"{self.districtr_map_id} \N{RIGHTWARDS ARROW} {self.overlay_id}"
+
+
+# ---------------------------------------------------------------------------
+# comments-schema mirror
+# ---------------------------------------------------------------------------
+
+# The submission field registry — the fixed vocabulary a portal's form may
+# draw from. LOCKSTEP CONTRACT with backend/app/submissions/fields.py
+# (validation) and app/src/app/components/Forms/fieldRegistry.tsx
+# (rendering): adding a field means touching all three.
+SUBMISSION_FIELD_CHOICES = [
+    ("salutation", "Salutation"),
+    ("first_name", "First name"),
+    ("last_name", "Last name"),
+    ("email", "Email (never shown publicly)"),
+    ("title", "Title"),
+    ("comment", "Comment"),
+    ("place", "Place"),
+    ("state", "State"),
+    ("zip_code", "Zip code"),
+]
+
+
+# How a portal collects map submissions — the vocabulary lives in the backend
+# (app/submissions/models.py::CollectionMode); descriptions are shared by this
+# form and the portal wizard.
+COLLECTION_MODE_CHOICES = [
+    (
+        "internal",
+        "Internal gallery only — maps made from the portal are collected "
+        "automatically but shown only in the admin gallery, never publicly.",
+    ),
+    (
+        "auto_public",
+        "Auto-collect into the public gallery — maps appear publicly as soon "
+        "as they are marked in progress or ready to share. No form.",
+    ),
+    (
+        "prompt",
+        "Prompt to submit — when a map is marked ready to share, its author "
+        "is asked to submit it with a short form.",
+    ),
+    (
+        "form",
+        "Manual form — visitors submit through the form block on the portal "
+        "page (with an optional map link). Maps are not collected "
+        "automatically.",
+    ),
+]
+
+
+class FormConfig(models.Model):
+    """Mirror of comments.form_configs (backend/app/submissions/models.py).
+
+    One row per portal: which registry fields its submission form shows,
+    which are required, and which teams administer its submissions. The
+    backend validates submissions against this row; the CMS edits it here
+    and injects it into the portal page's form blocks (content/api.py).
+
+    Unlike the other mirrors this table lives in the `comments` schema, which
+    is NOT on the connection search_path — the db_table quoting trick below
+    schema-qualifies it. Deliberately not added to the search_path: that
+    would expose every legacy comment table to ORM name collisions during
+    the transition.
+    """
+
+    id = models.AutoField(primary_key=True)
+    # max_length mirrors the backend's String(255): without it Django puts
+    # no form-level cap while the column truncates at 255 via DataError.
+    portal_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    fields = ArrayField(models.CharField(max_length=64), default=list)
+    required_fields = ArrayField(models.CharField(max_length=64), default=list)
+    require_email_confirm = models.BooleanField(default=False)
+    admin_teams = ArrayField(models.CharField(max_length=255), default=list)
+    # How the portal collects map submissions; see backend
+    # app/submissions/models.py::CollectionMode for the vocabulary.
+    collection_mode = models.CharField(max_length=16, default="prompt")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'comments"."form_configs'
+        verbose_name = "portal form"
+        verbose_name_plural = "portal forms"
+
+    def __str__(self):
+        return f"{self.name} ({self.portal_id})"
+
+
+class FormFieldCustom(models.Model):
+    """Mirror of comments.form_fields_custom (backend
+    app/submissions/models.py): admin-defined questions beyond the fixed
+    field registry. Keys are 'custom_'-prefixed slugs of the label; values
+    are PUBLIC and land in submissions_content like any field."""
+
+    FIELD_TYPE_CHOICES = [("text", "Short answer"), ("textarea", "Paragraph")]
+
+    id = models.BigAutoField(primary_key=True)
+    form_config = models.ForeignKey(
+        FormConfig,
+        models.DO_NOTHING,
+        to_field="portal_id",
+        db_column="portal_id",
+        db_constraint=False,
+        related_name="custom_fields",
+    )
+    key = models.CharField(max_length=64, blank=True)
+    label = models.CharField(max_length=255)
+    field_type = models.CharField(
+        max_length=16, choices=FIELD_TYPE_CHOICES, default="text"
+    )
+    required = models.BooleanField(default=False)
+    sort_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'comments"."form_fields_custom'
+        ordering = ["sort_order", "id"]
+        verbose_name = "custom question"
+        verbose_name_plural = "custom questions"
+
+    def __str__(self):
+        return f"{self.label} ({self.key})"

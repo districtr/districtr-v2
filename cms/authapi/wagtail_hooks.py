@@ -1,11 +1,9 @@
 """
-Wagtail admin registration for per-user review scoping.
+Wagtail admin registration for teams (the tenancy boundary).
 
-only: snippets respect Django model permissions, and only `admin` holds the
-ReviewTagAssignment permissions (granted by authapi/migrations/0003).
-Assignments take effect at the assignee's next login — claims are minted on
+Team changes take effect at the member's next login — claims are minted on
 the refresh token at token obtain (authapi/serializers.py), so an existing
-session keeps its old `review_tags` through silent refreshes.
+session keeps its old `teams` claim through silent refreshes.
 
 The user field uses a generic ChooserViewSet (searchable, paginated) rather
 than an unbounded <select>. register_widget stays False so the chooser only

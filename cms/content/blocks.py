@@ -4,9 +4,12 @@ nodes used by the Next.js frontend.
 
 CRITICAL CONTRACT: struct-child names keep the EXACT camelCase attribute
 names defined in app/src/app/constants/cms.ts (PLAN_GALLERY_ATTRIBUTES,
-COMMENT_GALLERY_ATTRIBUTES, FORM_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES,
-and the boilerplate/sectionHeader node attrs) so the frontend can spread a
-block's ``value`` straight into the matching React component as props.
+COMMENT_GALLERY_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES, and the
+boilerplate/sectionHeader node attrs) so the frontend can spread a block's
+``value`` straight into the matching React component as props. The form
+block has no attribute list: its value is typed by FormBlock in
+app/src/app/utils/api/cmsContent.ts and spread into SubmissionFormProps
+(see the note in constants/cms.ts).
 
 TipTap node name (app/src/app/components/Cms/RichTextEditor/extensions/)
 maps to stream block name as follows:
@@ -148,8 +151,8 @@ class PlanGalleryBlock(CompatStructBlock):
     """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES.
 
     ``ids`` IS the curated gallery: an ordered, reorderable list of plan ids
-    maintained on the page itself (the review flow's "Add to portal gallery"
-    appends here). ``tags`` filters instead when no ids are curated.
+    maintained on the page itself (the Portals gallery's "Pin to page
+    gallery" appends here). ``tags`` filters instead when no ids are curated.
     """
 
     ids = blocks.ListBlock(
@@ -157,13 +160,13 @@ class PlanGalleryBlock(CompatStructBlock):
         default=[],
         label="Curated plan IDs",
         help_text="The plans shown, in this order (empty = filter by tags "
-        'instead). The review queue\'s "Add to portal gallery" appends '
+        'instead). "Pin to page gallery" in the Portals gallery appends '
         "here.",
     )
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to plans with these tags (empty = no filter).",
+        help_text="Portal slugs whose submitted plans to list (empty = no filter).",
     )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
@@ -197,7 +200,7 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to comments with these tags (empty = no filter).",
+        help_text="Portal slugs whose submissions to list (empty = no filter).",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
@@ -220,15 +223,18 @@ class CommentGalleryBlock(CompatStructBlock):
         nullable_if_empty = ("ids", "tags", "place", "state", "zipCode")
 
 
-class FormBlock(blocks.StructBlock):
-    """TipTap ``formNode`` (comment submission form); mirrors FORM_ATTRIBUTES."""
+class FormBlock(CompatStructBlock):
+    """The submission-form placement marker; its value is FormBlock in
+    app/src/app/utils/api/cmsContent.ts.
 
-    mandatoryTags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        label="Mandatory tags",
-        help_text="Tags automatically applied to every submission.",
-    )
+    Which fields the form shows lives portal-level in the FormConfig mirror
+    (datastore.models.FormConfig), injected into the API representation by
+    content/api.py::_inject_form_config — the block itself only carries the
+    placement-specific knobs. nullable_if_empty on allowListModules restores
+    the "empty = all" contract: served as ``[]`` the frontend's
+    ``allowListModules.includes(slug)`` rejects every module.
+    """
+
     allowListModules = blocks.ListBlock(
         blocks.ChoiceBlock(choices=districtr_map_slug_choices),
         default=[],
@@ -238,7 +244,8 @@ class FormBlock(blocks.StructBlock):
 
     class Meta:
         icon = "form"
-        label = "Comment submission form"
+        label = "Submission form"
+        nullable_if_empty = ("allowListModules",)
 
 
 class MapCreateButtonsViewBlock(blocks.StructBlock):
@@ -257,7 +264,7 @@ class MapCreateButtonsBlock(blocks.StructBlock):
 
     views = blocks.ListBlock(MapCreateButtonsViewBlock(), default=[])
     type = blocks.ChoiceBlock(
-        choices=[("simple", "Simple"), ("megaphone", "Megaphone")],
+        choices=[("simple", "Simple"), ("megaphone", "Megaphone"), ("cards", "Cards")],
         default="simple",
     )
 

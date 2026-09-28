@@ -3,8 +3,8 @@ Team-based Wagtail admin scoping (authapi.models.Team / authapi.teams).
 
 Covers the membership helpers, the team-scoped permission policy (object +
 queryset scoping), and an end-to-end admin check that a team-scoped member
-sees/edits only their team's map modules while admins and team-less users are
-unaffected.
+sees/edits only their team's map modules, admins are unaffected, and team-less
+non-admins reach nothing.
 """
 
 from django.contrib.auth import get_user_model
@@ -24,7 +24,7 @@ from content.wagtail_hooks import (
     _is_out_of_scope_page,
     scope_content_pages_in_explorer,
 )
-from datastore.models import DistrictrMap, GerryDBTable
+from datastore.models import DistrictrMap, FormConfig, GerryDBTable
 
 
 class TeamHelperTests(TestCase):
@@ -40,8 +40,12 @@ class TeamHelperTests(TestCase):
         make_team("Team", members=[admin])
         self.assertFalse(user_is_team_scoped(admin))
 
-    def test_partner_without_team_not_scoped(self):
-        self.assertFalse(user_is_team_scoped(make_user("partner", "e@d.org")))
+    def test_partner_without_team_is_scoped_to_nothing(self):
+        # Fail closed: a team-less partner used to fall back to unscoped
+        # access, i.e. every team's pages and modules.
+        loner = make_user("partner", "e@d.org")
+        self.assertTrue(user_is_team_scoped(loner))
+        self.assertEqual(team_ids_for_user(loner), set())
 
     def test_partner_with_team_is_scoped(self):
         partner = make_user("partner", "e@d.org")
@@ -113,13 +117,14 @@ class MapModuleScopingTests(TestCase):
 
 
 class ContentPageScopingTests(TestCase):
-    """TagPages and PlacePages are scoped through their districtr map slug(s) ->
-    DistrictrMap -> TeamDistrictrMap, enforced by the content/wagtail_hooks page
-    hooks. A PlacePage is in scope when it features at least one team map."""
+    """TagPages are scoped through their FormConfig's admin_teams; PlacePages
+    through their districtr map slugs -> DistrictrMap -> TeamDistrictrMap
+    (in scope when the page features at least one team map). Enforced by the
+    content/wagtail_hooks page hooks."""
 
     @classmethod
     def setUpTestData(cls):
-        create_mirror_tables(GerryDBTable, DistrictrMap)
+        create_mirror_tables(GerryDBTable, DistrictrMap, FormConfig)
         layer = GerryDBTable.objects.create(name="blocks")
         map_in = DistrictrMap.objects.create(
             name="In", districtr_map_slug="chi_wards", parent_layer=layer
@@ -143,6 +148,23 @@ class ContentPageScopingTests(TestCase):
             title="Out Tag", slug="out-tag", districtr_map_slug="tx_other"
         )
         cls.tags_index.add_child(instance=cls.tag_out)
+        # Another team's portal on a module this team ALSO holds: the module
+        # grant must not hand over the page.
+        cls.tag_shared_module = TagPage(
+            title="Their Tag", slug="their-tag", districtr_map_slug="chi_wards"
+        )
+        cls.tags_index.add_child(instance=cls.tag_shared_module)
+        # A wizard-made portal: no single-map slug, owned via admin_teams.
+        cls.tag_wizard = TagPage(title="Wizard Tag", slug="wizard-tag")
+        cls.tags_index.add_child(instance=cls.tag_wizard)
+        for portal_id, teams in (
+            ("in-tag", ["tag-team-a"]),
+            ("wizard-tag", ["tag-team-a"]),
+            ("their-tag", ["someone-else"]),
+        ):
+            FormConfig.objects.create(
+                portal_id=portal_id, name=portal_id, admin_teams=teams
+            )
 
         cls.places_index = PlacesIndexPage.objects.first()
         if cls.places_index is None:
@@ -177,7 +199,7 @@ class ContentPageScopingTests(TestCase):
             self.tags_index, self.tags_index.get_children(), self._request(self.member)
         )
         slugs = set(result.values_list("slug", flat=True))
-        self.assertEqual(slugs, {"in-tag"})
+        self.assertEqual(slugs, {"in-tag", "wizard-tag"})
 
     def test_explorer_hides_out_of_scope_placepage_for_member(self):
         result = scope_content_pages_in_explorer(
@@ -189,6 +211,13 @@ class ContentPageScopingTests(TestCase):
         # in-place overlaps the team's map; out-place does not.
         self.assertEqual(slugs, {"in-place"})
 
+    def test_explorer_hides_every_portal_from_team_less_partner(self):
+        loner = make_user("partner", "loner-explorer@d.org")
+        result = scope_content_pages_in_explorer(
+            self.tags_index, self.tags_index.get_children(), self._request(loner)
+        )
+        self.assertEqual(list(result.values_list("slug", flat=True)), [])
+
     def test_explorer_unfiltered_for_admin(self):
         tags = scope_content_pages_in_explorer(
             self.tags_index, self.tags_index.get_children(), self._request(self.admin)
@@ -199,7 +228,8 @@ class ContentPageScopingTests(TestCase):
             self._request(self.admin),
         )
         self.assertEqual(
-            set(tags.values_list("slug", flat=True)), {"in-tag", "out-tag"}
+            set(tags.values_list("slug", flat=True)),
+            {"in-tag", "out-tag", "their-tag", "wizard-tag"},
         )
         self.assertEqual(
             set(places.values_list("slug", flat=True)), {"in-place", "out-place"}
@@ -209,6 +239,16 @@ class ContentPageScopingTests(TestCase):
         self.assertTrue(_is_out_of_scope_page(self._request(self.member), self.tag_out))
         self.assertTrue(
             _is_out_of_scope_page(self._request(self.member), self.place_out)
+        )
+
+    def test_module_grant_does_not_confer_another_teams_portal(self):
+        self.assertTrue(
+            _is_out_of_scope_page(self._request(self.member), self.tag_shared_module)
+        )
+
+    def test_wizard_portal_without_map_slug_stays_in_scope(self):
+        self.assertFalse(
+            _is_out_of_scope_page(self._request(self.member), self.tag_wizard)
         )
 
     def test_member_allowed_in_scope_pages(self):
