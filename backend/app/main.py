@@ -5,6 +5,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Security,
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
@@ -19,10 +20,10 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text, or_, cast as sa_cast
-from sqlalchemy.dialects.postgresql import JSONB, array as pg_array
+from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
+from sqlalchemy.sql import and_, exists
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -49,24 +50,36 @@ from app.core.dependencies import (
 from app.core.models import DocumentID
 from app.core.config import settings
 from app.core.security import (
+    TokenScope,
+    auth,
     client_ip_from_request,
     mint_session_token,
     require_session,
     verify_session_turnstile,
 )
-import app.exports.main as exports
+import app.admin_ops.main as admin_ops
 import app.cms.main as cms
-import app.comments.main as comments
-from app.comments.main import sync_district_comments, sync_community_comments
-from app.comments.models import DistrictCommentInput
-from app.comments.settings import (
+import app.exports.main as exports
+from app.models import DocumentCommentCreate
+from app.district_notes.models import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
+from app.district_notes.services import (
+    duplicate_district_notes,
+    sync_district_notes,
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
+import app.submissions.main as submissions
+from app.submissions.models import (
+    CollectionMode,
+    FormConfig,
+    Submission,
+    SubmissionStatus,
+)
 import app.thumbnails.main as thumbnails
 from app.models import (
     Assignments,
@@ -88,13 +101,7 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.comments.models import (
-    Comment,
-    DocumentComment as FormDocumentComment,
-    Tag,
-    CommentTag,
-)
-from app.save_share.models import DocumentDraftStatus
+from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
@@ -143,9 +150,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(exports.router)
+app.include_router(admin_ops.router)
 app.include_router(cms.router)
-app.include_router(comments.router)
+app.include_router(exports.router)
+app.include_router(submissions.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
@@ -225,55 +233,6 @@ def update_timestamp(
     return updated_at
 
 
-def duplicate_document_comments(
-    *,
-    from_document_id: str,
-    to_document_id: str,
-    session: Session,
-) -> int:
-    """
-    Deep-copy DocumentComment associations (and their backing Comment rows) from one
-    document to another. New Comment rows are inserted with title/comment/commenter
-    inherited from the source; moderation_score / review_status are intentionally left
-    unset so the target document re-moderates on next save.
-
-    Called from create_document when copying a map so that coverage validation on the
-    first subsequent save can succeed.
-    """
-    source_rows = session.exec(
-        select(
-            Comment.title,
-            Comment.comment,
-            Comment.commenter_id,
-            col(FormDocumentComment.zone).label("zone"),
-        )
-        .join(
-            FormDocumentComment,
-            col(FormDocumentComment.comment_id) == col(Comment.id),
-        )
-        .where(col(FormDocumentComment.document_id) == from_document_id)
-    ).all()
-
-    duplicated = 0
-    for row in source_rows:
-        new_comment = Comment(
-            title=row.title,
-            comment=row.comment,
-            commenter_id=row.commenter_id,
-        )
-        session.add(new_comment)
-        session.flush()
-        session.add(
-            FormDocumentComment(
-                comment_id=new_comment.id,
-                document_id=to_document_id,
-                zone=row.zone,
-            )
-        )
-        duplicated += 1
-    return duplicated
-
-
 # Route-handler async convention:
 #   Plain `def` handlers run in FastAPI's anyio threadpool (limiter: 80 threads),
 #   which is the right place for blocking SQLAlchemy/boto3 work.
@@ -310,6 +269,17 @@ async def create_session(data: SessionCreate, request: Request):
         await verify_session_turnstile(
             data.turnstile_token, client_ip_from_request(request)
         )
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
+@app.post("/api/session/admin")
+async def create_admin_session(
+    _auth: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+):
+    """Mint a session token for a signed-in moderator (the CMS metrics page
+    calls the session-gated /evaluation server-side and cannot solve
+    Turnstile). The scoped access token stands in for the human check."""
     token, expires_at = mint_session_token()
     return {"token": token, "expires_at": expires_at.isoformat()}
 
@@ -497,6 +467,36 @@ def create_document(
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
 
+    # Map-from-portal pathway: create a draft submission alongside the
+    # document. Its submission_id UUID is the capability the client later
+    # uses to finalize (submit to the portal's gallery).
+    draft_submission_id: str | None = None
+    if data.portal_id is not None:
+        # portal_id is advisory metadata: a portal page can outlive its
+        # FormConfig (config deleted, cached page), and losing the draft
+        # must degrade to "a normal map", never "no map".
+        try:
+            submissions.get_form_config(data.portal_id, session)
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
+            logger.warning(
+                f"create_document: no form config for portal {data.portal_id!r}; "
+                "creating the map without a draft submission"
+            )
+        else:
+            # The map belongs to the portal it was started from.
+            new_document.portal_id = data.portal_id
+            session.add(new_document)
+            draft = Submission(
+                portal_id=data.portal_id,
+                map_public_id=new_document.public_id,
+                status=SubmissionStatus.draft,
+            )
+            session.add(draft)
+            session.flush()
+            draft_submission_id = draft.submission_id
+
     total_assignments = 0
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
@@ -520,16 +520,17 @@ def create_document(
                 session=session,
             )
             total_assignments = total_assignments or 0
-        # Carry the source document's comments/descriptions to the new document so the
-        # first save against the copy can satisfy coverage validation.
-        duplicated_comments = duplicate_document_comments(
+        # Carry the source document's zone notes/descriptions to the new document so
+        # the first save against the copy can satisfy coverage validation. Form
+        # comments (written testimony) deliberately stay with the original.
+        duplicated_notes = duplicate_district_notes(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
         )
-        if VERBOSE_LOGGING and duplicated_comments:
+        if VERBOSE_LOGGING and duplicated_notes:
             logger.info(
-                f"Duplicated {duplicated_comments} comment(s) from "
+                f"Duplicated {duplicated_notes} zone note(s) from "
                 f"{copied_document.document_id} to {document_id}"
             )
 
@@ -572,20 +573,21 @@ def create_document(
                 # The response select below reads through session.connection(),
                 # which does not autoflush.
                 session.flush()
-            for original_label, new_zone in zone_label_remapping.items():
-                display_label = original_label if original_label else "(blank)"
-                label_comment = Comment(
-                    title=display_label,
-                    comment=f"Originally labeled as {display_label}",
-                )
-                session.add(label_comment)
-                session.flush()
-                session.add(
-                    FormDocumentComment(
-                        comment_id=label_comment.id,
-                        document_id=document_id,
-                        zone=new_zone,
-                    )
+            if zone_label_remapping:
+                # Same path as the editor's own notes, so the map's length and
+                # count limits (0 = descriptions disabled) and moderation apply;
+                # the label text is raw CSV input.
+                sync_district_notes(
+                    document_id=document_id,
+                    notes=[
+                        DocumentCommentCreate(
+                            zone=new_zone,
+                            text=f"Originally labeled as {original_label or '(blank)'}",
+                        )
+                        for original_label, new_zone in zone_label_remapping.items()
+                    ],
+                    session=session,
+                    background_tasks=background_tasks,
                 )
         except NoResultFound:
             session.rollback()
@@ -617,6 +619,17 @@ def create_document(
             .where(Document.document_id == document_id)  # type: ignore
             .values(map_metadata=data.metadata.model_dump(exclude_unset=True))
         )
+        if data.portal_id is not None:
+            # A creation payload can already carry a submitted-tier status
+            # (e.g. copies); apply the same auto-collect flip as the
+            # metadata endpoint, with the same post-commit moderation pass
+            # (the gallery card renders the map's name/description).
+            for flipped_id in submissions.auto_finalize_draft_submissions(
+                session, new_document.public_id, data.metadata.draft_status
+            ):
+                background_tasks.add_task(
+                    submissions.moderate_submission_in_background, flipped_id
+                )
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -701,6 +714,7 @@ def create_document(
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
+    doc_dict["submission_id"] = draft_submission_id
     return doc_dict
 
 
@@ -996,32 +1010,26 @@ def _sync_update_assignments(
     ):
         mutated = True
 
-    # Sync scoped comments via comments schema (None = no change, [] = delete all)
+    # Sync zone notes (None = no change, [] = delete all)
     if data.comments is not None:
-        comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
             if c.zone is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Each comment must specify a zone (int).",
                 )
-            comment_inputs.append(
-                DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
-            )
         if VERBOSE_LOGGING:
             logger.info(
-                f"Syncing {'community' if is_community_map else 'district'} comments "
-                f"for document {document_id}: {len(comment_inputs)} comments"
+                f"Syncing zone notes for document {document_id}: "
+                f"{len(data.comments)} notes"
             )
-        sync_fn = (
-            sync_community_comments if is_community_map else sync_district_comments
-        )
-        sync_fn(
+        sync_district_notes(
             document_id=document_id,
-            comments=comment_inputs if len(data.comments) > 0 else [],
+            notes=data.comments,
             session=session,
             background_tasks=background_tasks,
         )
+        # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
 
     dirty_zones: list[int] = []
@@ -1453,9 +1461,23 @@ def get_document_list(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
-    tags: list[str] = Query(default=[]),
+    portal_ids: list[str] = Query(default=[]),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
+    include_hidden: bool = Query(
+        default=False,
+        description="Keep maps taken down by a moderator (the CMS's own "
+        "metadata lookups). A listing convenience, not an access check: any "
+        "map's metadata is fetchable by its public_id.",
+    ),
 ):
+    def _submission_exists(*conditions):
+        return exists(
+            select(literal(1))
+            .select_from(Submission)
+            .where(and_(Submission.map_public_id == Document.public_id, *conditions))
+            .correlate(Document)
+        )
+
     stmt = (
         select(  # type: ignore[no-matching-overload]
             Document.public_id,
@@ -1463,6 +1485,11 @@ def get_document_list(
             Document.updated_at,
             Document.document_type,
             col(DistrictrMap.name).label("map_module"),
+            # Blur, don't drop: galleries render nsfw maps behind an opt-in
+            # reveal, the same as written submissions.
+            _submission_exists(
+                col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
+            ).label("nsfw"),
         )
         .distinct(
             Document.public_id,
@@ -1476,42 +1503,53 @@ def get_document_list(
         .limit(limit)
     )
 
-    if len(tags) > 0:
-        # A document matches a tag either via a comment-form submission or via
-        # its own metadata tags (set at creation, e.g. workshop modules).
-        comment_tagged = (
-            select(FormDocumentComment.document_id)
-            .join(
-                CommentTag,
-                col(CommentTag.comment_id) == col(FormDocumentComment.comment_id),
+    if len(portal_ids) > 0:
+        # A map is in a portal's gallery when it belongs to that portal
+        # (document.portal_id) and a visible submission row carries it.
+        # Membership and moderation authority share one key, the portal, so
+        # nobody can list a map in a portal whose reviewers can't take it down.
+        stmt = stmt.where(col(Document.portal_id).in_(portal_ids))
+        submission_visible = exists(
+            select(literal(1))
+            .select_from(Submission)
+            .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+            .where(
+                and_(
+                    Submission.map_public_id == Document.public_id,
+                    col(Submission.portal_id) == Document.portal_id,
+                    col(Submission.status) == SubmissionStatus.submitted,
+                    col(Submission.hidden).is_(False),
+                    # Internal-mode portals never surface in tag galleries
+                    # or the public submissions list. (This is a LISTING
+                    # guarantee: any map's metadata remains fetchable by its
+                    # sequential public_id, as it always has been.)
+                    col(FormConfig.collection_mode) != CollectionMode.internal,
+                )
             )
-            .join(Tag, col(Tag.id) == col(CommentTag.tag_id))
-            .where(col(Tag.slug).in_(tags))
+            .correlate(Document)
         )
-        metadata_tagged = sa_cast(col(Document.map_metadata)["tags"], JSONB).op("?|")(
-            pg_array(tags)
-        )
-        stmt = stmt.where(
-            or_(col(Document.document_id).in_(comment_tagged), metadata_tagged)
-        )
-        # Tagged listings only surface maps past scratch: moving a map to
-        # in_progress or ready_to_share is what "submits" it to the gallery.
+        stmt = stmt.where(submission_visible)
+        # Portal listings only surface maps past scratch: moving a map to
+        # in_progress or ready_to_share is what "submits" it to the gallery
+        # (deliberate submissions are frozen clones at ready_to_share;
+        # auto-collected ones are live maps whose status this reflects).
         if len(draft_status) == 0:
-            draft_status = [
-                DocumentDraftStatus.in_progress,
-                DocumentDraftStatus.ready_to_share,
-            ]
+            draft_status = list(SUBMITTED_DRAFT_STATUSES)
 
     if len(draft_status) > 0:
         # this is fine to keep as ->> because you're comparing to text
         stmt = stmt.where(
             col(Document.map_metadata)["draft_status"].astext.in_(
-                [s.value for s in draft_status]
+                [st.value for st in draft_status]
             )
         )
 
     if len(ids) > 0:
         stmt = stmt.where(col(Document.public_id).in_(ids))
+        # A curated (pinned) gallery must honour a takedown too: Hide is the
+        # one moderation lever, and it has to reach every public listing.
+        if not include_hidden:
+            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
 
     results = session.exec(stmt).all()
     return [
@@ -1521,6 +1559,7 @@ def get_document_list(
             "updated_at": row[2],
             "document_type": row[3],
             "map_module": row[4],
+            "nsfw": row[5],
         }
         for row in results
     ]
@@ -1777,6 +1816,7 @@ def get_connected_component_bboxes(
 )
 def update_districtrmap_metadata(
     metadata: DocumentMetadata,
+    background_tasks: BackgroundTasks,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
@@ -1784,8 +1824,9 @@ def update_districtrmap_metadata(
         # Merge into the existing metadata: the frontend sends partial updates
         # (e.g. just draft_status), and replacing the whole JSON would wipe the
         # other fields (name, tags set at creation, ...).
+        previous = document.map_metadata or {}
         merged = {
-            **(document.map_metadata or {}),
+            **previous,
             **metadata.model_dump(exclude_unset=True),
         }
         stmt = (
@@ -1794,7 +1835,34 @@ def update_districtrmap_metadata(
             .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
+        # Auto-collect portals: reaching a submitted-tier status flips this
+        # map's draft submission to submitted (live reference, no clone);
+        # regressing withdraws it.
+        flipped = submissions.auto_finalize_draft_submissions(
+            session, document.public_id, merged.get("draft_status")
+        )
+        # Auto entries are live references, so the rendered card text (map
+        # name/description) can change AFTER the initial score. Re-score
+        # submitted live-ref entries when either field actually changed; the
+        # client resends unchanged values on most saves.
+        rescore: set[int] = set(flipped)
+        if any(previous.get(k) != merged.get(k) for k in ("name", "description")):
+            rescore.update(
+                session.exec(
+                    select(Submission.id).where(
+                        and_(
+                            col(Submission.map_public_id) == document.public_id,
+                            col(Submission.status) == SubmissionStatus.submitted,
+                            col(Submission.map_is_clone).is_(False),
+                        )
+                    )
+                ).all()
+            )
         session.commit()
+        for submission_id in rescore:
+            background_tasks.add_task(
+                submissions.moderate_submission_in_background, submission_id
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")

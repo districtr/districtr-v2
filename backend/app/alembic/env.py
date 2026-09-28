@@ -17,16 +17,15 @@ from app.models import (
     CommunityAssignments,
     DistrictUnions,
 )
-from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
-from app.comments.models import (
-    Comment,
-    Commenter,
-    Tag,
-    CommentTag,
-    DocumentComment,
-)
+from app.district_notes.models import DistrictNote
 from app.evaluation.models import Evaluation
+from app.submissions.models import (
+    FormConfig,
+    FormFieldCustom,
+    Submission,
+    SubmissionContent,
+)
 
 dotenv.load_dotenv()
 
@@ -47,13 +46,11 @@ tables = [
     Document,
     MapDocumentUserSession,
     MapDocumentToken,
-    PlacesCMSContent,
-    TagsCMSContent,
-    Comment,
-    Commenter,
-    Tag,
-    CommentTag,
-    DocumentComment,
+    DistrictNote,
+    FormConfig,
+    FormFieldCustom,
+    Submission,
+    SubmissionContent,
     DistrictUnions,
     CommunityAssignments,
     Evaluation,
@@ -80,8 +77,26 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    print(object, name, type_, reflected, compare_to)
-    if hasattr(object, "schema") and object.schema == "gerrydb":
+    # Schema-based exclusion is the contract for tables alembic must ignore:
+    # - "gerrydb": imported GeoPackage layers, managed by the import pipeline.
+    # - "admin": ALL Django/Wagtail CMS tables — owned entirely by Django's
+    #   own migration system rather than Alembic. To change anything under
+    #   admin, edit the relevant model under cms/ and run Django's
+    #   `manage.py makemigrations`/`migrate`; without this exclusion,
+    #   autogenerate would emit DROPs for every table it doesn't model.
+    #   The CMS (cms/) pins search_path=admin,public and bootstrap_schema
+    #   creates the schema before `migrate` runs, so Django/Wagtail tables
+    #   can only ever be created in `admin` — never in public. cms/ must NOT
+    #   relax that search_path pinning; it is what this exclusion relies on.
+    #   Do not
+    #   reintroduce name-prefix guards (django_*, content_*, ...) as a
+    #   "belt and braces" here: public-schema SQLModel tables have
+    #   schema=None, so a prefix regex would silently exclude any future
+    #   backend table that happens to share a prefix.
+    # - "cms": legacy tags_content/places_content tables, no longer modeled
+    #   here but must survive post-cutover so the Wagtail migrate_tiptap
+    #   command can read them.
+    if hasattr(object, "schema") and object.schema in ("gerrydb", "admin", "cms"):
         return False
 
     if name and (

@@ -32,6 +32,16 @@ class DocumentDraftStatus(str, Enum):
     ready_to_share = "ready_to_share"
 
 
+# Statuses that "submit" a map: tagged gallery listings default to these, and
+# reaching one auto-finalizes a portal draft submission when the portal's
+# collection mode is auto (app/main.py). Mirrors the frontend's
+# SUBMITTED_STATUSES (constants/document/draftStatus.ts).
+SUBMITTED_DRAFT_STATUSES = (
+    DocumentDraftStatus.in_progress,
+    DocumentDraftStatus.ready_to_share,
+)
+
+
 class DocumentShareResponse(BaseModel):
     token: str
     public_id: int
