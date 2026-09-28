@@ -43,10 +43,18 @@ export const putUpdateAssignmentsAndVerify = async ({
   );
   // Build comments payload from document_comments
   const comments = (mapDocument.document_comments || []).map(c => {
-    // Only send comment_id if it's a server-assigned integer
-    const parsedId = c.comment_id ? parseInt(String(c.comment_id), 10) : NaN;
+    // Only send comment_id when it is a server-assigned integer. Unsaved notes
+    // carry crypto.randomUUID() ids; parseInt("3f25…") would yield 3, a real
+    // row id, and overwrite another zone's note (same guard as the COI twin).
+    const raw = c.comment_id;
+    const parsedId =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && /^\d+$/.test(raw)
+          ? parseInt(raw, 10)
+          : undefined;
     return {
-      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      comment_id: parsedId,
       zone: c.zone ?? undefined,
       text: c.text,
     };

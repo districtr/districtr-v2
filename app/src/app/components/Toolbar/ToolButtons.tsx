@@ -86,7 +86,6 @@ export const ToolButtons: React.FC = () => {
               background: 'transparent',
               boxShadow: 'none',
               color: 'inherit',
-              opacity: 0.7,
               whiteSpace: 'nowrap',
               ...(isHistoryTool ? {fontSize: 9, letterSpacing: 0} : {}),
             }}

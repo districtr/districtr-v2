@@ -84,7 +84,11 @@ export const ColorPicker = <T extends boolean>({
       const numDistricts =
         useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       const numDigits = numDistricts.toString().length;
-      if (numDistricts >= MAX_INLINE_DISTRICT_PIPS) {
+      // Accumulate digits whenever district numbers have more than one, so
+      // "1" then "4" selects 14 on any 10+ district map. A single digit
+      // submits after the 250ms window (or immediately once the full digit
+      // width is typed).
+      if (numDigits > 1) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         if (hotkeyRef?.current?.length === numDigits) {

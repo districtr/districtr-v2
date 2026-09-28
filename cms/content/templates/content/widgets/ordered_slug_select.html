@@ -1,0 +1,73 @@
+{# Orderable multi-select: hidden inputs carry the chosen slugs in order. #}
+<div class="ordered-slug-select" data-name="{{ widget.name }}">
+    <ul data-role="selected" style="list-style:none; margin:0 0 0.5rem; padding:0; max-width:34rem;">
+        {% for value, label in widget.selected %}
+            <li style="display:flex; align-items:center; gap:0.5rem; padding:0.35rem 0.5rem; border:1px solid var(--w-color-border-field-default, #ccc); border-radius:4px; margin-bottom:0.25rem;">
+                <input type="hidden" name="{{ widget.name }}" value="{{ value }}">
+                <span style="flex:1; min-width:0;">{{ label }}</span>
+                <button type="button" class="button button-small button-secondary" data-action="up" title="Move up">↑</button>
+                <button type="button" class="button button-small button-secondary" data-action="down" title="Move down">↓</button>
+                <button type="button" class="button button-small no" data-action="remove" title="Remove">✕</button>
+            </li>
+        {% endfor %}
+    </ul>
+    <div style="display:flex; gap:0.5rem; align-items:center; max-width:34rem;">
+        <select data-role="options" style="flex:1;">
+            <option value="">— add a map module —</option>
+            {% for value, label in widget.options %}
+                <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" class="button button-small" data-action="add">Add</button>
+    </div>
+    <script>
+        (function () {
+            const root = document.currentScript.closest(".ordered-slug-select");
+            const list = root.querySelector('[data-role="selected"]');
+            const select = root.querySelector('[data-role="options"]');
+            const name = root.dataset.name;
+
+            function makeRow(value, label) {
+                const template = document.createElement("template");
+                template.innerHTML =
+                    '<li style="display:flex; align-items:center; gap:0.5rem; padding:0.35rem 0.5rem; border:1px solid var(--w-color-border-field-default, #ccc); border-radius:4px; margin-bottom:0.25rem;">' +
+                    '<input type="hidden">' +
+                    '<span style="flex:1; min-width:0;"></span>' +
+                    '<button type="button" class="button button-small button-secondary" data-action="up" title="Move up">↑</button>' +
+                    '<button type="button" class="button button-small button-secondary" data-action="down" title="Move down">↓</button>' +
+                    '<button type="button" class="button button-small no" data-action="remove" title="Remove">✕</button>' +
+                    "</li>";
+                const row = template.content.firstChild;
+                const input = row.querySelector("input");
+                input.name = name;
+                input.value = value;
+                row.querySelector("span").textContent = label;
+                return row;
+            }
+
+            root.addEventListener("click", function (event) {
+                const action = event.target.dataset && event.target.dataset.action;
+                if (!action) return;
+                if (action === "add") {
+                    const option = select.selectedOptions[0];
+                    if (!option || !option.value) return;
+                    list.appendChild(makeRow(option.value, option.textContent));
+                    option.remove();
+                    return;
+                }
+                const row = event.target.closest("li");
+                if (action === "remove") {
+                    const option = document.createElement("option");
+                    option.value = row.querySelector("input").value;
+                    option.textContent = row.querySelector("span").textContent;
+                    select.appendChild(option);
+                    row.remove();
+                } else if (action === "up" && row.previousElementSibling) {
+                    list.insertBefore(row, row.previousElementSibling);
+                } else if (action === "down" && row.nextElementSibling) {
+                    list.insertBefore(row.nextElementSibling, row);
+                }
+            });
+        })();
+    </script>
+</div>

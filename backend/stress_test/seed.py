@@ -164,17 +164,6 @@ def delete_documents(session: Session, document_ids: list[str]) -> int:
         conn = session.connection()
         params = {"ids": chunk}
         id_filter = "document_id = ANY(CAST(:ids AS uuid[]))"
-        conn.execute(
-            text(
-                f"""WITH removed AS (
-                    DELETE FROM comments.document_comment WHERE {id_filter}
-                    RETURNING comment_id
-                )
-                DELETE FROM comments.comment
-                WHERE id IN (SELECT comment_id FROM removed)"""
-            ),
-            params,
-        )
         for table in (
             "document.district_unions",
             "document.map_document_user_session",

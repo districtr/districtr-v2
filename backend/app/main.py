@@ -5,6 +5,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Security,
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any
@@ -19,10 +20,10 @@ from sqlalchemy.exc import (
     DataError,
     OperationalError,
 )
-from sqlalchemy import text, or_, cast as sa_cast
-from sqlalchemy.dialects.postgresql import JSONB, array as pg_array
+from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
+from sqlalchemy.sql import and_, exists
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -49,24 +50,36 @@ from app.core.dependencies import (
 from app.core.models import DocumentID
 from app.core.config import settings
 from app.core.security import (
+    TokenScope,
+    auth,
     client_ip_from_request,
     mint_session_token,
     require_session,
     verify_session_turnstile,
 )
-import app.exports.main as exports
+import app.admin_ops.main as admin_ops
 import app.cms.main as cms
-import app.comments.main as comments
-from app.comments.main import sync_district_comments, sync_community_comments
-from app.comments.models import DistrictCommentInput
-from app.comments.settings import (
+import app.exports.main as exports
+from app.models import DocumentCommentCreate
+from app.district_notes.models import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
+)
+from app.district_notes.services import (
+    duplicate_district_notes,
+    sync_district_notes,
 )
 import app.contiguity.main as contiguity
 import app.evaluation.main as evaluation
 from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
+import app.submissions.main as submissions
+from app.submissions.models import (
+    CollectionMode,
+    FormConfig,
+    Submission,
+    SubmissionStatus,
+)
 import app.thumbnails.main as thumbnails
 from app.models import (
     Assignments,
@@ -88,25 +101,24 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.comments.models import (
-    Comment,
-    DocumentComment as FormDocumentComment,
-    Tag,
-    CommentTag,
-)
-from app.save_share.models import DocumentDraftStatus
+from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
+    get_gerrydb_numeric_cols,
     update_or_select_district_stats,
     district_stats_to_feature_collection,
     publish_district_stats_to_s3,
     stats_cdn_url,
     RowFormat,
     package_rows,
+)
+from app.evaluation.context import (
+    elections_from_columns,
+    demographic_columns_from_columns,
 )
 from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
@@ -138,9 +150,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(exports.router)
+app.include_router(admin_ops.router)
 app.include_router(cms.router)
-app.include_router(comments.router)
+app.include_router(exports.router)
+app.include_router(submissions.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
@@ -220,62 +233,21 @@ def update_timestamp(
     return updated_at
 
 
-def duplicate_document_comments(
-    *,
-    from_document_id: str,
-    to_document_id: str,
-    session: Session,
-) -> int:
-    """
-    Deep-copy DocumentComment associations (and their backing Comment rows) from one
-    document to another. New Comment rows are inserted with title/comment/commenter
-    inherited from the source; moderation_score / review_status are intentionally left
-    unset so the target document re-moderates on next save.
-
-    Called from create_document when copying a map so that coverage validation on the
-    first subsequent save can succeed.
-    """
-    source_rows = session.exec(
-        select(
-            Comment.title,
-            Comment.comment,
-            Comment.commenter_id,
-            col(FormDocumentComment.zone).label("zone"),
-        )
-        .join(
-            FormDocumentComment,
-            col(FormDocumentComment.comment_id) == col(Comment.id),
-        )
-        .where(col(FormDocumentComment.document_id) == from_document_id)
-    ).all()
-
-    duplicated = 0
-    for row in source_rows:
-        new_comment = Comment(
-            title=row.title,
-            comment=row.comment,
-            commenter_id=row.commenter_id,
-        )
-        session.add(new_comment)
-        session.flush()
-        session.add(
-            FormDocumentComment(
-                comment_id=new_comment.id,
-                document_id=to_document_id,
-                zone=row.zone,
-            )
-        )
-        duplicated += 1
-    return duplicated
+# Route-handler async convention:
+#   Plain `def` handlers run in FastAPI's anyio threadpool (limiter: 80 threads),
+#   which is the right place for blocking SQLAlchemy/boto3 work.
+#   `async def` is reserved for handlers that genuinely `await` something
+#   (Turnstile verification, `request.body()`, graph threadpool calls).
+#   New endpoints: default to `def` unless the body has a real `await`.
 
 
 @app.get("/")
-async def root():
+def root():
     return {"message": "Hello World"}
 
 
 @app.get("/db_is_alive")
-async def db_is_alive(session: Session = Depends(get_session)):
+def db_is_alive(session: Session = Depends(get_session)):
     try:
         session.connection().execute(text("SELECT 1"))
         return {"message": "DB is alive"}
@@ -301,8 +273,19 @@ async def create_session(data: SessionCreate, request: Request):
     return {"token": token, "expires_at": expires_at.isoformat()}
 
 
+@app.post("/api/session/admin")
+async def create_admin_session(
+    _auth: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
+):
+    """Mint a session token for a signed-in moderator (the CMS metrics page
+    calls the session-gated /evaluation server-side and cannot solve
+    Turnstile). The scoped access token stands in for the human check."""
+    token, expires_at = mint_session_token()
+    return {"token": token, "expires_at": expires_at.isoformat()}
+
+
 @app.get("/api/document/{document_id}/stats", dependencies=[Depends(require_session)])
-async def get_document_stats(
+def get_document_stats(
     background_tasks: BackgroundTasks,
     document: Annotated[Document, Depends(get_protected_document)],
     document_id: DocumentID = Depends(parse_document_id),
@@ -377,7 +360,7 @@ def get_document_evaluation(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_session)],
 )
-async def create_document(
+def create_document(
     data: DocumentCreate,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -484,6 +467,36 @@ async def create_document(
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
 
+    # Map-from-portal pathway: create a draft submission alongside the
+    # document. Its submission_id UUID is the capability the client later
+    # uses to finalize (submit to the portal's gallery).
+    draft_submission_id: str | None = None
+    if data.portal_id is not None:
+        # portal_id is advisory metadata: a portal page can outlive its
+        # FormConfig (config deleted, cached page), and losing the draft
+        # must degrade to "a normal map", never "no map".
+        try:
+            submissions.get_form_config(data.portal_id, session)
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
+            logger.warning(
+                f"create_document: no form config for portal {data.portal_id!r}; "
+                "creating the map without a draft submission"
+            )
+        else:
+            # The map belongs to the portal it was started from.
+            new_document.portal_id = data.portal_id
+            session.add(new_document)
+            draft = Submission(
+                portal_id=data.portal_id,
+                map_public_id=new_document.public_id,
+                status=SubmissionStatus.draft,
+            )
+            session.add(draft)
+            session.flush()
+            draft_submission_id = draft.submission_id
+
     total_assignments = 0
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
@@ -507,16 +520,17 @@ async def create_document(
                 session=session,
             )
             total_assignments = total_assignments or 0
-        # Carry the source document's comments/descriptions to the new document so the
-        # first save against the copy can satisfy coverage validation.
-        duplicated_comments = duplicate_document_comments(
+        # Carry the source document's zone notes/descriptions to the new document so
+        # the first save against the copy can satisfy coverage validation. Form
+        # comments (written testimony) deliberately stay with the original.
+        duplicated_notes = duplicate_district_notes(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
         )
-        if VERBOSE_LOGGING and duplicated_comments:
+        if VERBOSE_LOGGING and duplicated_notes:
             logger.info(
-                f"Duplicated {duplicated_comments} comment(s) from "
+                f"Duplicated {duplicated_notes} zone note(s) from "
                 f"{copied_document.document_id} to {document_id}"
             )
 
@@ -531,10 +545,10 @@ async def create_document(
                 detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
 
-        # Warm the graph LRU off the event loop: batch_insert_assignments calls
-        # get_graph synchronously, and a cold load (S3 fetch + deserialize)
-        # takes seconds.
-        await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+        # Warm the graph LRU before the insert: batch_insert_assignments calls
+        # get_graph, and a cold load (S3 fetch + deserialize) takes seconds.
+        # This def handler already runs in the threadpool, off the event loop.
+        get_graph(districtr_map.gerrydb_table_name)
 
         try:
             insert_result = batch_insert_assignments(
@@ -559,20 +573,21 @@ async def create_document(
                 # The response select below reads through session.connection(),
                 # which does not autoflush.
                 session.flush()
-            for original_label, new_zone in zone_label_remapping.items():
-                display_label = original_label if original_label else "(blank)"
-                label_comment = Comment(
-                    title=display_label,
-                    comment=f"Originally labeled as {display_label}",
-                )
-                session.add(label_comment)
-                session.flush()
-                session.add(
-                    FormDocumentComment(
-                        comment_id=label_comment.id,
-                        document_id=document_id,
-                        zone=new_zone,
-                    )
+            if zone_label_remapping:
+                # Same path as the editor's own notes, so the map's length and
+                # count limits (0 = descriptions disabled) and moderation apply;
+                # the label text is raw CSV input.
+                sync_district_notes(
+                    document_id=document_id,
+                    notes=[
+                        DocumentCommentCreate(
+                            zone=new_zone,
+                            text=f"Originally labeled as {original_label or '(blank)'}",
+                        )
+                        for original_label, new_zone in zone_label_remapping.items()
+                    ],
+                    session=session,
+                    background_tasks=background_tasks,
                 )
         except NoResultFound:
             session.rollback()
@@ -604,6 +619,17 @@ async def create_document(
             .where(Document.document_id == document_id)  # type: ignore
             .values(map_metadata=data.metadata.model_dump(exclude_unset=True))
         )
+        if data.portal_id is not None:
+            # A creation payload can already carry a submitted-tier status
+            # (e.g. copies); apply the same auto-collect flip as the
+            # metadata endpoint, with the same post-commit moderation pass
+            # (the gallery card renders the map's name/description).
+            for flipped_id in submissions.auto_finalize_draft_submissions(
+                session, new_document.public_id, data.metadata.draft_status
+            ):
+                background_tasks.add_task(
+                    submissions.moderate_submission_in_background, flipped_id
+                )
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -688,94 +714,18 @@ async def create_document(
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
+    doc_dict["submission_id"] = draft_submission_id
     return doc_dict
 
 
-@app.put("/api/assignments", dependencies=[Depends(require_session)])
-async def update_assignments(
-    request: Request,
+def _sync_update_assignments(
+    data: AssignmentsCreate,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-):
-    """
-    Update assignments for a document with optimistic concurrency control.
-
-    This endpoint replaces all existing assignments for a document with the provided
-    assignments. It uses optimistic concurrency control to prevent overwriting changes
-    made by other clients.
-
-    Wire format (NOTE: the contract is not visible in the signature):
-        This endpoint takes the raw ``request`` body instead of a Pydantic body
-        parameter, so neither the request schema nor an example appears in OpenAPI.
-        - REQUEST: ``Content-Type: application/msgpack``. The body is a msgpack-encoded
-          map that is decoded and then validated against ``AssignmentsCreate`` (see
-          ``app/models.py``). Sending JSON will fail to decode (400).
-        - RESPONSE: plain JSON (a dict, serialized by FastAPI), NOT msgpack — see
-          Returns below. The frontend sends ``Accept: application/json`` accordingly.
-        We bypass the body param to avoid Pydantic re-validating the full assignments
-        list twice and to keep the large payload off the JSON path.
-
-    The last_updated_at parameter is used for conflict detection:
-    - The client should provide the timestamp of the last known update to the document
-    - The server compares this with the document's current updated_at timestamp in the database
-    - If the database timestamp is newer (document was modified by another client),
-      a 409 Conflict error is raised unless overwrite=True
-    - This ensures that concurrent updates don't silently overwrite each other's changes. They
-      must be explicitly allowed by setting overwrite=True.
-
-    Args:
-        request (Request): Raw request whose msgpack body decodes to an
-            ``AssignmentsCreate`` payload:
-            - document_id: The ID of the document to update
-            - assignments: Full replacement set of positional pairs
-              ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
-              ``zone`` is an int, or null/absent for unassigned (community maps
-              coerce a missing/null zone to the 0 "unassigned" sentinel).
-            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
-            - overwrite: If True, allows overwriting even if document was updated by another client
-            - map_type: Optional; must match the document's stored map_type ("default" vs "community")
-            - metadata: Optional metadata to update the document
-            - comments: Optional list of district/community comments to sync
-        session (Session): Database session dependency
-
-    Returns:
-        dict (JSON): Response containing:
-            - assignments_inserted: Number of assignments inserted
-            - updated_at: New timestamp after the update
-
-    Raises:
-        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
-        HTTPException: 404 if the document does not exist
-        HTTPException: 409 if document was updated by another client and overwrite=False
-        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
-    """
-    body_bytes = await request.body()
-    try:
-        raw = msgpack.unpackb(body_bytes, raw=False)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not decode msgpack body: {e}",
-        )
-    try:
-        data = AssignmentsCreate.model_validate(raw)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.errors(),
-        )
-
-    has_assignments = len(data.assignments) > 0
-    has_metadata = data.metadata is not None
-    has_comments = data.comments is not None
-    if not has_assignments and not has_metadata and not has_comments:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No changes provided",
-        )
-
+    session: Session,
+) -> dict:
+    """Sync core of update_assignments, run in the threadpool by its async wrapper."""
     document_id = data.document_id
-    assignments = data.assignments  # [[geo_id, zone], ...]
+    assignments = data.assignments
     last_updated_at = data.last_updated_at
     actual_map_type = session.exec(
         select(Document.map_type).where(Document.document_id == document_id)
@@ -825,8 +775,6 @@ async def update_assignments(
             f"num_communities={data.metadata.num_communities if data.metadata else None}"
         )
 
-    # Validate community payload (name sanitization, length) before any mutations.
-    # Returns normalized metadata list if provided, else None.
     validated_community_metadata = None
     if is_community_map:
         if VERBOSE_LOGGING:
@@ -866,11 +814,9 @@ async def update_assignments(
     # other clients).
     mutated = False
 
-    # Snapshot pre-existing district-mode assignments so we can compute the
-    # set of zones whose geometry/demographics changed in this request. Used
-    # below to drop only the affected rows from document.district_unions
-    # rather than wiping the cache for the whole document. Community maps
-    # don't feed into district_unions, so we skip the snapshot there.
+    # Snapshot pre-existing district-mode assignments to compute which zones
+    # changed, so only those rows are evicted from district_unions rather than
+    # wiping the whole document's cache. Community maps don't feed district_unions.
     diff_load_id: str | None = None
     if not is_community_map:
         diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
@@ -901,9 +847,10 @@ async def update_assignments(
     if delete_result.rowcount and delete_result.rowcount > 0:
         mutated = True
     inserted_count = 0
+    has_assignments = len(assignments) > 0
     if has_assignments:
         # For community maps, build the set of valid community_ids so we can reject
-        # orphan-producing writes before they hit the partition. 0 is the "unassigned"
+        # orphan-producing writes before they hit the table. 0 is the "unassigned"
         # sentinel; positive ids must exist in the effective metadata list. Skip the
         # check entirely when no metadata has been established yet (either in this
         # request or previously persisted) — that's the bootstrap path where the UI
@@ -919,8 +866,6 @@ async def update_assignments(
             if effective_metadata:
                 valid_community_ids = {c.id for c in effective_metadata} | {0}
 
-        # Use COPY for faster bulk insert with partitioned tables
-        # Create a temporary table for bulk loading
         load_id, _ = str(uuid4()).split("-", maxsplit=1)
         temp_table_name = f"temp_assignments_{load_id}"
         session.connection().execute(
@@ -929,13 +874,11 @@ async def update_assignments(
             )
         )
 
-        # Use COPY to bulk load data into temp table
         cursor = session.connection().connection.cursor()
         with cursor.copy(
             f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
         ) as copy:
             for assignment in assignments:
-                # assignment is [geo_id, zone]
                 geo_id = assignment[0]
                 zone_val = assignment[1] if len(assignment) > 1 else None
                 if is_community_map and zone_val is None:
@@ -953,8 +896,6 @@ async def update_assignments(
                     )
                 copy.write_row([document_id, geo_id, zone_val])
 
-        # Insert from temp table into partitioned assignments table
-        # PostgreSQL will automatically route to the correct partition based on document_id
         inserted_count = (
             session.connection()
             .execute(
@@ -974,10 +915,8 @@ async def update_assignments(
                 f"assignments to document {document_id}"
             )
 
-    # Update num_districts if provided
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
-            # Reject if map has num_districts_modifiable=False
             districtr_map = session.exec(
                 select(DistrictrMap)
                 .join(
@@ -1071,39 +1010,28 @@ async def update_assignments(
     ):
         mutated = True
 
-    # Sync scoped comments via comments schema (None = no change, [] = delete all)
+    # Sync zone notes (None = no change, [] = delete all)
     if data.comments is not None:
-        comment_inputs: list[DistrictCommentInput] = []
         for c in data.comments:
             if c.zone is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Each comment must specify a zone (int).",
                 )
-            comment_inputs.append(
-                DistrictCommentInput(comment_id=c.comment_id, zone=c.zone, text=c.text)
-            )
         if VERBOSE_LOGGING:
             logger.info(
-                f"Syncing {'community' if is_community_map else 'district'} comments "
-                f"for document {document_id}: {len(comment_inputs)} comments"
+                f"Syncing zone notes for document {document_id}: "
+                f"{len(data.comments)} notes"
             )
-        sync_fn = (
-            sync_community_comments if is_community_map else sync_district_comments
-        )
-        sync_fn(
+        sync_district_notes(
             document_id=document_id,
-            comments=comment_inputs if len(data.comments) > 0 else [],
+            notes=data.comments,
             session=session,
             background_tasks=background_tasks,
         )
-        # sync_fn always hits the DB (delete/insert/update), so count it.
+        # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
 
-    # For district maps, figure out which zones actually changed membership
-    # and evict only those rows from district_unions. The unassigned (NULL
-    # zone) row is always dropped when any zone changed, because its
-    # demographic totals depend on the sum across all assigned zones.
     dirty_zones: list[int] = []
     if diff_load_id is not None:
         old_snapshot_table = f"old_assignments_{diff_load_id}"
@@ -1134,6 +1062,9 @@ async def update_assignments(
         )
         dirty_zones = [int(r[0]) for r in dirty_rows]
         if dirty_zones:
+            # Always include zone IS NULL (the unassigned row): its demographic
+            # totals are derived from all assigned zones, so any zone change
+            # invalidates it.
             session.connection().execute(
                 text(
                     "DELETE FROM document.district_unions "
@@ -1181,11 +1112,99 @@ async def update_assignments(
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
+@app.put("/api/assignments", dependencies=[Depends(require_session)])
+async def update_assignments(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """
+    Update assignments for a document with optimistic concurrency control.
+
+    This endpoint replaces all existing assignments for a document with the provided
+    assignments. It uses optimistic concurrency control to prevent overwriting changes
+    made by other clients.
+
+    Wire format (NOTE: the contract is not visible in the signature):
+        This endpoint takes the raw ``request`` body instead of a Pydantic body
+        parameter, so neither the request schema nor an example appears in OpenAPI.
+        - REQUEST: ``Content-Type: application/msgpack``. The body is a msgpack-encoded
+          map that is decoded and then validated against ``AssignmentsCreate`` (see
+          ``app/models.py``). Sending JSON will fail to decode (400).
+        - RESPONSE: plain JSON (a dict, serialized by FastAPI), NOT msgpack — see
+          Returns below. The frontend sends ``Accept: application/json`` accordingly.
+        We bypass the body param to avoid Pydantic re-validating the full assignments
+        list twice and to keep the large payload off the JSON path.
+
+    The last_updated_at parameter is used for conflict detection:
+    - The client should provide the timestamp of the last known update to the document
+    - The server compares this with the document's current updated_at timestamp in the database
+    - If the database timestamp is newer (document was modified by another client),
+      a 409 Conflict error is raised unless overwrite=True
+    - This ensures that concurrent updates don't silently overwrite each other's changes. They
+      must be explicitly allowed by setting overwrite=True.
+
+    Args:
+        request (Request): Raw request whose msgpack body decodes to an
+            ``AssignmentsCreate`` payload:
+            - document_id: The ID of the document to update
+            - assignments: Full replacement set of positional pairs
+              ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
+              ``zone`` is an int, or null/absent for unassigned (community maps
+              coerce a missing/null zone to the 0 "unassigned" sentinel).
+            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
+            - overwrite: If True, allows overwriting even if document was updated by another client
+            - map_type: Optional; must match the document's stored map_type ("default" vs "community")
+            - metadata: Optional metadata to update the document
+            - comments: Optional list of district/community comments to sync
+        session (Session): Database session dependency
+
+    Returns:
+        dict (JSON): Response containing:
+            - assignments_inserted: Number of assignments inserted
+            - updated_at: New timestamp after the update
+
+    Raises:
+        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
+        HTTPException: 404 if the document does not exist
+        HTTPException: 409 if document was updated by another client and overwrite=False
+        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
+    """
+    body_bytes = await request.body()
+    try:
+        raw = msgpack.unpackb(body_bytes, raw=False)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not decode msgpack body: {e}",
+        )
+    try:
+        data = AssignmentsCreate.model_validate(raw)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        )
+
+    has_assignments = len(data.assignments) > 0
+    has_metadata = data.metadata is not None
+    has_comments = data.comments is not None
+    if not has_assignments and not has_metadata and not has_comments:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No changes provided",
+        )
+
+    return await run_in_threadpool(
+        _sync_update_assignments, data, background_tasks, session
+    )
+
+
 @app.get(
     "/api/gerrydb/edges/{districtr_map_slug}",
     response_model=list[ShatterResult],
 )
-async def get_children(
+def get_children(
     districtr_map_slug: str,
     parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1200,7 +1219,7 @@ async def get_children(
         .scalar_one()
     )
     try:
-        G = await run_in_threadpool(get_graph, gerrydb_table_name)
+        G = get_graph(gerrydb_table_name)
     except HTTPException:
         # Graph unavailable — no shatter children to report rather than a
         # hard failure on what may otherwise be a working document load.
@@ -1218,7 +1237,7 @@ async def get_children(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def reset_map(
+def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
@@ -1258,7 +1277,7 @@ async def reset_map(
     response_model=ColorsSetResult,
     dependencies=[Depends(require_session)],
 )
-async def update_colors(
+def update_colors(
     colors: list[str],
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1296,7 +1315,7 @@ async def update_colors(
     response_model=NumDistrictsSetResult,
     dependencies=[Depends(require_session)],
 )
-async def update_num_districts(
+def update_num_districts(
     num_districts: int,
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -1332,7 +1351,7 @@ async def update_num_districts(
 
 
 @app.get("/api/get_assignments/{document_id}")
-async def get_assignments(
+def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     format: RowFormat = Query(
         default=RowFormat.msgpack,
@@ -1393,7 +1412,7 @@ async def get_assignments(
     rows = None
     if child_layer is not None and assignment_rows:
         try:
-            G = await run_in_threadpool(get_graph, gerrydb_table_name)
+            G = get_graph(gerrydb_table_name)
         except HTTPException:
             # Graph unavailable — still serve the assignment data itself,
             # just without shatter-reconstruction metadata.
@@ -1412,15 +1431,13 @@ async def get_assignments(
         fmt=format,
         columns=["geo_id", "zone", "parent_path"],
         filename=(
-            f"assignments_{document.document_id}.csv"
-            if format == RowFormat.csv
-            else None
+            f"assignments_{document.public_id}.csv" if format == RowFormat.csv else None
         ),
     )
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
+def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ):
@@ -1439,14 +1456,28 @@ async def get_document_object(
 
 
 @app.get("/api/documents/list")
-async def get_document_list(
+def get_document_list(
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
-    tags: list[str] = Query(default=[]),
+    portal_ids: list[str] = Query(default=[]),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
+    include_hidden: bool = Query(
+        default=False,
+        description="Keep maps taken down by a moderator (the CMS's own "
+        "metadata lookups). A listing convenience, not an access check: any "
+        "map's metadata is fetchable by its public_id.",
+    ),
 ):
+    def _submission_exists(*conditions):
+        return exists(
+            select(literal(1))
+            .select_from(Submission)
+            .where(and_(Submission.map_public_id == Document.public_id, *conditions))
+            .correlate(Document)
+        )
+
     stmt = (
         select(  # type: ignore[no-matching-overload]
             Document.public_id,
@@ -1454,6 +1485,11 @@ async def get_document_list(
             Document.updated_at,
             Document.document_type,
             col(DistrictrMap.name).label("map_module"),
+            # Blur, don't drop: galleries render nsfw maps behind an opt-in
+            # reveal, the same as written submissions.
+            _submission_exists(
+                col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
+            ).label("nsfw"),
         )
         .distinct(
             Document.public_id,
@@ -1467,42 +1503,53 @@ async def get_document_list(
         .limit(limit)
     )
 
-    if len(tags) > 0:
-        # A document matches a tag either via a comment-form submission or via
-        # its own metadata tags (set at creation, e.g. workshop modules).
-        comment_tagged = (
-            select(FormDocumentComment.document_id)
-            .join(
-                CommentTag,
-                col(CommentTag.comment_id) == col(FormDocumentComment.comment_id),
+    if len(portal_ids) > 0:
+        # A map is in a portal's gallery when it belongs to that portal
+        # (document.portal_id) and a visible submission row carries it.
+        # Membership and moderation authority share one key, the portal, so
+        # nobody can list a map in a portal whose reviewers can't take it down.
+        stmt = stmt.where(col(Document.portal_id).in_(portal_ids))
+        submission_visible = exists(
+            select(literal(1))
+            .select_from(Submission)
+            .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+            .where(
+                and_(
+                    Submission.map_public_id == Document.public_id,
+                    col(Submission.portal_id) == Document.portal_id,
+                    col(Submission.status) == SubmissionStatus.submitted,
+                    col(Submission.hidden).is_(False),
+                    # Internal-mode portals never surface in tag galleries
+                    # or the public submissions list. (This is a LISTING
+                    # guarantee: any map's metadata remains fetchable by its
+                    # sequential public_id, as it always has been.)
+                    col(FormConfig.collection_mode) != CollectionMode.internal,
+                )
             )
-            .join(Tag, col(Tag.id) == col(CommentTag.tag_id))
-            .where(col(Tag.slug).in_(tags))
+            .correlate(Document)
         )
-        metadata_tagged = sa_cast(col(Document.map_metadata)["tags"], JSONB).op("?|")(
-            pg_array(tags)
-        )
-        stmt = stmt.where(
-            or_(col(Document.document_id).in_(comment_tagged), metadata_tagged)
-        )
-        # Tagged listings only surface maps past scratch: moving a map to
-        # in_progress or ready_to_share is what "submits" it to the gallery.
+        stmt = stmt.where(submission_visible)
+        # Portal listings only surface maps past scratch: moving a map to
+        # in_progress or ready_to_share is what "submits" it to the gallery
+        # (deliberate submissions are frozen clones at ready_to_share;
+        # auto-collected ones are live maps whose status this reflects).
         if len(draft_status) == 0:
-            draft_status = [
-                DocumentDraftStatus.in_progress,
-                DocumentDraftStatus.ready_to_share,
-            ]
+            draft_status = list(SUBMITTED_DRAFT_STATUSES)
 
     if len(draft_status) > 0:
         # this is fine to keep as ->> because you're comparing to text
         stmt = stmt.where(
             col(Document.map_metadata)["draft_status"].astext.in_(
-                [s.value for s in draft_status]
+                [st.value for st in draft_status]
             )
         )
 
     if len(ids) > 0:
         stmt = stmt.where(col(Document.public_id).in_(ids))
+        # A curated (pinned) gallery must honour a takedown too: Hide is the
+        # one moderation lever, and it has to reach every public listing.
+        if not include_hidden:
+            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
 
     results = session.exec(stmt).all()
     return [
@@ -1512,6 +1559,7 @@ async def get_document_list(
             "updated_at": row[2],
             "document_type": row[3],
             "map_module": row[4],
+            "nsfw": row[5],
         }
         for row in results
     ]
@@ -1521,7 +1569,7 @@ async def get_document_list(
     "/api/document/{document_id}/unassigned",
     dependencies=[Depends(require_session)],
 )
-async def get_unassigned_geoids(
+def get_unassigned_geoids(
     document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1592,9 +1640,7 @@ async def get_unassigned_geoids(
     components: list[list[str]] = []
     if unassigned_ids:
         try:
-            # Threadpool: a cold load (S3 fetch + unpickle) takes seconds and
-            # must not block the event loop (or ALB health checks).
-            G = await run_in_threadpool(get_graph, districtr_map.gerrydb_table_name)
+            G = get_graph(districtr_map.gerrydb_table_name)
             # Non-contiguous unassigned parents are intentionally NOT expanded.
             # Ids not in the graph are silently dropped by connected_components
             # (matches nx subgraph() semantics) -- gerrydb/graph node counts
@@ -1615,7 +1661,7 @@ async def get_unassigned_geoids(
     "/api/document/{document_id}/contiguity",
     dependencies=[Depends(require_session)],
 )
-async def check_document_contiguity(
+def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -1632,7 +1678,7 @@ async def check_document_contiguity(
 
     gerrydb_name = districtr_map.gerrydb_table_name
     kwargs = {"zones": zone} if len(zone) > 0 else {}
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     zone_assignments = contiguity.get_assigned_nodes(
         session, document.document_id, districtr_map, G=G, **kwargs
     )
@@ -1651,7 +1697,7 @@ async def check_document_contiguity(
     "/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes",
     dependencies=[Depends(require_session)],
 )
-async def get_connected_component_bboxes(
+def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
@@ -1684,7 +1730,7 @@ async def get_connected_component_bboxes(
         document_id=DocumentID(document_id=document.document_id), session=session
     )
     gerrydb_name = districtr_map.gerrydb_table_name
-    G = await run_in_threadpool(get_graph, gerrydb_name)
+    G = get_graph(gerrydb_name)
     node_bboxes = contiguity.get_assigned_nodes_bboxes(
         session,
         document.document_id,
@@ -1768,8 +1814,9 @@ async def get_connected_component_bboxes(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_session)],
 )
-async def update_districtrmap_metadata(
+def update_districtrmap_metadata(
     metadata: DocumentMetadata,
+    background_tasks: BackgroundTasks,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
@@ -1777,8 +1824,9 @@ async def update_districtrmap_metadata(
         # Merge into the existing metadata: the frontend sends partial updates
         # (e.g. just draft_status), and replacing the whole JSON would wipe the
         # other fields (name, tags set at creation, ...).
+        previous = document.map_metadata or {}
         merged = {
-            **(document.map_metadata or {}),
+            **previous,
             **metadata.model_dump(exclude_unset=True),
         }
         stmt = (
@@ -1787,7 +1835,34 @@ async def update_districtrmap_metadata(
             .values(map_metadata=merged)
         )
         session.connection().execute(stmt)
+        # Auto-collect portals: reaching a submitted-tier status flips this
+        # map's draft submission to submitted (live reference, no clone);
+        # regressing withdraws it.
+        flipped = submissions.auto_finalize_draft_submissions(
+            session, document.public_id, merged.get("draft_status")
+        )
+        # Auto entries are live references, so the rendered card text (map
+        # name/description) can change AFTER the initial score. Re-score
+        # submitted live-ref entries when either field actually changed; the
+        # client resends unchanged values on most saves.
+        rescore: set[int] = set(flipped)
+        if any(previous.get(k) != merged.get(k) for k in ("name", "description")):
+            rescore.update(
+                session.exec(
+                    select(Submission.id).where(
+                        and_(
+                            col(Submission.map_public_id) == document.public_id,
+                            col(Submission.status) == SubmissionStatus.submitted,
+                            col(Submission.map_is_clone).is_(False),
+                        )
+                    )
+                ).all()
+            )
         session.commit()
+        for submission_id in rescore:
+            background_tasks.add_task(
+                submissions.moderate_submission_in_background, submission_id
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
@@ -1801,7 +1876,7 @@ async def update_districtrmap_metadata(
     "/api/gerrydb/views",
     #  response_model=list[DistrictrMapPublic]
 )
-async def get_projects(
+def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
@@ -1823,7 +1898,7 @@ async def get_projects(
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)
-async def get_group(
+def get_group(
     *,
     session: Session = Depends(get_session),
     group_slug: str,
@@ -1847,7 +1922,7 @@ async def get_group(
 
 
 @app.get("/_debug/cache")
-async def debug_graph_lru_cache() -> dict[str, Any]:
+def debug_graph_lru_cache() -> dict[str, Any]:
     """
     GerryDB graph LRU cache stats (hits/misses/size).
 
@@ -1866,3 +1941,36 @@ async def debug_graph_lru_cache() -> dict[str, Any]:
             "note": "Resident set size of this worker process, not LRU cache only.",
         },
     }
+
+
+@app.get("/_debug/modules")
+def debug_modules(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """
+    All modules (DistrictrMap rows), including invisible ones, with the
+    elections and demographic columns available on each module's gerrydb table.
+    """
+    districtr_maps = session.exec(
+        select(DistrictrMap).order_by(col(DistrictrMap.districtr_map_slug).asc())
+    ).all()
+
+    modules = []
+    for districtr_map in districtr_maps:
+        columns = (
+            get_gerrydb_numeric_cols(session, districtr_map.gerrydb_table_name)
+            if districtr_map.gerrydb_table_name
+            else []
+        )
+        modules.append(
+            {
+                "districtr_map_slug": districtr_map.districtr_map_slug,
+                "name": districtr_map.name,
+                "visible": districtr_map.visible,
+                "map_type": districtr_map.map_type,
+                "num_districts": districtr_map.num_districts,
+                "num_districts_modifiable": districtr_map.num_districts_modifiable,
+                "elections": elections_from_columns(columns),
+                "demographic_columns": demographic_columns_from_columns(columns),
+            }
+        )
+
+    return {"count": len(modules), "modules": modules}
