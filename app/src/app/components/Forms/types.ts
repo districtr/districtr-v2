@@ -15,6 +15,7 @@ export type FormFieldProps = {
     value: string;
   }>;
   pattern?: string;
+  maxLength?: number;
   invalidMessage?: string;
   validator?: (value: string) => boolean;
   /** Override the store read/write (e.g. the email-confirm stub field). */

@@ -1459,15 +1459,13 @@ def test_document_list(
         json={
             "portal_id": "test-portal",
             "fields": {"title": "Test Comment", "comment": "Some content."},
-            "tags": ["test"],
             "map_ref": document_id_total_vap,
             "turnstile_token": "test_token",
         },
     )
     assert response.status_code == 201, response.json()
-    # Gallery membership is keyed on the submission's PORTAL, not its
-    # free-form tags (see get_document_list) — query by the portal id.
-    response = client.get("/api/documents/list?tags=test-portal")
+    # Gallery membership is the map's portal (see get_document_list).
+    response = client.get("/api/documents/list?portal_ids=test-portal")
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
@@ -1485,15 +1483,15 @@ def test_document_list(
 def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
     client, document_id_total_vap
 ):
-    # Design decision: submissions are the ONLY way a map enters a tag
-    # gallery. A map carrying matching metadata tags — even past scratch —
-    # must not appear (metadata tags remain display-only annotations).
+    # Design decision: a map enters a portal gallery only through a
+    # submission. Metadata tags are display-only annotations, and a slug that
+    # matches one must not list the map.
     response = client.put(
         f"/api/document/{document_id_total_vap}/metadata",
         json={"tags": ["workshop"], "draft_status": "in_progress"},
     )
     assert response.status_code == 200
-    response = client.get("/api/documents/list?tags=workshop")
+    response = client.get("/api/documents/list?portal_ids=workshop")
     assert response.status_code == 200
     assert response.json() == []
 

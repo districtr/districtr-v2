@@ -181,7 +181,6 @@ class Submission(TimeStampMixin, SQLModel, table=True):
         Index(
             "idx_submissions_portal_status_created", "portal_id", "status", "created_at"
         ),
-        Index("idx_submissions_tags", "tags", postgresql_using="gin"),
         Index("idx_submissions_map_public_id", "map_public_id"),
         Index(
             "idx_submissions_drafts",
@@ -222,12 +221,6 @@ class Submission(TimeStampMixin, SQLModel, table=True):
             nullable=True,
         ),
     )
-    tags: list[str] = Field(
-        default_factory=list,
-        sa_column=Column(
-            ARRAY(String(255)), nullable=False, server_default=text("'{}'")
-        ),
-    )
     status: str = Field(
         default=SubmissionStatus.submitted,
         sa_column=Column(
@@ -250,7 +243,7 @@ class Submission(TimeStampMixin, SQLModel, table=True):
         ),
     )
     # True when the map is a submission-owned frozen clone; false for live
-    # references (drafts, auto-collect modes).
+    # references (drafts, auto-collect modes, admin-added maps).
     # Takedown may only demote the draft_status of clones.
     map_is_clone: bool = Field(
         default=False,
@@ -308,7 +301,6 @@ class SubmissionContent(SQLModel, table=True):
 class SubmissionCreate(BaseModel):
     portal_id: str
     fields: dict[str, str] = {}
-    tags: list[str] = []
     # A map link/id to attach; the referenced plan is cloned at submission
     # time and the clone's public_id is stored, so the gallery entry is
     # frozen and nobody holds the clone's edit UUID.
@@ -320,7 +312,6 @@ class SubmissionFinalize(BaseModel):
     """Body for finalizing a draft submission (the map-autosubmit flow)."""
 
     fields: dict[str, str] = {}
-    tags: list[str] = []
     turnstile_token: str
 
 
@@ -332,7 +323,6 @@ class SubmissionCreated(BaseModel):
 class SubmissionPublic(BaseModel):
     id: int
     portal_id: str
-    tags: list[str]
     nsfw: bool
     map_public_id: int | None = None
     created_at: datetime | None = None

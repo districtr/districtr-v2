@@ -17,8 +17,6 @@ export interface FormState {
   setEmailConfirm: (value: string) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
-  tags: string[];
-  setTags: (tag: string, action: 'add' | 'remove') => void;
   /** The pasted/selected map link; parsed to a document ref at submit. */
   mapRef: string;
   setMapRef: (mapRef: string) => void;
@@ -83,21 +81,6 @@ export const useFormState = create<FormState>()(
         set({fields: next});
         checkFormValidity();
       },
-      setTags: (tag: string, action: 'add' | 'remove') => {
-        const {tags} = get();
-        const tagsIsArray = Array.isArray(tags);
-        let newTags = tagsIsArray ? [...(tags ?? [])] : new Array<string>();
-        switch (action) {
-          case 'add':
-            newTags.push(tag);
-            break;
-          case 'remove':
-            newTags = newTags.filter(t => t !== tag);
-            break;
-        }
-        set({tags: Array.from(new Set(newTags))});
-      },
-      tags: new Array<string>(),
       mapRef: '',
       setMapRef: (mapRef: string) => {
         const {checkFormValidity} = get();
@@ -112,7 +95,6 @@ export const useFormState = create<FormState>()(
           setIsSubmitting,
           isSubmitting,
           fields,
-          tags,
           mapRef,
           showMapSelector,
           acknowledgement,
@@ -145,7 +127,6 @@ export const useFormState = create<FormState>()(
         const response = await postSubmission({
           portal_id: portalId,
           fields: portalFields,
-          tags: Array.from(tags),
           map_ref: mapRefParsed,
           turnstile_token: captchaToken,
         });
@@ -163,7 +144,6 @@ export const useFormState = create<FormState>()(
         set({
           fields: {},
           emailConfirm: '',
-          tags: new Array<string>(),
           mapRef: '',
           acknowledgement: {},
           showMapSelector: false,
@@ -205,7 +185,6 @@ export const useFormState = create<FormState>()(
       migrate: () => ({}),
       partialize: state => ({
         fields: state.fields,
-        tags: state.tags,
         mapRef: state.mapRef,
         acknowledgement: state.acknowledgement,
         showMapSelector: state.showMapSelector,

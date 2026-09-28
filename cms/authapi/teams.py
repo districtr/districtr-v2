@@ -4,8 +4,9 @@ Team-based Wagtail admin scoping (see authapi.models.Team).
 A non-admin user who belongs to one or more Teams is "team-scoped": the admin
 listings/editing for portal forms, tag pages, and Districtr map modules are
 narrowed to their teams' resources. Superusers and members of the `admin`
-group are never scoped; a non-admin user with no team keeps their role's
-default (unscoped) access.
+group are never scoped. Every other signed-in user is scoped, including a
+non-admin with no team, who therefore reaches nothing (fail closed) until an
+admin adds them to one. The JWT side agrees: such a user gets `teams: []`.
 
 Each resource reaches a Team differently:
 - DistrictrMap relates through TeamDistrictrMap (team_links);
@@ -37,11 +38,26 @@ def user_is_unscoped_admin(user) -> bool:
 
 
 def user_is_team_scoped(user) -> bool:
-    """True when ``user``'s Wagtail admin should be narrowed to their teams
-    (see module docstring for who is exempt)."""
-    if not user.is_authenticated or user_is_unscoped_admin(user):
-        return False
-    return TeamMembership.objects.filter(user=user).exists()
+    """True when ``user``'s Wagtail admin should be narrowed to their teams:
+    every signed-in non-admin, with or without a team (see module docstring)."""
+    return user.is_authenticated and not user_is_unscoped_admin(user)
+
+
+def user_administers(user, admin_teams) -> bool:
+    """True when ``user`` may act on a resource administered by ``admin_teams``
+    (a FormConfig's admin_teams): unscoped admins always, anyone else only
+    through one of their own teams. The one copy of this rule; the backend's
+    require_portal_admin applies the same test to the JWT teams claim."""
+    if user_is_unscoped_admin(user):
+        return True
+    return bool(set(admin_teams or []) & set(team_slugs_for_user(user)))
+
+
+def administered_by_user(queryset, user):
+    """``queryset`` (FormConfigs) narrowed to those ``user`` administers."""
+    if user_is_unscoped_admin(user):
+        return queryset
+    return queryset.filter(admin_teams__overlap=team_slugs_for_user(user))
 
 
 def team_ids_for_user(user) -> set[int]:
@@ -163,7 +179,13 @@ class TeamScopedViewGrantPermissionPolicy(TeamScopedModelPermissionPolicy):
     _VIEW_ACTIONS = {"view", "inspect"}
 
     def user_has_permission(self, user, action):
-        if action in self._VIEW_ACTIONS and user_is_team_scoped(user):
+        # Team members only: a scoped user with no team would get the menu
+        # and an empty list, since their queryset is empty.
+        if (
+            action in self._VIEW_ACTIONS
+            and user_is_team_scoped(user)
+            and team_ids_for_user(user)
+        ):
             return True
         return super().user_has_permission(user, action)
 

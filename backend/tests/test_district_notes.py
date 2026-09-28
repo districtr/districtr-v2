@@ -10,7 +10,8 @@ from unittest.mock import patch
 
 from sqlmodel import col, select, text
 
-from app.district_notes import DistrictNote, moderate_note_by_id
+from app.district_notes.models import DistrictNote
+from app.district_notes.tasks import moderate_note_by_id
 from tests.constants import GERRY_DB_FIXTURE_NAME
 
 CLEAN_SCORE = 0.001
@@ -167,3 +168,112 @@ def test_empty_note_is_treated_as_deletion(_mock, client, document_id, session):
         select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
     ).all()
     assert remaining == []
+
+
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
+def test_matched_id_in_another_zone_does_not_relabel(
+    _mock, client, document_id, session
+):
+    # Unsaved notes carry client UUIDs; a lenient parseInt("3f25…") once sent a
+    # real row id under the wrong zone and overwrote that zone's note.
+    assert _put_note(client, document_id, "zone one", zone=1).status_code == 200
+    zone_one = session.exec(
+        select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+    ).one()
+
+    document_info = client.get(f"/api/document/{document_id}").json()
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [],
+            "comments": [
+                {"comment_id": zone_one.id, "zone": 1, "text": "zone one"},
+                {"comment_id": zone_one.id, "zone": 2, "text": "zone two"},
+            ],
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    session.expire_all()
+    notes = {
+        n.zone: n.note
+        for n in session.exec(
+            select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+        )
+    }
+    assert notes == {1: "zone one", 2: "zone two"}
+
+
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
+def test_unchanged_note_is_not_rescored(mock_score, client, document_id, session):
+    assert _put_note(client, document_id, "same text").status_code == 200
+    assert mock_score.call_count == 1
+    note = session.exec(
+        select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+    ).one()
+    # The client resends the whole set on every save.
+    assert (
+        _put_note(client, document_id, "same text", comment_id=note.id).status_code
+        == 200
+    )
+    assert mock_score.call_count == 1
+    assert (
+        _put_note(client, document_id, "edited", comment_id=note.id).status_code == 200
+    )
+    assert mock_score.call_count == 2
+
+
+LABELED_PLAN = {
+    "districtr_map_slug": "simple_geos",
+    "assignments": [
+        ["000010000000001", "My zone 1"],
+        ["000010000000003", "My zone 1"],
+        ["000010000000006", "My zone 3"],
+    ],
+}
+
+
+def _notes_for(session, document_id):
+    session.expire_all()
+    return {
+        n.zone: n
+        for n in session.exec(
+            select(DistrictNote).where(col(DistrictNote.document_id) == document_id)
+        )
+    }
+
+
+@patch("app.submissions.moderation.score_text", return_value=NSFW_SCORE)
+def test_csv_relabel_notes_are_moderated(
+    mock_score, client, session, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # The relabel loop used to build rows directly, skipping limits and
+    # moderation: raw CSV labels reached the public read unscored.
+    response = client.post("/api/create_document", json=LABELED_PLAN)
+    assert response.status_code == 201, response.json()
+    remapping = response.json()["zone_label_remapping"]
+    notes = _notes_for(session, response.json()["document_id"])
+    assert notes[remapping["My zone 1"]].note == "Originally labeled as My zone 1"
+    assert notes[remapping["My zone 3"]].note == "Originally labeled as My zone 3"
+    # The task writes through its own session, which can't see this test's
+    # uncommitted rows; the call count is what proves moderation was scheduled.
+    assert mock_score.call_count == 2
+
+
+@patch("app.submissions.moderation.score_text", return_value=CLEAN_SCORE)
+def test_csv_relabel_notes_dropped_when_descriptions_disabled(
+    _mock, client, session, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    # comment_length_limit = 0 is the "descriptions disabled" config: the editor
+    # can't show or delete a note, so a CSV upload must not create one either.
+    session.execute(
+        text(
+            "UPDATE districtrmap SET comment_length_limit = 0 "
+            "WHERE districtr_map_slug = 'simple_geos'"
+        )
+    )
+    response = client.post("/api/create_document", json=LABELED_PLAN)
+    assert response.status_code == 201, response.json()
+    assert response.json()["zone_label_remapping"]
+    assert _notes_for(session, response.json()["document_id"]) == {}

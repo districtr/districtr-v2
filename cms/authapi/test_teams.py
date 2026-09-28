@@ -3,8 +3,8 @@ Team-based Wagtail admin scoping (authapi.models.Team / authapi.teams).
 
 Covers the membership helpers, the team-scoped permission policy (object +
 queryset scoping), and an end-to-end admin check that a team-scoped member
-sees/edits only their team's map modules while admins and team-less users are
-unaffected.
+sees/edits only their team's map modules, admins are unaffected, and team-less
+non-admins reach nothing.
 """
 
 from django.contrib.auth import get_user_model
@@ -40,8 +40,12 @@ class TeamHelperTests(TestCase):
         make_team("Team", members=[admin])
         self.assertFalse(user_is_team_scoped(admin))
 
-    def test_partner_without_team_not_scoped(self):
-        self.assertFalse(user_is_team_scoped(make_user("partner", "e@d.org")))
+    def test_partner_without_team_is_scoped_to_nothing(self):
+        # Fail closed: a team-less partner used to fall back to unscoped
+        # access, i.e. every team's pages and modules.
+        loner = make_user("partner", "e@d.org")
+        self.assertTrue(user_is_team_scoped(loner))
+        self.assertEqual(team_ids_for_user(loner), set())
 
     def test_partner_with_team_is_scoped(self):
         partner = make_user("partner", "e@d.org")
@@ -206,6 +210,13 @@ class ContentPageScopingTests(TestCase):
         slugs = set(result.values_list("slug", flat=True))
         # in-place overlaps the team's map; out-place does not.
         self.assertEqual(slugs, {"in-place"})
+
+    def test_explorer_hides_every_portal_from_team_less_partner(self):
+        loner = make_user("partner", "loner-explorer@d.org")
+        result = scope_content_pages_in_explorer(
+            self.tags_index, self.tags_index.get_children(), self._request(loner)
+        )
+        self.assertEqual(list(result.values_list("slug", flat=True)), [])
 
     def test_explorer_unfiltered_for_admin(self):
         tags = scope_content_pages_in_explorer(

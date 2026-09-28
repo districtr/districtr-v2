@@ -33,11 +33,11 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
     invalidMessage: 'Enter a submission title',
   },
   comment: {
-    label: 'Testimony',
+    label: 'Your Comment',
     type: 'text',
     section: 'submission',
     component: TextArea,
-    invalidMessage: 'Enter your testimony',
+    invalidMessage: 'Enter your comment',
   },
   salutation: {
     label: 'Salutation',
@@ -92,18 +92,14 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
   },
 };
 
-/** Render order within each section. */
-export const FIELD_ORDER = [
-  'title',
-  'comment',
-  'salutation',
-  'first_name',
-  'last_name',
-  'email',
-  'place',
-  'state',
-  'zip_code',
-];
+/** Render order within each section: registry insertion order, so a new
+ * field can't be registered yet render no input. */
+export const FIELD_ORDER = Object.keys(FIELD_REGISTRY);
+
+/** Length caps for admin-defined custom questions, by field type — mirrored
+ * from backend fields.py::CUSTOM_FIELD_MAX_LENGTHS so the input stops where
+ * the server would reject. */
+export const CUSTOM_FIELD_MAX_LENGTHS = {text: 255, textarea: 5000} as const;
 
 /** Fields the public list never serves — mirrored from the backend. */
 export const PRIVATE_FIELDS = new Set(['email']);

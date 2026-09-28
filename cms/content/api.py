@@ -49,21 +49,11 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
-def _inject_portal_tag(body_data, portal_slug):
-    """Guarantee comment-form blocks tag their submissions with the portal's
-    slug — the slug IS the portal's comment tag (review scoping and the
-    moderation queues key on it), so it must not depend on authors remembering
-    to add it to mandatoryTags."""
+def _inject_portal_id(body_data, portal_slug):
+    """A portal page's comment gallery lists ITS portal's submissions. Without
+    this, an empty editor `tags` field would list every portal's submissions."""
     for block in body_data:
-        if block.get("type") == "form":
-            tags = list(block.get("value", {}).get("mandatoryTags") or [])
-            if portal_slug not in tags:
-                block["value"]["mandatoryTags"] = [portal_slug, *tags]
-        elif block.get("type") == "comment_gallery":
-            # A portal page's gallery lists ITS portal's submissions —
-            # without this, an empty editor `tags` field would list every
-            # portal's submissions, and user-added tag filters (OR
-            # semantics) would widen back across portals.
+        if block.get("type") == "comment_gallery":
             block["value"]["portalId"] = portal_slug
     return body_data
 
@@ -131,7 +121,7 @@ def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
     if content_type == "tags":
-        body_data = _inject_portal_tag(body_data, page.slug)
+        body_data = _inject_portal_id(body_data, page.slug)
         body_data = _inject_form_config(body_data, page.slug)
     content = {
         "title": page.title,

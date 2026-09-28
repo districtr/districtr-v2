@@ -27,7 +27,6 @@ def make_entry(**overrides):
     entry = {
         "id": 11,
         "portal_id": "midwest-portal",
-        "tags": ["midwest-portal", "midwest-tour"],
         "nsfw": False,
         "map_public_id": None,
         "created_at": "2026-08-01T00:00:00",

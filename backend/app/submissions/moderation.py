@@ -75,62 +75,61 @@ def score_text(text: str) -> float:
     return 1.0
 
 
-def moderate_submission_by_id(
-    submission_id: int, session: Session | None = None
-) -> None:
-    """Background task: score a submission's content + tags + map card text.
+def moderate_submission(submission_id: int, session: Session) -> None:
+    """Score a submission's content and map card text; persist score + nsfw.
 
-    Scores the concatenation of every content value, tag, and the attached
-    map's metadata name/description — the gallery card renders the map's
-    name/description, so leaving them unscored would let an abusive map
-    title sail past the nsfw filter under a clean one-word comment. The only
-    outcome is one blur bit, so per-field granularity buys nothing. Opens
-    its own session when none is given (the background-task case: the
-    request-scoped session is closed by the time this runs).
+    Scores the concatenation of every content value and the attached map's
+    metadata name/description. The gallery card renders the map's
+    name/description, so leaving them unscored would let an abusive map title
+    sail past the nsfw filter under a clean one-word comment. The only outcome
+    is one blur bit, so per-field granularity buys nothing.
     """
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
     from app.models import Document
     from app.submissions.models import Submission, SubmissionContent
 
-    def _run(sess: Session) -> None:
-        submission = sess.get(Submission, submission_id)
-        if submission is None:
-            return
-        values = sess.scalars(
-            select(SubmissionContent.value).where(
-                col(SubmissionContent.submission_id) == submission_id
-            )
-        ).all()
-        map_texts: list[str] = []
-        if submission.map_public_id is not None:
-            metadata = sess.scalars(
-                select(Document.map_metadata).where(
-                    col(Document.public_id) == submission.map_public_id
-                )
-            ).first()
-            if metadata:
-                map_texts = [
-                    str(metadata.get(key) or "") for key in ("name", "description")
-                ]
-        text = " ".join([*values, *(submission.tags or []), *map_texts])
-        score = score_text(text)
-        sess.execute(
-            update(Submission)
-            .where(col(Submission.id) == submission_id)
-            .values(moderation_score=score, nsfw=score >= MODERATION_THRESHOLD)
+    submission = session.get(Submission, submission_id)
+    if submission is None:
+        return
+    values = session.scalars(
+        select(SubmissionContent.value).where(
+            col(SubmissionContent.submission_id) == submission_id
         )
-        try:
-            sess.commit()
-        except Exception:
-            sess.rollback()
-            logger.exception(
-                f"Failed to save moderation score for submission {submission_id}"
+    ).all()
+    map_texts: list[str] = []
+    if submission.map_public_id is not None:
+        metadata = session.scalars(
+            select(Document.map_metadata).where(
+                col(Document.public_id) == submission.map_public_id
             )
-            raise
+        ).first()
+        if metadata:
+            map_texts = [
+                str(metadata.get(key) or "") for key in ("name", "description")
+            ]
+    text = " ".join([*values, *map_texts])
+    score = score_text(text)
+    session.execute(
+        update(Submission)
+        .where(col(Submission.id) == submission_id)
+        .values(moderation_score=score, nsfw=score >= MODERATION_THRESHOLD)
+    )
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception(
+            f"Failed to save moderation score for submission {submission_id}"
+        )
+        raise
 
-    if session is not None:
-        _run(session)
-    else:
-        with Session(engine) as owned_session:
-            _run(owned_session)
+
+def moderate_submission_in_background(submission_id: int) -> None:
+    """Background-task entry point: runs moderate_submission in its own session.
+
+    The request-scoped session is closed by the time background tasks run, so
+    endpoints schedule this; tests call moderate_submission with their session.
+    """
+    with Session(engine) as session:
+        moderate_submission(submission_id, session)

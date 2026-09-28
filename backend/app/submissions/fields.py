@@ -11,8 +11,13 @@ PRIVATE_FIELDS are stored but never returned by the public list endpoint.
 """
 
 import re
+from typing import TYPE_CHECKING
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+from email_validator import EmailNotValidError, validate_email
+
+if TYPE_CHECKING:
+    from app.submissions.models import FormFieldCustom
+
 ZIP_RE = re.compile(r"^\d{5}(-\d{4})?$")
 
 # field name -> max length. Validation beyond length is per-field below.
@@ -39,7 +44,7 @@ def validate_submission_fields(
     config_fields: list[str],
     required_fields: list[str],
     values: dict[str, str],
-    custom_specs: list | None = None,
+    custom_specs: "list[FormFieldCustom] | None" = None,
 ) -> list[str]:
     """Validate submitted field values against a form config.
 
@@ -80,12 +85,25 @@ def validate_submission_fields(
         stripped = value.strip()
         if not stripped:
             continue  # empty optional values are simply not stored
-        if name == "email" and not EMAIL_RE.match(stripped):
+        if name == "email" and not _is_valid_email(stripped):
             errors.append("Invalid email address")
         if name == "zip_code" and not ZIP_RE.match(stripped):
             errors.append("Invalid zip code")
 
     return errors
+
+
+def _is_valid_email(value: str) -> bool:
+    """RFC-aware syntax check, including internationalized addresses.
+
+    Syntax only: no DNS lookup at request time (check_deliverability=False),
+    so a slow or unreachable resolver can't stall a public submission.
+    """
+    try:
+        validate_email(value, check_deliverability=False)
+    except EmailNotValidError:
+        return False
+    return True
 
 
 def slugify(value: str) -> str:

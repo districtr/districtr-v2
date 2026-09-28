@@ -100,7 +100,6 @@ COMMENT_GALLERY_ATTRS = {
 }
 
 FORM_ATTRS = {
-    "mandatoryTags": ["chicago", "ward-map"],
     "allowListModules": ["chi_wards"],
 }
 
@@ -1263,7 +1262,7 @@ class FormConfigInjectionTests(TestCase):
             if block["type"] == "form"
         )
 
-    def test_form_block_carries_config_and_portal_tag(self):
+    def test_form_block_carries_config(self):
         value = self._form_block("configured")
         self.assertEqual(value["portalId"], "configured")
         self.assertEqual(value["collectionMode"], "prompt")
@@ -1271,7 +1270,6 @@ class FormConfigInjectionTests(TestCase):
         self.assertEqual(value["fields"], ["first_name", "email", "title", "comment"])
         self.assertEqual(value["requiredFields"], ["title", "comment"])
         self.assertFalse(value["requireEmailConfirm"])
-        self.assertEqual(value["mandatoryTags"], ["configured"])
         # Bug fix: an empty allow-list serves null ("all modules"), not [].
         self.assertIsNone(value["allowListModules"])
 

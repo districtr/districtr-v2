@@ -1,6 +1,15 @@
 'use client';
 import {useEffect, useMemo, useState} from 'react';
-import {Blockquote, Button, Checkbox, Dialog, Flex, Text} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Button,
+  Checkbox,
+  Dialog,
+  Flex,
+  Text,
+  TextArea,
+  TextField,
+} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useFormState} from '@/app/store/formState';
 import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
@@ -10,9 +19,14 @@ import {
   getFormConfig,
   type FormConfigPublic,
 } from '@/app/utils/api/apiHandlers/postSubmission';
-import {FIELD_ORDER, FIELD_REGISTRY} from '@/app/components/Forms/fieldRegistry';
+import {
+  CUSTOM_FIELD_MAX_LENGTHS,
+  FIELD_ORDER,
+  FIELD_REGISTRY,
+} from '@/app/components/Forms/fieldRegistry';
 import {FormField} from '@/app/components/Forms/FormField';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -39,6 +53,7 @@ export const SubmitToPortalModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const {TurnstileComponent, captchaToken} = useTurnstile();
+  const {isOutdated, save} = useMapSaveStatus();
 
   useEffect(() => {
     setConfig(null);
@@ -48,8 +63,16 @@ export const SubmitToPortalModal: React.FC = () => {
     setError('');
     if (!draft) return;
     getFormConfig(draft.portalId).then(response => {
-      if (response.ok) setConfig(response.response);
-      else setError('Could not load the portal form. Please try again later.');
+      if (response.ok) {
+        setConfig(response.response);
+        // Self-heal stale/legacy records: the stored mode is a snapshot
+        // from draft creation; the config is the server truth.
+        if (draft.collectionMode !== response.response.collection_mode) {
+          updateDraftSubmission(promptDocumentId!, {
+            collectionMode: response.response.collection_mode,
+          });
+        }
+      } else setError('Could not load the portal form. Please try again later.');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.portalId, promptDocumentId]);
@@ -60,9 +83,16 @@ export const SubmitToPortalModal: React.FC = () => {
   if (!promptDocumentId || promptDocumentId !== currentDocumentId || !draft || draft.submitted) {
     return null;
   }
+  // The config is server truth: a portal flipped to an auto mode after this
+  // draft was created has ALREADY auto-finalized the submission — prompting
+  // would ask consent for something published and 409 (burning a captcha).
+  if (config && config.collection_mode !== 'prompt') {
+    return null;
+  }
 
   const requiredFields = FIELD_ORDER.filter(name => config?.required_fields?.includes(name));
   const needsEmailConfirm = !!config?.require_email_confirm && requiredFields.includes('email');
+  const requiredCustoms = (config?.custom_fields ?? []).filter(c => c.required);
   const fieldIsValid = (name: string) => {
     const value = (values[name] ?? '').trim();
     if (!value) return false;
@@ -76,19 +106,30 @@ export const SubmitToPortalModal: React.FC = () => {
     acknowledged &&
     !!captchaToken &&
     requiredFields.every(fieldIsValid) &&
-    (!needsEmailConfirm || emailConfirm === values['email']);
+    (!needsEmailConfirm || emailConfirm === values['email']) &&
+    requiredCustoms.every(c => (values[c.key] ?? '').trim().length > 0);
 
-  const dismiss = () => {
-    updateDraftSubmission(promptDocumentId, {suppressed: true});
-    closePrompt();
-  };
+  const dismiss = () => closePrompt();
 
   const submit = async () => {
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
+    // Finalize clones the SERVER copy of the plan, so pending browser-only
+    // edits must land first or the gallery entry is missing the user's last
+    // strokes. A failed save already surfaced (conflict modal / toast); stop
+    // here without spending the captcha token.
+    if (isOutdated) {
+      const saved = await save(false, {silent: true});
+      if (!saved.ok) {
+        setIsSubmitting(false);
+        setError(
+          'Your latest edits could not be saved, so nothing was submitted. Please try again.'
+        );
+        return;
+      }
+    }
     const response = await finalizeSubmission(draft.submissionId, {
       fields: values,
-      tags: [],
       turnstile_token: captchaToken,
     });
     // Turnstile tokens are single-use: the server verifies the captcha
@@ -158,6 +199,33 @@ export const SubmitToPortalModal: React.FC = () => {
               </Flex>
             );
           })}
+          {/* Abbreviated by design: like the registry fields above, only
+              REQUIRED custom questions are asked here — optional ones are
+              full-form-only (SubmissionForm). */}
+          {requiredCustoms.map(custom => (
+            <Flex key={custom.key} direction="column" gap="1">
+              <Text as="label" size="2" weight="medium" htmlFor={custom.key}>
+                {custom.label} *
+              </Text>
+              {custom.field_type === 'textarea' ? (
+                <TextArea
+                  id={custom.key}
+                  value={values[custom.key] ?? ''}
+                  placeholder={custom.label}
+                  maxLength={CUSTOM_FIELD_MAX_LENGTHS.textarea}
+                  onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
+                />
+              ) : (
+                <TextField.Root
+                  id={custom.key}
+                  value={values[custom.key] ?? ''}
+                  placeholder={custom.label}
+                  maxLength={CUSTOM_FIELD_MAX_LENGTHS.text}
+                  onChange={e => setValues(v => ({...v, [custom.key]: e.target.value}))}
+                />
+              )}
+            </Flex>
+          ))}
           <Text as="label" size="2">
             <Flex gap="2" align="center">
               <Checkbox

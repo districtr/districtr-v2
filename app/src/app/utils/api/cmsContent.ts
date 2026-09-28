@@ -39,14 +39,16 @@ export interface SectionHeaderBlock {
 
 export interface PlanGalleryBlock {
   type: 'plan_gallery';
-  /** camelCase props matching PLAN_GALLERY_ATTRIBUTES; ids/tags may be null (no filter) */
+  /** camelCase props matching PLAN_GALLERY_ATTRIBUTES; ids/tags may be null (no
+   * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
   value: PlanGalleryProps;
   id: string;
 }
 
 export interface CommentGalleryBlock {
   type: 'comment_gallery';
-  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no filter) */
+  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no
+   * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
   value: CommentGalleryProps;
   id: string;
 }
@@ -54,15 +56,21 @@ export interface CommentGalleryBlock {
 export interface FormBlock {
   type: 'form';
   value: {
-    mandatoryTags: string[];
     /** null = all modules allowed */
     allowListModules: string[] | null;
     /** The following are injected from the portal's FormConfig by the CMS
      * content API; null on pages without a form config. */
     portalId?: string | null;
+    collectionMode?: string | null;
     fields?: string[] | null;
     requiredFields?: string[] | null;
     requireEmailConfirm?: boolean;
+    customFields?: Array<{
+      key: string;
+      label: string;
+      fieldType: 'text' | 'textarea';
+      required: boolean;
+    }> | null;
   };
   id: string;
 }

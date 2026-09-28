@@ -99,10 +99,10 @@ def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
     if mode in ("prompt", "form"):
         body += [
             _section("Make a submission"),
-            {"type": "form", "value": {"mandatoryTags": [], "allowListModules": []}},
+            {"type": "form", "value": {"allowListModules": []}},
         ]
-    # tags=[slug]: with no curated ids these galleries list entries tagged
-    # with the portal's own tag — submissions appear automatically.
+    # tags=[slug]: the block attribute is the portal slug list, so with no
+    # curated ids these galleries list this portal's submissions automatically.
     if mode in ("prompt", "auto_public"):
         body += [
             _section("Map gallery"),

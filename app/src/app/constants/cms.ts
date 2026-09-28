@@ -35,6 +35,7 @@ export const MAP_CREATE_BUTTONS_ATTRIBUTES = [
   {name: 'type', default: 'simple'},
   // Injected by the CMS content API on portal pages.
   {name: 'portalId', default: null},
+  {name: 'collectionMode', default: null},
 ] as const satisfies readonly AnyMapCreateButtonsAttrSpec[];
 
 type PlanGalleryAttrSpec<K extends keyof PlanGalleryProps> = {

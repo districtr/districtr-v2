@@ -69,9 +69,9 @@ def upgrade() -> None:
         schema="comments",
     )
     op.create_index(
-        "idx_district_notes_document_zone",
+        "idx_district_notes_document",
         "district_notes",
-        ["document_id", "zone"],
+        ["document_id"],
         schema="comments",
     )
 
@@ -121,7 +121,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     # The source rows were never deleted, so dropping the table restores the
     # pre-migration state minus any edits made after upgrading.
-    op.drop_index(
-        "idx_district_notes_document_zone", "district_notes", schema="comments"
-    )
+    op.drop_index("idx_district_notes_document", "district_notes", schema="comments")
     op.drop_table("district_notes", schema="comments")

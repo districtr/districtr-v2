@@ -10,8 +10,15 @@ export interface MapCreateButtonsProps {
   /** Injected by the CMS content API on portal pages: maps started here get
    * a draft submission for this portal. */
   portalId?: string | null;
+  /** The portal's collection mode; 'prompt' opens the submit modal later. */
+  collectionMode?: string | null;
 }
-export const MapCreateButtons = ({views, type, portalId}: MapCreateButtonsProps) => {
+export const MapCreateButtons = ({
+  views,
+  type,
+  portalId,
+  collectionMode,
+}: MapCreateButtonsProps) => {
   switch (type) {
     // Same start cards the place pages render, for visual consistency.
     case 'cards':
@@ -24,6 +31,7 @@ export const MapCreateButtons = ({views, type, portalId}: MapCreateButtonsProps)
               isCommunity={false}
               showOutcome={false}
               portalId={portalId}
+              collectionMode={collectionMode}
             />
           ))}
         </CardGrid>
@@ -32,7 +40,12 @@ export const MapCreateButtons = ({views, type, portalId}: MapCreateButtonsProps)
       return (
         <CardGrid>
           {views.map(view => (
-            <CreateButton key={view.districtr_map_slug} view={view} portalId={portalId} />
+            <CreateButton
+              key={view.districtr_map_slug}
+              view={view}
+              portalId={portalId}
+              collectionMode={collectionMode}
+            />
           ))}
         </CardGrid>
       );
@@ -59,6 +72,7 @@ export const MapCreateButtons = ({views, type, portalId}: MapCreateButtonsProps)
                 key={view.districtr_map_slug}
                 view={view}
                 portalId={portalId}
+                collectionMode={collectionMode}
                 extraClasses="bg-districtrBlue text-white text-xl px-8 py-3 rounded-md font-bold hover:bg-blue-700 transition-colors cursor-pointer m-2"
               />
             ))}
