@@ -56,10 +56,13 @@ export const getFeaturesIntersectingCounties = (
     'fips'
   );
 
-  const countyKey = distinctCounties
-    .map(({fips}) => fips)
-    .sort()
-    .join(',');
+  // filterLocked is part of the key: the inspector writes unfiltered entries,
+  // and a brush click at the same spot must not replay one onto locked units.
+  const countyKey =
+    distinctCounties
+      .map(({fips}) => fips)
+      .sort()
+      .join(',') + `|${filterLocked}`;
 
   if (countyKey === lastCountyKey) {
     return lastResult;

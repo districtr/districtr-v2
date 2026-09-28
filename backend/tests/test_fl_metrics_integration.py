@@ -11,38 +11,47 @@ metrics code changes:
 
 Data sources
 ------------
-All files live in the project's S3 bucket and must be downloaded manually before
-running this test suite (set $S3_BUCKET to the bucket name):
+Uses the v2 gerrydb modules (v1's VTD/block layers are retired — never needed locally
+again). All files live in the project's S3 bucket and must be downloaded manually
+before running this test suite (set $S3_BUCKET to the bucket name):
 
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid.txt \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid_v2.txt \
         backend/tests/fixtures/fl/fl_cong2026_hybrid.txt
-    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_vtd_districtr_view.gpkg \
-        data/gerrydb/fl_vtd_districtr_view.gpkg
-    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_block_districtr_view.gpkg \
-        data/gerrydb/fl_block_districtr_view.gpkg
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_districtr_view.pkl \
-        data/graphs/fl_districtr_view.pkl
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_districtr_vtd_view_v2.gpkg \
+        data/gerrydb/fl_districtr_vtd_view_v2.gpkg
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_districtr_block_view_v2.gpkg \
+        data/gerrydb/fl_districtr_block_view_v2.gpkg
+    aws s3 cp s3://$S3_BUCKET/graphs/fl_districtr_view_v2.pkl \
+        data/graphs/fl_districtr_view_v2.pkl
 
-    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt  (29 417 lines, ~550 KB)
-    parent layer: data/gerrydb/fl_vtd_districtr_view.gpkg   (38 MB)
-    child layer : data/gerrydb/fl_block_districtr_view.gpkg (576 MB)
-    graph       : data/graphs/fl_districtr_view.pkl          (59 MB)
+    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt      (~29 000 lines, ~550 KB)
+    parent layer: data/gerrydb/fl_districtr_vtd_view_v2.gpkg    (41 MB)
+    child layer : data/gerrydb/fl_districtr_block_view_v2.gpkg  (610 MB)
+    graph       : data/graphs/fl_districtr_view_v2.pkl          (57 MB)
+
+The assignment file (uploaded to S3 as ``fl_cong2026_hybrid_v2.txt``, distinct from
+the retired v1-era ``fl_cong2026_hybrid.txt``) is derived from the raw Cong2026
+block-equivalency release (``EOGPCRP2026.txt``, 390 066 lines) against this v2
+graph's parent units — v1 and v2 group blocks into a different set of VTDs (8 209
+vs. 7 211), so a graph-version bump requires regenerating it; see "To regenerate
+this file" below.
 
 Hybrid assignment file
 -----------------------
 ``fl_cong2026_hybrid.txt`` contains mixed VTD- and block-level assignments for the
-Cong2026 plan, derived from the full 390 066-block EOGPCRP2026.txt release file:
+Cong2026 plan, derived from the full 390 066-block EOGPCRP2026.txt release file,
+grouped against the v2 graph's VTDs:
 
-  • Intact VTDs (all blocks map to the same district) → one line per VTD (6 950 VTDs).
-  • Split VTDs  (blocks span multiple districts)      → one line per block (22 467 blocks
-    across 261 VTDs).
+  • Intact VTDs (all blocks map to the same district) → one line per VTD (7 959 VTDs).
+  • Split VTDs  (blocks span multiple districts)      → one line per block (across 250
+    VTDs).
 
 To regenerate this file from scratch:
 
     from pathlib import Path
     import pickle
 
-    GRAPH_PKL   = Path("data/graphs/fl_districtr_view.pkl")
+    GRAPH_PKL   = Path("data/graphs/fl_districtr_view_v2.pkl")
     BLOCK_ASSIGN = Path("PATH_TO_EOGPCRP2026").expanduser()  # raw release file
     OUTPUT       = Path("backend/tests/fixtures/fl/fl_cong2026_hybrid.txt")
 
@@ -100,7 +109,8 @@ from tests.conftest import MsgpackAwareTestClient
 from sqlalchemy import text
 from sqlmodel import Session
 
-import app.evaluation.graph as eval_graph_module
+import app.evaluation.graph_loader as eval_graph_module
+from app.evaluation.graph_loader import from_networkx
 from app.constants import GERRY_DB_SCHEMA
 from app.core.db import get_session
 from app.core.security import auth
@@ -131,9 +141,9 @@ REPO_ROOT = TESTS_DIR.parent.parent  # …/districtr-v2/
 DATA_DIR = REPO_ROOT / "data"
 
 HYBRID_ASSIGNMENT_FILE = TESTS_DIR / "fixtures" / "fl" / "fl_cong2026_hybrid.txt"
-VTD_GPKG = DATA_DIR / "gerrydb" / "fl_vtd_districtr_view.gpkg"
-BLOCK_GPKG = DATA_DIR / "gerrydb" / "fl_block_districtr_view.gpkg"
-GRAPH_PKL = DATA_DIR / "graphs" / "fl_districtr_view.pkl"
+VTD_GPKG = DATA_DIR / "gerrydb" / "fl_districtr_vtd_view_v2.gpkg"
+BLOCK_GPKG = DATA_DIR / "gerrydb" / "fl_districtr_block_view_v2.gpkg"
+GRAPH_PKL = DATA_DIR / "graphs" / "fl_districtr_view_v2.pkl"
 
 FL_DATA_AVAILABLE = all(
     p.exists() for p in [HYBRID_ASSIGNMENT_FILE, VTD_GPKG, BLOCK_GPKG, GRAPH_PKL]
@@ -147,10 +157,10 @@ pytestmark = pytest.mark.skipif(
     ),
 )
 
-FL_MAP_SLUG = "fl_districtr_view"
-FL_VTD_TABLE = "fl_vtd_districtr_view"
-FL_BLOCK_TABLE = "fl_block_districtr_view"
-FL_VIEW_NAME = "fl_districtr_view"
+FL_MAP_SLUG = "fl_districtr_view_v2"
+FL_VTD_TABLE = "fl_districtr_vtd_view_v2"
+FL_BLOCK_TABLE = "fl_districtr_block_view_v2"
+FL_VIEW_NAME = "fl_districtr_view_v2"
 
 # ── report-validated expected values ─────────────────────────────────────────
 # Partisan metrics are in **Democratic POV** (positive = Dem advantage),
@@ -334,7 +344,7 @@ VOTE_SHARE_TOLERANCE = 0.005  # ±0.5 pp for statewide vote shares
 def fl_graph():
     """Load the combined block+VTD dual graph."""
     with open(GRAPH_PKL, "rb") as f:
-        return pickle.load(f)
+        return from_networkx(pickle.load(f))
 
 
 @pytest.fixture(scope="module")

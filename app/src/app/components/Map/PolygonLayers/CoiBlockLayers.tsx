@@ -63,18 +63,20 @@ export const CoiBlockLayers: React.FC<{
         />
       )}
 
+      {/* Anchored above the boundary/overlay layers so the unassigned
+          highlight isn't hidden under county lines. */}
       <ZoneHighlightLayer
         id={CANONICAL_LAYER_IDS.BLOCK[scope].HIGHLIGHT}
         sourceLayerId={sourceLayerId}
         filter={layerFilter}
-        beforeId={DEFAULT_BLOCK_LAYER_ORDER.zoneBeforeId}
+        beforeId={DEFAULT_BLOCK_LAYER_ORDER.highlightBeforeId}
       />
       <Layer
         id={CANONICAL_LAYER_IDS.BLOCK[scope].HOVER}
         source={BLOCK_SOURCE_ID}
         source-layer={sourceLayerId}
         filter={layerFilter}
-        beforeId={CANONICAL_LAYER_IDS.BLOCK[scope].HIGHLIGHT}
+        beforeId={DEFAULT_BLOCK_LAYER_ORDER.zoneBeforeId}
         type="fill"
         layout={{visibility: 'visible'}}
         paint={{

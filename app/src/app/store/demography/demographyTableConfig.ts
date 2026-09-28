@@ -122,6 +122,14 @@ export const VEHICLESColumnConfig: DemographyTableColumnConfiguration<
   {column: 'total_occ_hh_24', label: 'Total households', isTotal: true},
 ];
 
+export const TENUREColumnConfig: DemographyTableColumnConfiguration<
+  SummaryStatConfig[typeof SUMMARY_TYPES.TENURE]
+> = [
+  {column: 'hh_owner_24', label: 'Owner-occupied'},
+  {column: 'hh_renter_24', label: 'Renter-occupied'},
+  {column: 'total_occ_hh_24', label: 'Total households', isTotal: true},
+];
+
 export const CONFIG_BY_COLUMN_SET: Record<
   SummaryType,
   DemographyTableColumnConfiguration<SummaryStatConfig[SummaryType]>
@@ -133,6 +141,7 @@ export const CONFIG_BY_COLUMN_SET: Record<
   INCOME: INCOMEColumnConfig,
   EDUCATION: EDUCATIONColumnConfig,
   VEHICLES: VEHICLESColumnConfig,
+  TENURE: TENUREColumnConfig,
 };
 
 export const evalColumnConfigs: Partial<
@@ -145,6 +154,7 @@ export const evalColumnConfigs: Partial<
   INCOME: INCOMEColumnConfig,
   EDUCATION: EDUCATIONColumnConfig,
   VEHICLES: VEHICLESColumnConfig,
+  TENURE: TENUREColumnConfig,
 };
 
 export const modeButtonConfig: Array<{label: string; value: TableDisplayMode}> = [
@@ -201,6 +211,11 @@ export const summaryStatLabels: Array<{
   {
     value: SUMMARY_TYPES.VEHICLES,
     label: 'Vehicle access',
+    supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
+  },
+  {
+    value: SUMMARY_TYPES.TENURE,
+    label: 'Housing tenure',
     supportedModes: [TABLE_DISPLAY_MODES.SHARE, TABLE_DISPLAY_MODES.COUNT],
   },
 ];

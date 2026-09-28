@@ -12,6 +12,9 @@ import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelp
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+import {useMapMetadata} from '@/app/hooks/useMapMetadata';
+import {canSubmitDraft, getDraftSubmission} from '@/app/utils/draftSubmissions';
+import {useDraftSubmissionStore} from '@store/draftSubmissionStore';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -25,6 +28,14 @@ export const MapActionsDropdown: React.FC<{
   const handleReset = useMapStore(state => state.handleReset);
   const setNotification = useMapStore(state => state.setNotification);
   const {save} = useMapSaveStatus();
+  // Maps started from a portal carry a draft submission. Once the map is
+  // ready to share, the user can submit from here as well as from Map
+  // Details, so declining the prompt doesn't hide the action.
+  const draftStatus = useMapMetadata()?.draft_status;
+  const draftSubmission = getDraftSubmission(mapDocument?.document_id);
+  const openSubmitPrompt = useDraftSubmissionStore(state => state.openPrompt);
+  const showSubmitToPortal =
+    access === ACCESS_STATES.EDIT && canSubmitDraft(draftSubmission, draftStatus);
 
   const notifyExportFailed = (reason: string) =>
     setNotification({
@@ -71,10 +82,10 @@ export const MapActionsDropdown: React.FC<{
     }
     // Fetch via the session-aware client (plain anchor navigation can't attach
     // the X-Districtr-Session header) and save the blob through a transient
-    // anchor. The backend names the file "{document_id}_{ExportType}_{timestamp}.{ext}"
-    // (exports/main.py) — document_id is a UUID (no underscores), so splitting
+    // anchor. The backend names the file "{public_id}_{ExportType}_{timestamp}.{ext}"
+    // (exports/main.py) — public_id is numeric (no underscores), so splitting
     // on the first "_" cleanly separates it from the "{ExportType}_{timestamp}.{ext}"
-    // suffix, which is always kept as-is. The UUID prefix is swapped for the
+    // suffix, which is always kept as-is. The public_id prefix is swapped for the
     // user's own plan name when set; dropped entirely (not replaced) when not.
     try {
       const response = await fetchWithSession(
@@ -152,6 +163,15 @@ export const MapActionsDropdown: React.FC<{
           >
             Share map
           </DropdownMenu.Item>
+          {showSubmitToPortal && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              data-testid="submit-to-portal"
+              onSelect={() => mapDocument?.document_id && openSubmitPrompt(mapDocument.document_id)}
+            >
+              Submit to portal
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Sub>
             <DropdownMenu.SubTrigger disabled={!exportId}>
               Export assignments

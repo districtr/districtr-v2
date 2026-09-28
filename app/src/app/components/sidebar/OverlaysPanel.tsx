@@ -10,6 +10,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {OverlayMetadataModal, isLegislativeOverlay} from './OverlayMetadataModal';
+import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
@@ -24,6 +25,7 @@ export const OverlaysPanel = () => {
 
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const isSingleCounty = useIsSingleCounty();
   // Paint-mask creation is a Super Draw feature (releasing stays available).
   const superDraw = useToolbarStore(state => state.superDraw);
 
@@ -99,53 +101,65 @@ export const OverlaysPanel = () => {
         </>
       )}
 
-      {/* County Layer Controls - Always shown as pseudo-overlay */}
-      <Flex justify="between" align="center" gap="2">
-        <Flex direction="column" gap="1">
-          <Text size="2" weight="medium">
-            Counties
-          </Text>
-          <Text size="1" color="gray">
-            Show county boundaries and labels
-          </Text>
+      {/* County Layer Controls - shown as pseudo-overlay on multi-county maps */}
+      {!isSingleCounty && (
+        <Flex justify="between" align="center" gap="2">
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              Counties
+            </Text>
+            <Text size="1" color="gray">
+              Show county boundaries and labels
+            </Text>
+          </Flex>
+          <Flex direction="row" gap="2" align="center" justify="center">
+            <Switch
+              checked={mapOptions.showCountyBoundaries ?? false}
+              onCheckedChange={checked => {
+                setMapOptions({
+                  showCountyBoundaries: checked,
+                  prominentCountyNames: checked,
+                });
+                // Release the county paint mask when its layer is hidden
+                if (!checked && paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
+                  clearPaintConstraint();
+                }
+              }}
+            />
+            {superDraw && (
+              <Tooltip content="Choose an area to paint within.">
+                <IconButton
+                  onClick={() => handleLocateClick(COUNTY_SOURCE_ID)}
+                  disabled={!mapOptions.showCountyBoundaries}
+                  variant="ghost"
+                  color="blue"
+                  size="1"
+                  radius="full"
+                  className="cursor-pointer"
+                  style={{
+                    opacity: mapOptions.showCountyBoundaries ? 1 : 0.5,
+                  }}
+                >
+                  {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? (
+                    <MaskOffIcon />
+                  ) : (
+                    <MaskOnIcon />
+                  )}
+                </IconButton>
+              </Tooltip>
+            )}
+          </Flex>
         </Flex>
-        <Flex direction="row" gap="2" align="center" justify="center">
-          <Switch
-            checked={mapOptions.showCountyBoundaries ?? false}
-            onCheckedChange={checked => {
-              setMapOptions({
-                showCountyBoundaries: checked,
-                prominentCountyNames: checked,
-              });
-              // Release the county paint mask when its layer is hidden
-              if (!checked && paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
-                clearPaintConstraint();
-              }
-            }}
-          />
-          {superDraw && (
-            <Tooltip content="Choose an area to paint within.">
-              <IconButton
-                onClick={() => handleLocateClick(COUNTY_SOURCE_ID)}
-                disabled={!mapOptions.showCountyBoundaries}
-                variant="ghost"
-                color="blue"
-                size="1"
-                radius="full"
-                className="cursor-pointer"
-                style={{
-                  opacity: mapOptions.showCountyBoundaries ? 1 : 0.5,
-                }}
-              >
-                {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? <MaskOffIcon /> : <MaskOnIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
-        </Flex>
-      </Flex>
+      )}
 
       {/* Remaining boundaries (metro areas, school districts, tribal areas) */}
       {otherOverlays.map(renderOverlayRow)}
+
+      {isSingleCounty && !legislativeOverlays.length && !otherOverlays.length && (
+        <Text size="2" color="gray">
+          No boundaries available for this map
+        </Text>
+      )}
     </Flex>
   );
 };

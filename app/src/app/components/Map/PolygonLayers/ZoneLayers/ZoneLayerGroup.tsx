@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import type {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
+import {DEFAULT_BLOCK_LAYER_ORDER} from '@constants/map/layerRenderConfig';
 import {ZoneAssignmentLayer} from './ZoneAssignmentLayer';
 import {ZoneHighlightLayer} from './ZoneHighlightLayer';
 
@@ -26,17 +27,19 @@ export const ZoneLayerGroup: React.FC<{
   );
   return (
     <>
+      {/* Anchored above the boundary/overlay layers so the unassigned
+          highlight isn't hidden under county lines. */}
       <ZoneHighlightLayer
         id={ids.highlightId}
         sourceLayerId={sourceLayerId}
         filter={filter}
-        beforeId={layerBeforeId}
+        beforeId={DEFAULT_BLOCK_LAYER_ORDER.highlightBeforeId}
       />
       <ZoneAssignmentLayer
         id={ids.assignmentId}
         sourceLayerId={sourceLayerId}
         filter={filter}
-        beforeId={ids.highlightId}
+        beforeId={layerBeforeId}
         style={{baseFillOpacity: layerOpacity}}
       />
     </>

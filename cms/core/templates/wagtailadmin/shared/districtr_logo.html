@@ -1,0 +1,78 @@
+{% load wagtailadmin_tags %}
+<svg
+    class="{% classnames "districtr-admin-logo" classname %}"
+    role="img"
+    aria-label="Districtr"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 96 96"
+>
+    <style>
+        .districtr-admin-logo {
+            color: #111;
+            display: block;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .districtr-admin-logo__ring {
+            transform-box: view-box;
+            transform-origin: center;
+            animation: districtr-admin-logo-spin 28s linear infinite;
+        }
+
+        .districtr-admin-logo__text {
+            font-family: ui-serif, Georgia, "Times New Roman", serif;
+            font-size: 18px;
+            font-variant: small-caps;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+
+        .w-userbar-icon.districtr-admin-logo,
+        .sidebar-custom-branding .districtr-admin-logo {
+            color: #fff;
+            width: 64px;
+            height: 64px;
+        }
+
+        .login-logo .districtr-admin-logo {
+            width: 8rem;
+            height: 8rem;
+        }
+
+        .page404__logo .districtr-admin-logo {
+            color: #fff;
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes districtr-admin-logo-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .districtr-admin-logo__ring {
+                animation: none;
+            }
+        }
+    </style>
+    <defs>
+        <path id="districtr-admin-logo-text-path" d="M48 83a35 35 0 1 1 0 -70a35 35 0 1 1 0 70" />
+    </defs>
+    <g class="districtr-admin-logo__ring">
+        <text class="districtr-admin-logo__text" fill="currentColor">
+            <textPath
+                href="#districtr-admin-logo-text-path"
+                startOffset="50%"
+                text-anchor="middle"
+                textLength="205"
+                lengthAdjust="spacingAndGlyphs"
+            >
+                DISTRICTR
+            </textPath>
+        </text>
+    </g>
+</svg>

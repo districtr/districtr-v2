@@ -150,6 +150,10 @@ export const summaryStatsConfig = {
     columns: ['hh_no_vehicle_24', 'total_occ_hh_24'],
     sumColumn: 'total_occ_hh_24',
   },
+  TENURE: {
+    columns: ['hh_owner_24', 'hh_renter_24', 'total_occ_hh_24'],
+    sumColumn: 'total_occ_hh_24',
+  },
 } as const satisfies {[K in SummaryType]: ColumnSet};
 
 /** True when the column belongs to an ACS-sourced universe — drives the ACS

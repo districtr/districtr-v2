@@ -2,7 +2,7 @@
 # Provision the ephemeral stress-test runner: one EC2 instance in a prod
 # public subnet, its own egress-only security group, and an instance profile
 # with SSM core + S3 write to the stress-test/ results prefix + ECS read
-# (the /metrics scrape loop resolves backend task IPs). No SSH keys — access
+# (the /_debug/cache snapshot resolves backend task IPs). No SSH keys — access
 # is SSM Session Manager only. Re-runnable; reuses SG/IAM if they exist.
 #
 # Run by a human with prod AWS credentials:
@@ -17,7 +17,7 @@ NAME="${NAME:-${STACK_PREFIX}-stress-runner}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-c7i.4xlarge}"
 REPO_URL="${REPO_URL:-https://github.com/districtr/districtr-v2.git}"
 REPO_SHA="${REPO_SHA:?Set REPO_SHA to the pinned commit containing backend/stress_test}"
-# Backend S3 bucket (pulumi config s3BucketName / task env R2_BUCKET_NAME);
+# Backend S3 bucket (pulumi config s3BucketName / task env AWS_S3_BUCKET);
 # artifacts live under stress-test/.
 RESULTS_BUCKET="${RESULTS_BUCKET:?Set RESULTS_BUCKET to the backend S3 bucket name}"
 # Easy slip: the ALB access-logs bucket, which the IAM policy can't write to.
@@ -163,7 +163,7 @@ the box with: sudo shutdown -c). Run ./teardown.sh anyway — the SG, IAM
 role/profile, and temp 8080 rule outlive the instance.
 
 Next steps (see backend/stress_test/README.md "Runner"):
-  # temp SG rule so the runner can scrape /metrics (revoke in teardown.sh):
+  # temp SG rule so the runner can snapshot /_debug/cache (revoke in teardown.sh):
   aws ec2 authorize-security-group-ingress --region $REGION \\
     --group-id $BACKEND_SG --protocol tcp --port 8080 --source-group $RUNNER_SG
   # shell on the runner:

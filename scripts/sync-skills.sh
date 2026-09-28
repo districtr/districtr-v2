@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# sync-skills.sh — Syncs .agents/skills/ to various AI coding agent formats.
+# sync-skills.sh — Syncs agent-skills/ to various AI coding agent formats.
 #
-# .agents/skills/ is the canonical source. This script copies/converts
+# agent-skills/ is the canonical source. This script copies/converts
 # skills into the formats expected by each agent.
 #
 # Usage: ./sync-skills.sh [targets...] [options]
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-AGENTS_DIR=".agents/skills"
+AGENTS_DIR="agent-skills"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,7 +44,7 @@ list_skill_dirs() {
 }
 
 # Get the relative path of a skill directory from AGENTS_DIR.
-# e.g., ".agents/skills/project/learn-backend" → "project/learn-backend"
+# e.g., "agent-skills/project/learn-backend" → "project/learn-backend"
 skill_rel_path() {
   local skill_dir="$1"
   echo "${skill_dir#"$AGENTS_DIR"/}"
@@ -57,7 +57,12 @@ skill_flat_name() {
 }
 
 # ---------------------------------------------------------------------------
-# Claude Code — copy into .claude/skills/ preserving relative paths
+# Claude Code — copy into .claude/skills/, flattened to one level
+#
+# Claude Code only discovers .claude/skills/<name>/SKILL.md one directory
+# deep — a skill synced to .claude/skills/project/<name>/ is invisible to
+# it. Source-tree grouping (e.g. project/) is for humans; the sync output
+# must be flat regardless of source nesting.
 # ---------------------------------------------------------------------------
 sync_claude() {
   local dir=".claude/skills"
@@ -71,11 +76,15 @@ sync_claude() {
 
   list_skill_dirs | while IFS= read -r skill; do
     [ -d "$skill" ] || continue
-    local rel
+    local rel name
     rel="$(skill_rel_path "$skill")"
-    echo "  Sync: $rel"
-    mkdir -p "$dir/$(dirname "$rel")"
-    cp -r "$skill" "$dir/$rel"
+    name="$(basename "$skill")"
+    if [ -d "$dir/$name" ]; then
+      echo "Error: duplicate skill name '$name' — flat output requires unique names across groups." >&2
+      exit 1
+    fi
+    echo "  Sync: $rel -> $name"
+    cp -r "$skill" "$dir/$name"
   done
 }
 
@@ -121,9 +130,11 @@ sync_cursor() {
       echo ""
       echo "${body}"
 
-      # Inline reference files so the rule is self-contained
-      if [ -d "$skill/reference" ]; then
-        for ref in "$skill/reference"/*.md; do
+      # Inline reference files so the rule is self-contained. Only
+      # references/*.md is inlined — a skill's scripts/ directory is
+      # Claude/Codex-only (Cursor rules can't execute bundled scripts).
+      if [ -d "$skill/references" ]; then
+        for ref in "$skill/references"/*.md; do
           [ -f "$ref" ] || continue
           local ref_name
           ref_name="$(basename "$ref" .md)"
@@ -154,7 +165,7 @@ sync_codex() {
     echo ""
     echo "# Codex Instructions"
     echo ""
-    echo "This project has reusable agent skills in \`.agents/skills/\`."
+    echo "This project has reusable agent skills in \`agent-skills/\`."
     echo "When asked to perform one of the tasks below, read the corresponding"
     echo "SKILL.md file and follow its instructions."
     echo ""
@@ -167,7 +178,7 @@ sync_codex() {
       rel="$(skill_rel_path "$skill")"
       desc="$(get_field "$skill/SKILL.md" "description")"
       echo "- **${rel}** — ${desc}"
-      echo "  \`.agents/skills/${rel}/SKILL.md\`"
+      echo "  \`agent-skills/${rel}/SKILL.md\`"
     done
   } > codex.md
 

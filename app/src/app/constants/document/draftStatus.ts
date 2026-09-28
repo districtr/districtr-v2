@@ -12,6 +12,14 @@ export const DRAFT_STATUS_TEXT: Record<DraftStatus, string> = {
   [DRAFT_STATUSES.READY_TO_SHARE]: 'Ready to Share',
 };
 
+/** Statuses past scratch — moving to one of these "submits" a map to
+ * tag-filtered galleries. Mirrored by the backend default in
+ * get_document_list (backend/app/main.py). */
+export const SUBMITTED_STATUSES: DraftStatus[] = [
+  DRAFT_STATUSES.IN_PROGRESS,
+  DRAFT_STATUSES.READY_TO_SHARE,
+];
+
 export const DRAFT_STATUS_ORDER: DraftStatus[] = [
   DRAFT_STATUSES.SCRATCH,
   DRAFT_STATUSES.IN_PROGRESS,

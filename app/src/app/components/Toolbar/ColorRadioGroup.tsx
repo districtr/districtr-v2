@@ -1,5 +1,6 @@
 import {MapStore} from '@/app/store/mapStore';
-import {Box, Flex, RadioGroup, Text} from '@radix-ui/themes';
+import {Box, Flex, Kbd, RadioGroup, Text} from '@radix-ui/themes';
+import {useAltHeld} from '@/app/hooks/useAltHeld';
 import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
 import {styled} from '@stitches/react';
@@ -33,6 +34,11 @@ export const ColorRadioGroup: React.FC<{
   defaultValue: ColorPickerProps['defaultValue'];
   disabledValues: ColorPickerProps['disabledValues'];
 }> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues}) => {
+  // While Alt/Option is held (the same reveal as the toolbar's hotkey badges),
+  // each pip's number renders as a keycap: typing a district's number selects
+  // it, multi-digit numbers included (the hotkey accumulator in ColorPicker
+  // collects digits, so "1" then "4" selects 14).
+  const showHotkeyHints = useAltHeld();
   if (!mapDocument?.num_districts) return null;
   const numDistricts = mapDocument.num_districts;
   return (
@@ -57,7 +63,22 @@ export const ColorRadioGroup: React.FC<{
                   disabled={disabledValues?.includes(i)}
                   className={disabledValues?.includes(i) ? 'opacity-25' : ''}
                 ></StyledRadioGroupItem>
-                <Text size="1">{i + 1}</Text>
+                {/* Fixed-height slot so the row doesn't jump when Alt swaps
+                    the label for a keycap. */}
+                <Flex height="18px" align="center" justify="center" position="relative">
+                  {showHotkeyHints && !disabledValues?.includes(i) ? (
+                    // Out of layout flow: the keycap is wider than the pip, and
+                    // in-flow it would widen the column and shift the row.
+                    <Kbd
+                      size="1"
+                      style={{position: 'absolute', left: '50%', transform: 'translateX(-50%)'}}
+                    >
+                      {i + 1}
+                    </Kbd>
+                  ) : (
+                    <Text size="1">{i + 1}</Text>
+                  )}
+                </Flex>
               </Flex>
             ))}
         </Flex>

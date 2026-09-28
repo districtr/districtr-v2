@@ -160,6 +160,20 @@ export const choroplethMapVariables: {
       colorScheme: chromatic.schemeOrRd,
     },
   ],
+  TENURE: [
+    {
+      label: 'Owner-occupied households',
+      value: 'hh_owner_24',
+      variants: ['percent', 'raw'],
+      colorScheme: chromatic.schemeBuPu,
+    },
+    {
+      label: 'Renter-occupied households',
+      value: 'hh_renter_24',
+      variants: ['percent', 'raw'],
+      colorScheme: chromatic.schemeBuPu,
+    },
+  ],
   VOTERHISTORY: [
     ...Object.entries(ALL_VOTER_COLUMN_GROUPINGS).map(([label, {columns}]) => ({
       label: `${label}`,

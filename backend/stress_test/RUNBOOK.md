@@ -55,19 +55,19 @@ session gate exist. Steps:
       the run — merged-but-undeployed reintroduces the cache-cold 500 burst
       the abort criteria no longer excuse.
 - [ ] **Provision runner**: `cd backend/stress_test/runner && RESULTS_BUCKET=<backend bucket> REPO_SHA=<sha> ./provision.sh`
-      (bucket = Pulumi `s3BucketName` / task env `R2_BUCKET_NAME`). Wait for
+      (bucket = Pulumi `s3BucketName` / task env `AWS_S3_BUCKET`). Wait for
       `/home/ec2-user/bootstrap-done`, then run the printed
       `authorize-security-group-ingress` one-liner (temp 8080 rule for
-      `/metrics` scrapes).
+      `/_debug/cache` snapshots).
 - [ ] **Seed** via ECS Exec (README "Prod" section):
-      `python cli.py stress-test-seed --run-id $RUN_ID --base-url http://localhost:8080 --manifest s3://$R2_BUCKET_NAME/stress-test/stress_test_manifest_$RUN_ID.json`.
+      `python cli.py stress-test-seed --run-id $RUN_ID --base-url http://localhost:8080 --manifest s3://$AWS_S3_BUCKET/stress-test/stress_test_manifest_$RUN_ID.json`.
       Aborts before creating anything if a config slug is missing from prod.
 - [ ] **`SCALE=0.01` dry run green, same day** (deferred acceptance check):
       seed a throwaway `RUN_ID=dry1`, then
       `aws ssm send-command ... 'commands=["env RESULTS_BUCKET=<bucket> RUN_ID=dry1 SCALE=0.01 /home/ec2-user/districtr-v2/backend/stress_test/runner/run.sh > /home/ec2-user/dry1.log 2>&1"],executionTimeout=["5400"]'`
       (~127 users, ~18 min). Verify `aws s3 ls s3://<bucket>/stress-test/dry1/`
-      shows CSVs, HTML, `locust.log`, `metrics/*.prom` (empty metrics/ = 8080
-      rule not authorized), cache snapshots, both manifests. Then delete the
+      shows CSVs, HTML, `locust.log`, cache snapshots (missing = 8080 rule
+      not authorized), both manifests. Then delete the
       dry-run docs with the cleanup one-liner (step 5) using the `dry1`
       manifests. Known non-fatal: locust exits 1 if *any* request failed
       (create 504s are known) — judge by the S3 artifacts.
@@ -116,10 +116,10 @@ Even after an abort, do all of step 5.
 ## 5. Post-run
 
 - [ ] **Artifacts**: run.sh prints `Artifacts: s3://<bucket>/stress-test/run1/`
-      — confirm CSVs, HTML, `locust.log`, `metrics/`, cache before/after, both
+      — confirm CSVs, HTML, `locust.log`, cache before/after, both
       manifests are there.
 - [ ] **Cleanup** (ECS Exec, README "Prod" section):
-      `python cli.py stress-test-cleanup -m s3://$R2_BUCKET_NAME/stress-test/stress_test_manifest_run1.json -m s3://$R2_BUCKET_NAME/stress-test/stress_test_runtime_manifest_run1.json --yes`
+      `python cli.py stress-test-cleanup -m s3://$AWS_S3_BUCKET/stress-test/stress_test_manifest_run1.json -m s3://$AWS_S3_BUCKET/stress-test/stress_test_runtime_manifest_run1.json --yes`
       (`--yes` also sweeps any leftover `[STRESS-TEST]`-named docs).
 - [ ] **Verify counts**: cleanup output reports deletions and lists 0
       remaining `[STRESS-TEST]` documents; spot-check one seed id —

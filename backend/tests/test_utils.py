@@ -8,6 +8,7 @@ from app.utils import (
     add_extent_to_districtrmap,
     update_districtrmap,
     GEOID_PREDICATES,
+    _json_build_object_sql,
     _stats_object_key,
 )
 from app.core.config import settings
@@ -23,7 +24,6 @@ from pytest import MonkeyPatch, fixture
 from tests.utils import fake_verify_turnstile
 from fastapi.security import SecurityScopes
 from app.main import app
-from app.comments.models import FullCommentFormResponse
 from datetime import datetime
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
@@ -326,7 +326,7 @@ def document_id_fixture(
     return doc["document_id"]
 
 
-def test_get_edges(client, session: Session, document_id):
+def test_get_edges(client, session: Session, document_id, mock_gerrydb_graph_file):
     response = client.put(
         "/api/assignments",
         json={
@@ -370,38 +370,6 @@ def override_auth_dependency():
         app.dependency_overrides.pop(auth.verify, None)
 
 
-def handle_approve_comment_entry(client, content_type: str, id: int):
-    """
-    Test utility to approve a comment, tag, or commenter
-    """
-    client.post(
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "review_status": "APPROVED",
-            "id": id,
-        },
-    )
-
-
-def handle_full_submission_approve(client, form_response: FullCommentFormResponse):
-    """
-    Test utility to approve a full comment submission
-    """
-    if "tags" in form_response["comment"]:
-        for tag in form_response["comment"]["tags"]:
-            handle_approve_comment_entry(client, "tag", tag["id"])
-    if (
-        "commenter_id" in form_response["comment"]
-        and form_response["comment"]["commenter_id"] is not None
-    ):
-        handle_approve_comment_entry(
-            client, "commenter", form_response["comment"]["commenter_id"]
-        )
-    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
-        handle_approve_comment_entry(client, "comment", form_response["comment"]["id"])
-
-
 # GEOID_PREDICATES — pure unit tests, no DB fixtures.
 @pytest.mark.parametrize(
     "unit_type,geo_id,expected",
@@ -440,3 +408,15 @@ def test_stats_object_key_is_environment_scoped(monkeypatch):
     assert dev_key != prod_key
     assert "/development/" in dev_key
     assert "/production/" in prod_key
+
+
+def test_json_build_object_sql_survives_postgres_100_arg_cap(session: Session):
+    # 60 columns = 120 variadic args; a single json_build_object() would fail
+    # with "cannot pass more than 100 arguments to a function".
+    pairs = [f"'c{i}', {i}" for i in range(60)]
+    result = session.execute(
+        text(f"SELECT {_json_build_object_sql(pairs)}")
+    ).scalar_one()
+    assert len(result) == 60
+    assert result["c0"] == 0
+    assert result["c59"] == 59

@@ -13,7 +13,7 @@ import logging
 
 from functools import cached_property
 from pathlib import Path
-from typing import ClassVar, NewType, cast
+from typing import ClassVar, Iterable, NewType, cast
 
 import fastapi
 import numpy as np
@@ -27,6 +27,7 @@ from app.evaluation.models import CountyDemographics
 from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
+    _json_build_object_sql,
     update_or_select_district_stats,
     assert_safe_ident,
     get_gerrydb_numeric_cols,
@@ -42,6 +43,23 @@ ElectionPartyKey = NewType("ElectionPartyKey", str)
 DemographicColumn = NewType("DemographicColumn", str)
 
 TOTAL_POP_COL = "total_pop_20"
+
+
+def elections_from_columns(columns: Iterable[str]) -> list[Election]:
+    """Election prefixes among column names, e.g. "pres_2020" from "pres_2020_dem"."""
+    return [Election(c.removesuffix("_dem")) for c in columns if c.endswith("_dem")]
+
+
+def demographic_columns_from_columns(columns: Iterable[str]) -> list[DemographicColumn]:
+    """Demographic population columns, e.g. "hpop_20": "pop" appears in the name,
+    excluding the total and catch-all "other" aggregates.
+    """
+    return [
+        DemographicColumn(c)
+        for c in columns
+        if "pop" in c and not c.startswith(("other_pop", "total_pop"))
+    ]
+
 
 _transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
 
@@ -102,20 +120,12 @@ class DocumentEvaluationContext:
     @cached_property
     def elections(self) -> list[Election]:
         """Election prefixes for demographic columns (e.g. "pres_2020")"""
-        return [
-            Election(s.removesuffix("_dem"))
-            for s in self.demographic_data.columns
-            if s.endswith("_dem")
-        ]
+        return elections_from_columns(self.demographic_data.columns)
 
     @cached_property
     def demographic_columns(self) -> list[DemographicColumn]:
         """Demographic columns (e.g. "hpop_20")"""
-        return [
-            col
-            for col in self.demographic_data.columns
-            if "pop" in col and not col.startswith(("other_pop", "total_pop"))
-        ]
+        return demographic_columns_from_columns(self.demographic_data.columns)
 
     @cached_property
     def dem_wins(self) -> dict[Election, pd.Series]:
@@ -394,7 +404,7 @@ class CountyContext:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         s3.download_file(
-            settings.R2_BUCKET_NAME,
+            settings.AWS_S3_BUCKET,
             self._COUNTY_NAMES_S3_KEY,
             str(self._COUNTY_NAMES_FILE),
         )
@@ -523,7 +533,7 @@ class CountyContext:
                 f"The table may not have been ingested with demographic data."
             )
         json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-        demographic_json = f"json_build_object({', '.join(json_pairs)})"
+        demographic_json = _json_build_object_sql(json_pairs)
         total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
 
         insert_sql = f"""

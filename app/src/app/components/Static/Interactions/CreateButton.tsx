@@ -10,12 +10,18 @@ import {Button} from '@radix-ui/themes';
 import {PlusIcon} from '@radix-ui/react-icons';
 import {useRouter} from 'next/navigation';
 import {useEffect, useState} from 'react';
+import {setDraftSubmission} from '@/app/utils/draftSubmissions';
 
 /**
  * Creates a new map document from a DistrictrMap and routes to the editor.
  * Shared by CreateButton and PlaceMapGrid's cards.
  */
-export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: boolean) => {
+export const useCreateMapDocument = (
+  view: Partial<DistrictrMap>,
+  isCommunity?: boolean,
+  portalId?: string | null,
+  collectionMode?: string | null
+) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
@@ -33,8 +39,18 @@ export const useCreateMapDocument = (view: Partial<DistrictrMap>, isCommunity?: 
     const r = await createMapDocument({
       districtr_map_slug: view.districtr_map_slug,
       map_type: shouldMakeCommunity ? MAP_TYPES.COMMUNITY : view.map_type,
+      portal_id: portalId ?? undefined,
     });
     if (r.ok) {
+      if (portalId && r.response.submission_id) {
+        // Remember the finalize capability so flipping the map to
+        // ready-to-share can offer submitting it to the portal.
+        setDraftSubmission(r.response.document_id, {
+          submissionId: r.response.submission_id,
+          portalId,
+          collectionMode,
+        });
+      }
       router.push(
         editPath(
           shouldMakeCommunity ? MAP_ROUTES.COI : MAP_ROUTES.DISTRICTS,
@@ -59,8 +75,16 @@ export const CreateButton: React.FC<{
   view: Partial<DistrictrMap>;
   extraClasses?: string;
   isCommunity?: boolean;
-}> = ({view, extraClasses, isCommunity}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity);
+  /** Portal slug: new maps get a draft submission for this portal. */
+  portalId?: string | null;
+  collectionMode?: string | null;
+}> = ({view, extraClasses, isCommunity, portalId, collectionMode}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(
+    view,
+    isCommunity,
+    portalId,
+    collectionMode
+  );
 
   return (
     <Button
