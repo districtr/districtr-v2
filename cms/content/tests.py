@@ -1909,6 +1909,20 @@ class PortalOwnershipAndIdentityTests(TestCase):
         gallery = next(b["value"] for b in body if b["type"] == "plan_gallery")
         self.assertEqual(gallery["tags"], ["renamed-portal"])
 
+    def test_page_editor_breadcrumbs_are_admin_only(self):
+        # Partners reach portals through the Portals hub; the editor's
+        # breadcrumb links would drop them into the raw page tree.
+        from core.testing import make_admin_user
+
+        page = self._wizard_portal()
+        url = f"/admin/pages/{page.pk}/edit/"
+        partner_view = self.client.get(url)
+        self.assertNotContains(partner_view, 'data-controller="w-breadcrumbs"')
+        self.assertContains(partner_view, "River Portal")
+
+        self.client.force_login(make_admin_user(group_name="admin"))
+        self.assertContains(self.client.get(url), 'data-controller="w-breadcrumbs"')
+
     def test_draft_rename_keeps_the_team_in_the_editor(self):
         # A saved-but-unpublished slug change must not move scope: the config
         # still names the stored slug, and the editor checks the draft.

@@ -1,0 +1,11 @@
+{% extends 'wagtailadmin/shared/headers/slim_header.html' %}
+{% load wagtailadmin_tags i18n districtr_admin %}
+{# Copy of Wagtail's page_create_header; see page_edit_header.html. #}
+
+{% block breadcrumbs %}
+    {% if request.user|is_districtr_admin %}
+        {% page_breadcrumbs parent_page 'wagtailadmin_explore' url_root_name='wagtailadmin_explore_root' include_self=True trailing_breadcrumb_title=title %}
+    {% else %}
+        <span class="w-text-14 w-font-semibold w-px-2">{{ title }}</span>
+    {% endif %}
+{% endblock %}
