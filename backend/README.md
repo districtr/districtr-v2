@@ -305,19 +305,9 @@ For now, @raphaellaude is the only maintainer that can add tilesets to the produ
 
 ## Security and Authentication
 
-### Authetication
+### Authentication
 
-This app uses Auth0 for user management and authentication needs. This is only for administrator management and CMS purposes.
-
-The auth0 configuration should have three roles / sets of scopes:
-
-```
-default: 'openid profile email'
-editor: 'openid profile email read:content update:content create:content delete:content'
-admin: 'openid profile email read:content read:read-all update:content update:update-all update:publish create:content delete:content delete:delete-all'
-```
-
-See `.env.docker.example` for expected environment variables.
+The Wagtail CMS issues every token, and the backend verifies them against the CMS's JWKS (`AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`). Roles, scopes and team scoping are described in [`docs/overview.md`](../docs/overview.md#auth-and-sharing). See `.env.docker.example` for the expected environment variables.
 
 ### Captcha 
 

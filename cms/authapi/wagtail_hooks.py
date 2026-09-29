@@ -1,9 +1,9 @@
 """
 Wagtail admin registration for teams (the tenancy boundary).
 
-Team changes take effect at the member's next login — claims are minted on
-the refresh token at token obtain (authapi/serializers.py), so an existing
-session keeps its old `teams` claim through silent refreshes.
+Team changes take effect on the member's next request: the CMS mints a
+fresh backend token for every call (mint_user_access_token), reading the
+`teams` claim from current membership. There are no refresh tokens.
 
 The user field uses a generic ChooserViewSet (searchable, paginated) rather
 than an unbounded <select>. register_widget stays False so the chooser only
@@ -79,7 +79,7 @@ def register_user_chooser_viewset():
 class TeamViewSet(SnippetViewSet):
     """Admin-only "Teams" snippet: name a team, add member users, and assign
     the Districtr map modules it owns. Only the `admin` group holds Team permissions
-    (authapi/migrations/0005), so the menu item never renders for other roles.
+    (authapi/migrations/0002_provision_roles), so the menu item never renders for other roles.
 
     Membership/ownership take effect immediately for the Wagtail admin scoping
     (authapi/teams.py) — no token round-trip, since this scoping is server-side

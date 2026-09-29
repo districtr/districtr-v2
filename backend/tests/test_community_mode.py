@@ -1,11 +1,13 @@
 import pytest
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 from unittest.mock import patch
 
-from app.models import MAX_COMMUNITY_NAME_LENGTH
+from app.models import MAX_COMMUNITY_NAME_LENGTH, Document
+from app.submissions.models import FormConfig, Submission
 from app.utils import create_districtr_map
 from tests.constants import GERRY_DB_FIXTURE_NAME
+from tests.test_utils import patch_turnstile  # noqa: F401 (autouse fixture)
 
 COMMUNITY_MAP_SLUG = "ks_demo_view_census_blocks_community"
 TEST_MODERATION_SCORE = 0.001
@@ -719,3 +721,52 @@ def test_contiguity_bboxes_rejected_for_community_map(
     )
     assert response.status_code == 400
     assert "not supported for community maps" in response.json()["detail"]
+
+
+def test_community_submission_clone_copies_community_assignments(
+    client, session, community_document_id: str
+):
+    # The clone's edit id is never handed out, so an empty clone of a
+    # community map could never be repaired.
+    session.add(FormConfig(portal_id="community-portal", name="c", fields=["title"]))
+    session.commit()
+    document_info = client.get(f"/api/document/{community_document_id}").json()
+    community_metadata_list = build_community_metadata_list()
+    saved = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1], ["202090428002008", 2]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 2,
+                "community_metadata_list": community_metadata_list,
+            },
+            "comments": build_community_comments(community_metadata_list),
+            "last_updated_at": document_info["updated_at"],
+        },
+    )
+    assert saved.status_code == 200, saved.json()
+    ready = client.put(
+        f"/api/document/{community_document_id}/metadata",
+        json={"draft_status": "ready_to_share"},
+    )
+    assert ready.status_code == 200
+
+    response = client.post(
+        "/api/submissions",
+        json={
+            "portal_id": "community-portal",
+            "fields": {"title": "Our community"},
+            "map_ref": community_document_id,
+            "turnstile_token": "test_token",
+        },
+    )
+    assert response.status_code == 201, response.json()
+    clone_public_id = session.get(Submission, response.json()["id"]).map_public_id
+    clone_id = session.exec(
+        select(Document.document_id).where(col(Document.public_id) == clone_public_id)
+    ).one()
+    original = get_assignments_by_geoid(client, community_document_id)
+    assert len(original) == 2
+    assert get_assignments_by_geoid(client, str(clone_id)) == original

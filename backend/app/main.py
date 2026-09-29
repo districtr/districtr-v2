@@ -23,7 +23,7 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
-from sqlalchemy.sql import and_, exists
+from sqlalchemy.sql import and_, exists, or_
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -106,6 +106,7 @@ from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
     get_gerrydb_numeric_cols,
@@ -476,7 +477,7 @@ def create_document(
         # FormConfig (config deleted, cached page), and losing the draft
         # must degrade to "a normal map", never "no map".
         try:
-            submissions.get_form_config(data.portal_id, session)
+            submissions.get_form_config(data.portal_id, session, require_accepting=True)
         except HTTPException as exc:
             if exc.status_code != status.HTTP_404_NOT_FOUND:
                 raise
@@ -1462,12 +1463,19 @@ def get_document_list(
     limit: int = Query(default=100, le=100),
     ids: list[int] = Query(default=[]),
     portal_ids: list[str] = Query(default=[]),
+    tags: list[str] = Query(
+        default=[],
+        deprecated=True,
+        description="Alias of portal_ids for frontends built before the "
+        "cutover. Remove one release after it ships.",
+    ),
     draft_status: list[DocumentDraftStatus] = Query(default=[]),
     include_hidden: bool = Query(
         default=False,
-        description="Keep maps taken down by a moderator (the CMS's own "
-        "metadata lookups). A listing convenience, not an access check: any "
-        "map's metadata is fetchable by its public_id.",
+        description="Keep maps taken down by a moderator or collected by "
+        "internal or closed portals (the CMS's own metadata lookups). A "
+        "listing convenience, not an access check: any map's metadata is "
+        "fetchable by its public_id.",
     ),
 ):
     def _submission_exists(*conditions):
@@ -1491,9 +1499,6 @@ def get_document_list(
                 col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
             ).label("nsfw"),
         )
-        .distinct(
-            Document.public_id,
-        )
         .join(
             DistrictrMap,
             col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
@@ -1502,6 +1507,41 @@ def get_document_list(
         .offset(offset)
         .limit(limit)
     )
+
+    # The tags alias lasts one release. Without it an old bundle's ?tags=
+    # would hit the unfiltered branch and list every map.
+    portal_ids = portal_ids + tags
+
+    # Public listings drop taken-down maps (Hide is the one moderation
+    # lever) and maps of closed portals. Internal-mode maps stay off the
+    # site-wide list only: internal means no gallery on the page by default,
+    # and an owner who adds one (their portal's gallery, or curated ids from
+    # Pin) has chosen to show them. include_hidden is the CMS hub's own
+    # metadata lookup, which shows all of them. (A LISTING guarantee: any
+    # map's metadata remains fetchable by its sequential public_id, as it
+    # always has been.)
+    if not include_hidden:
+        excluded_portal = col(FormConfig.accepting).is_(False)
+        if not portal_ids and not ids:
+            excluded_portal = or_(
+                excluded_portal,
+                col(FormConfig.collection_mode) == CollectionMode.internal,
+            )
+        stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
+        stmt = stmt.where(
+            ~exists(
+                select(literal(1))
+                .select_from(Submission)
+                .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+                .where(
+                    and_(
+                        Submission.map_public_id == Document.public_id,
+                        excluded_portal,
+                    )
+                )
+                .correlate(Document)
+            )
+        )
 
     if len(portal_ids) > 0:
         # A map is in a portal's gallery when it belongs to that portal
@@ -1519,11 +1559,7 @@ def get_document_list(
                     col(Submission.portal_id) == Document.portal_id,
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
-                    # Internal-mode portals never surface in tag galleries
-                    # or the public submissions list. (This is a LISTING
-                    # guarantee: any map's metadata remains fetchable by its
-                    # sequential public_id, as it always has been.)
-                    col(FormConfig.collection_mode) != CollectionMode.internal,
+                    col(FormConfig.accepting).is_(True),
                 )
             )
             .correlate(Document)
@@ -1544,12 +1580,18 @@ def get_document_list(
             )
         )
 
+    # A fixed order is what makes offset paging safe: without it a reader
+    # could meet the same map on two pages and never see another. Curated
+    # galleries keep the editor's order; everything else lists newest first.
+    # (public_id is unique and the module join is many-to-one, so rows
+    # never repeat and no DISTINCT is needed.)
     if len(ids) > 0:
-        stmt = stmt.where(col(Document.public_id).in_(ids))
-        # A curated (pinned) gallery must honour a takedown too: Hide is the
-        # one moderation lever, and it has to reach every public listing.
-        if not include_hidden:
-            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
+        stmt = stmt.where(col(Document.public_id).in_(ids)).order_by(
+            func.array_position(pg_array(ids, type_=Integer), col(Document.public_id)),
+            col(Document.public_id),
+        )
+    else:
+        stmt = stmt.order_by(col(Document.public_id).desc())
 
     results = session.exec(stmt).all()
     return [

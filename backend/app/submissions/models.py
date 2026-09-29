@@ -3,10 +3,12 @@
 Three tables in the `comments` schema replace the rigid
 comment/commenter/tag trio:
 
-- form_configs: one row per portal (portal_id == the CMS TagPage's
+- form_configs: one row per portal (portal_id == the CMS PortalPage's
   default-locale slug), declaring which registry fields the portal's form
   shows, which are required, and which teams administer its submissions.
-  Edited by the CMS through a managed=False mirror.
+  Edited by the CMS through a managed=False mirror. `accepting` mirrors
+  whether the portal page is published: closed portals take no public
+  submissions and list nothing publicly.
 - submissions: one row per submission. `id` is the public/admin handle;
   `submission_id` (UUID) is the write capability for the draft→finalize flow
   and is never listed publicly. Visibility is `status='submitted' AND NOT
@@ -22,7 +24,7 @@ the old schema is being dropped.
 from datetime import datetime
 
 from pydantic import BaseModel
-from sqlalchemy import BigInteger, Boolean, Text, text
+from sqlalchemy import BigInteger, Boolean, ForeignKeyConstraint, Text, text
 from sqlmodel import (
     TIMESTAMP,
     CheckConstraint,
@@ -48,7 +50,9 @@ from app.models import Document
 class CollectionMode:
     """How a portal collects map submissions.
 
-    internal    — auto-collected, visible only in the admin gallery
+    internal    — auto-collected; no gallery on the page by default. Maps
+                  list publicly only in a gallery the owner adds (the
+                  portal's own, or curated ids), never site-wide
     auto_public — auto-collected into the public gallery (live references)
     prompt      — SubmitToPortalModal on ready-to-share (clone-at-submission)
     form        — manual form block only
@@ -79,9 +83,7 @@ class FormConfig(TimeStampMixin, SQLModel, table=True):
     id: int = Field(
         sa_column=Column(Integer, nullable=False, autoincrement=True, primary_key=True)
     )
-    portal_id: str = Field(
-        sa_column=Column(String(255), nullable=False, unique=True, index=True)
-    )
+    portal_id: str = Field(sa_column=Column(String(255), nullable=False, unique=True))
     name: str = Field(sa_column=Column(String(255), nullable=False))
     fields: list[str] = Field(
         default_factory=list,
@@ -113,6 +115,26 @@ class FormConfig(TimeStampMixin, SQLModel, table=True):
             String(16), nullable=False, server_default=CollectionMode.prompt
         ),
     )
+    # True while the portal page is live. The CMS writes it on publish,
+    # unpublish and delete (content/models.py PortalPage.sync_accepting).
+    accepting: bool = Field(
+        default=True,
+        sa_column=Column(Boolean, nullable=False, default=True, server_default="true"),
+    )
+
+
+# Document.portal_id's FK, declared here because FormConfig imports
+# app.models (declaring it there would be circular). Without it, autogenerate
+# proposes dropping the constraint the migration created.
+Document.__table__.append_constraint(  # type: ignore[attr-defined]
+    ForeignKeyConstraint(
+        ["portal_id"],
+        [FormConfig.__table__.c.portal_id],  # type: ignore[attr-defined]
+        name="document_portal_id_fkey",
+        onupdate="CASCADE",
+        ondelete="SET NULL",
+    )
+)
 
 
 class FormFieldCustom(TimeStampMixin, SQLModel, table=True):
@@ -182,6 +204,20 @@ class Submission(TimeStampMixin, SQLModel, table=True):
             "idx_submissions_portal_status_created", "portal_id", "status", "created_at"
         ),
         Index("idx_submissions_map_public_id", "map_public_id"),
+        # The public list: visible rows newest first, overall and per portal.
+        Index(
+            "idx_submissions_visible_submitted",
+            text("submitted_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("status = 'submitted' AND NOT hidden"),
+        ),
+        Index(
+            "idx_submissions_visible_portal_submitted",
+            "portal_id",
+            text("submitted_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("status = 'submitted' AND NOT hidden"),
+        ),
         Index(
             "idx_submissions_drafts",
             "status",
@@ -272,7 +308,7 @@ class SubmissionContent(SQLModel, table=True):
             "LENGTH(TRIM(value)) > 0 AND LENGTH(value) <= 5000",
             name="value_not_empty_and_bounded",
         ),
-        # ponytail: no index on (field, value) — a btree over 5000-char values
+        # No index on (field, value): a btree over 5000-char values
         # exceeds the index-row limit; add an expression index (field,
         # left(value, N)) if location filtering ever needs it at scale.
     )

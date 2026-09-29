@@ -19,7 +19,7 @@ from authapi.teams import (
     team_ids_for_user,
     user_is_team_scoped,
 )
-from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
+from content.models import PlacePage, PlacesIndexPage, PortalPage, PortalsIndexPage
 from content.wagtail_hooks import (
     _is_out_of_scope_page,
     scope_content_pages_in_explorer,
@@ -117,7 +117,7 @@ class MapModuleScopingTests(TestCase):
 
 
 class ContentPageScopingTests(TestCase):
-    """TagPages are scoped through their FormConfig's admin_teams; PlacePages
+    """PortalPages are scoped through their FormConfig's admin_teams; PlacePages
     through their districtr map slugs -> DistrictrMap -> TeamDistrictrMap
     (in scope when the page features at least one team map). Enforced by the
     content/wagtail_hooks page hooks."""
@@ -136,27 +136,27 @@ class ContentPageScopingTests(TestCase):
         home = Site.objects.get(is_default_site=True).root_page
         # content/0002_provision_site provisions the index pages; fall back to creating them
         # for databases migrated before it.
-        cls.tags_index = TagsIndexPage.objects.first()
-        if cls.tags_index is None:
-            cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
-            home.add_child(instance=cls.tags_index)
-        cls.tag_in = TagPage(
+        cls.portals_index = PortalsIndexPage.objects.first()
+        if cls.portals_index is None:
+            cls.portals_index = PortalsIndexPage(title="Tags", slug="tags")
+            home.add_child(instance=cls.portals_index)
+        cls.tag_in = PortalPage(
             title="In Tag", slug="in-tag", districtr_map_slug="chi_wards"
         )
-        cls.tags_index.add_child(instance=cls.tag_in)
-        cls.tag_out = TagPage(
+        cls.portals_index.add_child(instance=cls.tag_in)
+        cls.tag_out = PortalPage(
             title="Out Tag", slug="out-tag", districtr_map_slug="tx_other"
         )
-        cls.tags_index.add_child(instance=cls.tag_out)
+        cls.portals_index.add_child(instance=cls.tag_out)
         # Another team's portal on a module this team ALSO holds: the module
         # grant must not hand over the page.
-        cls.tag_shared_module = TagPage(
+        cls.tag_shared_module = PortalPage(
             title="Their Tag", slug="their-tag", districtr_map_slug="chi_wards"
         )
-        cls.tags_index.add_child(instance=cls.tag_shared_module)
+        cls.portals_index.add_child(instance=cls.tag_shared_module)
         # A wizard-made portal: no single-map slug, owned via admin_teams.
-        cls.tag_wizard = TagPage(title="Wizard Tag", slug="wizard-tag")
-        cls.tags_index.add_child(instance=cls.tag_wizard)
+        cls.tag_wizard = PortalPage(title="Wizard Tag", slug="wizard-tag")
+        cls.portals_index.add_child(instance=cls.tag_wizard)
         for portal_id, teams in (
             ("in-tag", ["tag-team-a"]),
             ("wizard-tag", ["tag-team-a"]),
@@ -194,9 +194,11 @@ class ContentPageScopingTests(TestCase):
     def test_slugs_for_user_resolves_through_map(self):
         self.assertEqual(districtr_map_slugs_for_user(self.member), {"chi_wards"})
 
-    def test_explorer_hides_out_of_scope_tagpage_for_member(self):
+    def test_explorer_hides_out_of_scope_portalpage_for_member(self):
         result = scope_content_pages_in_explorer(
-            self.tags_index, self.tags_index.get_children(), self._request(self.member)
+            self.portals_index,
+            self.portals_index.get_children(),
+            self._request(self.member),
         )
         slugs = set(result.values_list("slug", flat=True))
         self.assertEqual(slugs, {"in-tag", "wizard-tag"})
@@ -214,13 +216,15 @@ class ContentPageScopingTests(TestCase):
     def test_explorer_hides_every_portal_from_team_less_partner(self):
         loner = make_user("partner", "loner-explorer@d.org")
         result = scope_content_pages_in_explorer(
-            self.tags_index, self.tags_index.get_children(), self._request(loner)
+            self.portals_index, self.portals_index.get_children(), self._request(loner)
         )
         self.assertEqual(list(result.values_list("slug", flat=True)), [])
 
     def test_explorer_unfiltered_for_admin(self):
         tags = scope_content_pages_in_explorer(
-            self.tags_index, self.tags_index.get_children(), self._request(self.admin)
+            self.portals_index,
+            self.portals_index.get_children(),
+            self._request(self.admin),
         )
         places = scope_content_pages_in_explorer(
             self.places_index,
@@ -317,15 +321,15 @@ class ContentPageFormScopingTests(TestCase):
     def _bound(self, model, *, user, data=None):
         return self._form_class(model)(data=data, instance=model(), for_user=user)
 
-    def test_tagpage_form_offers_only_team_slugs(self):
-        form = self._bound(TagPage, user=self.member)
+    def test_portalpage_form_offers_only_team_slugs(self):
+        form = self._bound(PortalPage, user=self.member)
         choices = dict(form.fields["districtr_map_slug"].choices)
         choices.pop("", None)  # placeholder
         self.assertEqual(set(choices), {"chi_wards"})
 
-    def test_tagpage_form_rejects_out_of_scope_slug(self):
+    def test_portalpage_form_rejects_out_of_scope_slug(self):
         form = self._bound(
-            TagPage,
+            PortalPage,
             user=self.member,
             data={
                 "title": "T",
@@ -353,7 +357,7 @@ class ContentPageFormScopingTests(TestCase):
 
     def test_admin_form_unrestricted(self):
         # Admins get a dropdown of ALL map modules (not just one team's).
-        form = self._bound(TagPage, user=self.admin)
+        form = self._bound(PortalPage, user=self.admin)
         choices = dict(form.fields["districtr_map_slug"].choices)
         choices.pop("", None)  # placeholder
         self.assertEqual(set(choices), {"chi_wards", "tx_other"})

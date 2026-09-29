@@ -70,7 +70,7 @@ def districtr_map_slug_choices():
     keep database access strictly lazy (form render/validation only). The
     mirror table does not exist in test databases — degrade to no choices
     rather than 500ing the whole page editor (same tolerance as
-    TagPage.clean; the savepoint keeps a failed query from aborting an
+    PortalPage.clean; the savepoint keeps a failed query from aborting an
     outer transaction).
     """
     from django.db import DatabaseError, transaction
@@ -153,6 +153,10 @@ class PlanGalleryBlock(CompatStructBlock):
     ``ids`` IS the curated gallery: an ordered, reorderable list of plan ids
     maintained on the page itself (the Portals gallery's "Pin to page
     gallery" appends here). ``tags`` filters instead when no ids are curated.
+    With neither, ``thisPortal`` lists the page's own portal; the slug is
+    injected when serving (content/api.py), so a rename can't strand it.
+    It defaults on, so a fresh gallery on a portal page lists that portal and
+    a site-wide listing takes unticking it.
     """
 
     ids = blocks.ListBlock(
@@ -168,8 +172,23 @@ class PlanGalleryBlock(CompatStructBlock):
         default=[],
         help_text="Portal slugs whose submitted plans to list (empty = no filter).",
     )
+    thisPortal = blocks.BooleanBlock(
+        required=False,
+        default=True,
+        label="List this portal's plans",
+        help_text="On a portal page, list the plans submitted to this portal. "
+        "Follows slug renames. Ignored when plan IDs or portal slugs are set; "
+        "untick to list plans from the whole site.",
+    )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
+    includeInProgress = blocks.BooleanBlock(
+        required=False,
+        default=False,
+        label="Include in-progress plans",
+        help_text="Filtered galleries show ready-to-share plans only unless "
+        "this is ticked.",
+    )
     paginate = blocks.BooleanBlock(required=False, default=True)
     showListView = blocks.BooleanBlock(required=False, default=True)
     showThumbnails = blocks.BooleanBlock(required=False, default=True)
@@ -200,7 +219,8 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Portal slugs whose submissions to list (empty = no filter).",
+        help_text="Portal slugs whose submissions to list. A portal page's "
+        "gallery always lists that portal's submissions.",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
