@@ -707,9 +707,10 @@ class FormConfigViewSet(SnippetViewSet):
         [
             FieldPanel(
                 "portal_id",
-                help_text="The portal page's slug. The wizard sets it, and "
-                "renaming the page's slug moves it (and the portal's "
-                "submissions) automatically. Admins only.",
+                help_text="Attaches this form to an existing portal page, by "
+                "that page's slug. It does not rename the portal: to rename, "
+                "change the page's slug and publish, and this form and its "
+                "submissions move with it. Admins only.",
             ),
             FieldPanel("name"),
             FieldPanel("collection_mode"),
