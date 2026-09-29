@@ -12,6 +12,9 @@ the cutover runbook converts each tag-filtered plan gallery into curated ids.
 The backfill takes each map's earliest submission's portal. Production has no
 map in two portals, so the choice never applies there.
 
+Downgrade recreates submissions.tags empty ('{}', its old default). The
+original tags are gone with the column; nothing here can restore them.
+
 Revision ID: f3a9c1d27e58
 Revises: e4a7c318b9d2
 Create Date: 2026-09-18
@@ -77,7 +80,6 @@ def downgrade() -> None:
         ),
         schema="comments",
     )
-    op.execute("UPDATE comments.submissions SET tags = ARRAY[portal_id]")
     op.create_index(
         "idx_submissions_tags",
         "submissions",
