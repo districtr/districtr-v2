@@ -72,7 +72,7 @@ export function createWaf(alb: Alb) {
       // optional on the public list, collecting every visible submission id
       // is one paginated sweep, and the 10k API limit would let one script
       // flag all of them. A person reports a handful at most.
-      // ponytail: per-IP only; a distributed sweep needs session enforcement
+      // Per-IP only. A distributed sweep needs session enforcement
       // on /flag (require_session refusing instead of warning).
       name: "rate-limit-flag",
       priority: 6,

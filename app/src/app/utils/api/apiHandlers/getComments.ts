@@ -58,7 +58,7 @@ export interface CommentFilters {
 const toSnakeCase = (str: string): string =>
   str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 
-// ponytail: the label comes from the key ('custom_' + the label's slug), so
+// The label comes from the key ('custom_' + the label's slug), so
 // case and punctuation are lost. Fetch the portal's form config for exact
 // labels if that matters.
 const customLabel = (key: string) => {

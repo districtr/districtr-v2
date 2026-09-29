@@ -308,7 +308,7 @@ class SubmissionContent(SQLModel, table=True):
             "LENGTH(TRIM(value)) > 0 AND LENGTH(value) <= 5000",
             name="value_not_empty_and_bounded",
         ),
-        # ponytail: no index on (field, value) — a btree over 5000-char values
+        # No index on (field, value): a btree over 5000-char values
         # exceeds the index-row limit; add an expression index (field,
         # left(value, N)) if location filtering ever needs it at scale.
     )

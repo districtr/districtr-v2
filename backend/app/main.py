@@ -1508,8 +1508,8 @@ def get_document_list(
         .limit(limit)
     )
 
-    # ponytail: tags alias for one release; an old bundle's ?tags= would
-    # otherwise hit the unfiltered branch and list every map.
+    # The tags alias lasts one release. Without it an old bundle's ?tags=
+    # would hit the unfiltered branch and list every map.
     portal_ids = portal_ids + tags
 
     # Public listings drop taken-down maps (Hide is the one moderation
