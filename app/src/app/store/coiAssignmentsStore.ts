@@ -1,3 +1,4 @@
+import {serializeMapSaves} from '@/app/utils/sync/serializeMapSaves';
 import {GDBPath, NullableZone, Zone} from '@constants/map/zone';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {
@@ -1455,7 +1456,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
-  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
+  // One save at a time across stores; see serializeMapSaves.
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, {silent = false} = {}) => {
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
 
@@ -1569,7 +1571,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         detail: 'An unknown error occured during PUT assignments.',
       },
     };
-  },
+  }),
 
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument, 'coi');
