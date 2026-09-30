@@ -6,7 +6,7 @@
         const {Controller} = window.StimulusModule;
 
         class TablePicker extends Controller {
-            static targets = ['selected', 'search', 'filter', 'toggle', 'count', 'table', 'body'];
+            static targets = ['hint', 'selected', 'search', 'filter', 'deprecated', 'toggle', 'count', 'table', 'body'];
 
             connect() {
                 this.input = this.element.querySelector('input[type="hidden"]');
@@ -23,7 +23,10 @@
                         select.add(new Option(text, value)));
                     select.hidden = seen.size === 0;
                 });
-                [this.searchTarget, ...this.filterTargets].forEach((control) =>
+                if (this.hasDeprecatedTarget) {
+                    this.deprecatedTarget.closest('label').hidden = !this.rows.some((row) => row.deprecated);
+                }
+                [this.searchTarget, ...this.filterTargets, ...this.deprecatedTargets].forEach((control) =>
                     control.addEventListener('input', () => this.open()));
                 // Enter in the search box must not submit the page form (or
                 // advance the portal wizard).
@@ -34,7 +37,15 @@
                     }
                 });
                 this.renderSelected();
-                this.renderCount(this.rows.length);
+                this.renderCount(this.offered.length);
+            }
+
+            // Rows the deprecated toggle allows (a selected row always shows,
+            // so it can be deselected).
+            get offered() {
+                const showDeprecated = this.hasDeprecatedTarget && this.deprecatedTarget.checked;
+                const selected = new Set(this.values);
+                return this.rows.filter((row) => showDeprecated || !row.deprecated || selected.has(row.value));
             }
 
             get values() {
@@ -55,37 +66,55 @@
 
             renderSelected() {
                 const values = this.values;
+                const reorderable = this.ordered && values.length > 1;
                 this.selectedTarget.replaceChildren(...values.map((value, index) => {
                     const row = this.byValue.get(value) || {value, name: `${value} (missing)`};
                     const item = document.createElement('li');
-                    const name = document.createElement('strong');
-                    name.textContent = row.name;
-                    const meta = document.createElement('span');
-                    meta.className = 'tp-meta';
-                    meta.textContent = this.metaKeys.map((key) => row[key]).filter(Boolean).join(' · ');
-                    item.append(name, meta);
-                    const button = (text, title, onClick) => {
-                        const el = document.createElement('button');
-                        el.type = 'button';
-                        el.className = 'button button-small button-secondary';
-                        el.textContent = text;
-                        el.title = title;
-                        el.setAttribute('aria-label', `${title}: ${row.name}`);
-                        el.addEventListener('click', onClick);
-                        item.append(el);
+                    const el = (tag, className, text) => {
+                        const node = document.createElement(tag);
+                        node.className = className;
+                        if (text != null) node.textContent = text;
+                        return node;
+                    };
+                    if (reorderable) item.append(el('span', 'tp-pos', `${index + 1}`));
+                    const info = el('div', 'tp-info');
+                    info.append(
+                        el('strong', 'tp-name', row.name),
+                        el('span', 'tp-meta', [...this.metaKeys.map((key) => row[key]), row.deprecated && 'deprecated']
+                            .filter(Boolean).join(' · ')),
+                    );
+                    item.append(info);
+                    const actions = el('div', 'tp-actions');
+                    const button = (text, title, onClick, disabled = false) => {
+                        const btn = el('button', 'button button-small button-secondary', text);
+                        btn.type = 'button';
+                        btn.title = title;
+                        btn.disabled = disabled;
+                        btn.setAttribute('aria-label', `${title}: ${row.name}`);
+                        btn.addEventListener('click', onClick);
+                        actions.append(btn);
+                        return btn;
                     };
                     const move = (delta) => {
                         const next = [...values];
                         next.splice(index + delta, 0, next.splice(index, 1)[0]);
                         this.values = next;
                     };
-                    if (this.ordered && values.length > 1) {
-                        if (index > 0) button('↑', 'Move up', () => move(-1));
-                        if (index < values.length - 1) button('↓', 'Move down', () => move(1));
+                    if (reorderable) {
+                        // Disabled at the ends rather than omitted, so the
+                        // controls line up down the list.
+                        button('↑', 'Move up', () => move(-1), index === 0);
+                        button('↓', 'Move down', () => move(1), index === values.length - 1);
                     }
-                    button('✕', 'Remove', () => (this.values = values.filter((v) => v !== value)));
+                    button('✕ Remove', 'Remove from this selection (the module itself is not deleted)',
+                        () => (this.values = values.filter((v) => v !== value))).classList.add('tp-remove');
+                    item.append(actions);
                     return item;
                 }));
+                this.hintTarget.textContent = reorderable
+                    ? `Shown in this order. Use ↑ ↓ to reorder; Remove only drops it from this list.`
+                    : '';
+                this.hintTarget.hidden = !reorderable;
                 this.selectedTarget.hidden = values.length === 0;
                 this.toggleTarget.textContent = this.tableTarget.hidden
                     ? (!this.multiple && values.length ? 'Change' : `Browse ${this.noun}`)
@@ -96,12 +125,13 @@
                 const query = this.searchTarget.value.trim().toLowerCase();
                 return this.filterTargets.every((select) => !select.value || String(row[select.dataset.key]) === select.value)
                     && (!query || Object.entries(row).some(([key, text]) =>
-                        key !== 'value' && text != null && String(text).toLowerCase().includes(query)));
+                        key !== 'value' && key !== 'deprecated' && text != null && String(text).toLowerCase().includes(query)));
             }
 
             renderTable() {
                 const selected = new Set(this.values);
-                const visible = this.rows.filter((row) => this.matches(row));
+                const offered = this.offered;
+                const visible = offered.filter((row) => this.matches(row));
                 this.bodyTarget.replaceChildren(...visible.map((row) => {
                     const tr = document.createElement('tr');
                     const box = document.createElement('input');
@@ -119,14 +149,15 @@
                         tr.append(td);
                     });
                     tr.classList.toggle('tp-picked', box.checked);
+                    tr.classList.toggle('tp-deprecated', Boolean(row.deprecated));
                     tr.addEventListener('click', (event) => event.target !== box && box.click());
                     return tr;
                 }));
-                this.renderCount(visible.length);
+                this.renderCount(visible.length, offered.length);
             }
 
-            renderCount(shown) {
-                this.countTarget.textContent = `${shown} of ${this.rows.length} ${this.noun}`;
+            renderCount(shown, total = shown) {
+                this.countTarget.textContent = `${shown} of ${total} ${this.noun}`;
             }
 
             pick(value, checked) {

@@ -28,6 +28,9 @@ class TablePickerWidget(forms.HiddenInput):
     columns = ()
     # (row key, "All …" option); a row may carry "<key>Label" for display.
     filters = ()
+    # Label for an opt-in checkbox that reveals rows flagged "deprecated"
+    # (hidden by default; already-selected ones always show). None = no toggle.
+    deprecated_label = None
 
     def __init__(self, attrs=None, multiple=False, ordered=False):
         super().__init__(attrs)
@@ -85,6 +88,7 @@ class TablePickerWidget(forms.HiddenInput):
             "noun": self.noun,
             "columns": self.columns,
             "filters": self.filters,
+            "deprecatedLabel": self.deprecated_label,
             "rows": self._rows(),
         }
         return context
@@ -101,6 +105,9 @@ class MapModulePickerWidget(TablePickerWidget):
         ("description", "Description"),
     )
     filters = (("state", "All states"), ("boundary", "All boundary types"))
+    # Modules with visible=False are off the frontend picker; offering them
+    # here by default invites new portals/teams onto retired modules.
+    deprecated_label = "Show deprecated modules"
 
     def __init__(self, *args, lookup="slug", **kwargs):
         """``lookup`` says what the choice values are: "slug"
@@ -121,6 +128,7 @@ class MapModulePickerWidget(TablePickerWidget):
             "boundary_type",
             "num_districts",
             "description",
+            "visible",
         )
         return {
             str(m[field]): {
@@ -135,6 +143,7 @@ class MapModulePickerWidget(TablePickerWidget):
                 "boundary": m["boundary_type"] or "",
                 "districts": m["num_districts"],
                 "description": m["description"] or "",
+                "deprecated": not m["visible"],
             }
             for m in maps
         }
