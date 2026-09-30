@@ -1,11 +1,11 @@
 import React from 'react';
 import parse from 'html-react-parser';
-import BoilerplateNodeRenderer from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
+import BoilerplateNodeRenderer from './blocks/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../Static/ContentHeader';
 import {SubmissionForm} from '../Forms/SubmissionForm';
-import {PlanGallery} from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
-import {MapCreateButtons} from '../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
-import {CommentGallery} from '../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
+import {PlanGallery} from './blocks/PlanGallery/PlanGallery';
+import {MapCreateButtons} from './blocks/MapCreateButtons/MapCreateButtons';
+import {CommentGallery} from './blocks/CommentGallery/CommentGallery';
 import {CMSBodyBlock} from '@/app/utils/api/cmsContent';
 
 interface StreamRendererProps {

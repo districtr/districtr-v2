@@ -11,10 +11,10 @@ import {Gallery} from '@/app/components/Static/Gallery';
 import {Box, Button, Checkbox, Flex, Table, Text, TextField} from '@radix-ui/themes';
 import {Cross1Icon, MagnifyingGlassIcon, MixerHorizontalIcon} from '@radix-ui/react-icons';
 import {
-  getPublicComments,
-  type CommentFilters,
-  type CommentListing,
-} from '@/app/utils/api/apiHandlers/getComments';
+  getPublicSubmissions,
+  type SubmissionFilters,
+  type SubmissionListing,
+} from '@/app/utils/api/apiHandlers/getSubmissions';
 import {CommentCard, CommentRow} from './CommentGalleryRenderers';
 
 /** Debounce delay in milliseconds */
@@ -220,7 +220,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
 
   // Combine initial (CMS-set) filters with debounced user-controlled filters
   // Using useMemo to avoid unnecessary recalculations
-  const filters: CommentFilters = useMemo(
+  const filters: SubmissionFilters = useMemo(
     () => ({
       ids: ids,
       portalId: portalId,
@@ -269,9 +269,9 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         />
       )}
       <Gallery<
-        CommentListing,
-        CommentFilters,
-        {ok: true; response: CommentListing[]} | {ok: false; error: {detail: string}}
+        SubmissionListing,
+        SubmissionFilters,
+        {ok: true; response: SubmissionListing[]} | {ok: false; error: {detail: string}}
       >
         title={title}
         description={description}
@@ -280,7 +280,9 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         showListView={showListView}
         filters={filters}
         queryKey={['comments', debouncedUserFilters]}
-        queryFunction={({filters, limit, offset}) => getPublicComments({...filters, limit, offset})}
+        queryFunction={({filters, limit, offset}) =>
+          getPublicSubmissions({...filters, limit, offset})
+        }
         selectItems={data => (data?.ok ? data.response : [])}
         isError={data => data !== undefined && !data.ok}
         errorMessage={data => (data?.ok ? undefined : data?.error?.detail)}
