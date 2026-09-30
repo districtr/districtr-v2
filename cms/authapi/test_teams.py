@@ -358,25 +358,56 @@ class ContentPageFormScopingTests(TestCase):
     def _bound(self, model, *, user, data=None):
         return self._form_class(model)(data=data, instance=model(), for_user=user)
 
-    def test_portalpage_form_offers_only_team_slugs(self):
-        form = self._bound(PortalPage, user=self.member)
-        choices = dict(form.fields["districtr_map_slug"].choices)
-        choices.pop("", None)  # placeholder
-        self.assertEqual(set(choices), {"chi_wards"})
+    def test_block_pickers_offer_only_team_modules(self):
+        from content.blocks import districtr_map_slug_choices
+        from core.middleware import current_user
 
-    def test_portalpage_form_rejects_out_of_scope_slug(self):
-        form = self._bound(
-            PortalPage,
-            user=self.member,
-            data={
-                "title": "T",
-                "slug": "t",
-                "districtr_map_slug": "tx_other",
-                "body-count": "0",
-            },
+        token = current_user.set(self.member)
+        try:
+            self.assertEqual(
+                [s for s, _ in districtr_map_slug_choices()], ["chi_wards"]
+            )
+            # Validation still knows every module (admin-placed ones survive).
+            self.assertEqual(
+                {s for s, _ in districtr_map_slug_choices(scoped=False)},
+                {"chi_wards", "tx_other"},
+            )
+        finally:
+            current_user.reset(token)
+
+    def test_partner_body_guard(self):
+        """#777: a partner can't add another team's modules (by picker or by
+        crafted POST) or the admin-only boilerplate; what an admin already
+        placed on the page passes through."""
+        from content.forms import admin_only_violation
+
+        def body(*slugs, extra=()):
+            page = PortalPage()
+            page.body = [
+                {
+                    "type": "map_create_buttons",
+                    "id": "b",
+                    "value": {
+                        "type": "simple",
+                        "views": [{"name": "", "districtr_map_slug": s} for s in slugs],
+                    },
+                },
+                *extra,
+            ]
+            return page.body
+
+        def check(new, old=None, user=None):
+            return admin_only_violation(new, old, user=user or self.member)
+
+        self.assertIsNone(check(body("chi_wards")))
+        self.assertIn("tx_other", check(body("chi_wards", "tx_other")))
+        self.assertIsNone(check(body("tx_other", "chi_wards"), old=body("tx_other")))
+        self.assertIsNone(check(body("tx_other"), user=self.admin))
+        boilerplate = {"type": "boilerplate", "id": "bp", "value": {}}
+        self.assertIsNotNone(check(body(extra=[boilerplate])))
+        self.assertIsNone(
+            check(body(extra=[boilerplate]), old=body(extra=[boilerplate]))
         )
-        form.is_valid()
-        self.assertIn("districtr_map_slug", form.errors)
 
     def test_placepage_form_rejects_out_of_scope_slug(self):
         form = self._bound(
@@ -391,13 +422,6 @@ class ContentPageFormScopingTests(TestCase):
         )
         form.is_valid()
         self.assertIn("districtr_map_slugs", form.errors)
-
-    def test_admin_form_unrestricted(self):
-        # Admins get a dropdown of ALL map modules (not just one team's).
-        form = self._bound(PortalPage, user=self.admin)
-        choices = dict(form.fields["districtr_map_slug"].choices)
-        choices.pop("", None)  # placeholder
-        self.assertEqual(set(choices), {"chi_wards", "tx_other"})
 
     def test_placepage_form_preserves_other_teams_slugs_and_order(self):
         # A shared PlacePage carries another team's map; saving must keep it,

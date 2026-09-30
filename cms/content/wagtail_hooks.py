@@ -23,6 +23,7 @@ blocked by the hooks above.
 """
 
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from wagtail import hooks
 from wagtail.admin.auth import permission_denied
 from wagtail.admin.menu import Menu, SubmenuMenuItem
@@ -148,4 +149,20 @@ def register_site_content_menu_item():
         ),
         icon_name="doc-full-inverse",
         order=110,
+    )
+
+
+@hooks.register("insert_editor_js")
+def open_preview_by_default():
+    """Open the live preview panel for editors who've never chosen: partners
+    new to the CMS don't find it otherwise. Wagtail remembers the last panel
+    in localStorage (closing it stores ""), so this only fires once."""
+    return mark_safe(
+        "<script>document.addEventListener('DOMContentLoaded', () => {"
+        "  let stored = null;"
+        "  try { stored = localStorage.getItem('wagtail:side-panel-open'); }"
+        "  catch (e) { return; }"
+        "  const toggle = document.querySelector('[data-side-panel-toggle=\"preview\"]');"
+        "  if (stored === null && toggle) toggle.click();"
+        "});</script>"
     )

@@ -236,11 +236,10 @@ class PortalPage(ContentPageBase):
     parent_page_types = ["content.PortalsIndexPage"]
     subpage_types: list[str] = []
 
-    content_panels = ContentPageBase.content_panels + [
-        FieldPanel("districtr_map_slug"),
-    ]
-
-    # Team-scoped members only get to pick a map their teams own (content/forms.py).
+    # districtr_map_slug is legacy (portals offer modules through their
+    # map_create_buttons block) and no longer on the editor; kept so old
+    # values aren't dropped.
+    # Non-admins' body edits are guarded in content/forms.py.
     base_form_class = PortalPageForm
 
     # These point at shared data, not prose, so translators never change them.

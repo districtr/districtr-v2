@@ -113,8 +113,24 @@ class _MapScoped(TeamScopedGetObjectMixin):
     team_filter_field = DISTRICTRMAP_TEAM_FIELD
 
 
+# What a partner (view-only, team-scoped) sees of a module: what it is, not
+# how it's built. Editors keep the full inspect view.
+PARTNER_INSPECT_FIELDS = [
+    "name",
+    "description",
+    "state_name",
+    "boundary_type",
+    "num_districts",
+    "data_source_name",
+    "districtr_map_slug",
+]
+
+
 class TeamScopedMapInspectView(_MapScoped, InspectView):
-    pass
+    def get_fields(self):
+        if self.request.user.has_perm("datastore.change_districtrmap"):
+            return super().get_fields()
+        return PARTNER_INSPECT_FIELDS
 
 
 class TeamScopedMapHistoryView(_MapScoped, HistoryView):
@@ -252,6 +268,21 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     model = DistrictrMap
     icon = "globe"
     menu_label = "Edit map modules"
+
+    @cached_property
+    def menu_item_class(self):
+        base = SnippetViewSet.menu_item_class.func(self)
+
+        class MapModulesMenuItem(base):
+            def render_component(self, request):
+                component = super().render_component(request)
+                # Partners can only browse their teams' modules.
+                if not request.user.has_perm("datastore.change_districtrmap"):
+                    component.label = "My map modules"
+                return component
+
+        return MapModulesMenuItem
+
     list_display = [
         "name",
         "districtr_map_slug",
