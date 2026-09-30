@@ -30,7 +30,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 - Migration `d8f1b52c96e3` drops the legacy comment tables without converting their rows. Production held five legacy form comments, four of them test rows.
 - Zone notes live in `comments.district_notes` (`backend/app/district_notes/`).
 - A map belongs to at most one portal through `document.portal_id` (migration `f3a9c1d27e58`). `submissions.tags` no longer exists.
-- Moderation needs no review. Text scoring sets `nsfw` automatically, and the frontend blurs those entries (`backend/app/submissions/moderation.py`). District notes get the same scoring, and nsfw notes show a placeholder in public reads. District notes have no human moderation control.
+- Moderation needs no review. A deterministic word-list check sets `nsfw` automatically, and the frontend blurs those entries (`backend/app/submissions/moderation.py`). District notes are not moderated.
 - The human controls are Blur and Hide, both in the Portals hub gallery. Hide removes an entry from every public listing, filtered or not. It does not delete the map, which stays reachable at `/map/<public_id>` by design.
 - `form_configs.accepting` mirrors whether the portal page is live (migration `a7c2e9d4b150`). The CMS sets it on publish, unpublish and delete (`PortalPage.sync_accepting`). A closed portal takes no public submissions, starts no drafts, and lists nothing publicly. Its admins still see everything in the hub.
 - Moderation never sends private answers (email) to the scorer.

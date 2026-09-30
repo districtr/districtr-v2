@@ -14,24 +14,18 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.district_notes.tasks import moderate_note_by_id
+from app.submissions.moderation import moderate_submission_in_background
 from app.thumbnails.main import generate_thumbnail
 
 
-@pytest.fixture(autouse=True)
-def no_external_moderation(monkeypatch):
-    # Keep moderation off the network: score the text locally without calling OpenAI.
-    monkeypatch.setattr("app.submissions.moderation.score_text", lambda _text: 0.0)
-
-
 def test_self_owned_moderation_returns_connection():
-    """moderate_note_by_id opens its own ``with Session(engine)`` and commits.
+    """moderate_submission_in_background opens its own ``with Session(engine)``.
 
-    The note id need not exist (the UPDATE simply affects 0 rows); the point is
-    that the connection it checks out is returned to the pool afterward.
+    The submission id need not exist (it returns early); the point is that the
+    connection it checks out is returned to the pool afterward.
     """
     checked_out_before = engine.pool.checkedout()
-    moderate_note_by_id(2_000_000_000, "regression check")
+    moderate_submission_in_background(2_000_000_000)
     assert engine.pool.checkedout() == checked_out_before
 
 

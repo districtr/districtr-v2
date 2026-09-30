@@ -1,7 +1,6 @@
 import pytest
 from sqlalchemy import text
 from sqlmodel import Session, col, select
-from unittest.mock import patch
 
 from app.models import MAX_COMMUNITY_NAME_LENGTH, Document
 from app.submissions.models import FormConfig, Submission
@@ -10,10 +9,6 @@ from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import patch_turnstile  # noqa: F401 (autouse fixture)
 
 COMMUNITY_MAP_SLUG = "ks_demo_view_census_blocks_community"
-TEST_MODERATION_SCORE = 0.001
-
-# Note: We patch the moderation score to be very low to avoid triggering any content filters
-# during testing, and to to avoid calling the actual moderation API
 
 # ==========================
 # == FIXTURES AND HELPERS ==
@@ -114,9 +109,8 @@ def test_non_community_document_rejects_community_save(client, document_id: str)
     assert get_assignments_by_geoid(client, document_id) == {}
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_round_trip_with_metadata_and_comments(
-    _mock_score_text, client, community_document_id: str, session: Session
+    client, community_document_id: str, session: Session
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
@@ -180,9 +174,8 @@ def test_put_community_assignments_round_trip_with_metadata_and_comments(
     assert {row[0] for row in comment_rows} == {1, 2}
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_copy_community_document_duplicates_assignments_and_metadata(
-    _mock_score_text, client, community_document_id: str, community_map_slug: str
+    client, community_document_id: str, community_map_slug: str
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
@@ -235,9 +228,8 @@ def test_copy_community_document_duplicates_assignments_and_metadata(
     assert copied_assignments == original_assignments
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_put_community_assignments_conflict_requires_overwrite(
-    _mock_score_text, client, community_document_id: str
+    client, community_document_id: str
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     first_metadata = [build_community_metadata_list()[0]]
@@ -306,9 +298,8 @@ def test_put_community_assignments_conflict_requires_overwrite(
     assert updated_document["community_metadata_list"] == full_metadata
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_reset_community_assignments_preserves_metadata_and_comments(
-    _mock_score_text, client, community_document_id: str, session: Session
+    client, community_document_id: str, session: Session
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = build_community_metadata_list()
@@ -379,10 +370,7 @@ def test_reset_community_assignments_preserves_metadata_and_comments(
     assert comment_count == 2
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
-def test_community_name_is_sanitized_before_save(
-    _mock_score_text, client, community_document_id: str
-):
+def test_community_name_is_sanitized_before_save(client, community_document_id: str):
     document_info = client.get(f"/api/document/{community_document_id}").json()
     community_metadata_list = [
         {
@@ -418,9 +406,8 @@ def test_community_name_is_sanitized_before_save(
     )
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
-    _mock_score_text, client, community_document_id: str
+    client, community_document_id: str
 ):
     initial_document = client.get(f"/api/document/{community_document_id}").json()
     initial_metadata = [build_community_metadata_list()[0]]
@@ -472,9 +459,8 @@ def test_community_name_longer_than_40_chars_is_rejected_before_mutation(
     assert final_document["community_metadata_list"] == initial_metadata
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_save_allows_partial_comment_coverage(
-    _mock_score_text, client, community_document_id: str
+    client, community_document_id: str
 ):
     initial_document = client.get(f"/api/document/{community_document_id}").json()
     metadata = build_community_metadata_list()
@@ -510,9 +496,8 @@ def test_community_save_allows_partial_comment_coverage(
     } == {1: "Only one community comment"}
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_community_save_allows_draw_without_any_comments(
-    _mock_score_text, client, community_document_id: str
+    client, community_document_id: str
 ):
     initial_document = client.get(f"/api/document/{community_document_id}").json()
     metadata = build_community_metadata_list()
@@ -535,9 +520,8 @@ def test_community_save_allows_draw_without_any_comments(
     assert final_document["community_metadata_list"] == metadata
 
 
-@patch("app.submissions.moderation.score_text", return_value=TEST_MODERATION_SCORE)
 def test_sync_community_comments_updates_and_deletes_existing_rows(
-    _mock_score_text, client, community_document_id: str, session: Session
+    client, community_document_id: str, session: Session
 ):
     document_info = client.get(f"/api/document/{community_document_id}").json()
 

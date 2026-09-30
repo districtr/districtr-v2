@@ -17,7 +17,8 @@ from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
-from app.submissions.moderation import moderate_submission
+from app.submissions import moderation
+from app.submissions.moderation import moderate_submission, score_text
 from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import (  # noqa: F401 (autouse fixtures)
     override_auth_dependency,
@@ -599,6 +600,34 @@ class TestGalleryExclusion:
             "map_metadata"
         ]
         assert clone_meta["draft_status"] == "ready_to_share"
+
+
+class TestScorer:
+    def test_blocklist_is_whole_word_and_deterministic(self, monkeypatch):
+        # A stand-in phrase keeps real blocklist words out of the repo.
+        monkeypatch.setattr(
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(["zorp", "blat"])},
+        )
+        for bad in ("zorp blat", "ZORP, blat!", "you zorp-blat"):
+            assert score_text(bad) == 1.0, bad
+        for ok in ("zorpblat", "zorp", "blat zorp", "zorps blat"):
+            assert score_text(ok) == 0.0, ok
+
+    def test_civic_terms_pass_the_real_list(self):
+        assert len(moderation.BLOCKLIST) > 500  # the digest file loaded
+        for ok in (
+            "Scunthorpe",
+            "assess the class",
+            "Coon Rapids",
+            "Dick Durbin",
+            "the gay community",
+            "cocktail bar",
+            "",
+            "   ",
+        ):
+            assert score_text(ok) == 0.0, ok
 
 
 class TestModerationWiring:

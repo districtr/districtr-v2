@@ -574,8 +574,7 @@ def create_document(
                 session.flush()
             if zone_label_remapping:
                 # Same path as the editor's own notes, so the map's length and
-                # count limits (0 = descriptions disabled) and moderation apply;
-                # the label text is raw CSV input.
+                # count limits (0 = descriptions disabled) apply.
                 sync_district_notes(
                     document_id=document_id,
                     notes=[
@@ -586,7 +585,6 @@ def create_document(
                         for original_label, new_zone in zone_label_remapping.items()
                     ],
                     session=session,
-                    background_tasks=background_tasks,
                 )
         except NoResultFound:
             session.rollback()
@@ -1026,7 +1024,6 @@ def _sync_update_assignments(
             document_id=document_id,
             notes=data.comments,
             session=session,
-            background_tasks=background_tasks,
         )
         # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True

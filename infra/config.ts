@@ -84,7 +84,6 @@ export const config = {
   // Set only during key rotation (served alongside the active key in JWKS).
   jwtNextVerifyingKey: cfg.getSecret("jwtNextVerifyingKey"),
   resendApiKey: cfg.getSecret("resendApiKey"),
-  openaiApiKey: cfg.getSecret("openaiApiKey"),
   turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
   turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
   researchApiKey: cfg.getSecret("researchApiKey"),
