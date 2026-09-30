@@ -4,7 +4,7 @@ import {Table} from '@radix-ui/themes';
 import {Gallery} from '@/app/components/Static/Gallery';
 import {getPlans, type PlanQuery} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
-import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
+import {PlanCard, PlanTableRow} from './PlanGalleryRenderers';
 
 export type PlanGalleryProps = {
   /** Curated gallery: these maps, in this order. */
@@ -15,10 +15,8 @@ export type PlanGalleryProps = {
   draftStatus?: 'ready_to_share' | 'in_progress' | null;
   title: string;
   description: string;
-  paginate?: boolean;
   limit?: number;
-  showListView?: boolean;
-} & PlanFlags;
+};
 
 export const PlanGallery: React.FC<PlanGalleryProps> = ({
   ids,
@@ -26,10 +24,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   draftStatus,
   title,
   description,
-  paginate,
   limit = 12,
-  showListView = false,
-  ...flags
 }: PlanGalleryProps) => {
   const query: PlanQuery | null = ids?.length
     ? {ids}
@@ -42,9 +37,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
     <Gallery<MinPublicDocument, PlanQuery, MinPublicDocument[] | null>
       title={title}
       description={description}
-      paginate={paginate}
       limit={limit}
-      showListView={showListView}
       filters={query}
       queryKey={['plans']}
       queryFunction={async ({filters, limit, offset}) => {
@@ -52,19 +45,19 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
         return result?.ok ? result.response : null;
       }}
       selectItems={data => (data || []) as MinPublicDocument[]}
-      gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} {...flags} />}
+      gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} />}
       tableHeader={
         <>
           <Table.ColumnHeaderCell>ID</Table.ColumnHeaderCell>
-          {flags.showThumbnails && <Table.ColumnHeaderCell>Thumbnail</Table.ColumnHeaderCell>}
-          {flags.showTitles && <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>}
-          {flags.showModule && <Table.ColumnHeaderCell>Module</Table.ColumnHeaderCell>}
-          {flags.showDescriptions && <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>}
-          {flags.showTags && <Table.ColumnHeaderCell>Tags</Table.ColumnHeaderCell>}
-          {flags.showUpdatedAt && <Table.ColumnHeaderCell>Updated At</Table.ColumnHeaderCell>}
+          <Table.ColumnHeaderCell>Thumbnail</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Module</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Tags</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Updated At</Table.ColumnHeaderCell>
         </>
       }
-      tableRowRenderer={(plan, i) => <PlanTableRow key={i} plan={plan} {...flags} />}
+      tableRowRenderer={(plan, i) => <PlanTableRow key={i} plan={plan} />}
     />
   );
 };

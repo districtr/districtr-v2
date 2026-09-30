@@ -68,16 +68,7 @@ export interface CommentGalleryProps {
   limit?: number;
   title?: string;
   description?: string;
-  paginate?: boolean;
-  showListView?: boolean;
-  showTitles?: boolean;
-  showPlaces?: boolean;
-  showStates?: boolean;
-  showZipCodes?: boolean;
-  showCreatedAt?: boolean;
-  showIdentifier?: boolean;
   showFilters?: boolean;
-  showMaps?: boolean;
 }
 
 /** Location filter field configuration */
@@ -192,16 +183,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   limit,
   title,
   description,
-  paginate,
-  showListView,
-  showTitles,
-  showPlaces,
-  showStates,
-  showZipCodes,
-  showCreatedAt,
-  showIdentifier,
   showFilters = false,
-  showMaps = true,
 }) => {
   // User-controlled filters (when showFilters is enabled)
   // This state updates immediately for responsive UI
@@ -245,20 +227,6 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
     ]
   );
 
-  // Display options for card and row renderers
-  const displayOptions = useMemo(
-    () => ({
-      showIdentifier,
-      showTitles,
-      showPlaces,
-      showStates,
-      showZipCodes,
-      showCreatedAt,
-      showMaps,
-    }),
-    [showIdentifier, showTitles, showPlaces, showStates, showZipCodes, showCreatedAt, showMaps]
-  );
-
   return (
     <Box>
       {showFilters && (
@@ -275,9 +243,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       >
         title={title}
         description={description}
-        paginate={paginate}
         limit={limit ?? 10}
-        showListView={showListView}
         filters={filters}
         queryKey={['comments', debouncedUserFilters]}
         queryFunction={({filters, limit, offset}) =>
@@ -286,24 +252,20 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         selectItems={data => (data?.ok ? data.response : [])}
         isError={data => data !== undefined && !data.ok}
         errorMessage={data => (data?.ok ? undefined : data?.error?.detail)}
-        gridRenderer={(comment, i) => (
-          <CommentCard key={i} comment={comment} options={displayOptions} />
-        )}
+        gridRenderer={(comment, i) => <CommentCard key={i} comment={comment} />}
         tableHeader={
           <>
-            {showTitles && <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>}
+            <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Comment</Table.ColumnHeaderCell>
-            {showIdentifier && <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>}
-            {showPlaces && <Table.ColumnHeaderCell>Place</Table.ColumnHeaderCell>}
-            {showStates && <Table.ColumnHeaderCell>State</Table.ColumnHeaderCell>}
-            {showZipCodes && <Table.ColumnHeaderCell>Zip</Table.ColumnHeaderCell>}
-            {showMaps && <Table.ColumnHeaderCell>Map</Table.ColumnHeaderCell>}
-            {showCreatedAt && <Table.ColumnHeaderCell>Created</Table.ColumnHeaderCell>}
+            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Place</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>State</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Zip</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Map</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Created</Table.ColumnHeaderCell>
           </>
         }
-        tableRowRenderer={(comment, i) => (
-          <CommentRow key={i} comment={comment} options={displayOptions} />
-        )}
+        tableRowRenderer={(comment, i) => <CommentRow key={i} comment={comment} />}
         emptyState={
           <Flex direction="column" align="center" gap="2" className="py-8">
             <Text size="3" color="gray">

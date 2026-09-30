@@ -73,12 +73,8 @@ export type GalleryProps<TItem, TFilters, TQueryResult = TItem[]> = {
   queryKey?: unknown[];
 
   // Behavior
-  /** Enable pagination controls */
-  paginate?: boolean;
   /** Number of items per page (default: 12) */
   limit?: number;
-  /** Show grid/list view toggle */
-  showListView?: boolean;
   /** Initial view mode (default: 'grid') */
   initialView?: 'grid' | 'list';
   /** Custom empty state content */
@@ -98,9 +94,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   isError,
   errorMessage,
   queryKey,
-  paginate,
   limit = 12,
-  showListView = false,
   getColumns = getDefaultColumns,
   initialView = 'grid',
   emptyState,
@@ -134,7 +128,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   const computedIsError = isError ? isError(data) : false;
   const computedErrorMessage = errorMessage ? errorMessage(data) : undefined;
 
-  const showPagination = !!(paginate && (hasNextPage || page > 0));
+  const showPagination = hasNextPage || page > 0;
   const noItems = !isLoading && (!items || items.length === 0);
 
   if (isLoading) {
@@ -164,7 +158,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
       )}
       {header}
 
-      {!!(showListView && !noItems && tableRowRenderer) && (
+      {!!(!noItems && tableRowRenderer) && (
         <Flex direction="row" gap="2" align="center" pt="4">
           <Text size="2" color="gray">
             View type:
