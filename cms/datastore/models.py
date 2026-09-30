@@ -114,6 +114,14 @@ class DistrictrMap(models.Model):
     statefps = ArrayField(models.CharField(), blank=True, null=True)
     comment_length_limit = models.IntegerField(blank=True, null=True)
     comment_count_limit = models.IntegerField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    state_abbr = models.CharField(max_length=2, blank=True, null=True)
+    state_name = models.CharField(blank=True, null=True)
+    boundary_type = models.CharField(
+        blank=True,
+        null=True,
+        help_text='e.g. "Congressional", "State House", "State Senate", "Custom".',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

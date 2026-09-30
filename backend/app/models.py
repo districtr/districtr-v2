@@ -123,6 +123,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     comment_length_limit: int | None = Field(nullable=True)
     # Maximum number of comments per document
     comment_count_limit: int | None = Field(nullable=True)
+    # Descriptive metadata for module pickers (CMS) and listings.
+    description: str | None = Field(nullable=True)
+    state_abbr: str | None = Field(nullable=True)
+    state_name: str | None = Field(nullable=True)
+    # Free text, e.g. "Congressional", "State House", "State Senate", "Custom"
+    boundary_type: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -160,6 +166,10 @@ class DistrictrMapUpdate(BaseModel):
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
+    description: str | None = None
+    state_abbr: str | None = None
+    state_name: str | None = None
+    boundary_type: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):

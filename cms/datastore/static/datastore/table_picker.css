@@ -1,0 +1,140 @@
+/* datastore/widgets.py::TablePickerWidget */
+.table-picker {
+    max-width: 60rem;
+}
+/* Fieldsets default to min-width: min-content, which lets the nowrap table
+   widen the whole page instead of scrolling inside .tp-table-wrap. */
+fieldset:has(.table-picker) {
+    min-width: 0;
+}
+.tp-selected {
+    list-style: none;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    /* Maps can carry dozens of overlays; keep the page scannable. */
+    max-height: 18rem;
+    overflow-y: auto;
+}
+.tp-selected li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    border: 1px solid var(--w-color-border-field-default, #ccc);
+    border-radius: 4px;
+}
+.tp-hint {
+    margin: 0 0 0.35rem;
+    color: var(--w-color-text-meta, #666);
+    font-size: 0.875em;
+}
+.tp-pos {
+    flex: 0 0 1.5rem;
+    height: 1.5rem;
+    line-height: 1.5rem;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 0.8125em;
+    font-weight: 600;
+    background: var(--w-color-surface-field-inactive, #eef6f7);
+}
+.tp-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.tp-name,
+.tp-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tp-meta {
+    color: var(--w-color-text-meta, #666);
+    font-size: 0.875em;
+}
+.tp-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+.tp-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+/* One height for search, filters and the Browse button: Wagtail's field and
+   small-button styles otherwise render three different sizes in a row. */
+.tp-toolbar .tp-search,
+.tp-toolbar select,
+.tp-toolbar .button {
+    height: 2.5rem;
+    min-height: 0;
+    box-sizing: border-box;
+    padding-block: 0;
+    font-size: 0.875rem;
+    line-height: 1;
+}
+.tp-toolbar .tp-search {
+    flex: 1 1 12rem;
+}
+.tp-toolbar select {
+    flex: 0 1 12rem;
+    width: auto;
+}
+.tp-count {
+    color: var(--w-color-text-meta, #666);
+    font-size: 0.875em;
+}
+.tp-table-wrap {
+    max-height: 24rem;
+    overflow: auto;
+    margin-top: 0.5rem;
+    border: 1px solid var(--w-color-border-field-default, #ccc);
+    border-radius: 4px;
+}
+.tp-table {
+    margin: 0;
+}
+.tp-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--w-color-surface-page, #fff);
+}
+.tp-table th,
+.tp-table td {
+    cursor: pointer;
+    font-size: 0.875em;
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
+}
+/* Name wraps; everything else stays on one line. */
+.tp-table td:nth-child(2) {
+    white-space: normal;
+    min-width: 12rem;
+}
+.tp-table td:last-child {
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tp-table tr.tp-picked td {
+    background: var(--w-color-surface-field-inactive, #eef6f7);
+}
+/* :not([hidden]) so the display rule can't override the hidden attribute. */
+.tp-deprecated-toggle:not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    font-size: 0.875em;
+}
+.tp-table tr.tp-deprecated td {
+    color: var(--w-color-text-meta, #666);
+    font-style: italic;
+}
