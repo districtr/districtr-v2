@@ -15,7 +15,7 @@ from django import forms
 from wagtail.admin.forms import WagtailAdminPageForm
 
 from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
-from content.blocks import PORTAL_GALLERY_SOURCES, districtr_map_slug_choices
+from content.blocks import districtr_map_slug_choices
 from datastore.widgets import MapModulePickerWidget
 
 _SCOPED_HELP_TEXT = "Only Districtr maps your team owns are listed."
@@ -41,13 +41,9 @@ def _map_choices(limit_to=None, ensure=()):
 
 
 def has_portal_gallery(body):
-    """True when a body carries a plan gallery that lists portal
-    submissions — which only a portal page has a portal for."""
-    return any(
-        child.block_type == "plan_gallery"
-        and child.value["source"] in PORTAL_GALLERY_SOURCES
-        for child in body or []
-    )
+    """True when a body carries a submissions gallery, which lists the
+    page's own portal and so only works on a portal page."""
+    return any(child.block_type == "plan_gallery" for child in body or [])
 
 
 class ContentPageForm(WagtailAdminPageForm):
@@ -60,8 +56,8 @@ class ContentPageForm(WagtailAdminPageForm):
         if not self.portal_page and has_portal_gallery(cleaned_data.get("body")):
             self.add_error(
                 "body",
-                "Only portal pages can list portal submissions. Make this plan "
-                'gallery "Curated" instead.',
+                "Only portal pages can list portal submissions. Use a Curated "
+                "gallery here instead.",
             )
         return cleaned_data
 

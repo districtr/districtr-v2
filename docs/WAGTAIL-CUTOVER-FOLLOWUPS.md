@@ -41,7 +41,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 
 `FormConfig.collection_mode` (`cms/datastore/models.py`, checked in `backend/app/submissions/models.py`) takes one of four values:
 
-- `internal` collects maps made from the portal, and the portal page starts with no gallery. The owner can add plan galleries later (this portal's finished or in-progress submissions, or curated map IDs), and those galleries list the maps.
+- `internal` collects maps made from the portal, and the portal page starts with no gallery. The owner can add galleries later (a submissions gallery for this portal, or a curated gallery of map IDs), and those galleries list the maps.
 - `auto_public` collects maps into the public gallery once they are marked in progress or ready to share. There is no form.
 - `prompt` asks the author to submit with a short form when a map is marked ready to share. This is the default.
 - `form` shows a form on the portal page. Maps are not collected automatically.
@@ -52,7 +52,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 - `content/0002_provision_site` creates the Portals, Places and Static index pages, the locales, and the Admin approval workflow.
 - `content/0003_import_legacy_content` runs `migrate_tiptap` during `migrate` to import `cms.tags_content` and `cms.places_content`. If legacy rows exist and `MIGRATE_TIPTAP_OWNERS` is unset, the migration refuses to run.
 - The content API (`cms/content/api.py`) serves the types `portals`, `places` and `static`. It also accepts `tags` as a temporary alias for `portals`. The backend's `/api/documents/list` likewise accepts `tags` as an alias of `portal_ids`, so a frontend built before the cutover keeps its filtered galleries.
-- A plan gallery shows one of three things: a curated list of up to 50 map IDs, this portal's finished submissions, or its in-progress submissions. The content API resolves that into `ids` or `portalId` + `draftStatus` when serving, so the portal slug is never stored and a rename carries the gallery along. Only portal pages accept the two portal modes. A portal page may carry any number of plan galleries; every comment gallery on a portal page gets the portal's id the same way. `/api/documents/list` has no unfiltered listing: it takes either `ids` (max 50) or `portal_id` + `draft_status`.
+- Two gallery blocks list plans. A **Curated gallery** (`curated_gallery`) shows up to 50 map IDs in the order entered, on any page. A **Submissions gallery** (`plan_gallery`) shows this portal's finished or in-progress submissions and only works on portal pages; the content API gives it `portalId` + `draftStatus` when serving, so the portal slug is never stored and a rename carries the gallery along. A portal page may carry any number of either. Every comment gallery on a portal page gets the portal's id the same way. `/api/documents/list` has no unfiltered listing: it takes either `ids` (max 50) or `portal_id` + `draft_status`.
 - The backend's `app/cms` package now only serves site settings (`/api/cms/site_settings`, the under-construction flag).
 
 ### Tests

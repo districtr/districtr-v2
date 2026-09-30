@@ -28,7 +28,6 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.blocks import PORTAL_GALLERY_SOURCES
 from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
@@ -54,24 +53,24 @@ def _language_sort_key(code):
 
 
 def _resolve_plan_galleries(body_data, portal_slug=None):
-    """Turn each plan gallery's source into what the frontend's
-    PlanGallery fetches: ids for a curated gallery, or portalId +
-    draftStatus for a portal gallery. The slug is injected here, never
-    stored, so a rename can't strand the gallery. Off a portal page (where
-    the forms reject portal modes) a portal gallery serves no filter and the
-    frontend renders nothing."""
+    """Give each gallery what the frontend's PlanGallery fetches: a curated
+    gallery keeps its ids; a submissions gallery (plan_gallery) gets
+    portalId + draftStatus. The slug is injected here, never stored,
+    so a rename can't strand the gallery. Off a portal page (where the
+    forms reject submissions galleries) it serves no portal and the frontend
+    renders nothing."""
     for block in body_data:
-        if block.get("type") != "plan_gallery":
-            continue
-        value = block["value"]
-        source = value.pop("source", None)
-        if source == "ids":
+        value = block.get("value")
+        if block.get("type") == "curated_gallery":
             value["portalId"], value["draftStatus"] = None, None
-        else:
+        elif block.get("type") == "plan_gallery":
+            status = value.pop("status", None)
             value["ids"] = None
             value["portalId"] = portal_slug
             value["draftStatus"] = (
-                source if source in PORTAL_GALLERY_SOURCES else "ready_to_share"
+                status
+                if status in ("ready_to_share", "in_progress")
+                else "ready_to_share"
             )
     return body_data
 

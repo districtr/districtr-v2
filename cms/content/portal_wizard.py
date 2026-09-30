@@ -106,19 +106,19 @@ def _starter_body(mode: str, *, title: str, views: list[dict]):
             _section("Make a submission"),
             {"type": "form", "value": {"allowListModules": []}},
         ]
-    # The slug is never stored: plan galleries and the comment gallery get
+    # The slug is never stored: submissions galleries and the comment gallery get
     # the portal id when serving (content/api.py), so a rename can't strand
     # them. Auto-collected portals publish maps while they're still being
     # drawn, so they get an in-progress gallery too.
     if mode in ("prompt", "auto_public"):
         body += [
             _section("Map gallery"),
-            {"type": "plan_gallery", "value": {"source": "ready_to_share"}},
+            {"type": "plan_gallery", "value": {"status": "ready_to_share"}},
         ]
     if mode == "auto_public":
         body += [
             _section("Maps in progress"),
-            {"type": "plan_gallery", "value": {"source": "in_progress"}},
+            {"type": "plan_gallery", "value": {"status": "in_progress"}},
         ]
     if mode == "form":
         body += [

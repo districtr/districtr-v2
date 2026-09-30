@@ -38,9 +38,9 @@ export interface SectionHeaderBlock {
 }
 
 export interface PlanGalleryBlock {
-  type: 'plan_gallery';
-  /** Resolved by the CMS content API: `ids` for a curated gallery, or
-   * `portalId` + `draftStatus` for a portal gallery. */
+  /** plan_gallery is the submissions gallery: the CMS content API resolves it
+   * to `portalId` + `draftStatus`. curated_gallery carries `ids`. */
+  type: 'plan_gallery' | 'curated_gallery';
   value: PlanGalleryProps;
   id: string;
 }

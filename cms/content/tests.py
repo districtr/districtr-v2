@@ -64,7 +64,7 @@ def doc(*children):
 
 
 PLAN_GALLERY_ATTRS = {
-    "ids": [1, 2],
+    "status": "in_progress",
     "title": "Featured plans",
     "description": "A few of our favorites",
     "paginate": False,
@@ -76,7 +76,6 @@ PLAN_GALLERY_ATTRS = {
     "showTags": True,
     "showModule": False,
     "limit": 6,
-    "source": "ids",
 }
 
 COMMENT_GALLERY_ATTRS = {
@@ -274,10 +273,9 @@ class TiptapToStreamDataTests(SimpleTestCase):
             )
         )
         value = result.stream_data[0]["value"]
-        self.assertEqual(value["ids"], [])
         self.assertTrue(value["paginate"])
         self.assertEqual(value["limit"], 12)
-        self.assertEqual(value["source"], "ready_to_share")
+        self.assertEqual(value["status"], "ready_to_share")
 
     def test_comment_gallery_attrs(self):
         result = tiptap_to_stream_data(
@@ -386,7 +384,7 @@ class TiptapToStreamDataTests(SimpleTestCase):
             [child.block_type for child in stream_value],
             ["rich_text", "plan_gallery", "map_create_buttons"],
         )
-        self.assertEqual(list(stream_value[1].value["ids"]), [1, 2])
+        self.assertEqual(stream_value[1].value["status"], "in_progress")
         self.assertEqual(
             stream_value[2].value["views"][0]["districtr_map_slug"], "chi_wards"
         )
@@ -1325,50 +1323,48 @@ class FormConfigInjectionTests(TestCase):
         self.assertEqual(comments["portalId"], "configured")
         # A fresh plan gallery lists this portal's finished submissions.
         self.assertEqual(fresh["portalId"], "configured")
-        self.assertNotIn("source", fresh)
+        self.assertNotIn("status", fresh)
 
-    def test_plan_gallery_serves_only_its_chosen_mode(self):
+    def test_galleries_serve_only_their_own_filter(self):
         from content.api import _resolve_plan_galleries
 
-        def served(value, portal="configured"):
+        def served(block_type, value, portal="configured"):
             return _resolve_plan_galleries(
-                [{"type": "plan_gallery", "value": dict(value)}], portal
+                [{"type": block_type, "value": dict(value)}], portal
             )[0]["value"]
 
-        curated = served({"source": "ids", "ids": [3, 1]})
+        curated = served("curated_gallery", {"ids": [3, 1]})
         self.assertEqual(
             (curated["ids"], curated["portalId"], curated["draftStatus"]),
             ([3, 1], None, None),
         )
-        # Stale curated ids never leak into a portal listing.
         for status in ("ready_to_share", "in_progress"):
-            own = served({"source": status, "ids": [3]})
+            own = served("plan_gallery", {"status": status})
             self.assertEqual(
                 (own["ids"], own["portalId"], own["draftStatus"]),
                 (None, "configured", status),
             )
-            self.assertNotIn("source", own)
-        # Off a portal page a portal gallery has nothing to list.
-        self.assertIsNone(served({"source": "ready_to_share"}, portal=None)["portalId"])
+            self.assertNotIn("status", own)
+        # Off a portal page a submissions gallery has nothing to list.
+        self.assertIsNone(served("plan_gallery", {}, portal=None)["portalId"])
 
-    def test_portal_galleries_only_on_portal_pages(self):
+    def test_submissions_galleries_only_on_portal_pages(self):
         from content.forms import has_portal_gallery
 
-        def body(source):
+        def body(block_type, value):
             page = PortalPage()
-            page.body = [
-                {"type": "plan_gallery", "value": {"source": source, "ids": [1]}}
-            ]
+            page.body = [{"type": block_type, "value": value}]
             return page.body
 
-        self.assertTrue(has_portal_gallery(body("ready_to_share")))
-        self.assertTrue(has_portal_gallery(body("in_progress")))
-        self.assertFalse(has_portal_gallery(body("ids")))
+        self.assertTrue(
+            has_portal_gallery(body("plan_gallery", {"status": "in_progress"}))
+        )
+        self.assertFalse(has_portal_gallery(body("curated_gallery", {"ids": [1]})))
 
     def test_portal_page_may_carry_several_curated_galleries(self):
         self.portal.body = [
-            {"type": "plan_gallery", "value": {"source": "ids", "ids": [1, 2]}},
-            {"type": "plan_gallery", "value": {"source": "ids", "ids": [3]}},
+            {"type": "curated_gallery", "value": {"ids": [1, 2]}},
+            {"type": "curated_gallery", "value": {"ids": [3]}},
         ]
         self.portal.full_clean()
         self.portal.save_revision().publish()
@@ -1378,13 +1374,13 @@ class FormConfigInjectionTests(TestCase):
         self.assertEqual([b["value"]["ids"] for b in body], [[1, 2], [3]])
 
     def test_curated_gallery_needs_ids(self):
-        from content.blocks import PlanGalleryBlock
+        from content.blocks import CuratedGalleryBlock
         from wagtail.blocks import StructBlockValidationError
 
-        block = PlanGalleryBlock()
+        block = CuratedGalleryBlock()
         for ids in ([], list(range(1, 52))):  # none, or more than 50
             with self.assertRaises(StructBlockValidationError) as caught:
-                block.clean(block.to_python({"source": "ids", "ids": ids}))
+                block.clean(block.to_python({"ids": ids}))
             self.assertIn("ids", caught.exception.block_errors)
 
     def test_map_modules_saved_as_list_blocks_still_serve(self):

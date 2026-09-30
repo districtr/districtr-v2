@@ -237,66 +237,83 @@ class SectionHeaderBlock(blocks.StructBlock):
         label = "Section header"
 
 
-# What a plan gallery lists. Resolved into the served ids/tags filters by
-# content/api.py::_resolve_plan_galleries.
-# What a plan gallery lists; resolved into the frontend's filters by
-# content/api.py::_resolve_plan_galleries. The two portal modes list the
-# page's own portal, so they only work on portal pages (content/forms.py).
-PLAN_GALLERY_SOURCES = [
-    ("ids", "Curated: specific maps by ID"),
-    ("ready_to_share", "Finished submissions to this portal"),
-    ("in_progress", "In-progress submissions to this portal"),
-]
-PORTAL_GALLERY_SOURCES = ("ready_to_share", "in_progress")
 # Matches the backend's cap on /api/documents/list?ids=.
 MAX_CURATED_IDS = 50
 
 
-class PlanGalleryBlock(CompatStructBlock):
-    """A gallery of plans: a curated list of map IDs in editor order, or the
-    page's portal's finished or in-progress submissions (the slug is
-    injected when serving, so a rename can't strand it). A page may carry
-    any number of galleries.
-    """
+def _gallery_display_blocks():
+    """Presentation options shared by both gallery blocks (after each
+    block's own source field, so that one comes first in the editor)."""
+    return [
+        ("title", blocks.CharBlock(required=False)),
+        ("description", blocks.TextBlock(required=False)),
+        ("paginate", blocks.BooleanBlock(required=False, default=True)),
+        ("showListView", blocks.BooleanBlock(required=False, default=True)),
+        ("showThumbnails", blocks.BooleanBlock(required=False, default=True)),
+        ("showTitles", blocks.BooleanBlock(required=False, default=True)),
+        ("showDescriptions", blocks.BooleanBlock(required=False, default=True)),
+        ("showUpdatedAt", blocks.BooleanBlock(required=False, default=True)),
+        ("showTags", blocks.BooleanBlock(required=False, default=True)),
+        ("showModule", blocks.BooleanBlock(required=False, default=True)),
+        ("limit", blocks.IntegerBlock(default=12)),
+    ]
 
-    source = blocks.ChoiceBlock(
-        choices=PLAN_GALLERY_SOURCES,
-        default="ready_to_share",
-        widget=forms.RadioSelect,
-        label="Show",
-    )
-    ids = blocks.ListBlock(
-        blocks.IntegerBlock(min_value=1),
-        default=[],
-        max_num=MAX_CURATED_IDS,
-        label="Map IDs",
-        help_text=f"For curated galleries: up to {MAX_CURATED_IDS} public map "
-        "IDs, shown in this order.",
-    )
-    title = blocks.CharBlock(required=False)
-    description = blocks.TextBlock(required=False)
-    paginate = blocks.BooleanBlock(required=False, default=True)
-    showListView = blocks.BooleanBlock(required=False, default=True)
-    showThumbnails = blocks.BooleanBlock(required=False, default=True)
-    showTitles = blocks.BooleanBlock(required=False, default=True)
-    showDescriptions = blocks.BooleanBlock(required=False, default=True)
-    showUpdatedAt = blocks.BooleanBlock(required=False, default=True)
-    showTags = blocks.BooleanBlock(required=False, default=True)
-    showModule = blocks.BooleanBlock(required=False, default=True)
-    limit = blocks.IntegerBlock(default=12)
+
+class SubmissionsGalleryBlock(CompatStructBlock):
+    """The page's portal's submitted maps at one status. Portal pages only
+    (content/forms.py); the slug is injected when serving (content/api.py),
+    so a rename can't strand the gallery. Stream name: plan_gallery."""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            [
+                (
+                    "status",
+                    blocks.ChoiceBlock(
+                        choices=[
+                            ("ready_to_share", "Finished maps"),
+                            ("in_progress", "Maps in progress"),
+                        ],
+                        default="ready_to_share",
+                        widget=forms.RadioSelect,
+                        label="Show",
+                    ),
+                ),
+                *_gallery_display_blocks(),
+            ],
+            **kwargs,
+        )
 
     class Meta:
         icon = "table"
-        label = "Plan gallery"
-        nullable_if_empty = ("ids",)
+        label = "Submissions gallery"
 
-    def clean(self, value):
-        value = super().clean(value)
-        if value["source"] == "ids" and not value["ids"]:
-            raise blocks.StructBlockValidationError(
-                block_errors={"ids": ValidationError("Add at least one map ID.")}
-            )
-        return value
+
+class CuratedGalleryBlock(CompatStructBlock):
+    """Specific maps, in the order entered. Works on any page."""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            [
+                (
+                    "ids",
+                    blocks.ListBlock(
+                        blocks.IntegerBlock(min_value=1),
+                        min_num=1,
+                        max_num=MAX_CURATED_IDS,
+                        label="Map IDs",
+                        help_text=f"Up to {MAX_CURATED_IDS} public map IDs, "
+                        "shown in this order.",
+                    ),
+                ),
+                *_gallery_display_blocks(),
+            ],
+            **kwargs,
+        )
+
+    class Meta:
+        icon = "table"
+        label = "Curated gallery"
 
 
 class CommentGalleryBlock(CompatStructBlock):
@@ -387,7 +404,8 @@ class ContentStreamBlock(blocks.StreamBlock):
     rich_text = FrontendRichTextBlock(features=RICH_TEXT_FEATURES, label="Rich text")
     boilerplate = BoilerplateBlock()
     section_header = SectionHeaderBlock()
-    plan_gallery = PlanGalleryBlock()
+    plan_gallery = SubmissionsGalleryBlock()
+    curated_gallery = CuratedGalleryBlock()
     comment_gallery = CommentGalleryBlock()
     form = FormBlock()
     map_create_buttons = MapCreateButtonsBlock()
