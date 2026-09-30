@@ -14,7 +14,6 @@ from app.core.security import auth
 from app.main import app
 from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
-from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
 from app.submissions import moderation
 from app.submissions.moderation import find_blocked_phrase
@@ -160,10 +159,6 @@ class TestValidation:
         assert entry["fields"]["title"] == "My testimony"
         assert entry["portal_id"] == PORTAL
         assert entry["nsfw"] is False
-
-    def test_slugify(self):
-        assert slugify("  River   Basin! ") == "river-basin"
-        assert slugify("UPPER_case") == "upper-case"
 
 
 # ---------------------------------------------------------------------------

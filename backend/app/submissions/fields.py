@@ -104,12 +104,3 @@ def _is_valid_email(value: str) -> bool:
     except EmailNotValidError:
         return False
     return True
-
-
-def slugify(value: str) -> str:
-    """Lowercase, trim, collapse non-alphanumerics to single hyphens.
-
-    Replaces the slugify_tag SQL UDF the legacy tag table used.
-    """
-    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return slug

@@ -24,11 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.security import HTTPAuthorizationCredentials, SecurityScopes
 
 from app.core.config import get_settings
-from app.core.security import (
-    UnauthenticatedException,
-    UnauthorizedException,
-    VerifyToken,
-)
+from app.core.security import UnauthorizedException, VerifyToken
 
 settings = get_settings()
 
@@ -253,6 +249,13 @@ def test_unsigned_token_rejected(verifier, jwks):
         run_verify(verifier, token, ["create:content"])
 
 
-def test_missing_token_rejected(verifier):
-    with pytest.raises(UnauthenticatedException):
-        verifier.verify(SecurityScopes(scopes=[]), None)
+def test_missing_token_rejected():
+    """No Authorization header never reaches verify(): HTTPBearer rejects it."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    response = TestClient(app).patch(
+        "/api/cms/site_settings", json={"under_construction": True}
+    )
+    assert response.status_code == 403
