@@ -168,7 +168,7 @@ def test_add_gerrydb_columns_preserves_existing_values(engine, tmp_path, target_
     assert _staging_table_count(engine) == 0
 
 
-def test_add_gerrydb_columns_rerun_requires_replace(engine, tmp_path, target_table):
+def test_add_gerrydb_columns_refuses_existing_columns(engine, tmp_path, target_table):
     gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
     columns = ("--columns", "pres_24_dem,pres_24_rep")
     assert _add_columns(*columns, gpkg=gpkg).returncode == 0
@@ -184,14 +184,6 @@ def test_add_gerrydb_columns_rerun_requires_replace(engine, tmp_path, target_tab
         assert result.returncode != 0, extra
         assert "already exist" in result.stderr, result.stderr
         assert _table_rows(engine) == first
-
-    result = _add_columns("--columns", "pres_24_dem", "--replace", gpkg=changed)
-    assert result.returncode == 0, result.stderr
-    replaced = _table_rows(engine)
-    for path, row in first.items():
-        for column, value in row.items():
-            expected = value + 100 if column == "pres_24_dem" else value
-            assert replaced[path][column] == expected, (path, column)
     assert _staging_table_count(engine) == 0
 
 
@@ -288,6 +280,19 @@ def test_rebuild_shatterable_view_adds_columns_keeps_rows_and_indexes(
         {"prefix": REBUILD_PREFIX},
     ).scalar_one()
     assert leftovers == 0
+
+
+def test_rebuild_shatterable_view_refuses_column_only_on_child(
+    session: Session, simple_shatterable_districtr_map
+):
+    before = _view_state(session)
+    _add_election_column(session, "simple_child_geos")
+
+    with pytest.raises(ValueError, match="lacks child columns"):
+        rebuild_shatterable_view(session, "simple_geos")
+
+    assert "pres_24_dem" not in get_gerrydb_numeric_cols(session, "simple_geos")
+    assert _view_state(session) == before
 
 
 SIMPLE_ASSIGNMENTS = [

@@ -123,38 +123,36 @@ def batch_create_graphs(
 )
 @click.option("--csv", "csv_path", required=True, help="Block-level CSV to add")
 @click.option(
+    "--graph",
+    required=True,
+    help="Path or s3 URI of the map's graph npz; source of each block's parent",
+)
+@click.option(
     "--id-column", default="geoid20", help="CSV column holding the block path"
 )
 @click.option(
     "--columns",
-    default=None,
-    help="Comma-separated CSV columns to add (default: all but the id column)",
+    required=True,
+    help="Comma-separated numeric CSV columns to add",
 )
 @click.option("--out-dir", default=None, help="Output directory (default: OUT_SCRATCH)")
-@click.option(
-    "--replace",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Overwrite columns that already exist in either layer",
-)
 def add_block_columns_cmd(
     blocks_gpkg: str,
     parent_gpkg: str,
     csv_path: str,
+    graph: str,
     id_column: str,
-    columns: str | None,
+    columns: str,
     out_dir: str | None,
-    replace: bool,
 ) -> None:
     """Add block-level CSV columns to a block GeoPackage and sum them into its parent."""
     blocks_out, parent_out = add_block_columns(
         blocks_gpkg=blocks_gpkg,
         parent_gpkg=parent_gpkg,
         csv_path=csv_path,
+        graph=graph,
         id_column=id_column,
-        columns=columns.split(",") if columns else None,
+        columns=columns.split(","),
         out_dir=out_dir,
-        replace=replace,
     )
     logger.info(f"Wrote {blocks_out} and {parent_out}")

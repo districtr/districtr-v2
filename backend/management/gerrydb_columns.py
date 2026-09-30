@@ -7,8 +7,8 @@ The three steps run in this order for each layer pair of a shatterable view:
 3. `invalidate_document_caches` on the same view, so documents recompute
    their cached stats and evaluations on next read.
 
-Values already in a GerryDB table change only in columns named explicitly
-with `replace=True`.
+Values already in a GerryDB table never change: every added column must be new
+to the table.
 """
 
 import logging
@@ -96,7 +96,6 @@ def _drop_columns_autocommit(session: Session, table: str, columns: list[str]) -
 @dataclass
 class AddColumnsResult:
     added: list[str]
-    replaced: list[str]
     rows_updated: int
 
 
@@ -106,15 +105,13 @@ def add_gerrydb_columns(
     gpkg: str,
     layer: str | None = None,
     columns: list[str] | None = None,
-    replace: bool = False,
 ) -> AddColumnsResult:
     """Add GeoPackage columns to an existing `gerrydb.<table>`, matched on `path`.
 
     The GeoPackage layer is loaded into a staging table, then one transaction
     adds the columns and fills them with `UPDATE ... FROM` the staging table.
     By default the columns are every numeric GeoPackage column the table
-    lacks. A named column that already exists is refused unless `replace`,
-    in which case its values are overwritten.
+    lacks. A named column that already exists is refused.
 
     Every staging `path` must match a table row and every table row must
     match a staging `path`; any mismatch aborts with nothing changed. New
@@ -122,8 +119,6 @@ def add_gerrydb_columns(
     fails. The caller commits the UPDATE.
     """
     assert_safe_ident(table)
-    if replace and not columns:
-        raise ValueError("--replace requires --columns naming the columns to overwrite")
     if _relkind(session, table) != "r":
         raise ValueError(f"{GERRY_DB_SCHEMA}.{table} is not an existing table")
 
@@ -147,9 +142,7 @@ def add_gerrydb_columns(
     # connection.
     savepoint = session.begin_nested()
     try:
-        selected, added, staging_types = _select_columns(
-            session, table, staging, columns, replace
-        )
+        added, staging_types = _select_columns(session, table, staging, columns)
         savepoint.commit()
     except Exception:
         savepoint.rollback()
@@ -160,29 +153,28 @@ def add_gerrydb_columns(
     # would block every reader of the table until the UPDATE finished. It is
     # committed on its own; the new columns stay invisible to requests until
     # the shatterable view is rebuilt, because stats read the view.
-    if added:
-        clauses = []
-        for name in added:
-            type_ = staging_types[name]
-            if not _SAFE_TYPE_RE.match(type_):
-                _drop_table_autocommit(session, staging)
-                raise ValueError(f"Unexpected type {type_!r} for column {name}")
-            clauses.append(f"ADD COLUMN {_quote_ident(name)} {type_}")
-        try:
-            session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
-            session.execute(
-                sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {', '.join(clauses)}")
-            )
-            session.commit()
-        except Exception:
-            session.rollback()
+    clauses = []
+    for name in added:
+        type_ = staging_types[name]
+        if not _SAFE_TYPE_RE.match(type_):
             _drop_table_autocommit(session, staging)
-            raise
+            raise ValueError(f"Unexpected type {type_!r} for column {name}")
+        clauses.append(f"ADD COLUMN {_quote_ident(name)} {type_}")
+    try:
+        session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
+        session.execute(
+            sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {', '.join(clauses)}")
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        _drop_table_autocommit(session, staging)
+        raise
 
     try:
         session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
         assignments = ", ".join(
-            f"{_quote_ident(name)} = s.{_quote_ident(name)}" for name in selected
+            f"{_quote_ident(name)} = s.{_quote_ident(name)}" for name in added
         )
         rows_updated = session.execute(
             sa.text(
@@ -197,16 +189,14 @@ def add_gerrydb_columns(
         _drop_table_autocommit(session, staging)
         raise
 
-    replaced = [c for c in selected if c not in added]
     logger.info(
-        "Updated %s rows of %s.%s (added %s, replaced %s)",
+        "Updated %s rows of %s.%s (added %s)",
         rows_updated,
         GERRY_DB_SCHEMA,
         table,
         added,
-        replaced,
     )
-    return AddColumnsResult(added=added, replaced=replaced, rows_updated=rows_updated)
+    return AddColumnsResult(added=added, rows_updated=rows_updated)
 
 
 def _select_columns(
@@ -214,8 +204,7 @@ def _select_columns(
     table: str,
     staging: str,
     columns: list[str] | None,
-    replace: bool,
-) -> tuple[list[str], list[str], dict[str, str]]:
+) -> tuple[list[str], dict[str, str]]:
     """Validate the staged layer against the table; return the columns to write."""
     session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
 
@@ -234,10 +223,9 @@ def _select_columns(
         if reserved:
             raise ValueError(f"Reserved columns cannot be added: {reserved}")
         existing = [c for c in columns if c in table_types]
-        if existing and not replace:
+        if existing:
             raise ValueError(
-                f"Columns already exist in {GERRY_DB_SCHEMA}.{table}: {existing}. "
-                "Pass --replace to overwrite them."
+                f"Columns already exist in {GERRY_DB_SCHEMA}.{table}: {existing}"
             )
         selected = list(columns)
     else:
@@ -249,8 +237,7 @@ def _select_columns(
         if not selected:
             raise ValueError(
                 f"Every numeric GeoPackage column already exists in "
-                f"{GERRY_DB_SCHEMA}.{table}. Name columns with --columns and "
-                "pass --replace to overwrite them."
+                f"{GERRY_DB_SCHEMA}.{table}"
             )
 
     counts = session.execute(
@@ -283,8 +270,7 @@ def _select_columns(
             f"{counts.table_only} table paths are missing from the GeoPackage"
         )
 
-    added = [c for c in selected if c not in table_types]
-    return selected, added, staging_types
+    return selected, staging_types
 
 
 @dataclass
@@ -347,9 +333,16 @@ def rebuild_shatterable_view(
     child = assert_safe_ident(layer_pairs[0][1])
 
     view_columns = _view_columns(session, parent)
-    missing = sorted(set(view_columns) - set(_view_columns(session, child)))
+    child_columns = _view_columns(session, child)
+    missing = sorted(set(view_columns) - set(child_columns))
     if missing:
         raise ValueError(f"Child layer {child} lacks parent columns: {missing}")
+    child_only = sorted(set(child_columns) - set(view_columns))
+    if child_only:
+        raise ValueError(
+            f"Parent layer {parent} lacks child columns: {child_only}. "
+            "Add them to the parent before rebuilding the view."
+        )
 
     indexes = session.execute(
         sa.text(

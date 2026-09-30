@@ -418,12 +418,6 @@ def create_shatterable_gerrydb_view(
     "(default: every numeric GeoPackage column the table lacks)",
     required=False,
 )
-@click.option(
-    "--replace",
-    is_flag=True,
-    default=False,
-    help="Overwrite values of --columns that already exist in the table",
-)
 @with_session
 def add_gerrydb_columns(
     session: Session,
@@ -431,7 +425,6 @@ def add_gerrydb_columns(
     gpkg: str,
     layer: str | None,
     columns: str | None,
-    replace: bool,
 ):
     """Add GeoPackage columns to an onboarded GerryDB table, joined on path.
 
@@ -448,10 +441,8 @@ def add_gerrydb_columns(
         gpkg=gpkg,
         layer=layer,
         columns=column_list,
-        replace=replace,
     )
     click.echo(f"Added columns: {', '.join(result.added) or '(none)'}")
-    click.echo(f"Replaced columns: {', '.join(result.replaced) or '(none)'}")
     click.echo(f"Rows updated: {result.rows_updated}")
 
 

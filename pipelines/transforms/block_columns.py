@@ -1,9 +1,9 @@
 """Add block-level columns from a CSV to a block GeoPackage and its parent GeoPackage.
 
 Block values are joined on the block path; parent values are the sums of each
-parent's blocks, assigned by the block's representative point (the same rule
-the graph pipeline uses). Both GeoPackages are copied and edited in place at the
-SQL level, so every other layer, column and geometry stays byte-identical.
+parent's blocks, with block-to-parent membership read from the map's graph. Both
+GeoPackages are copied and edited in place at the SQL level, so every other
+layer, column and geometry stays byte-identical.
 """
 
 import logging
@@ -18,6 +18,7 @@ import pandas as pd
 
 from core.io import download_file_from_s3
 from core.settings import settings
+from transforms.graph import GRAPH_NPZ_FORMAT_VERSION
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,57 +45,22 @@ def _layer_name(gpkg: str) -> str:
     return Path(urlparse(gpkg).path).stem
 
 
-def _numeric_columns(df: pd.DataFrame) -> list[str]:
-    return [
-        c
-        for c in df.columns
-        if c not in ("path", "fid", "geometry") and pd.api.types.is_numeric_dtype(df[c])
-    ]
-
-
-def _block_to_parent(blocks: gpd.GeoDataFrame, parents: gpd.GeoDataFrame) -> pd.Series:
-    if parents.crs != blocks.crs:
-        parents = parents.to_crs(blocks.crs)
-    points = blocks[["path"]].set_geometry(blocks.geometry.representative_point())
-    joined = gpd.sjoin(
-        points,
-        parents[["path", "geometry"]].rename(columns={"path": "parent_path"}),
-        how="left",
-        predicate="within",
+def _parent_map(graph: str) -> pd.Series:
+    """Block path -> parent path from a graph npz, for every node that has a parent."""
+    with np.load(_resolve_local(graph), allow_pickle=False) as z:
+        version = int(z["format_version"])
+        if version != GRAPH_NPZ_FORMAT_VERSION:
+            raise ValueError(f"Unsupported graph npz format_version {version}")
+        node_ids, parent_of = z["node_ids"], z["parent_of"]
+    has_parent = parent_of >= 0
+    return pd.Series(
+        node_ids[parent_of[has_parent]],
+        index=pd.Index(node_ids[has_parent], name="path"),
+        name="parent_path",
     )
-    unmatched = int(joined["parent_path"].isna().sum())
-    multi = int(joined["path"].duplicated().sum())
-    if unmatched or multi:
-        raise ValueError(
-            f"{unmatched} blocks fall in no parent and {multi} in more than one; "
-            "parent values would not be exact block sums"
-        )
-    return joined.set_index("path")["parent_path"]
 
 
-def _check_parent_consistency(
-    blocks: pd.DataFrame, parents: pd.DataFrame, mapping: pd.Series
-) -> None:
-    shared = [c for c in _numeric_columns(blocks) if c in parents.columns]
-    sums = (
-        blocks.assign(parent_path=blocks["path"].map(mapping))
-        .groupby("parent_path")[shared]
-        .sum()
-    )
-    existing = parents.set_index("path")[shared].reindex(sums.index)
-    bad = [
-        c
-        for c in shared
-        if not np.allclose(sums[c], existing[c].fillna(0), rtol=1e-9, atol=1e-6)
-    ]
-    if bad:
-        raise ValueError(
-            "Existing parent columns are not the sums of their blocks under this "
-            f"block-to-parent assignment: {bad}"
-        )
-
-
-def _write_columns(gpkg: Path, layer: str, values: pd.DataFrame, replace: bool) -> None:
+def _write_columns(gpkg: Path, layer: str, values: pd.DataFrame) -> None:
     columns = [c for c in values.columns if c != "path"]
     conn = sqlite3.connect(gpkg)
     try:
@@ -102,14 +68,11 @@ def _write_columns(gpkg: Path, layer: str, values: pd.DataFrame, replace: bool) 
             conn.create_function(name, n_args, lambda *_: None)
         existing = {row[1] for row in conn.execute(f'PRAGMA table_info("{layer}")')}
         clash = [c for c in columns if c in existing]
-        if clash and not replace:
-            raise ValueError(
-                f"{layer} already has columns {clash}; pass replace to overwrite them"
-            )
+        if clash:
+            raise ValueError(f"{layer} already has columns {clash}")
         with conn:
             for c in columns:
-                if c not in existing:
-                    conn.execute(f'ALTER TABLE "{layer}" ADD COLUMN "{c}" REAL')
+                conn.execute(f'ALTER TABLE "{layer}" ADD COLUMN "{c}" REAL')
             conn.execute(
                 "CREATE TEMP TABLE new_values (path TEXT PRIMARY KEY, "
                 + ", ".join(f'"{c}" REAL' for c in columns)
@@ -132,16 +95,18 @@ def add_block_columns(
     blocks_gpkg: str,
     parent_gpkg: str,
     csv_path: str,
+    graph: str,
+    columns: list[str],
     id_column: str = "geoid20",
-    columns: list[str] | None = None,
     out_dir: Path | None = None,
-    replace: bool = False,
 ) -> tuple[Path, Path]:
     """Write copies of both GeoPackages with the CSV's columns added.
 
-    Refuses to write anything if the CSV and the block layer don't cover exactly
-    the same blocks, if any block falls in zero or several parents, or if the
-    parent layer's existing columns aren't reproduced as sums of its blocks.
+    `graph` is the map's graph npz (local path or s3 URI), the source of which
+    parent each block belongs to. Refuses to write anything if the CSV and the
+    block layer don't cover exactly the same blocks, if a named column has a
+    blank cell, if a block has no parent in the graph, or if a parent named by
+    the graph is missing from the parent layer.
 
     Returns the paths of the new block and parent GeoPackages.
     """
@@ -152,11 +117,10 @@ def add_block_columns(
     csv = pd.read_csv(csv_path, dtype={id_column: str}).rename(
         columns={id_column: "path"}
     )
-    columns = columns or [c for c in csv.columns if c != "path"]
     csv = csv[["path", *columns]]
 
-    blocks = gpd.read_file(blocks_src, layer=blocks_layer)
-    parents = gpd.read_file(parent_src, layer=parent_layer)
+    blocks = gpd.read_file(blocks_src, layer=blocks_layer, ignore_geometry=True)
+    parents = gpd.read_file(parent_src, layer=parent_layer, ignore_geometry=True)
 
     csv_ids, block_ids = set(csv["path"]), set(blocks["path"])
     if csv_ids != block_ids or csv["path"].duplicated().any():
@@ -165,15 +129,22 @@ def add_block_columns(
             f"not in the layer, {len(block_ids - csv_ids)} layer blocks not in the "
             f"CSV, {int(csv['path'].duplicated().sum())} duplicate CSV ids"
         )
+    blank = csv[columns].isna().sum()
+    if blank.any():
+        raise ValueError(f"CSV has blank cells: {blank[blank > 0].to_dict()}")
 
-    mapping = _block_to_parent(blocks, parents)
-    _check_parent_consistency(
-        pd.DataFrame(blocks.drop(columns="geometry")),
-        pd.DataFrame(parents.drop(columns="geometry")),
-        mapping,
-    )
+    mapping = _parent_map(graph).reindex(csv["path"])
+    if mapping.isna().any():
+        raise ValueError(
+            f"{int(mapping.isna().sum())} blocks have no parent in {graph}"
+        )
+    unknown = set(mapping) - set(parents["path"])
+    if unknown:
+        raise ValueError(
+            f"{len(unknown)} parents in {graph} are missing from {parent_layer}"
+        )
     parent_values = (
-        csv.assign(parent_path=csv["path"].map(mapping))
+        csv.assign(parent_path=mapping.to_numpy())
         .groupby("parent_path")[columns]
         .sum()
         .reindex(parents["path"], fill_value=0)
@@ -185,8 +156,8 @@ def add_block_columns(
     blocks_out, parent_out = out_dir / blocks_src.name, out_dir / parent_src.name
     shutil.copyfile(blocks_src, blocks_out)
     shutil.copyfile(parent_src, parent_out)
-    _write_columns(blocks_out, blocks_layer, csv, replace)
-    _write_columns(parent_out, parent_layer, parent_values, replace)
+    _write_columns(blocks_out, blocks_layer, csv)
+    _write_columns(parent_out, parent_layer, parent_values)
     LOGGER.info(
         "Added %s to %s (%d blocks) and %s (%d parents)",
         columns,
