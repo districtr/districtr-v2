@@ -1,9 +1,7 @@
 /**
- * CommentGallery - CMS-embeddable component for displaying public comments
- *
- * This component can be inserted into CMS pages via the TipTap editor.
- * It supports filtering by IDs, tags, location, and configurable display options.
- * Optional filter controls allow visitors to search and filter comments.
+ * CommentGallery - renders the CMS `comment_gallery` block: a portal's public
+ * submissions, filterable by IDs, tags, location, and display options.
+ * Optional filter controls allow visitors to search and filter submissions.
  *
  * Uses the generic Gallery component for consistent pagination and view modes.
  */
@@ -57,7 +55,7 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-/** Props for CommentGallery - matches attributes defined in CommentGalleryNode */
+/** Props for CommentGallery - the CMS comment_gallery block's value */
 export interface CommentGalleryProps {
   ids?: number[];
   /** Injected by the CMS on portal pages: scopes the gallery to one portal. */
@@ -67,7 +65,6 @@ export interface CommentGalleryProps {
   place?: string;
   state?: string;
   zipCode?: string;
-  offset?: number;
   limit?: number;
   title?: string;
   description?: string;
@@ -192,10 +189,10 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   place: initialPlace,
   state: initialState,
   zipCode: initialZipCode,
-  offset,
   limit,
   title,
   description,
+  paginate,
   showListView,
   showTitles,
   showPlaces,
@@ -232,7 +229,6 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       place: debouncedUserFilters.place || initialPlace,
       state: debouncedUserFilters.state || initialState,
       zipCode: debouncedUserFilters.zipCode || initialZipCode,
-      offset: offset,
       limit: limit,
       search: debouncedUserFilters.search || undefined,
       hasMap: debouncedUserFilters.hasMap,
@@ -245,7 +241,6 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       initialPlace,
       initialState,
       initialZipCode,
-      offset,
       limit,
     ]
   );
@@ -280,7 +275,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       >
         title={title}
         description={description}
-        paginate
+        paginate={paginate}
         limit={limit ?? 10}
         showListView={showListView}
         filters={filters}
