@@ -5,7 +5,7 @@ author's own annotations and are served verbatim. Downgrade restores the
 columns empty (every note clean), since the verdicts are not recoverable.
 
 Revision ID: e4b8c1f07a92
-Revises: a7c2e9d4b150
+Revises: 752717137078
 Create Date: 2026-09-29
 """
 
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e4b8c1f07a92"
-down_revision: Union[str, None] = "a7c2e9d4b150"
+down_revision: Union[str, None] = "752717137078"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
