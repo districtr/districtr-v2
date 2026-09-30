@@ -14,8 +14,12 @@ to the table.
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
+import pandas as pd
+import pyogrio
 import sqlalchemy as sa
 from sqlalchemy import delete, update
 from sqlmodel import Session, col, func, select
@@ -24,18 +28,12 @@ from app.constants import GERRY_DB_SCHEMA
 from app.core.io import get_local_or_s3_path
 from app.evaluation.models import CountyDemographics, Evaluation
 from app.models import DistrictrMap, DistrictUnions, Document
-from app.utils import _quote_ident, assert_safe_ident, get_gerrydb_numeric_cols
-from management.load_data import ogr2ogr_to_gerrydb
+from app.utils import _quote_ident, assert_safe_ident
 
 logger = logging.getLogger(__name__)
 
-STAGING_TABLE_PREFIX = "_add_columns_staging_"
 REBUILD_PREFIX = "_rebuild_"
 
-# Columns ogr2ogr adds or that identify a row; never candidates for adding.
-_RESERVED_COLUMNS = {"ogc_fid", "path", "geometry"}
-# format_type() output for the column types ogr2ogr writes.
-_SAFE_TYPE_RE = re.compile(r"^[a-z0-9 _(),]+$")
 # pg_get_indexdef() output: CREATE [UNIQUE] INDEX <name> ON <table> <rest>.
 _INDEXDEF_RE = re.compile(r"^CREATE (UNIQUE )?INDEX (\S+) ON (\S+) (.+)$", re.DOTALL)
 # How long an exclusive lock on a live table or view waits for its current
@@ -75,13 +73,6 @@ def _column_types(session: Session, relation: str) -> dict[str, str]:
     return {name: type_ for name, type_ in rows}
 
 
-def _drop_table_autocommit(session: Session, table: str) -> None:
-    """Drop a table on a fresh connection, independent of the session's transaction."""
-    engine = session.get_bind().engine
-    with engine.begin() as conn:
-        conn.execute(sa.text(f'DROP TABLE IF EXISTS {GERRY_DB_SCHEMA}."{table}"'))
-
-
 def _drop_columns_autocommit(session: Session, table: str, columns: list[str]) -> None:
     """Drop columns on a fresh connection, independent of the session's transaction."""
     if not columns:
@@ -95,182 +86,132 @@ def _drop_columns_autocommit(session: Session, table: str, columns: list[str]) -
 
 @dataclass
 class AddColumnsResult:
+    table: str
     added: list[str]
+    filled: list[str]
     rows_updated: int
+
+
+_SQL_TYPES = {"int64": "bigint", "int32": "integer", "float64": "double precision"}
+
+
+def _read_gpkg_columns(gpkg: str, layer: str, columns: list[str]) -> pd.DataFrame:
+    """`path` plus the named numeric columns of one GeoPackage layer, no geometry."""
+    df = pyogrio.read_dataframe(
+        get_local_or_s3_path(gpkg, replace=True),
+        layer=layer,
+        columns=["path", *columns],
+        read_geometry=False,
+    )
+    missing = [c for c in columns if c not in df.columns]
+    if missing:
+        raise ValueError(f"Columns missing from the GeoPackage: {missing}")
+    non_numeric = [c for c in columns if str(df[c].dtype) not in _SQL_TYPES]
+    if non_numeric:
+        raise ValueError(f"Columns are not numeric in the GeoPackage: {non_numeric}")
+    return df
 
 
 def add_gerrydb_columns(
     session: Session,
-    table: str,
     gpkg: str,
-    layer: str | None = None,
-    columns: list[str] | None = None,
+    columns: list[str],
 ) -> AddColumnsResult:
     """Add GeoPackage columns to an existing `gerrydb.<table>`, matched on `path`.
 
-    The GeoPackage layer is loaded into a staging table, then one transaction
-    adds the columns and fills them with `UPDATE ... FROM` the staging table.
-    By default the columns are every numeric GeoPackage column the table
-    lacks. A named column that already exists is refused.
-
-    Every staging `path` must match a table row and every table row must
-    match a staging `path`; any mismatch aborts with nothing changed. New
-    columns are committed before the UPDATE, and dropped again if the UPDATE
-    fails. The caller commits the UPDATE.
+    The table and the GeoPackage layer are both the GeoPackage's file name
+    (`<table>.gpkg`). Only `path` and the named numeric columns are read. A
+    named column must be missing from the table or hold only NULLs, so a run
+    interrupted before its fill committed can simply be re-run. Missing columns
+    are committed first; then one transaction copies the values into a
+    temporary table and fills every named column with `UPDATE ... FROM` it.
+    If the fill fails, the columns this run added are dropped again. Table rows
+    without a GeoPackage row keep NULL. The caller commits the fill.
     """
-    assert_safe_ident(table)
+    table = assert_safe_ident(Path(urlparse(gpkg).path).stem)
+    for name in columns:
+        assert_safe_ident(name)
     if _relkind(session, table) != "r":
         raise ValueError(f"{GERRY_DB_SCHEMA}.{table} is not an existing table")
+    table_types = _column_types(session, table)
+    existing = [c for c in columns if c in table_types]
+    if existing:
+        session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
+        non_null = session.execute(
+            sa.text(
+                "SELECT "
+                + ", ".join(f"count({_quote_ident(c)})" for c in existing)
+                + f" FROM {GERRY_DB_SCHEMA}.{table}"
+            )
+        ).one()
+        with_data = [c for c, n in zip(existing, non_null) if n]
+        if with_data:
+            raise ValueError(
+                f"Columns already hold data in {GERRY_DB_SCHEMA}.{table}: {with_data}"
+            )
+    to_add = [c for c in columns if c not in table_types]
 
-    staging = f"{STAGING_TABLE_PREFIX}{uuid4().hex[:16]}"
-    path = get_local_or_s3_path(gpkg, replace=True)
-    logger.info("Loading %s into staging table %s", gpkg, staging)
-    try:
-        ogr2ogr_to_gerrydb(
-            path=path,
-            layer=layer or table,
-            table_name=staging,
-            overwrite=True,
-            with_geometry=False,
-        )
-    except Exception:
-        _drop_table_autocommit(session, staging)
-        raise
-
-    # Validation runs inside a savepoint: rolling it back releases the locks
-    # it took, so the failure path can drop the staging table from another
-    # connection.
-    savepoint = session.begin_nested()
-    try:
-        added, staging_types = _select_columns(session, table, staging, columns)
-        savepoint.commit()
-    except Exception:
-        savepoint.rollback()
-        _drop_table_autocommit(session, staging)
-        raise
+    logger.info("Reading %s", gpkg)
+    values = _read_gpkg_columns(gpkg, table, columns)
+    sql_types = {c: _SQL_TYPES[str(values[c].dtype)] for c in columns}
 
     # Adding a nullable column is instant but needs an exclusive lock, which
     # would block every reader of the table until the UPDATE finished. It is
     # committed on its own; the new columns stay invisible to requests until
     # the shatterable view is rebuilt, because stats read the view.
-    clauses = []
-    for name in added:
-        type_ = staging_types[name]
-        if not _SAFE_TYPE_RE.match(type_):
-            _drop_table_autocommit(session, staging)
-            raise ValueError(f"Unexpected type {type_!r} for column {name}")
-        clauses.append(f"ADD COLUMN {_quote_ident(name)} {type_}")
-    try:
+    if to_add:
         session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
         session.execute(
-            sa.text(f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} {', '.join(clauses)}")
+            sa.text(
+                f"ALTER TABLE {GERRY_DB_SCHEMA}.{table} "
+                + ", ".join(
+                    f"ADD COLUMN {_quote_ident(c)} {sql_types[c]}" for c in to_add
+                )
+            )
         )
         session.commit()
-    except Exception:
-        session.rollback()
-        _drop_table_autocommit(session, staging)
-        raise
 
     try:
         session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
+        session.execute(
+            sa.text(
+                "CREATE TEMP TABLE new_values (path text PRIMARY KEY, "
+                + ", ".join(f"{_quote_ident(c)} {sql_types[c]}" for c in columns)
+                + ") ON COMMIT DROP"
+            )
+        )
+        column_list = ", ".join(_quote_ident(c) for c in ["path", *columns])
+        rows = values[["path", *columns]].astype(object)
+        rows = rows.where(rows.notna(), None)
+        with session.connection().connection.cursor() as cursor:
+            with cursor.copy(f"COPY new_values ({column_list}) FROM STDIN") as copy:
+                for row in rows.itertuples(index=False, name=None):
+                    copy.write_row(row)
         assignments = ", ".join(
-            f"{_quote_ident(name)} = s.{_quote_ident(name)}" for name in added
+            f"{_quote_ident(c)} = v.{_quote_ident(c)}" for c in columns
         )
         rows_updated = session.execute(
             sa.text(
                 f"UPDATE {GERRY_DB_SCHEMA}.{table} AS t SET {assignments} "
-                f'FROM {GERRY_DB_SCHEMA}."{staging}" AS s WHERE t.path = s.path'
+                "FROM new_values AS v WHERE t.path = v.path"
             )
         ).rowcount
-        session.execute(sa.text(f'DROP TABLE {GERRY_DB_SCHEMA}."{staging}"'))
     except Exception:
         session.rollback()
-        _drop_columns_autocommit(session, table, added)
-        _drop_table_autocommit(session, staging)
+        _drop_columns_autocommit(session, table, to_add)
         raise
 
     logger.info(
-        "Updated %s rows of %s.%s (added %s)",
+        "Updated %s rows of %s.%s (filled %s, added %s)",
         rows_updated,
         GERRY_DB_SCHEMA,
         table,
-        added,
+        columns,
+        to_add,
     )
-    return AddColumnsResult(added=added, rows_updated=rows_updated)
-
-
-def _select_columns(
-    session: Session,
-    table: str,
-    staging: str,
-    columns: list[str] | None,
-) -> tuple[list[str], dict[str, str]]:
-    """Validate the staged layer against the table; return the columns to write."""
-    session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
-
-    staging_types = _column_types(session, staging)
-    table_types = _column_types(session, table)
-    if "path" not in staging_types:
-        raise ValueError("The GeoPackage layer has no `path` column")
-
-    if columns:
-        for name in columns:
-            assert_safe_ident(name)
-        unknown = [c for c in columns if c not in staging_types]
-        if unknown:
-            raise ValueError(f"Columns missing from the GeoPackage: {unknown}")
-        reserved = [c for c in columns if c in _RESERVED_COLUMNS]
-        if reserved:
-            raise ValueError(f"Reserved columns cannot be added: {reserved}")
-        existing = [c for c in columns if c in table_types]
-        if existing:
-            raise ValueError(
-                f"Columns already exist in {GERRY_DB_SCHEMA}.{table}: {existing}"
-            )
-        selected = list(columns)
-    else:
-        selected = [
-            c
-            for c in get_gerrydb_numeric_cols(session, staging)
-            if c not in _RESERVED_COLUMNS and c not in table_types
-        ]
-        if not selected:
-            raise ValueError(
-                f"Every numeric GeoPackage column already exists in "
-                f"{GERRY_DB_SCHEMA}.{table}"
-            )
-
-    counts = session.execute(
-        sa.text(
-            f"""
-            SELECT
-                (SELECT count(*) FROM {GERRY_DB_SCHEMA}."{staging}") AS staging_rows,
-                (SELECT count(DISTINCT path) FROM {GERRY_DB_SCHEMA}."{staging}")
-                    AS staging_paths,
-                (SELECT count(*) FROM {GERRY_DB_SCHEMA}."{staging}" s
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM {GERRY_DB_SCHEMA}.{table} t WHERE t.path = s.path
-                 )) AS staging_only,
-                (SELECT count(*) FROM {GERRY_DB_SCHEMA}.{table} t
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM {GERRY_DB_SCHEMA}."{staging}" s WHERE s.path = t.path
-                 )) AS table_only
-            """
-        )
-    ).one()
-    if counts.staging_rows != counts.staging_paths:
-        raise ValueError(
-            f"The GeoPackage repeats paths: {counts.staging_rows} rows, "
-            f"{counts.staging_paths} distinct paths"
-        )
-    if counts.staging_only or counts.table_only:
-        raise ValueError(
-            f"Paths differ between the GeoPackage and {GERRY_DB_SCHEMA}.{table}: "
-            f"{counts.staging_only} GeoPackage paths are missing from the table, "
-            f"{counts.table_only} table paths are missing from the GeoPackage"
-        )
-
-    return selected, staging_types
+    return AddColumnsResult(
+        table=table, added=to_add, filled=list(columns), rows_updated=rows_updated
+    )
 
 
 @dataclass

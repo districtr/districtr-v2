@@ -21,7 +21,6 @@ from app.models import DistrictUnions, Document
 from app.utils import get_gerrydb_numeric_cols
 from management.gerrydb_columns import (
     REBUILD_PREFIX,
-    STAGING_TABLE_PREFIX,
     invalidate_document_caches,
     rebuild_shatterable_view,
 )
@@ -66,12 +65,16 @@ def _write_geojson(path: Path, rows: list[dict]) -> None:
     path.write_text(json.dumps({"type": "FeatureCollection", "features": features}))
 
 
-def _write_gpkg(tmp_path: Path, name: str, rows: list[dict]) -> Path:
-    geojson = tmp_path / f"{name}.geojson"
-    gpkg = tmp_path / f"{name}.gpkg"
+def _write_gpkg(
+    tmp_path: Path, name: str, rows: list[dict], layer: str = TARGET_TABLE
+) -> Path:
+    folder = tmp_path / name
+    folder.mkdir()
+    geojson = folder / f"{layer}.geojson"
+    gpkg = folder / f"{layer}.gpkg"
     _write_geojson(geojson, rows)
     subprocess.run(
-        ["ogr2ogr", "-f", "GPKG", str(gpkg), str(geojson), "-nln", TARGET_TABLE],
+        ["ogr2ogr", "-f", "GPKG", str(gpkg), str(geojson), "-nln", layer],
         check=True,
     )
     return gpkg
@@ -131,28 +134,15 @@ def _table_columns(engine) -> list[str]:
         )
 
 
-def _staging_table_count(engine) -> int:
-    with engine.connect() as conn:
-        return conn.execute(
-            text(
-                "SELECT count(*) FROM pg_tables WHERE schemaname = :schema "
-                "AND left(tablename, length(:prefix)) = :prefix"
-            ),
-            {"schema": GERRY_DB_SCHEMA, "prefix": STAGING_TABLE_PREFIX},
-        ).scalar_one()
-
-
 def _add_columns(*extra: str, gpkg: Path) -> subprocess.CompletedProcess:
-    return run_cli(
-        "add-gerrydb-columns", "--table", TARGET_TABLE, "--gpkg", str(gpkg), *extra
-    )
+    return run_cli("add-gerrydb-columns", "--gpkg", str(gpkg), *extra)
 
 
 def test_add_gerrydb_columns_preserves_existing_values(engine, tmp_path, target_table):
     before = _table_rows(engine)
     gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
 
-    result = _add_columns(gpkg=gpkg)
+    result = _add_columns("--columns", "pres_24_dem,pres_24_rep", gpkg=gpkg)
 
     assert result.returncode == 0, result.stderr
     after = _table_rows(engine)
@@ -163,9 +153,7 @@ def test_add_gerrydb_columns_preserves_existing_values(engine, tmp_path, target_
     for source in SOURCE_ROWS:
         assert after[source["path"]]["pres_24_dem"] == source["pres_24_dem"]
         assert after[source["path"]]["pres_24_rep"] == source["pres_24_rep"]
-    # Only numeric columns are added by default.
     assert "county_name" not in _table_columns(engine)
-    assert _staging_table_count(engine) == 0
 
 
 def test_add_gerrydb_columns_refuses_existing_columns(engine, tmp_path, target_table):
@@ -179,39 +167,61 @@ def test_add_gerrydb_columns_refuses_existing_columns(engine, tmp_path, target_t
         "changed",
         [{**row, "pres_24_dem": row["pres_24_dem"] + 100} for row in SOURCE_ROWS],
     )
-    for extra in (columns, ()):
-        result = _add_columns(*extra, gpkg=changed)
-        assert result.returncode != 0, extra
-        assert "already exist" in result.stderr, result.stderr
-        assert _table_rows(engine) == first
-    assert _staging_table_count(engine) == 0
+    result = _add_columns(*columns, gpkg=changed)
+    assert result.returncode != 0
+    assert "already hold data" in result.stderr, result.stderr
+    assert _table_rows(engine) == first
 
 
-@pytest.mark.parametrize(
-    "source_rows, message",
-    [
-        (SOURCE_ROWS[:-1], "1 table paths are missing from the GeoPackage"),
-        (
-            SOURCE_ROWS + [{**SOURCE_ROWS[0], "path": "blk_z"}],
-            "1 GeoPackage paths are missing from the table",
-        ),
-    ],
-    ids=["gpkg_lacks_path", "table_lacks_path"],
-)
-def test_add_gerrydb_columns_path_mismatch_changes_nothing(
-    engine, tmp_path, target_table, source_rows, message
+def test_add_gerrydb_columns_fills_all_null_column(engine, tmp_path, target_table):
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                f"ALTER TABLE {GERRY_DB_SCHEMA}.{TARGET_TABLE} "
+                "ADD COLUMN pres_24_dem double precision"
+            )
+        )
+    before = _table_rows(engine)
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
+
+    result = _add_columns("--columns", "pres_24_dem,pres_24_rep", gpkg=gpkg)
+
+    assert result.returncode == 0, result.stderr
+    after = _table_rows(engine)
+    for source in SOURCE_ROWS:
+        row = after[source["path"]]
+        assert row["pres_24_dem"] == source["pres_24_dem"]
+        assert row["pres_24_rep"] == source["pres_24_rep"]
+        for column in ("total_pop_20", "pres_20_dem"):
+            assert row[column] == before[source["path"]][column]
+
+
+def test_add_gerrydb_columns_refuses_text_column(engine, tmp_path, target_table):
+    columns_before = _table_columns(engine)
+    rows_before = _table_rows(engine)
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
+
+    result = _add_columns("--columns", "pres_24_dem,county_name", gpkg=gpkg)
+
+    assert result.returncode != 0
+    assert "not numeric" in result.stderr, result.stderr
+    assert _table_columns(engine) == columns_before
+    assert _table_rows(engine) == rows_before
+
+
+def test_add_gerrydb_columns_refuses_gpkg_named_for_no_table(
+    engine, tmp_path, target_table
 ):
     columns_before = _table_columns(engine)
     rows_before = _table_rows(engine)
-    gpkg = _write_gpkg(tmp_path, "source", source_rows)
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS, layer="another_layer")
 
-    result = _add_columns(gpkg=gpkg)
+    result = _add_columns("--columns", "pres_24_dem", gpkg=gpkg)
 
     assert result.returncode != 0
-    assert message in result.stderr, result.stderr
+    assert "is not an existing table" in result.stderr, result.stderr
     assert _table_columns(engine) == columns_before
     assert _table_rows(engine) == rows_before
-    assert _staging_table_count(engine) == 0
 
 
 def _add_election_column(session: Session, table: str) -> None:

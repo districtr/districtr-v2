@@ -401,48 +401,33 @@ def create_shatterable_gerrydb_view(
 
 
 @cli.command("add-gerrydb-columns")
-@click.option("--table", "-t", help="Existing GerryDB table to extend", required=True)
 @click.option(
-    "--gpkg", "-g", help="Path or s3:// URI to GeoPackage file", required=True
-)
-@click.option(
-    "--layer",
-    "-n",
-    help="Layer name in the GeoPackage (default: the table name)",
-    required=False,
+    "--gpkg",
+    "-g",
+    help="Path or s3:// URI to the GeoPackage; its file name is the table to extend",
+    required=True,
 )
 @click.option(
     "--columns",
     "-c",
-    help="Comma-separated columns to copy "
-    "(default: every numeric GeoPackage column the table lacks)",
-    required=False,
+    help="Comma-separated columns to fill; each must be missing or all NULL",
+    required=True,
 )
 @with_session
-def add_gerrydb_columns(
-    session: Session,
-    table: str,
-    gpkg: str,
-    layer: str | None,
-    columns: str | None,
-):
+def add_gerrydb_columns(session: Session, gpkg: str, columns: str):
     """Add GeoPackage columns to an onboarded GerryDB table, joined on path.
 
-    Fails with nothing changed when the GeoPackage and the table disagree on
-    their set of paths. Run rebuild-shatterable-view and
-    invalidate-document-caches afterwards for every view built on the table.
+    Run rebuild-shatterable-view and invalidate-document-caches afterwards
+    for every view built on the table.
     """
-    column_list = (
-        [c.strip() for c in columns.split(",") if c.strip()] if columns else None
-    )
     result = _add_gerrydb_columns(
         session=session,
-        table=table,
         gpkg=gpkg,
-        layer=layer,
-        columns=column_list,
+        columns=[c.strip() for c in columns.split(",") if c.strip()],
     )
-    click.echo(f"Added columns: {', '.join(result.added) or '(none)'}")
+    click.echo(f"Table: {GERRY_DB_SCHEMA}.{result.table}")
+    click.echo(f"Filled columns: {', '.join(result.filled)}")
+    click.echo(f"Newly added: {', '.join(result.added) or '(none)'}")
     click.echo(f"Rows updated: {result.rows_updated}")
 
 
