@@ -254,19 +254,15 @@ MAX_CURATED_IDS = 50
 
 def _gallery_display_blocks():
     """Presentation options shared by both gallery blocks (after each
-    block's own source field, so that one comes first in the editor)."""
+    block's own source field, so that one comes first in the editor).
+
+    Deliberately no per-field show/hide toggles: a gallery always paginates,
+    offers grid and list views, and shows every field a map has a value for.
+    Values saved by the retired toggles stay in storage but aren't served."""
     return [
         ("title", blocks.CharBlock(required=False)),
         ("description", blocks.TextBlock(required=False)),
-        ("paginate", blocks.BooleanBlock(required=False, default=True)),
-        ("showListView", blocks.BooleanBlock(required=False, default=True)),
-        ("showThumbnails", blocks.BooleanBlock(required=False, default=True)),
-        ("showTitles", blocks.BooleanBlock(required=False, default=True)),
-        ("showDescriptions", blocks.BooleanBlock(required=False, default=True)),
-        ("showUpdatedAt", blocks.BooleanBlock(required=False, default=True)),
-        ("showTags", blocks.BooleanBlock(required=False, default=True)),
-        ("showModule", blocks.BooleanBlock(required=False, default=True)),
-        ("limit", blocks.IntegerBlock(default=12)),
+        ("limit", blocks.IntegerBlock(default=12, label="Maps per page")),
     ]
 
 
@@ -347,17 +343,15 @@ class CommentGalleryBlock(CompatStructBlock):
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
     zipCode = blocks.CharBlock(required=False, label="Zip code")
-    limit = blocks.IntegerBlock(default=10)
-    showIdentifier = blocks.BooleanBlock(required=False, default=True)
-    showTitles = blocks.BooleanBlock(required=False, default=True)
-    showPlaces = blocks.BooleanBlock(required=False, default=True)
-    showStates = blocks.BooleanBlock(required=False, default=True)
-    showZipCodes = blocks.BooleanBlock(required=False, default=True)
-    showCreatedAt = blocks.BooleanBlock(required=False, default=True)
-    showListView = blocks.BooleanBlock(required=False, default=True)
-    paginate = blocks.BooleanBlock(required=False, default=True)
-    showFilters = blocks.BooleanBlock(required=False, default=False)
-    showMaps = blocks.BooleanBlock(required=False, default=True)
+    limit = blocks.IntegerBlock(default=10, label="Entries per page")
+    # The one behaviour choice; display is fixed like the map galleries'
+    # (_gallery_display_blocks).
+    showFilters = blocks.BooleanBlock(
+        required=False,
+        default=False,
+        label="Show visitor filters",
+        help_text="Search, place, state and zip filters above the gallery.",
+    )
 
     class Meta:
         icon = "group"

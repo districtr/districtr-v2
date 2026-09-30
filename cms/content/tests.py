@@ -67,14 +67,6 @@ PLAN_GALLERY_ATTRS = {
     "status": "in_progress",
     "title": "Featured plans",
     "description": "A few of our favorites",
-    "paginate": False,
-    "showListView": True,
-    "showThumbnails": True,
-    "showTitles": False,
-    "showDescriptions": True,
-    "showUpdatedAt": True,
-    "showTags": True,
-    "showModule": False,
     "limit": 6,
 }
 
@@ -87,16 +79,7 @@ COMMENT_GALLERY_ATTRS = {
     "state": "IL",
     "zipCode": "60637",
     "limit": 5,
-    "showIdentifier": True,
-    "showTitles": True,
-    "showPlaces": False,
-    "showStates": True,
-    "showZipCodes": True,
-    "showCreatedAt": False,
-    "showListView": True,
-    "paginate": True,
-    "showFilters": False,
-    "showMaps": True,
+    "showFilters": True,
 }
 
 FORM_ATTRS = {
@@ -273,7 +256,6 @@ class TiptapToStreamDataTests(SimpleTestCase):
             )
         )
         value = result.stream_data[0]["value"]
-        self.assertTrue(value["paginate"])
         self.assertEqual(value["limit"], 12)
         self.assertEqual(value["status"], "ready_to_share")
 
@@ -286,7 +268,7 @@ class TiptapToStreamDataTests(SimpleTestCase):
         self.assertEqual(value["zipCode"], "60637")
         self.assertEqual(value["ids"], [])  # null -> empty list in storage
         self.assertEqual(value["tags"], ["chicago"])
-        self.assertFalse(value["showCreatedAt"])
+        self.assertTrue(value["showFilters"])
 
     def test_form_node(self):
         result = tiptap_to_stream_data(
@@ -800,7 +782,9 @@ class ContentApiTests(TestCase):
         self.assertEqual(gallery["portalId"], "fair-maps")
         self.assertEqual(gallery["draftStatus"], "ready_to_share")
         self.assertEqual(gallery["limit"], 12)
-        self.assertTrue(gallery["showListView"])
+        # Toggle values saved before the display toggles were retired stay
+        # in storage but aren't served (the fixture body still carries them).
+        self.assertNotIn("showListView", gallery)
 
     def test_detail_places_shape(self):
         payload = self.client.get("/api/content/places/slug/chicago").json()
