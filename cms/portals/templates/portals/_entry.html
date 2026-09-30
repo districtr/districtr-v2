@@ -39,15 +39,6 @@
                 {% else %}
                     {% include "portals/_action_button.html" with action="hidden" value="1" label="Hide" danger=True %}
                 {% endif %}
-                {% if entry.map_public_id and entry.status == "submitted" %}
-                    <form method="post" action="{% url 'portals_add_to_gallery' %}" style="display:inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="portal" value="{{ portal.slug }}">
-                        <input type="hidden" name="public_id" value="{{ entry.map_public_id }}">
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button type="submit" class="button button-small button-secondary" title="Optional curation: pin this plan in the page's curated gallery block (draft page revision)">Pin to page gallery</button>
-                    </form>
-                {% endif %}
             </div>
         </header>
 

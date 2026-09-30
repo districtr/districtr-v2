@@ -95,9 +95,7 @@ def accessible_portals(user):
     admins/superusers; for everyone else, the portals whose
     FormConfig.admin_teams intersects their team slugs — the same rule the
     backend enforces via the JWT teams claim. A team-less non-admin gets
-    NOTHING (fail closed, matching the backend's teams: [] -> 403): this
-    list also gates add_to_portal_gallery, a pure CMS write the backend
-    never re-checks."""
+    NOTHING (fail closed, matching the backend's teams: [] -> 403)."""
     from wagtail.models import Locale
 
     from content.models import PortalPage
@@ -480,89 +478,4 @@ def submission_action(request):
         }[(action, value)]
         messages.success(request, f"Submission #{submission_id} {described}.")
 
-    return redirect(_next_url(request))
-
-
-def _default_gallery_block(public_id):
-    """A fresh curated plan_gallery block for a portal that has none yet, matching
-    PlanGalleryBlock's schema/defaults (content/blocks.py)."""
-    return {
-        "type": "plan_gallery",
-        "value": {
-            "ids": [public_id],
-            "tags": [],
-            "title": "Community submissions",
-            "description": "",
-            "paginate": True,
-            "showListView": True,
-            "showThumbnails": True,
-            "showTitles": True,
-            "showDescriptions": True,
-            "showUpdatedAt": True,
-            "showTags": True,
-            "showModule": True,
-            "limit": 12,
-        },
-    }
-
-
-@group_required(PORTAL_EDITOR_GROUPS)
-def add_to_portal_gallery(request):
-    """Append a submitted plan to the portal page's CURATED gallery block,
-    adding one if the page has no plan gallery yet.
-
-    Optional curation, not review: the gallery lives IN the portal page (the
-    plan_gallery block's ids), so this mutates the page's latest revision as
-    a draft — publishing still goes through the page's normal approval
-    workflow (pages keep review; submissions don't).
-    """
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-    try:
-        portal_slug = request.POST["portal"]
-        public_id = int(request.POST["public_id"])
-    except (KeyError, ValueError):
-        return HttpResponseBadRequest("Invalid gallery submission")
-
-    portal, denied = _get_portal_or_denied(request, portal_slug)
-    if denied:
-        return denied
-
-    page = portal.get_latest_revision_as_object()
-    body_data = page.body.get_prep_value()
-    # A portal page has at most one plan gallery (PortalPage.clean), so Pin
-    # has one target. Legacy pages with several edit the first.
-    gallery = next((b for b in body_data if b.get("type") == "plan_gallery"), None)
-    if gallery is None:
-        body_data.append(_default_gallery_block(public_id))
-    else:
-        # get_prep_value renders ListBlock items as {"id", "type", "value"}.
-        ids = [
-            item["value"] if isinstance(item, dict) else item
-            for item in gallery["value"].get("ids") or []
-        ]
-        if not ids:
-            # No ids = the automatic gallery (or a slug filter); pinning into
-            # it would shrink "every map in this portal" to one map.
-            messages.warning(
-                request,
-                "This portal's gallery lists its submissions automatically, "
-                "so there is nothing to pin. To curate it instead, add plan "
-                "IDs to the gallery on the portal page.",
-            )
-            return redirect(_next_url(request))
-        if public_id in ids:
-            messages.warning(
-                request,
-                f"Plan {public_id} is already in this portal's curated gallery.",
-            )
-            return redirect(_next_url(request))
-        gallery["value"]["ids"] = list(dict.fromkeys([*ids, public_id]))
-    page.body = page.body.stream_block.to_python(body_data)
-    page.save_revision(user=request.user)
-    messages.success(
-        request,
-        f"Plan {public_id} added to the portal page's curated gallery as a "
-        "draft — publish the page to make it public.",
-    )
     return redirect(_next_url(request))

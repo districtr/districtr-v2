@@ -52,20 +52,35 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
-def _inject_portal_id(body_data, portal_slug):
-    """A portal page's galleries list ITS portal's entries. The comment
-    gallery always gets the portal id. A plan gallery marked thisPortal gets
-    it as its filter when it has no curated ids or slugs of its own.
-    Injected when serving, never stored, so a slug rename can't leave a
-    gallery on the old slug."""
+def _resolve_plan_galleries(body_data, portal_slug=None):
+    """Give each gallery what the frontend's PlanGallery fetches: a curated
+    gallery keeps its ids; a submissions gallery (plan_gallery) gets
+    portalId + draftStatus. The slug is injected here, never stored,
+    so a rename can't strand the gallery. Off a portal page (where the
+    forms reject submissions galleries) it serves no portal and the frontend
+    renders nothing."""
     for block in body_data:
         value = block.get("value")
-        if block.get("type") == "comment_gallery":
-            value["portalId"] = portal_slug
+        if block.get("type") == "curated_gallery":
+            value["portalId"], value["draftStatus"] = None, None
         elif block.get("type") == "plan_gallery":
-            this_portal = value.pop("thisPortal", False)
-            if this_portal and not value.get("ids") and not value.get("tags"):
-                value["tags"] = [portal_slug] if portal_slug else None
+            status = value.pop("status", None)
+            value["ids"] = None
+            value["portalId"] = portal_slug
+            value["draftStatus"] = (
+                status
+                if status in ("ready_to_share", "in_progress")
+                else "ready_to_share"
+            )
+    return body_data
+
+
+def _inject_portal_id(body_data, portal_slug):
+    """A portal page's comment galleries list ITS portal's entries (injected
+    when serving, like the plan galleries' "this portal" source)."""
+    for block in body_data:
+        if block.get("type") == "comment_gallery":
+            block["value"]["portalId"] = portal_slug
     return body_data
 
 
@@ -131,9 +146,13 @@ def _inject_form_config(body_data, portal_slug):
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
-    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
-        # Translations resolve to their default-locale portal, not their own
-        # slug (PortalPage.portal_id).
+    is_portal = CONTENT_TYPE_PAGES.get(content_type) is PortalPage
+    # Translations resolve to their default-locale portal, not their own
+    # slug (PortalPage.portal_id).
+    body_data = _resolve_plan_galleries(
+        body_data, page.portal_id if is_portal else None
+    )
+    if is_portal:
         body_data = _inject_portal_id(body_data, page.portal_id)
         body_data = _inject_form_config(body_data, page.portal_id)
     content = {

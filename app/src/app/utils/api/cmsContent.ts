@@ -38,9 +38,9 @@ export interface SectionHeaderBlock {
 }
 
 export interface PlanGalleryBlock {
-  type: 'plan_gallery';
-  /** camelCase props matching PLAN_GALLERY_ATTRIBUTES; ids/tags may be null (no
-   * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
+  /** plan_gallery is the submissions gallery: the CMS content API resolves it
+   * to `portalId` + `draftStatus`. curated_gallery carries `ids`. */
+  type: 'plan_gallery' | 'curated_gallery';
   value: PlanGalleryProps;
   id: string;
 }

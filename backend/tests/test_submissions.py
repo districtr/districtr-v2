@@ -371,7 +371,7 @@ class TestCloneAtSubmission:
         assert _assignment_count(session, clone.document_id) == 1
 
         # The gallery lists the clone under the portal tag.
-        gallery = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [submission.map_public_id]
 
 
@@ -508,7 +508,7 @@ class TestGalleryExclusion:
         document_id = response.json()["document_id"]
         _mark_ready(session, document_id)
 
-        listed = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        listed = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert listed == []
 
     def test_nsfw_blurs_and_hidden_removes_in_every_gallery(
@@ -517,7 +517,7 @@ class TestGalleryExclusion:
         self._ready_map(client, session, document_id)
         submission_id = _submit(client, map_ref=document_id).json()["id"]
         public_id = session.get(Submission, submission_id).map_public_id
-        listed = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        listed = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert [d["nsfw"] for d in listed] == [False]
 
         _set_auth(TEAM_A_PAYLOAD)
@@ -528,7 +528,7 @@ class TestGalleryExclusion:
             == 200
         )
         # nsfw stays listed, flagged for the frontend's blur.
-        for query in (f"portal_ids={PORTAL}", f"ids={public_id}"):
+        for query in (f"portal_id={PORTAL}", f"ids={public_id}"):
             listed = client.get(f"/api/documents/list?{query}").json()
             assert [d["nsfw"] for d in listed] == [True], query
 
@@ -538,8 +538,8 @@ class TestGalleryExclusion:
             ).status_code
             == 200
         )
-        # Hidden leaves the tag gallery AND curated (pinned) id galleries...
-        for query in (f"portal_ids={PORTAL}", f"ids={public_id}"):
+        # Hidden leaves the portal gallery AND curated id galleries...
+        for query in (f"portal_id={PORTAL}", f"ids={public_id}"):
             assert client.get(f"/api/documents/list?{query}").json() == [], query
         # ...while the CMS can still fetch its metadata for the takedown row.
         listed = client.get(
@@ -561,8 +561,8 @@ class TestGalleryExclusion:
             portal_id=OTHER_PORTAL,
         )
         assert response.status_code == 201, response.json()
-        assert client.get(f"/api/documents/list?portal_ids={PORTAL}").json() == []
-        listed = client.get(f"/api/documents/list?portal_ids={OTHER_PORTAL}").json()
+        assert client.get(f"/api/documents/list?portal_id={PORTAL}").json() == []
+        listed = client.get(f"/api/documents/list?portal_id={OTHER_PORTAL}").json()
         assert len(listed) == 1
         clone = session.exec(
             select(Document).where(col(Document.public_id) == listed[0]["public_id"])
@@ -771,7 +771,7 @@ class TestAutoFinalize:
         # ...and the map actually SURFACES in the map gallery — the whole
         # point of auto_public vs internal. It carries no written content,
         # so the written-submissions list leaves it out.
-        gallery = client.get(f"/api/documents/list?portal_ids={AUTO_PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_id={AUTO_PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [doc["public_id"]]
         assert client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json() == []
 
@@ -784,12 +784,32 @@ class TestAutoFinalize:
         session.refresh(submission)
         assert submission.submitted_at == first_submitted_at
 
+    def test_portal_gallery_lists_one_status(self, client, session):
+        """A portal gallery shows finished maps or in-progress ones, never a
+        mix: an auto-collected live map moves between the two as its
+        author changes its status."""
+        doc = self._create_draft(client, AUTO_PORTAL)
+        finished = f"/api/documents/list?portal_id={AUTO_PORTAL}"
+        in_progress = f"{finished}&draft_status=in_progress"
+
+        self._set_status(client, doc["document_id"], "in_progress")
+        assert client.get(finished).json() == []
+        assert [d["public_id"] for d in client.get(in_progress).json()] == [
+            doc["public_id"]
+        ]
+
+        self._set_status(client, doc["document_id"], "ready_to_share")
+        assert [d["public_id"] for d in client.get(finished).json()] == [
+            doc["public_id"]
+        ]
+        assert client.get(in_progress).json() == []
+
     def test_regressing_status_withdraws_a_live_auto_entry(self, client, session):
         # The author never filled a consent form, so pulling the map back to
         # scratch must un-publish everywhere (/api/submissions has no
         # draft_status filter of its own).
         doc = self._create_draft(client, AUTO_PORTAL)
-        gallery_url = f"/api/documents/list?portal_ids={AUTO_PORTAL}"
+        gallery_url = f"/api/documents/list?portal_id={AUTO_PORTAL}"
         self._set_status(client, doc["document_id"], "ready_to_share")
         assert len(client.get(gallery_url).json()) == 1
 
@@ -805,9 +825,9 @@ class TestAutoFinalize:
         assert submission.status == "draft"
         assert submission.submitted_at is None
 
-        # Re-promoting re-publishes.
+        # Re-promoting re-publishes (in the in-progress gallery).
         self._set_status(client, doc["document_id"], "in_progress")
-        assert len(client.get(gallery_url).json()) == 1
+        assert len(client.get(f"{gallery_url}&draft_status=in_progress").json()) == 1
 
     def test_takedown_of_auto_entry_never_demotes_the_live_map(self, client, session):
         doc = self._create_draft(client, AUTO_PORTAL)
@@ -962,8 +982,7 @@ class TestInternalExclusion:
         self, client, session
     ):
         # Internal means no gallery on the page by default. A gallery the
-        # owner adds later (the portal's own, or curated ids from Pin) lists
-        # the maps; the site-wide list never does.
+        # owner adds later (the portal's own, or curated ids) lists the maps.
         doc = self._submitted_internal(client, session)
 
         # Written submissions: none (auto-collected entries have no text).
@@ -973,12 +992,8 @@ class TestInternalExclusion:
             for s in client.get("/api/submissions").json()
         )
         # The portal's own gallery and a curated gallery: present.
-        assert _listed_ids(client, f"portal_ids={INTERNAL_PORTAL}") == [
-            doc["public_id"]
-        ]
+        assert _listed_ids(client, f"portal_id={INTERNAL_PORTAL}") == [doc["public_id"]]
         assert _listed_ids(client, f"ids={doc['public_id']}") == [doc["public_id"]]
-        # Unfiltered map list (a site-wide PlanGalleryBlock): absent.
-        assert doc["public_id"] not in _listed_ids(client)
 
         # Admin list: present.
         _set_auth(TEAM_A_PAYLOAD)
@@ -1213,7 +1228,7 @@ def test_submission_routes_keep_blocking_work_off_the_event_loop():
 
 
 # ---------------------------------------------------------------------------
-# Public listing reach: unfiltered lists, the tags alias, closed portals
+# Public listing reach: curated lookups, closed portals
 # ---------------------------------------------------------------------------
 
 
@@ -1230,28 +1245,20 @@ def _listed_ids(client, query=""):
 
 
 class TestPublicListingReach:
-    def test_takedown_reaches_the_unfiltered_list(
+    def test_takedown_reaches_curated_lookups(
         self, client, form_config, document_id, session
     ):
         submission_id, public_id = _submitted_clone(client, session, document_id)
-        assert public_id in _listed_ids(client)
+        assert _listed_ids(client, f"ids={public_id}") == [public_id]
 
         _set_auth(TEAM_A_PAYLOAD)
         client.post(
             f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
         )
-        assert public_id not in _listed_ids(client)
-        assert public_id not in _listed_ids(client, "draft_status=ready_to_share")
-        assert public_id in _listed_ids(client, "include_hidden=true")
-
-    def test_tags_is_an_alias_of_portal_ids(
-        self, client, form_config, document_id, session
-    ):
-        # An old frontend's ?tags= must narrow like ?portal_ids=, not fall
-        # through to the unfiltered list.
-        _, public_id = _submitted_clone(client, session, document_id)
-        assert _listed_ids(client, f"tags={PORTAL}") == [public_id]
-        assert _listed_ids(client, f"tags={OTHER_PORTAL}") == []
+        assert _listed_ids(client, f"ids={public_id}") == []
+        assert _listed_ids(client, f"ids={public_id}&include_hidden=true") == [
+            public_id
+        ]
 
     def test_scratch_live_map_leaves_the_portal_gallery(
         self, client, form_config, document_id, session
@@ -1269,17 +1276,17 @@ class TestPublicListingReach:
             json={"portal_id": PORTAL, "map_public_id": public_id},
         )
         assert added.status_code == 201, added.json()
-        assert _listed_ids(client, f"portal_ids={PORTAL}") == [public_id]
+        assert _listed_ids(client, f"portal_id={PORTAL}") == [public_id]
 
         client.put(
             f"/api/document/{document_id}/metadata", json={"draft_status": "scratch"}
         )
-        assert _listed_ids(client, f"portal_ids={PORTAL}") == []
+        assert _listed_ids(client, f"portal_id={PORTAL}") == []
 
 
 def test_document_list_pages_in_a_fixed_order(client, document_id):
     # Offset paging needs a deterministic order: curated ids keep the
-    # editor's order, every other listing is newest first.
+    # editor's order (portal listings are newest first).
     public_ids = [client.get(f"/api/document/{document_id}").json()["public_id"]]
     for _ in range(2):
         created = client.post(
@@ -1293,8 +1300,6 @@ def test_document_list_pages_in_a_fixed_order(client, document_id):
     assert [
         _listed_ids(client, f"{curated}&limit=1&offset={page}") for page in range(3)
     ] == [[second], [third], [first]]
-    newest_first = _listed_ids(client)
-    assert newest_first == sorted(newest_first, reverse=True)
 
 
 class TestClosedPortal:
@@ -1322,10 +1327,12 @@ class TestClosedPortal:
         self._close(session, form_config)
 
         assert client.get(f"/api/submissions?portal_id={PORTAL}").json() == []
-        assert _listed_ids(client, f"portal_ids={PORTAL}") == []
-        assert public_id not in _listed_ids(client)
+        assert _listed_ids(client, f"portal_id={PORTAL}") == []
+        assert _listed_ids(client, f"ids={public_id}") == []
         # The CMS hub still sees it, and so do the portal's admins.
-        assert public_id in _listed_ids(client, "include_hidden=true")
+        assert _listed_ids(client, f"ids={public_id}&include_hidden=true") == [
+            public_id
+        ]
         _set_auth(TEAM_A_PAYLOAD)
         assert len(client.get(f"/api/submissions/admin?portal_id={PORTAL}").json()) == 2
 

@@ -48,24 +48,48 @@
                 return this.rows.filter((row) => showDeprecated || !row.deprecated || selected.has(row.value));
             }
 
-            get values() {
-                if (!this.multiple) return this.input.value ? [this.input.value] : [];
+            // [{value, label}] whatever the storage shape; label only when
+            // `labelled` ([valueKey, labelKey] into stored objects).
+            get entries() {
+                if (!this.multiple) return this.input.value ? [{value: this.input.value}] : [];
+                let stored;
                 try {
-                    return JSON.parse(this.input.value || '[]');
+                    stored = JSON.parse(this.input.value || '[]');
                 } catch {
-                    return [];
+                    stored = [];
                 }
+                if (!this.labelled) return stored.map((value) => ({value}));
+                const [valueKey, labelKey] = this.labelled;
+                return stored.map((item) => ({value: item[valueKey], label: item[labelKey] || ''}));
+            }
+
+            writeEntries(entries) {
+                if (!this.multiple) {
+                    this.input.value = entries[0]?.value || '';
+                } else if (this.labelled) {
+                    const [valueKey, labelKey] = this.labelled;
+                    this.input.value = JSON.stringify(
+                        entries.map((e) => ({[valueKey]: e.value, [labelKey]: e.label || ''})));
+                } else {
+                    this.input.value = JSON.stringify(entries.map((e) => e.value));
+                }
+                this.input.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+
+            get values() {
+                return this.entries.map((e) => e.value);
             }
 
             set values(values) {
-                this.input.value = this.multiple ? JSON.stringify(values) : values[0] || '';
-                this.input.dispatchEvent(new Event('change', {bubbles: true}));
+                const labels = new Map(this.entries.map((e) => [e.value, e.label]));
+                this.writeEntries(values.map((value) => ({value, label: labels.get(value) || ''})));
                 this.renderSelected();
                 if (!this.tableTarget.hidden) this.renderTable();
             }
 
             renderSelected() {
-                const values = this.values;
+                const entries = this.entries;
+                const values = entries.map((e) => e.value);
                 const reorderable = this.ordered && values.length > 1;
                 this.selectedTarget.replaceChildren(...values.map((value, index) => {
                     const row = this.byValue.get(value) || {value, name: `${value} (missing)`};
@@ -84,6 +108,25 @@
                             .filter(Boolean).join(' · ')),
                     );
                     item.append(info);
+                    if (this.labelled) {
+                        // A captioned field, so it reads as editable. Typing
+                        // edits the stored label in place; no re-render, so
+                        // focus stays in the field.
+                        const field = el('label', 'tp-label-field');
+                        const input = el('input', 'tp-label');
+                        input.type = 'text';
+                        input.value = entries[index].label;
+                        input.placeholder = row.name;
+                        input.title = 'Leave blank to use the module name';
+                        input.addEventListener('input', () => {
+                            const next = this.entries;
+                            next[index].label = input.value;
+                            this.writeEntries(next);
+                        });
+                        input.addEventListener('keydown', (event) => event.key === 'Enter' && event.preventDefault());
+                        field.append(el('span', 'tp-label-caption', 'Button text'), input);
+                        item.append(field);
+                    }
                     const actions = el('div', 'tp-actions');
                     const button = (text, title, onClick, disabled = false) => {
                         const btn = el('button', 'button button-small button-secondary', text);
@@ -111,10 +154,11 @@
                     item.append(actions);
                     return item;
                 }));
-                this.hintTarget.textContent = reorderable
-                    ? `Shown in this order. Use ↑ ↓ to reorder; Remove only drops it from this list.`
-                    : '';
-                this.hintTarget.hidden = !reorderable;
+                this.hintTarget.textContent = [
+                    reorderable && 'Shown in this order. Use ↑ ↓ to reorder; Remove only drops it from this list.',
+                    this.labelled && values.length && 'Edit each button\'s text in its field (blank = module name).',
+                ].filter(Boolean).join(' ');
+                this.hintTarget.hidden = !this.hintTarget.textContent;
                 this.selectedTarget.hidden = values.length === 0;
                 this.toggleTarget.textContent = this.tableTarget.hidden
                     ? (!this.multiple && values.length ? 'Change' : `Browse ${this.noun}`)

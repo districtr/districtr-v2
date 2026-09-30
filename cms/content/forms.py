@@ -40,7 +40,31 @@ def _map_choices(limit_to=None, ensure=()):
     return choices
 
 
-class PortalPageForm(WagtailAdminPageForm):
+def has_portal_gallery(body):
+    """True when a body carries a submissions gallery, which lists the
+    page's own portal and so only works on a portal page."""
+    return any(child.block_type == "plan_gallery" for child in body or [])
+
+
+class ContentPageForm(WagtailAdminPageForm):
+    """Base form for the content pages."""
+
+    portal_page = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not self.portal_page and has_portal_gallery(cleaned_data.get("body")):
+            self.add_error(
+                "body",
+                "Only portal pages can list portal submissions. Use a Curated "
+                "gallery here instead.",
+            )
+        return cleaned_data
+
+
+class PortalPageForm(ContentPageForm):
+    portal_page = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         scoped = (
@@ -63,7 +87,7 @@ class PortalPageForm(WagtailAdminPageForm):
         )
 
 
-class PlacePageForm(WagtailAdminPageForm):
+class PlacePageForm(ContentPageForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.for_user and user_is_team_scoped(self.for_user):
