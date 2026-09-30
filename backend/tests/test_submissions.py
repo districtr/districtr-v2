@@ -18,7 +18,7 @@ from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
 from app.submissions import moderation
-from app.submissions.moderation import moderate_submission, score_text
+from app.submissions.moderation import find_blocked_phrase, moderate_submission
 from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import (  # noqa: F401 (autouse fixtures)
     override_auth_dependency,
@@ -183,17 +183,26 @@ class TestPrivateFields:
 
 
 class TestModerationAndVisibility:
-    def test_nsfw_scoring_and_toggle(self, client, form_config, session):
+    def test_nsfw_scoring_and_toggle(self, client, form_config, session, monkeypatch):
+        # Stand-in blocklist entry drawn from the fixture comment.
+        monkeypatch.setattr(
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(["river", "whole"])},
+        )
         submission_id = _submit(client).json()["id"]
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission(submission_id, session)
+        moderate_submission(submission_id, session)
 
         public = client.get(f"/api/submissions?portal_id={PORTAL}").json()
         # nsfw rows stay listed — the frontend blurs them.
         assert public[0]["nsfw"] is True
+        # The matched phrase reaches the CMS (admin payload) but not the public.
+        assert "moderation_match" not in public[0]
+        _set_auth(TEAM_A_PAYLOAD)
+        admin = client.get(f"/api/submissions/admin?portal_id={PORTAL}").json()
+        assert admin[0]["moderation_match"] == "river whole"
 
         # Reviewer can unblur a false positive.
-        _set_auth(TEAM_A_PAYLOAD)
         response = client.post(
             f"/api/submissions/admin/{submission_id}/nsfw", json={"nsfw": False}
         )
@@ -611,9 +620,9 @@ class TestScorer:
             moderation.BLOCKLIST | {moderation.digest(["zorp", "blat"])},
         )
         for bad in ("zorp blat", "ZORP, blat!", "you zorp-blat"):
-            assert score_text(bad) == 1.0, bad
+            assert find_blocked_phrase(bad) == "zorp blat", bad
         for ok in ("zorpblat", "zorp", "blat zorp", "zorps blat"):
-            assert score_text(ok) == 0.0, ok
+            assert find_blocked_phrase(ok) is None, ok
 
     def test_civic_terms_pass_the_real_list(self):
         assert len(moderation.BLOCKLIST) > 500  # the digest file loaded
@@ -627,7 +636,7 @@ class TestScorer:
             "",
             "   ",
         ):
-            assert score_text(ok) == 0.0, ok
+            assert find_blocked_phrase(ok) is None, ok
 
 
 class TestModerationWiring:
@@ -661,8 +670,8 @@ class TestModerationWiring:
         submission_id = _submit(client, map_ref=document_id).json()["id"]
         scored = {}
         with patch(
-            "app.submissions.moderation.score_text",
-            side_effect=lambda text: scored.setdefault("text", text) and 0.0 or 0.0,
+            "app.submissions.moderation.find_blocked_phrase",
+            side_effect=lambda text: scored.setdefault("text", text) and None,
         ):
             moderate_submission(submission_id, session)
         assert "abusive title" in scored["text"]
@@ -906,7 +915,9 @@ class TestAutoFinalize:
         task.assert_called_once_with(submission.id)
 
         # The scoring itself sees the map card text: in-session run.
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
+        with patch(
+            "app.submissions.moderation.find_blocked_phrase", return_value="zorp blat"
+        ):
             moderate_submission(submission.id, session)
         session.refresh(submission)
         assert submission.nsfw is True
@@ -941,7 +952,9 @@ class TestAutoFinalize:
         task.assert_not_called()
 
         # ...and the score sees the new name.
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
+        with patch(
+            "app.submissions.moderation.find_blocked_phrase", return_value="zorp blat"
+        ):
             moderate_submission(submission.id, session)
         session.refresh(submission)
         assert submission.nsfw is True
@@ -1395,8 +1408,8 @@ class TestSubmissionSideEffects:
         submission_id = _submit(client).json()["id"]
         scored = []
         with patch(
-            "app.submissions.moderation.score_text",
-            side_effect=lambda text: scored.append(text) or 0.0,
+            "app.submissions.moderation.find_blocked_phrase",
+            side_effect=lambda text: scored.append(text),
         ):
             moderate_submission(submission_id, session)
         assert "Keep the river whole." in scored[0]

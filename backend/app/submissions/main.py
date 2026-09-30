@@ -725,7 +725,7 @@ def list_submissions_admin(
             status=s.status,
             hidden=s.hidden,
             flagged=s.flagged,
-            moderation_score=s.moderation_score,
+            moderation_match=s.moderation_match,
             fields=fields.get(s.id, {}),
         )
         for s in submissions

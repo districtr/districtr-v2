@@ -30,7 +30,6 @@ from sqlmodel import (
     CheckConstraint,
     Column,
     Field,
-    Float,
     ForeignKey,
     Index,
     Integer,
@@ -293,8 +292,9 @@ class Submission(TimeStampMixin, SQLModel, table=True):
             Boolean, nullable=False, default=False, server_default="false"
         ),
     )
-    moderation_score: float | None = Field(
-        default=None, sa_column=Column(Float, nullable=True)
+    # The blocklisted phrase that set nsfw (None = clean or never checked).
+    moderation_match: str | None = Field(
+        default=None, sa_column=Column(String(255), nullable=True)
     )
 
 
@@ -370,7 +370,7 @@ class SubmissionAdmin(SubmissionPublic):
     status: str
     hidden: bool
     flagged: bool
-    moderation_score: float | None = None
+    moderation_match: str | None = None
 
 
 class CustomFieldPublic(BaseModel):

@@ -14,18 +14,32 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.core.db import engine
-from app.submissions.moderation import moderate_submission_in_background
+from app.submissions import moderation
 from app.thumbnails.main import generate_thumbnail
 
 
-def test_self_owned_moderation_returns_connection():
+@pytest.mark.parametrize("fail", [False, True], ids=["commit", "error"])
+def test_self_owned_moderation_returns_connection(monkeypatch, fail):
     """moderate_submission_in_background opens its own ``with Session(engine)``.
 
-    The submission id need not exist (it returns early); the point is that the
-    connection it checks out is returned to the pool afterward.
+    The inner call is stubbed to query-and-commit (or raise mid-transaction)
+    so both paths run without seeding a submission in the non-test database;
+    either way the checked-out connection must go back to the pool.
     """
+
+    def query_then_maybe_fail(submission_id, session):
+        session.execute(text("SELECT 1"))  # checks out a pooled connection
+        if fail:
+            raise RuntimeError("mid-transaction failure")
+        session.commit()
+
+    monkeypatch.setattr(moderation, "moderate_submission", query_then_maybe_fail)
     checked_out_before = engine.pool.checkedout()
-    moderate_submission_in_background(2_000_000_000)
+    if fail:
+        with pytest.raises(RuntimeError):
+            moderation.moderate_submission_in_background(2_000_000_000)
+    else:
+        moderation.moderate_submission_in_background(2_000_000_000)
     assert engine.pool.checkedout() == checked_out_before
 
 

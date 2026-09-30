@@ -42,24 +42,28 @@ BLOCKLIST: frozenset[str] = frozenset(
 )
 
 
-def score_text(text: str) -> float:
-    """1.0 if any run of 1..MAX_PHRASE_WORDS words hashes into the blocklist."""
+def find_blocked_phrase(text: str) -> str | None:
+    """The first run of 1..MAX_PHRASE_WORDS words (normalized, space-joined)
+    whose digest is in the blocklist, or None when the text is clean."""
     words = normalize(text or "")
     for i in range(len(words)):
         for n in range(1, MAX_PHRASE_WORDS + 1):
-            if i + n <= len(words) and digest(words[i : i + n]) in BLOCKLIST:
-                return 1.0
-    return 0.0
+            phrase = words[i : i + n]
+            if len(phrase) == n and digest(phrase) in BLOCKLIST:
+                return " ".join(phrase)
+    return None
 
 
 def moderate_submission(submission_id: int, session: Session) -> None:
-    """Score a submission's content and map card text; persist score + nsfw.
+    """Check a submission's content and map card text; persist the matched
+    phrase (moderation_match, shown to portal admins so a false positive can be
+    traced to its blocklist entry) and nsfw.
 
-    Scores the concatenation of every content value and the attached map's
+    Checks the concatenation of every content value and the attached map's
     metadata name/description. The gallery card renders the map's
-    name/description, so leaving them unscored would let an abusive map title
-    sail past the nsfw filter under a clean one-word comment. The only outcome
-    is one blur bit, so per-field granularity buys nothing.
+    name/description, so leaving them unchecked would let an abusive map title
+    sail past the nsfw filter under a clean one-word comment. The outcome is
+    one blur bit plus the phrase, so per-field granularity buys nothing.
     """
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
@@ -89,18 +93,18 @@ def moderate_submission(submission_id: int, session: Session) -> None:
             map_texts = [
                 str(metadata.get(key) or "") for key in ("name", "description")
             ]
-    score = score_text(" ".join([*values, *map_texts]))
+    match = find_blocked_phrase(" ".join([*values, *map_texts]))
     session.execute(
         update(Submission)
         .where(col(Submission.id) == submission_id)
-        .values(moderation_score=score, nsfw=score > 0)
+        .values(moderation_match=match, nsfw=match is not None)
     )
     try:
         session.commit()
     except Exception:
         session.rollback()
         logger.exception(
-            f"Failed to save moderation score for submission {submission_id}"
+            f"Failed to save moderation result for submission {submission_id}"
         )
         raise
 
