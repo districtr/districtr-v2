@@ -233,29 +233,20 @@ def _add_election_column(session: Session, table: str) -> None:
     )
 
 
-def _view_state(session: Session) -> tuple[int, int, list[tuple[str, str]]]:
+def _view_state(session: Session) -> tuple[int, int]:
     rows = session.execute(
         text("SELECT count(*) FROM gerrydb.simple_geos")
     ).scalar_one()
     gerrydbtable_rows = session.execute(
         text("SELECT count(*) FROM gerrydbtable WHERE name = 'simple_geos'")
     ).scalar_one()
-    indexes = session.execute(
-        text(
-            "SELECT indexname, indexdef FROM pg_indexes "
-            "WHERE schemaname = 'gerrydb' AND tablename = 'simple_geos'"
-        )
-    ).all()
-    return rows, gerrydbtable_rows, [tuple(i) for i in indexes]
+    return rows, gerrydbtable_rows
 
 
-def test_rebuild_shatterable_view_adds_columns_keeps_rows_and_indexes(
+def test_rebuild_shatterable_view_adds_columns_keeps_rows(
     session: Session, simple_shatterable_districtr_map
 ):
-    session.execute(
-        text("CREATE UNIQUE INDEX simple_geos_path_idx ON gerrydb.simple_geos (path)")
-    )
-    rows_before, gerrydbtable_before, indexes_before = _view_state(session)
+    before = _view_state(session)
     _add_election_column(session, "simple_parent_geos")
     _add_election_column(session, "simple_child_geos")
     assert "pres_24_dem" not in get_gerrydb_numeric_cols(session, "simple_geos")
@@ -265,11 +256,7 @@ def test_rebuild_shatterable_view_adds_columns_keeps_rows_and_indexes(
         rebuild_shatterable_view(session, "simple_geos")
 
         assert "pres_24_dem" in get_gerrydb_numeric_cols(session, "simple_geos")
-        assert _view_state(session) == (
-            rows_before,
-            gerrydbtable_before,
-            indexes_before,
-        )
+        assert _view_state(session) == before
     layer_total = session.execute(
         text(
             "SELECT (SELECT sum(pres_24_dem) FROM gerrydb.simple_parent_geos)"

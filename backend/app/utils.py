@@ -298,7 +298,8 @@ def build_shatterable_view(
     """Create `gerrydb.<view_name>` as the parent layer's rows UNION ALL the child's.
 
     The view carries every column of the two layers except geometry and
-    `ogc_fid`; the layers must carry exactly the same set. Returns the columns.
+    `ogc_fid`; the layers must carry exactly the same set. The view is analyzed
+    so the planner has statistics for it immediately. Returns the columns.
     """
     parent = assert_safe_ident(parent_layer)
     child = assert_safe_ident(child_layer)
@@ -341,6 +342,7 @@ def build_shatterable_view(
             f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{child}"
         )
     )
+    session.execute(text(f"ANALYZE {GERRY_DB_SCHEMA}.{view}"))
     return columns
 
 

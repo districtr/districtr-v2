@@ -12,7 +12,6 @@ to the table.
 """
 
 import logging
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -34,8 +33,6 @@ logger = logging.getLogger(__name__)
 
 REBUILD_PREFIX = "_rebuild_"
 
-# pg_get_indexdef() output: CREATE [UNIQUE] INDEX <name> ON <table> <rest>.
-_INDEXDEF_RE = re.compile(r"^CREATE (UNIQUE )?INDEX (\S+) ON (\S+) (.+)$", re.DOTALL)
 # How long an exclusive lock on a live table or view waits for its current
 # readers before the command gives up and rolls back; a re-run is safe.
 LOCK_TIMEOUT = "10s"
@@ -219,9 +216,6 @@ class RebuildViewResult:
     parent_layer: str
     child_layer: str
     columns: list[str]
-    rows_before: int
-    rows_after: int
-    indexes: list[str]
 
 
 def rebuild_shatterable_view(
@@ -229,12 +223,11 @@ def rebuild_shatterable_view(
 ) -> RebuildViewResult:
     """Recreate the shatterable materialized view with its layers' current columns.
 
-    The replacement is built under a temporary name with copies of the old
-    view's indexes, then the old view is dropped and the new one renamed into
-    place. Everything runs in the caller's transaction, so readers see the
-    old view until commit and the new one after. The `gerrydbtable` row is
-    left as is. The parent and child layers come from the districtr maps
-    whose `gerrydb_table_name` is this view.
+    The replacement is built under a temporary name, then the old view is
+    dropped and the new one renamed into place, all in the caller's
+    transaction: readers see the old view until commit and the new one after.
+    The `gerrydbtable` row is left as is. The parent and child layers come from
+    the districtr maps whose `gerrydb_table_name` is this view.
     """
     view = assert_safe_ident(gerrydb_table_name)
     if _relkind(session, view) != "m":
@@ -250,45 +243,11 @@ def rebuild_shatterable_view(
             f"Expected one parent/child layer pair among the districtr maps on "
             f"{view}, found {[tuple(p) for p in layer_pairs]}"
         )
-    parent = assert_safe_ident(layer_pairs[0][0])
-    child = assert_safe_ident(layer_pairs[0][1])
-
-    indexes = session.execute(
-        sa.text(
-            "SELECT indexname, indexdef FROM pg_indexes "
-            "WHERE schemaname = :schema AND tablename = :name ORDER BY indexname"
-        ),
-        {"schema": GERRY_DB_SCHEMA, "name": view},
-    ).all()
+    parent, child = layer_pairs[0]
 
     session.execute(sa.text("SET LOCAL statement_timeout = '0'"))
-    rows_before = session.execute(
-        sa.text(f"SELECT count(*) FROM {GERRY_DB_SCHEMA}.{view}")
-    ).scalar_one()
-
-    suffix = uuid4().hex[:16]
-    temp_view = f"{REBUILD_PREFIX}{suffix}"
-    view_columns = build_shatterable_view(session, parent, child, temp_view)
-
-    index_renames: list[tuple[str, str]] = []
-    for i, (index_name, indexdef) in enumerate(indexes):
-        match = _INDEXDEF_RE.match(indexdef)
-        if match is None:
-            raise ValueError(f"Unrecognized index definition: {indexdef}")
-        unique, _, _, rest = match.groups()
-        temp_index = f"{REBUILD_PREFIX}{suffix}_{i}"
-        session.execute(
-            sa.text(
-                f"CREATE {unique or ''}INDEX {temp_index} "
-                f"ON {GERRY_DB_SCHEMA}.{temp_view} {rest}"
-            )
-        )
-        index_renames.append((temp_index, index_name))
-
-    session.execute(sa.text(f"ANALYZE {GERRY_DB_SCHEMA}.{temp_view}"))
-    rows_after = session.execute(
-        sa.text(f"SELECT count(*) FROM {GERRY_DB_SCHEMA}.{temp_view}")
-    ).scalar_one()
+    temp_view = f"{REBUILD_PREFIX}{uuid4().hex[:16]}"
+    columns = build_shatterable_view(session, parent, child, temp_view)
 
     session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
     session.execute(sa.text(f"DROP MATERIALIZED VIEW {GERRY_DB_SCHEMA}.{view}"))
@@ -297,22 +256,7 @@ def rebuild_shatterable_view(
             f"ALTER MATERIALIZED VIEW {GERRY_DB_SCHEMA}.{temp_view} RENAME TO {view}"
         )
     )
-    for temp_index, index_name in index_renames:
-        session.execute(
-            sa.text(
-                f"ALTER INDEX {GERRY_DB_SCHEMA}.{temp_index} "
-                f"RENAME TO {_quote_ident(index_name)}"
-            )
-        )
-
-    return RebuildViewResult(
-        parent_layer=parent,
-        child_layer=child,
-        columns=view_columns,
-        rows_before=rows_before,
-        rows_after=rows_after,
-        indexes=[name for _, name in index_renames],
-    )
+    return RebuildViewResult(parent_layer=parent, child_layer=child, columns=columns)
 
 
 @dataclass

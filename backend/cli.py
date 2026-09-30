@@ -442,8 +442,8 @@ def add_gerrydb_columns(session: Session, gpkg: str, columns: str):
 def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
     """Recreate a shatterable view so it carries its layers' current columns.
 
-    The new view and its indexes are built under temporary names and swapped
-    in within one transaction; readers keep the old view until commit.
+    The new view is built under a temporary name and swapped in within one
+    transaction; readers keep the old view until commit.
     """
     result = _rebuild_shatterable_view(
         session=session, gerrydb_table_name=gerrydb_table_name
@@ -453,8 +453,6 @@ def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
         f"{result.parent_layer} + {result.child_layer}"
     )
     click.echo(f"Columns ({len(result.columns)}): {', '.join(result.columns)}")
-    click.echo(f"Rows: {result.rows_before} before, {result.rows_after} after")
-    click.echo(f"Indexes recreated: {', '.join(result.indexes) or '(none)'}")
 
 
 @cli.command("invalidate-document-caches")
