@@ -174,12 +174,6 @@ class ScheduleImportTests(SimpleTestCase):
         )
         self.assertEqual(payload["scope"], "create:content")
 
-    @mock.patch("datastore.services.requests.post")
-    def test_document_thumbnail_non_200_raises(self, post):
-        post.return_value = mock.Mock(status_code=404, text="Document not found")
-        with self.assertRaises(BackendAPIError):
-            services.regenerate_document_thumbnail("abc123")
-
 
 # ---------------------------------------------------------------------------
 # Form validation

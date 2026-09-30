@@ -29,7 +29,6 @@ INSTALLED_APPS = [
     "portals",
     "wagtail_localize",
     "wagtail_localize.locales",
-    "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
     "wagtail.embeds",
     "wagtail.sites",
