@@ -37,7 +37,7 @@ from wagtail.search import index
 from wagtail_localize.fields import SynchronizedField
 
 from content.blocks import ContentStreamBlock
-from content.forms import PlacePageForm, PortalPageForm
+from content.forms import ContentPageForm, PlacePageForm, PortalPageForm
 
 
 class FrontendPageMixin:
@@ -213,6 +213,7 @@ class StaticPage(ContentPageBase):
     api_content_type = "static"
     parent_page_types = ["content.StaticIndexPage"]
     subpage_types: list[str] = []
+    base_form_class = ContentPageForm
 
     class Meta:
         verbose_name = "static page"

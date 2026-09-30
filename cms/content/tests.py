@@ -65,7 +65,6 @@ def doc(*children):
 
 PLAN_GALLERY_ATTRS = {
     "ids": [1, 2],
-    "tags": ["fair-maps"],
     "title": "Featured plans",
     "description": "A few of our favorites",
     "paginate": False,
@@ -77,7 +76,6 @@ PLAN_GALLERY_ATTRS = {
     "showTags": True,
     "showModule": False,
     "limit": 6,
-    "includeInProgress": False,
     "source": "ids",
 }
 
@@ -277,21 +275,9 @@ class TiptapToStreamDataTests(SimpleTestCase):
         )
         value = result.stream_data[0]["value"]
         self.assertEqual(value["ids"], [])
-        self.assertEqual(value["tags"], [])
         self.assertTrue(value["paginate"])
         self.assertEqual(value["limit"], 12)
-        # No filter: legacy galleries listed the whole site.
-        self.assertEqual(value["source"], "all")
-
-    def test_plan_gallery_source_inferred_from_legacy_filters(self):
-        for attrs, source in (
-            ({"ids": [4], "tags": ["x"]}, "ids"),
-            ({"tags": ["x"]}, "portals"),
-        ):
-            result = tiptap_to_stream_data(
-                doc({"type": "planGalleryNode", "attrs": attrs})
-            )
-            self.assertEqual(result.stream_data[0]["value"]["source"], source)
+        self.assertEqual(value["source"], "ready_to_share")
 
     def test_comment_gallery_attrs(self):
         result = tiptap_to_stream_data(
@@ -811,10 +797,10 @@ class ContentApiTests(TestCase):
         )
         self.assertEqual(body[0]["value"], "<p>English prose</p>")
         gallery = body[1]["value"]
-        # Empty list filters are served as null, matching the legacy attrs.
+        # A fresh gallery lists its portal's finished submissions.
         self.assertIsNone(gallery["ids"])
-        # No filter of its own, so it lists its portal (thisPortal default).
-        self.assertEqual(gallery["tags"], ["fair-maps"])
+        self.assertEqual(gallery["portalId"], "fair-maps")
+        self.assertEqual(gallery["draftStatus"], "ready_to_share")
         self.assertEqual(gallery["limit"], 12)
         self.assertTrue(gallery["showListView"])
 
@@ -1337,11 +1323,11 @@ class FormConfigInjectionTests(TestCase):
         ]["body"]
         comments, fresh = (block["value"] for block in body)
         self.assertEqual(comments["portalId"], "configured")
-        # A fresh plan gallery lists this portal, not the whole site.
-        self.assertEqual(fresh["tags"], ["configured"])
-        self.assertNotIn("thisPortal", fresh)
+        # A fresh plan gallery lists this portal's finished submissions.
+        self.assertEqual(fresh["portalId"], "configured")
+        self.assertNotIn("source", fresh)
 
-    def test_plan_gallery_serves_only_its_chosen_source(self):
+    def test_plan_gallery_serves_only_its_chosen_mode(self):
         from content.api import _resolve_plan_galleries
 
         def served(value, portal="configured"):
@@ -1349,40 +1335,35 @@ class FormConfigInjectionTests(TestCase):
                 [{"type": "plan_gallery", "value": dict(value)}], portal
             )[0]["value"]
 
-        # Stale filters of an unchosen source never leak into the listing.
-        curated = served({"source": "ids", "ids": [3, 1], "tags": ["x"]})
-        self.assertEqual((curated["ids"], curated["tags"]), ([3, 1], None))
-        cross = served({"source": "portals", "ids": [3], "tags": ["elsewhere"]})
-        self.assertEqual((cross["ids"], cross["tags"]), (None, ["elsewhere"]))
-        own = served({"source": "this_portal", "ids": [3]})
-        self.assertEqual((own["ids"], own["tags"]), (None, ["configured"]))
-        site = served({"source": "all", "tags": ["x"]})
-        self.assertEqual((site["ids"], site["tags"]), (None, None))
-        # "This portal" off a portal page lists the whole site.
-        self.assertIsNone(served({"source": "this_portal"}, portal=None)["tags"])
-        self.assertNotIn("source", own)
+        curated = served({"source": "ids", "ids": [3, 1]})
+        self.assertEqual(
+            (curated["ids"], curated["portalId"], curated["draftStatus"]),
+            ([3, 1], None, None),
+        )
+        # Stale curated ids never leak into a portal listing.
+        for status in ("ready_to_share", "in_progress"):
+            own = served({"source": status, "ids": [3]})
+            self.assertEqual(
+                (own["ids"], own["portalId"], own["draftStatus"]),
+                (None, "configured", status),
+            )
+            self.assertNotIn("source", own)
+        # Off a portal page a portal gallery has nothing to list.
+        self.assertIsNone(served({"source": "ready_to_share"}, portal=None)["portalId"])
 
-    def test_legacy_galleries_keep_their_meaning(self):
-        """Blocks saved before `source` (thisPortal era) load and serve as
-        they did — including in the editor, so a re-save can't flip them."""
-        self.portal.body = [
-            {"type": "plan_gallery", "value": {"ids": [7], "thisPortal": True}},
-            {"type": "plan_gallery", "value": {"thisPortal": False}},
-            {"type": "plan_gallery", "value": {}},
-        ]
-        self.portal.save_revision(clean=False).publish()
-        self.portal.refresh_from_db()
-        self.assertEqual(
-            [block.value["source"] for block in self.portal.body],
-            ["ids", "all", "this_portal"],
-        )
-        body = self.client.get("/api/content/portals/slug/configured").json()[
-            "content"
-        ]["body"]
-        self.assertEqual(
-            [(b["value"]["ids"], b["value"]["tags"]) for b in body],
-            [([7], None), (None, None), (None, ["configured"])],
-        )
+    def test_portal_galleries_only_on_portal_pages(self):
+        from content.forms import has_portal_gallery
+
+        def body(source):
+            page = PortalPage()
+            page.body = [
+                {"type": "plan_gallery", "value": {"source": source, "ids": [1]}}
+            ]
+            return page.body
+
+        self.assertTrue(has_portal_gallery(body("ready_to_share")))
+        self.assertTrue(has_portal_gallery(body("in_progress")))
+        self.assertFalse(has_portal_gallery(body("ids")))
 
     def test_portal_page_may_carry_several_curated_galleries(self):
         self.portal.body = [
@@ -1396,52 +1377,15 @@ class FormConfigInjectionTests(TestCase):
         ]["body"]
         self.assertEqual([b["value"]["ids"] for b in body], [[1, 2], [3]])
 
-    def test_only_admins_list_beyond_their_portal(self):
-        """#777: a partner must not turn a portal gallery into a dump of every
-        plan on the site (or another portal's)."""
-        from content.forms import admin_only_violation
-        from core.testing import make_user
-
-        def body(*galleries):
-            page = PortalPage()
-            page.body = [
-                {"type": "plan_gallery", "id": gid, "value": value}
-                for gid, value in galleries
-            ]
-            return page.body
-
-        partner = make_user("partner", "gallery-partner@d.org")
-        admin = make_user("admin", "gallery-admin@d.org")
-        site_wide = ("g1", {"source": "all"})
-        own = ("g2", {"source": "this_portal"})
-        curated = ("g3", {"source": "ids", "ids": [4]})
-
-        def check(new, old=(), user=partner, portal_page=True):
-            return admin_only_violation(
-                body(*new), body(*old), user=user, portal_page=portal_page
-            )
-
-        self.assertIsNone(check([own, curated]))
-        self.assertIsNotNone(check([site_wide]))
-        self.assertIsNotNone(check([("g4", {"source": "portals", "tags": ["x"]})]))
-        # An admin's site-wide gallery survives a partner's save untouched...
-        self.assertIsNone(check([site_wide, own], old=[site_wide]))
-        # ...but not a partner's edit to it.
-        self.assertIsNotNone(
-            check([("g1", {"source": "portals", "tags": ["x"]})], old=[site_wide])
-        )
-        self.assertIsNone(check([site_wide], user=admin))
-        # Off a portal page "this portal" means the whole site.
-        self.assertIsNotNone(check([own], portal_page=False))
-
     def test_curated_gallery_needs_ids(self):
         from content.blocks import PlanGalleryBlock
         from wagtail.blocks import StructBlockValidationError
 
         block = PlanGalleryBlock()
-        with self.assertRaises(StructBlockValidationError) as caught:
-            block.clean(block.to_python({"source": "ids", "ids": []}))
-        self.assertIn("ids", caught.exception.block_errors)
+        for ids in ([], list(range(1, 52))):  # none, or more than 50
+            with self.assertRaises(StructBlockValidationError) as caught:
+                block.clean(block.to_python({"source": "ids", "ids": ids}))
+            self.assertIn("ids", caught.exception.block_errors)
 
     def test_map_modules_saved_as_list_blocks_still_serve(self):
         """Pages saved before MapModulesBlock stored ListBlock items."""
@@ -2049,7 +1993,7 @@ class PortalOwnershipAndIdentityTests(TestCase):
             "content"
         ]["body"]
         gallery = next(b["value"] for b in body if b["type"] == "plan_gallery")
-        self.assertEqual(gallery["tags"], ["renamed-portal"])
+        self.assertEqual(gallery["portalId"], "renamed-portal")
 
     def test_page_editor_breadcrumbs_are_admin_only(self):
         # Partners reach portals through the Portals hub; the editor's

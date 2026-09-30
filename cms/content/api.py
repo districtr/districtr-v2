@@ -28,7 +28,7 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.blocks import plan_gallery_source
+from content.blocks import PORTAL_GALLERY_SOURCES
 from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
@@ -54,26 +54,25 @@ def _language_sort_key(code):
 
 
 def _resolve_plan_galleries(body_data, portal_slug=None):
-    """Turn each plan gallery's ``source`` into the ids/tags filters the
-    frontend's PlanGallery reads (tags = portal slugs), so only the chosen
-    filter is ever served. "This portal" gets the page's portal slug here,
-    never stored, so a slug rename can't strand the gallery; off a portal
-    page it lists the whole site."""
+    """Turn each plan gallery's source into what the frontend's
+    PlanGallery fetches: ids for a curated gallery, or portalId +
+    draftStatus for a portal gallery. The slug is injected here, never
+    stored, so a rename can't strand the gallery. Off a portal page (where
+    the forms reject portal modes) a portal gallery serves no filter and the
+    frontend renders nothing."""
     for block in body_data:
         if block.get("type") != "plan_gallery":
             continue
         value = block["value"]
-        source = plan_gallery_source(value)
-        value.pop("source", None)
-        value.pop("thisPortal", None)
-        if source == "this_portal" and portal_slug:
-            value["ids"], value["tags"] = None, [portal_slug]
-        elif source == "ids":
-            value["tags"] = None
-        elif source == "portals":
-            value["ids"] = None
+        source = value.pop("source", None)
+        if source == "ids":
+            value["portalId"], value["draftStatus"] = None, None
         else:
-            value["ids"], value["tags"] = None, None
+            value["ids"] = None
+            value["portalId"] = portal_slug
+            value["draftStatus"] = (
+                source if source in PORTAL_GALLERY_SOURCES else "ready_to_share"
+            )
     return body_data
 
 

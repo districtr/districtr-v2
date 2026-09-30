@@ -25,7 +25,7 @@ from html.parser import HTMLParser
 
 from wagtail import blocks as wagtail_blocks
 
-from content.blocks import ContentStreamBlock, plan_gallery_source
+from content.blocks import ContentStreamBlock
 
 #: Exact TipTap node names (Node.create({name: ...}) in
 #: app/src/app/components/Cms/RichTextEditor/extensions/) -> stream block name.
@@ -155,10 +155,6 @@ def _struct_value_from_attrs(block_name: str, attrs: dict, warnings: list[str]) 
     (CompatStructBlock.nullable_if_empty).
     """
     struct_block = _STREAM_BLOCK.child_blocks[block_name]
-    if block_name == "plan_gallery" and not attrs.get("source"):
-        # TipTap galleries predate `source`; their filters decide it (with no
-        # filter they listed the whole site), never the block default.
-        attrs = {**attrs, "source": plan_gallery_source({"thisPortal": False, **attrs})}
     value = {}
     for name, child in struct_block.child_blocks.items():
         raw = attrs.get(name)

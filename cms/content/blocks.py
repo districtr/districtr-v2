@@ -239,65 +239,42 @@ class SectionHeaderBlock(blocks.StructBlock):
 
 # What a plan gallery lists. Resolved into the served ids/tags filters by
 # content/api.py::_resolve_plan_galleries.
+# What a plan gallery lists; resolved into the frontend's filters by
+# content/api.py::_resolve_plan_galleries. The two portal modes list the
+# page's own portal, so they only work on portal pages (content/forms.py).
 PLAN_GALLERY_SOURCES = [
-    ("this_portal", "This portal's submissions"),
-    ("ids", "Specific maps (by ID)"),
-    ("portals", "Submissions to other portals"),
-    ("all", "Shared maps from the whole site"),
+    ("ids", "Curated: specific maps by ID"),
+    ("ready_to_share", "Finished submissions to this portal"),
+    ("in_progress", "In-progress submissions to this portal"),
 ]
-
-
-def plan_gallery_source(value):
-    """The gallery's source, inferred for blocks saved before ``source``
-    existed: curated ids won, then portal slugs, then the old thisPortal
-    checkbox (default on), else site-wide."""
-    if value.get("source"):
-        return value["source"]
-    if value.get("ids"):
-        return "ids"
-    if value.get("tags"):
-        return "portals"
-    return "this_portal" if value.get("thisPortal", True) else "all"
+PORTAL_GALLERY_SOURCES = ("ready_to_share", "in_progress")
+# Matches the backend's cap on /api/documents/list?ids=.
+MAX_CURATED_IDS = 50
 
 
 class PlanGalleryBlock(CompatStructBlock):
-    """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES.
-
-    ``source`` picks what the gallery lists: this portal's submissions (the
-    slug is injected when serving, so a rename can't strand it), a curated
-    list of map IDs in editor order, other portals' submissions, or the
-    whole site. A page may carry any number of galleries.
+    """A gallery of plans: a curated list of map IDs in editor order, or the
+    page's portal's finished or in-progress submissions (the slug is
+    injected when serving, so a rename can't strand it). A page may carry
+    any number of galleries.
     """
 
     source = blocks.ChoiceBlock(
         choices=PLAN_GALLERY_SOURCES,
-        default="this_portal",
+        default="ready_to_share",
         widget=forms.RadioSelect,
         label="Show",
-        help_text='"This portal" only applies on portal pages. Listing the '
-        "whole site or other portals is admin-only.",
     )
     ids = blocks.ListBlock(
         blocks.IntegerBlock(min_value=1),
         default=[],
+        max_num=MAX_CURATED_IDS,
         label="Map IDs",
-        help_text='For "Specific maps": public map IDs, shown in this order.',
-    )
-    tags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        label="Portal slugs",
-        help_text='For "Submissions to other portals": the portals to list.',
+        help_text=f"For curated galleries: up to {MAX_CURATED_IDS} public map "
+        "IDs, shown in this order.",
     )
     title = blocks.CharBlock(required=False)
     description = blocks.TextBlock(required=False)
-    includeInProgress = blocks.BooleanBlock(
-        required=False,
-        default=False,
-        label="Include in-progress plans",
-        help_text="Filtered galleries show ready-to-share plans only unless "
-        "this is ticked.",
-    )
     paginate = blocks.BooleanBlock(required=False, default=True)
     showListView = blocks.BooleanBlock(required=False, default=True)
     showThumbnails = blocks.BooleanBlock(required=False, default=True)
@@ -311,24 +288,13 @@ class PlanGalleryBlock(CompatStructBlock):
     class Meta:
         icon = "table"
         label = "Plan gallery"
-        nullable_if_empty = ("ids", "tags")
-
-    def _with_source(self, value):
-        return {**value, "source": plan_gallery_source(value)}
-
-    def to_python(self, value):
-        return super().to_python(self._with_source(value))
-
-    def bulk_to_python(self, values):
-        return super().bulk_to_python([self._with_source(v) for v in values])
+        nullable_if_empty = ("ids",)
 
     def clean(self, value):
         value = super().clean(value)
-        required = {"ids": "Add at least one map ID.", "portals": "Add a portal slug."}
-        field = {"ids": "ids", "portals": "tags"}.get(value["source"])
-        if field and not value[field]:
+        if value["source"] == "ids" and not value["ids"]:
             raise blocks.StructBlockValidationError(
-                block_errors={field: ValidationError(required[value["source"]])}
+                block_errors={"ids": ValidationError("Add at least one map ID.")}
             )
         return value
 

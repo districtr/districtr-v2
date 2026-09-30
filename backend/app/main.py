@@ -8,7 +8,7 @@ from fastapi import (
     Security,
 )
 from fastapi.responses import JSONResponse, Response
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 import anyio
 import msgpack
 import psutil
@@ -23,7 +23,7 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlalchemy.types import Integer
 from sqlmodel import Session, String, select, true, update, col, literal
-from sqlalchemy.sql import and_, exists, or_
+from sqlalchemy.sql import and_, exists
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -75,7 +75,6 @@ from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.submissions.main as submissions
 from app.submissions.models import (
-    CollectionMode,
     FormConfig,
     Submission,
     SubmissionStatus,
@@ -101,7 +100,6 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
@@ -1456,28 +1454,49 @@ def get_document_object(
         )
 
 
+# Curated galleries name their maps; beyond this a gallery should list a portal.
+MAX_LISTED_IDS = 50
+
+
 @app.get("/api/documents/list")
 def get_document_list(
     session: Session = Depends(get_session),
+    ids: list[int] = Query(
+        default=[],
+        max_length=MAX_LISTED_IDS,
+        description="Curated gallery: these maps, in this order.",
+    ),
+    portal_id: str | None = Query(
+        default=None,
+        description="Portal gallery: maps submitted to this portal.",
+    ),
+    draft_status: Literal["ready_to_share", "in_progress"] = Query(
+        default="ready_to_share",
+        description="Portal galleries only: finished or in-progress maps.",
+    ),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
-    ids: list[int] = Query(default=[]),
-    portal_ids: list[str] = Query(default=[]),
-    tags: list[str] = Query(
-        default=[],
-        deprecated=True,
-        description="Alias of portal_ids for frontends built before the "
-        "cutover. Remove one release after it ships.",
-    ),
-    draft_status: list[DocumentDraftStatus] = Query(default=[]),
     include_hidden: bool = Query(
         default=False,
-        description="Keep maps taken down by a moderator or collected by "
-        "internal or closed portals (the CMS's own metadata lookups). A "
+        description="With ids only: keep maps taken down by a moderator or "
+        "collected by closed portals (the CMS's own metadata lookups). A "
         "listing convenience, not an access check: any map's metadata is "
         "fetchable by its public_id.",
     ),
 ):
+    """A gallery's maps: either a curated list of up to 50 ids, or one
+    portal's submitted maps at one status. There is no unfiltered listing."""
+    if bool(ids) == bool(portal_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Pass either ids (up to {MAX_LISTED_IDS}) or portal_id.",
+        )
+    if include_hidden and not ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="include_hidden only applies to an ids lookup.",
+        )
+
     def _submission_exists(*conditions):
         return exists(
             select(literal(1))
@@ -1508,25 +1527,10 @@ def get_document_list(
         .limit(limit)
     )
 
-    # The tags alias lasts one release. Without it an old bundle's ?tags=
-    # would hit the unfiltered branch and list every map.
-    portal_ids = portal_ids + tags
-
     # Public listings drop taken-down maps (Hide is the one moderation
-    # lever) and maps of closed portals. Internal-mode maps stay off the
-    # site-wide list only: internal means no gallery on the page by default,
-    # and an owner who adds one (their portal's gallery, or a curated gallery
-    # of map ids) has chosen to show them. include_hidden is the CMS hub's own
-    # metadata lookup, which shows all of them. (A LISTING guarantee: any
-    # map's metadata remains fetchable by its sequential public_id, as it
-    # always has been.)
+    # lever) and maps of closed portals. include_hidden is the CMS hub's own
+    # metadata lookup, which shows all of them.
     if not include_hidden:
-        excluded_portal = col(FormConfig.accepting).is_(False)
-        if not portal_ids and not ids:
-            excluded_portal = or_(
-                excluded_portal,
-                col(FormConfig.collection_mode) == CollectionMode.internal,
-            )
         stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
         stmt = stmt.where(
             ~exists(
@@ -1536,19 +1540,25 @@ def get_document_list(
                 .where(
                     and_(
                         Submission.map_public_id == Document.public_id,
-                        excluded_portal,
+                        col(FormConfig.accepting).is_(False),
                     )
                 )
                 .correlate(Document)
             )
         )
 
-    if len(portal_ids) > 0:
+    if ids:
+        # Curated galleries show exactly the maps named, in the editor's
+        # order (a fixed order is also what makes offset paging safe).
+        stmt = stmt.where(col(Document.public_id).in_(ids)).order_by(
+            func.array_position(pg_array(ids, type_=Integer), col(Document.public_id)),
+            col(Document.public_id),
+        )
+    else:
         # A map is in a portal's gallery when it belongs to that portal
         # (document.portal_id) and a visible submission row carries it.
         # Membership and moderation authority share one key, the portal, so
         # nobody can list a map in a portal whose reviewers can't take it down.
-        stmt = stmt.where(col(Document.portal_id).in_(portal_ids))
         submission_visible = exists(
             select(literal(1))
             .select_from(Submission)
@@ -1564,34 +1574,13 @@ def get_document_list(
             )
             .correlate(Document)
         )
-        stmt = stmt.where(submission_visible)
-        # Portal listings only surface maps past scratch: moving a map to
-        # in_progress or ready_to_share is what "submits" it to the gallery
-        # (deliberate submissions are frozen clones at ready_to_share;
-        # auto-collected ones are live maps whose status this reflects).
-        if len(draft_status) == 0:
-            draft_status = list(SUBMITTED_DRAFT_STATUSES)
-
-    if len(draft_status) > 0:
         # this is fine to keep as ->> because you're comparing to text
-        stmt = stmt.where(
-            col(Document.map_metadata)["draft_status"].astext.in_(
-                [st.value for st in draft_status]
-            )
+        stmt = (
+            stmt.where(col(Document.portal_id) == portal_id)
+            .where(submission_visible)
+            .where(col(Document.map_metadata)["draft_status"].astext == draft_status)
+            .order_by(col(Document.public_id).desc())
         )
-
-    # A fixed order is what makes offset paging safe: without it a reader
-    # could meet the same map on two pages and never see another. Curated
-    # galleries keep the editor's order; everything else lists newest first.
-    # (public_id is unique and the module join is many-to-one, so rows
-    # never repeat and no DISTINCT is needed.)
-    if len(ids) > 0:
-        stmt = stmt.where(col(Document.public_id).in_(ids)).order_by(
-            func.array_position(pg_array(ids, type_=Integer), col(Document.public_id)),
-            col(Document.public_id),
-        )
-    else:
-        stmt = stmt.order_by(col(Document.public_id).desc())
 
     results = session.exec(stmt).all()
     return [

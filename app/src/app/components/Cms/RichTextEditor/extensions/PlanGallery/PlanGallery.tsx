@@ -2,76 +2,57 @@
 import React from 'react';
 import {Table} from '@radix-ui/themes';
 import {Gallery} from '@/app/components/Static/Gallery';
-import {getPlans} from '@/app/utils/api/apiHandlers/getPlans';
+import {getPlans, type PlanQuery} from '@/app/utils/api/apiHandlers/getPlans';
 import {MinPublicDocument} from '@utils/api/apiHandlers/types';
-import {
-  DRAFT_STATUSES,
-  SUBMITTED_STATUSES,
-  type DraftStatus,
-} from '@constants/document/draftStatus';
 import {PlanCard, PlanFlags, PlanTableRow} from './PlanGalleryRenderers';
 
-type PlanGalleryFilters = {
-  ids?: number[] | null;
-  tags?: string[] | null;
-  draftStatuses?: DraftStatus[];
-};
-
 export type PlanGalleryProps = {
-  /** The curated gallery: ordered plan ids maintained on the CMS page. */
+  /** Curated gallery: these maps, in this order. */
   ids?: Array<number> | null;
-  tags?: string[] | null;
+  /** Portal gallery (injected by the CMS on portal pages): this portal's
+   * submissions at one status. */
+  portalId?: string | null;
+  draftStatus?: 'ready_to_share' | 'in_progress' | null;
   title: string;
   description: string;
   paginate?: boolean;
   limit?: number;
   showListView?: boolean;
-  /** Tag-based galleries show ready-to-share maps only; opt in to
-   * in-progress maps as well. */
-  includeInProgress?: boolean;
 } & PlanFlags;
 
 export const PlanGallery: React.FC<PlanGalleryProps> = ({
   ids,
-  tags,
+  portalId,
+  draftStatus,
   title,
   description,
   paginate,
   limit = 12,
   showListView = false,
-  includeInProgress = false,
   ...flags
 }: PlanGalleryProps) => {
-  // Curated ids show exactly the maps listed. Every other gallery, tag
-  // filtered or site-wide, lists submitted plans only, never scratch maps.
-  const isFiltered = !ids?.length;
-  const draftStatuses = includeInProgress ? SUBMITTED_STATUSES : [DRAFT_STATUSES.READY_TO_SHARE];
-  // Mixed-status lists annotate each plan with its status; ready-only lists
-  // are uniform, so a badge would be noise.
-  const showStatus = isFiltered && includeInProgress;
+  const query: PlanQuery | null = ids?.length
+    ? {ids}
+    : portalId
+      ? {portalId, draftStatus: draftStatus ?? 'ready_to_share'}
+      : null;
+  // Nothing to list (e.g. a portal gallery off a portal page).
+  if (!query) return null;
   return (
-    <Gallery<MinPublicDocument, PlanGalleryFilters, MinPublicDocument[] | null>
+    <Gallery<MinPublicDocument, PlanQuery, MinPublicDocument[] | null>
       title={title}
       description={description}
       paginate={paginate}
       limit={limit}
       showListView={showListView}
-      filters={{ids, tags, draftStatuses: isFiltered ? draftStatuses : undefined}}
+      filters={query}
       queryKey={['plans']}
       queryFunction={async ({filters, limit, offset}) => {
-        const result = await getPlans({
-          ids: filters.ids ?? undefined,
-          tags: filters.tags ?? undefined,
-          draftStatuses: filters.draftStatuses,
-          limit,
-          offset,
-        });
+        const result = await getPlans({...filters, limit, offset});
         return result?.ok ? result.response : null;
       }}
       selectItems={data => (data || []) as MinPublicDocument[]}
-      gridRenderer={(plan, i) => (
-        <PlanCard key={i} plan={plan} {...flags} showStatus={showStatus} />
-      )}
+      gridRenderer={(plan, i) => <PlanCard key={i} plan={plan} {...flags} />}
       tableHeader={
         <>
           <Table.ColumnHeaderCell>ID</Table.ColumnHeaderCell>
@@ -81,12 +62,9 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
           {flags.showDescriptions && <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>}
           {flags.showTags && <Table.ColumnHeaderCell>Tags</Table.ColumnHeaderCell>}
           {flags.showUpdatedAt && <Table.ColumnHeaderCell>Updated At</Table.ColumnHeaderCell>}
-          {showStatus && <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>}
         </>
       }
-      tableRowRenderer={(plan, i) => (
-        <PlanTableRow key={i} plan={plan} {...flags} showStatus={showStatus} />
-      )}
+      tableRowRenderer={(plan, i) => <PlanTableRow key={i} plan={plan} {...flags} />}
     />
   );
 };
