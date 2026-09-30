@@ -117,7 +117,12 @@ class Settings(BaseSettings):
 
     VERBOSE_LOGGING: bool = False
 
-    ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
+    # A property, not a field default: a class-body default would read the
+    # class-level ENVIRONMENT (always `local`) and echo SQL in production.
+    @computed_field  # type: ignore[misc]
+    @property
+    def ECHO_DB(self) -> bool:
+        return self.ENVIRONMENT not in (Environment.production, Environment.test)
 
     # Security
 
