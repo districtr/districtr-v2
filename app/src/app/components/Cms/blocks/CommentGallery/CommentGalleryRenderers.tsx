@@ -2,7 +2,7 @@
  * Renderers for CommentGallery grid and table views.
  *
  * These components are passed to the generic Gallery as gridRenderer and tableRowRenderer.
- * They handle conditional display of fields based on the options prop.
+ * Every field shows when the submission has a value for it.
  */
 'use client';
 import {Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
@@ -12,18 +12,8 @@ import {formatDistanceToNow} from 'date-fns';
 import {useState} from 'react';
 import {NsfwShield} from '@/app/components/Shared/NsfwShield';
 
-/** Display options passed from CommentGallery to control which fields are shown */
 interface CommentRenderersProps {
   comment: SubmissionListing;
-  options: {
-    showIdentifier?: boolean;
-    showTitles?: boolean;
-    showPlaces?: boolean;
-    showStates?: boolean;
-    showZipCodes?: boolean;
-    showCreatedAt?: boolean;
-    showMaps?: boolean;
-  };
 }
 
 /** Formats commenter's first and last name, with fallback to 'Anonymous' */
@@ -78,11 +68,8 @@ const MapLink: React.FC<{publicId: number}> = ({publicId}) => (
 );
 
 /** Card renderer for grid view - displays comment with optional metadata */
-export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options}) => {
-  const hasLocation =
-    (options.showPlaces && comment.place) ||
-    (options.showStates && comment.state) ||
-    (options.showZipCodes && comment.zip_code);
+export const CommentCard: React.FC<CommentRenderersProps> = ({comment}) => {
+  const hasLocation = !!(comment.place || comment.state || comment.zip_code);
 
   return (
     <NsfwShield nsfw={comment.nsfw}>
@@ -91,7 +78,7 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
         <Box className="px-4 pt-4 pb-3 border-b border-slate-100 bg-slate-50">
           <Flex align="start" justify="between" gap="3">
             <Flex direction="column" gap="1" className="flex-1 min-w-0">
-              {options.showTitles && comment.title && (
+              {comment.title && (
                 <Heading
                   size="2"
                   as="h3"
@@ -101,26 +88,22 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
                   {comment.title}
                 </Heading>
               )}
-              {!!(options.showIdentifier || options.showCreatedAt) && (
-                <Flex direction="row" justify="between" align="center" gap="1.5">
-                  {options.showIdentifier && (
-                    <Flex align="center" gap="1.5">
-                      <PersonIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      <Text size="1" color="gray" className="truncate">
-                        {getCommenterName(comment)}
-                      </Text>
-                    </Flex>
-                  )}
-                  {options.showCreatedAt && comment.created_at && (
-                    <Flex align="center" gap="1" className="flex-shrink-0">
-                      <CalendarIcon className="w-3 h-3 text-slate-400" />
-                      <Text size="1" color="gray" className="whitespace-nowrap">
-                        {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
-                      </Text>
-                    </Flex>
-                  )}
+              <Flex direction="row" justify="between" align="center" gap="1.5">
+                <Flex align="center" gap="1.5">
+                  <PersonIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <Text size="1" color="gray" className="truncate">
+                    {getCommenterName(comment)}
+                  </Text>
                 </Flex>
-              )}
+                {comment.created_at && (
+                  <Flex align="center" gap="1" className="flex-shrink-0">
+                    <CalendarIcon className="w-3 h-3 text-slate-400" />
+                    <Text size="1" color="gray" className="whitespace-nowrap">
+                      {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+                    </Text>
+                  </Flex>
+                )}
+              </Flex>
             </Flex>
           </Flex>
         </Box>
@@ -143,7 +126,7 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
 
           {/* Map, Report */}
           <Flex wrap="wrap" gap="2" align="center">
-            {options.showMaps && comment.public_id && <MapLink publicId={comment.public_id} />}
+            {comment.public_id && <MapLink publicId={comment.public_id} />}
             <ReportButton submissionId={comment.id} />
           </Flex>
         </Box>
@@ -155,20 +138,18 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
 /** Row renderer for table/list view - displays comment fields as table cells.
  * nsfw rows blur every free-text cell until the reader opts in, the same
  * decision and reach as the card's NsfwShield. */
-export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => {
+export const CommentRow: React.FC<CommentRenderersProps> = ({comment}) => {
   const [revealed, setRevealed] = useState(false);
   const blurred = comment.nsfw && !revealed;
   const blur = blurred ? ' blur-sm select-none' : '';
   const text = (value: string | null | undefined) => value || '—';
   return (
     <Table.Row className="hover:bg-slate-50 transition-colors">
-      {options.showTitles && (
-        <Table.Cell>
-          <Text weight="medium" className={`line-clamp-1${blur}`} aria-hidden={blurred}>
-            {text(comment.title)}
-          </Text>
-        </Table.Cell>
-      )}
+      <Table.Cell>
+        <Text weight="medium" className={`line-clamp-1${blur}`} aria-hidden={blurred}>
+          {text(comment.title)}
+        </Text>
+      </Table.Cell>
       <Table.Cell>
         {blurred && (
           <Button size="1" variant="soft" color="gray" onClick={() => setRevealed(true)}>
@@ -179,55 +160,43 @@ export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) 
           {text(comment.comment)}
         </Text>
       </Table.Cell>
-      {options.showIdentifier && (
-        <Table.Cell>
-          <Flex align="center" gap="1.5">
-            <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
-            <Text size="2" className={blur} aria-hidden={blurred}>
-              {getCommenterName(comment)}
-            </Text>
-          </Flex>
-        </Table.Cell>
-      )}
-      {options.showPlaces && (
-        <Table.Cell>
-          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
-            {text(comment.place)}
+      <Table.Cell>
+        <Flex align="center" gap="1.5">
+          <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
+          <Text size="2" className={blur} aria-hidden={blurred}>
+            {getCommenterName(comment)}
           </Text>
-        </Table.Cell>
-      )}
-      {options.showStates && (
-        <Table.Cell>
-          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
-            {text(comment.state)}
-          </Text>
-        </Table.Cell>
-      )}
-      {options.showZipCodes && (
-        <Table.Cell>
-          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
-            {text(comment.zip_code)}
-          </Text>
-        </Table.Cell>
-      )}
-      {options.showMaps && (
-        <Table.Cell>
-          {comment.public_id ? (
-            <MapLink publicId={comment.public_id} />
-          ) : (
-            <Text size="2" color="gray">
-              —
-            </Text>
-          )}
-        </Table.Cell>
-      )}
-      {options.showCreatedAt && (
-        <Table.Cell>
+        </Flex>
+      </Table.Cell>
+      <Table.Cell>
+        <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+          {text(comment.place)}
+        </Text>
+      </Table.Cell>
+      <Table.Cell>
+        <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+          {text(comment.state)}
+        </Text>
+      </Table.Cell>
+      <Table.Cell>
+        <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+          {text(comment.zip_code)}
+        </Text>
+      </Table.Cell>
+      <Table.Cell>
+        {comment.public_id ? (
+          <MapLink publicId={comment.public_id} />
+        ) : (
           <Text size="2" color="gray">
-            {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+            —
           </Text>
-        </Table.Cell>
-      )}
+        )}
+      </Table.Cell>
+      <Table.Cell>
+        <Text size="2" color="gray">
+          {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+        </Text>
+      </Table.Cell>
     </Table.Row>
   );
 };
