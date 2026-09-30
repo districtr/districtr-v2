@@ -47,7 +47,7 @@ export interface PlanGalleryBlock {
 
 export interface CommentGalleryBlock {
   type: 'comment_gallery';
-  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no
+  /** camelCase CommentGalleryProps; ids/tags may be null (no
    * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
   value: CommentGalleryProps;
   id: string;
