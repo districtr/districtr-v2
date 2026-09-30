@@ -12,14 +12,11 @@ Portals hub) — there is no approval gate.
 """
 
 import hashlib
-import logging
 import re
 import sys
 from pathlib import Path
 
 from sqlmodel import Session, col, select, update
-
-logger = logging.getLogger(__name__)
 
 # Longest blocklisted phrase, in words. Longer phrases can't match; the
 # __main__ helper refuses them.
@@ -64,6 +61,9 @@ def moderate_submission(submission_id: int, session: Session) -> None:
     name/description, so leaving them unchecked would let an abusive map title
     sail past the nsfw filter under a clean one-word comment. The outcome is
     one blur bit plus the phrase, so per-field granularity buys nothing.
+
+    Runs inside the caller's transaction and does not commit: the check is
+    in-process and sub-millisecond, so the entry is never visible unchecked.
     """
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
@@ -78,7 +78,7 @@ def moderate_submission(submission_id: int, session: Session) -> None:
         select(SubmissionContent.value).where(
             col(SubmissionContent.submission_id) == submission_id,
             # Private answers (email) never leave the backend, and aren't
-            # shown publicly, so they have nothing to be scored for.
+            # shown publicly, so they have nothing to be checked for.
             col(SubmissionContent.field).not_in(PRIVATE_FIELDS),
         )
     ).all()
@@ -99,27 +99,6 @@ def moderate_submission(submission_id: int, session: Session) -> None:
         .where(col(Submission.id) == submission_id)
         .values(moderation_match=match, nsfw=match is not None)
     )
-    try:
-        session.commit()
-    except Exception:
-        session.rollback()
-        logger.exception(
-            f"Failed to save moderation result for submission {submission_id}"
-        )
-        raise
-
-
-def moderate_submission_in_background(submission_id: int) -> None:
-    """Background-task entry point: runs moderate_submission in its own session.
-
-    The request-scoped session is closed by the time background tasks run, so
-    endpoints schedule this; tests call moderate_submission with their session.
-    """
-    # Local import keeps the __main__ helper runnable without DB settings.
-    from app.core.db import engine
-
-    with Session(engine) as session:
-        moderate_submission(submission_id, session)
 
 
 if __name__ == "__main__":

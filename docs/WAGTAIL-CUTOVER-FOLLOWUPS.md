@@ -33,7 +33,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 - Moderation needs no review. A deterministic word-list check sets `nsfw` automatically, and the frontend blurs those entries (`backend/app/submissions/moderation.py`). District notes are not moderated.
 - The human controls are Blur and Hide, both in the Portals hub gallery. Hide removes an entry from every public listing, filtered or not. It does not delete the map, which stays reachable at `/map/<public_id>` by design.
 - `form_configs.accepting` mirrors whether the portal page is live (migration `a7c2e9d4b150`). The CMS sets it on publish, unpublish and delete (`PortalPage.sync_accepting`). A closed portal takes no public submissions, starts no drafts, and lists nothing publicly. Its admins still see everything in the hub.
-- Moderation never sends private answers (email) to the scorer.
+- Moderation never checks private answers (email).
 - There is no review queue. The Portals hub (`cms/portals/`, at `/admin/portals/`) replaced it. The hub has a portal index, a per-portal gallery with filters for flagged, hidden and nsfw entries, and a per-portal metrics page. The old `/admin/moderation/portals/` URL redirects to the hub.
 - A WAF rule limits `/api/submissions/flag` to 20 requests per IP per 5 minutes (`rate-limit-flag` in `infra/waf.ts`).
 

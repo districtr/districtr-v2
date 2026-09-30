@@ -9,7 +9,6 @@ clone-at-submission (the frozen-gallery data path).
 import pytest
 from sqlalchemy import text
 from sqlmodel import Session, col, select
-from unittest.mock import patch
 
 from app.core.security import auth
 from app.main import app
@@ -18,7 +17,7 @@ from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
 from app.submissions import moderation
-from app.submissions.moderation import find_blocked_phrase, moderate_submission
+from app.submissions.moderation import find_blocked_phrase
 from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import (  # noqa: F401 (autouse fixtures)
     override_auth_dependency,
@@ -75,6 +74,14 @@ VALID_FIELDS = {
     "title": "My testimony",
     "comment": "Keep the river whole.",
 }
+
+
+@pytest.fixture
+def blocked_zorp(monkeypatch):
+    """A stand-in blocklist entry, so no real list words live in the tests."""
+    monkeypatch.setattr(
+        moderation, "BLOCKLIST", moderation.BLOCKLIST | {moderation.digest(["zorp"])}
+    )
 
 
 def _submit(client, fields=None, map_ref=None, portal_id=PORTAL):
@@ -183,15 +190,15 @@ class TestPrivateFields:
 
 
 class TestModerationAndVisibility:
-    def test_nsfw_scoring_and_toggle(self, client, form_config, session, monkeypatch):
+    def test_nsfw_flag_and_toggle(self, client, form_config, session, monkeypatch):
         # Stand-in blocklist entry drawn from the fixture comment.
         monkeypatch.setattr(
             moderation,
             "BLOCKLIST",
             moderation.BLOCKLIST | {moderation.digest(["river", "whole"])},
         )
+        # Checked in the request's own transaction: flagged on arrival.
         submission_id = _submit(client).json()["id"]
-        moderate_submission(submission_id, session)
 
         public = client.get(f"/api/submissions?portal_id={PORTAL}").json()
         # nsfw rows stay listed — the frontend blurs them.
@@ -640,41 +647,24 @@ class TestScorer:
 
 
 class TestModerationWiring:
-    def test_submit_schedules_the_moderation_task(
-        self, client, form_config, monkeypatch
+    def test_map_card_text_is_checked(
+        self, client, form_config, document_id, session, blocked_zorp
     ):
-        # The background-task wiring itself: deleting add_task from
-        # create_submission must fail this test. The task is invoked with
-        # the submission pk after the response is sent (TestClient runs
-        # background tasks synchronously).
-        calls = []
-        monkeypatch.setattr(
-            "app.submissions.main.moderate_submission_in_background",
-            lambda submission_id, session=None: calls.append(submission_id),
-        )
-        response = _submit(client)
-        assert response.status_code == 201, response.json()
-        assert calls == [response.json()["id"]]
-
-    def test_map_card_text_is_scored(self, client, form_config, document_id, session):
         # The gallery card renders the map's name/description — they must be
-        # part of the scored text or an abusive title sails past the filter.
+        # part of the checked text or an abusive title sails past the filter.
         _mark_ready(session, document_id)
         doc = session.exec(
             select(Document).where(col(Document.document_id) == document_id)
         ).one()
-        doc.map_metadata = {**(doc.map_metadata or {}), "name": "abusive title"}
+        doc.map_metadata = {**(doc.map_metadata or {}), "name": "zorp title"}
         session.add(doc)
         session.commit()
 
-        submission_id = _submit(client, map_ref=document_id).json()["id"]
-        scored = {}
-        with patch(
-            "app.submissions.moderation.find_blocked_phrase",
-            side_effect=lambda text: scored.setdefault("text", text) and None,
-        ):
-            moderate_submission(submission_id, session)
-        assert "abusive title" in scored["text"]
+        submission = session.get(
+            Submission, _submit(client, map_ref=document_id).json()["id"]
+        )
+        assert submission.nsfw is True
+        assert submission.moderation_match == "zorp"
 
 
 class TestFormConfigContract:
@@ -888,21 +878,18 @@ class TestAutoFinalize:
         assert live["map_metadata"]["draft_status"] == "ready_to_share"
 
     def test_create_document_with_submitted_tier_metadata_flips_immediately(
-        self, client, session
+        self, client, session, blocked_zorp
     ):
         # A creation payload can already carry a submitted-tier status
         # (e.g. copies) — the flip and its moderation pass run at create.
-        # (The real task opens its own DB session, invisible to this test
-        # transaction, so scheduling is asserted via a patched task.)
-        with patch("app.submissions.main.moderate_submission_in_background") as task:
-            response = client.post(
-                "/api/create_document",
-                json={
-                    "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-                    "portal_id": AUTO_PORTAL,
-                    "metadata": {"name": "spicy", "draft_status": "ready_to_share"},
-                },
-            )
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                "portal_id": AUTO_PORTAL,
+                "metadata": {"name": "zorp", "draft_status": "ready_to_share"},
+            },
+        )
         assert response.status_code == 201, response.json()
         submission = session.exec(
             select(Submission).where(
@@ -910,19 +897,11 @@ class TestAutoFinalize:
             )
         ).one()
         assert submission.status == "submitted"
-        # The auto path is NOT a moderation bypass: the flipped entry gets
-        # scored (the gallery card renders the map's name).
-        task.assert_called_once_with(submission.id)
-
-        # The scoring itself sees the map card text: in-session run.
-        with patch(
-            "app.submissions.moderation.find_blocked_phrase", return_value="zorp blat"
-        ):
-            moderate_submission(submission.id, session)
-        session.refresh(submission)
+        # The auto path is NOT a moderation bypass: the flipped entry is
+        # checked (the gallery card renders the map's name).
         assert submission.nsfw is True
 
-    def test_renaming_a_live_auto_map_rescores(self, client, session):
+    def test_renaming_a_live_auto_map_rechecks(self, client, session, blocked_zorp):
         doc = self._create_draft(client, AUTO_PORTAL)
         self._set_status(client, doc["document_id"], "ready_to_share")
         submission = session.exec(
@@ -930,34 +909,29 @@ class TestAutoFinalize:
                 col(Submission.submission_id) == doc["submission_id"]
             )
         ).one()
+        assert submission.nsfw is False
 
-        # The card text is live — a later abusive rename must re-schedule
-        # scoring for the submitted live-referenced entry.
-        with patch("app.main.submissions.moderate_submission_in_background") as task:
-            response = client.put(
-                f"/api/document/{doc['document_id']}/metadata",
-                json={"name": "now abusive"},
-            )
-            assert response.status_code == 200
-        task.assert_called_once_with(submission.id)
-
-        # The client resends unchanged values on most saves: resending the same
-        # name and description must not re-score.
-        with patch("app.main.submissions.moderate_submission_in_background") as task:
-            response = client.put(
-                f"/api/document/{doc['document_id']}/metadata",
-                json={"name": "now abusive", "draft_status": "ready_to_share"},
-            )
-            assert response.status_code == 200
-        task.assert_not_called()
-
-        # ...and the score sees the new name.
-        with patch(
-            "app.submissions.moderation.find_blocked_phrase", return_value="zorp blat"
-        ):
-            moderate_submission(submission.id, session)
+        # The card text is live — a later abusive rename must re-check the
+        # submitted live-referenced entry.
+        response = client.put(
+            f"/api/document/{doc['document_id']}/metadata", json={"name": "now zorp"}
+        )
+        assert response.status_code == 200
         session.refresh(submission)
         assert submission.nsfw is True
+
+        # A portal admin unblurs it. The client resends unchanged values on
+        # most saves; those must not re-check and undo the admin's decision.
+        submission.nsfw = False
+        session.add(submission)
+        session.commit()
+        response = client.put(
+            f"/api/document/{doc['document_id']}/metadata",
+            json={"name": "now zorp", "draft_status": "ready_to_share"},
+        )
+        assert response.status_code == 200
+        session.refresh(submission)
+        assert submission.nsfw is False
 
     def test_in_progress_also_triggers(self, client, session):
         doc = self._create_draft(client, INTERNAL_PORTAL)
@@ -1404,16 +1378,19 @@ class TestSubmissionSideEffects:
         _, public_id = _submitted_clone(client, session, document_id)
         assert published == [public_id]
 
-    def test_private_email_is_never_scored(self, client, form_config, session):
-        submission_id = _submit(client).json()["id"]
-        scored = []
-        with patch(
-            "app.submissions.moderation.find_blocked_phrase",
-            side_effect=lambda text: scored.append(text),
-        ):
-            moderate_submission(submission_id, session)
-        assert "Keep the river whole." in scored[0]
-        assert VALID_FIELDS["email"] not in scored[0]
+    def test_private_email_is_never_checked(
+        self, client, form_config, session, monkeypatch
+    ):
+        # Private answers never leave the backend or show publicly, so a
+        # blocklisted email address must not blur the entry.
+        email_words = moderation.normalize(VALID_FIELDS["email"])
+        monkeypatch.setattr(
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(email_words)},
+        )
+        submission = session.get(Submission, _submit(client).json()["id"])
+        assert submission.nsfw is False
 
     def test_form_config_by_submission_survives_a_rename(
         self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
