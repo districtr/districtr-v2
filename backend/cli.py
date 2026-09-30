@@ -476,8 +476,8 @@ def invalidate_document_caches(
 ):
     """Drop cached stats and evaluations of documents on a GerryDB table.
 
-    Affected documents recompute district stats, evaluation metrics and
-    county aggregates on their next read.
+    Affected documents recompute district stats and evaluation metrics on their
+    next read.
     """
     counts = _invalidate_document_caches(
         session=session, gerrydb_table_name=gerrydb_table_name, dry_run=dry_run
@@ -488,13 +488,6 @@ def invalidate_document_caches(
     click.echo(f"  document.district_unions rows: {counts.district_unions}")
     click.echo(f"  document.evaluation rows: {counts.evaluations}")
     click.echo(f"  stats_published_at cleared: {counts.stats_published}")
-    click.echo(f"  evaluation.county_demographics rows: {counts.county_demographics}")
-    if not dry_run:
-        click.echo(
-            "Each backend task keeps county results in memory until it restarts. "
-            "Once every backend task has restarted, run this command again: "
-            "evaluations computed before then used the old county results."
-        )
 
 
 @cli.command("add-extent-to-districtr-map")

@@ -16,7 +16,7 @@ from sqlalchemy import func, text, update
 from sqlmodel import Session, select
 
 from app.constants import GERRY_DB_SCHEMA
-from app.evaluation.models import CountyDemographics, Evaluation
+from app.evaluation.models import Evaluation
 from app.models import DistrictUnions, Document
 from app.utils import get_gerrydb_numeric_cols
 from management.gerrydb_columns import (
@@ -355,24 +355,8 @@ def _cache_state(session: Session, document_id: str) -> tuple[int, int, bool]:
     return unions, evaluations, published_at is not None
 
 
-def _county_rows(session: Session, gerrydb_table_name: str) -> int:
-    return session.exec(
-        select(func.count())
-        .select_from(CountyDemographics)
-        .where(CountyDemographics.gerrydb_table_name == gerrydb_table_name)
-    ).one()
-
-
-def _seed_caches(session: Session, document_id: str, parent_layer: str) -> None:
+def _seed_caches(session: Session, document_id: str) -> None:
     session.add(Evaluation(document_id=document_id, metrics={}, payload_version=0))
-    session.add(
-        CountyDemographics(
-            geoid="00001",
-            gerrydb_table_name=parent_layer,
-            total_pop=1,
-            demographic_data={},
-        )
-    )
     session.execute(
         update(Document)
         .where(Document.document_id == document_id)
@@ -393,8 +377,8 @@ def test_invalidate_document_caches_scoped_to_target_table(
     _put_assignments(client, other, [["202090441022004", 1]])
     _read_stats(client, target)
     _read_stats(client, other)
-    _seed_caches(session, target, "simple_parent_geos")
-    _seed_caches(session, other, GERRY_DB_FIXTURE_NAME)
+    _seed_caches(session, target)
+    _seed_caches(session, other)
 
     target_before = _cache_state(session, target)
     other_before = _cache_state(session, other)
@@ -407,17 +391,13 @@ def test_invalidate_document_caches_scoped_to_target_table(
         dry.district_unions,
         dry.evaluations,
         dry.stats_published,
-        dry.county_demographics,
-    ) == (1, target_before[0], 1, 1, 1)
+    ) == (1, target_before[0], 1, 1)
     assert _cache_state(session, target) == target_before
-    assert _county_rows(session, "simple_parent_geos") == 1
 
     counts = invalidate_document_caches(session, "simple_geos")
     assert counts == dry
     assert _cache_state(session, target) == (0, 0, False)
-    assert _county_rows(session, "simple_parent_geos") == 0
     assert _cache_state(session, other) == other_before
-    assert _county_rows(session, GERRY_DB_FIXTURE_NAME) == 1
 
     # Re-running over already-invalidated documents is a no-op.
     again = invalidate_document_caches(session, "simple_geos")

@@ -33,8 +33,8 @@ class Evaluation(TimeStampMixin, SQLModel, table=True):
 class CountyDemographics(SQLModel, table=True):
     """Per-county demographic and election data aggregated from gerrydb VTD/block tables.
 
-    Populated on demand when a gerrydb table's ideal is first requested. Since
-    gerrydb tables are immutable once ingested, these rows are permanent.
+    Populated on demand when a gerrydb table's ideal is first requested, and
+    refreshed in place when an ideal is requested for a column added since.
     """
 
     __tablename__ = "county_demographics"

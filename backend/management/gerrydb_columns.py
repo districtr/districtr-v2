@@ -26,9 +26,9 @@ from sqlmodel import Session, col, func, select
 
 from app.constants import GERRY_DB_SCHEMA
 from app.core.io import get_local_or_s3_path
-from app.evaluation.models import CountyDemographics, Evaluation
+from app.evaluation.models import Evaluation
 from app.models import DistrictrMap, DistrictUnions, Document
-from app.utils import _quote_ident, assert_safe_ident
+from app.utils import _quote_ident, assert_safe_ident, build_shatterable_view
 
 logger = logging.getLogger(__name__)
 
@@ -224,26 +224,6 @@ class RebuildViewResult:
     indexes: list[str]
 
 
-def _view_columns(session: Session, table: str) -> list[str]:
-    """Columns a shatterable view carries from `table`: all but geometry and ogc_fid."""
-    rows = session.execute(
-        sa.text(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = :schema
-              AND table_name = :name
-              AND data_type != 'USER-DEFINED'
-              AND udt_name != 'geometry'
-              AND column_name != 'ogc_fid'
-            ORDER BY ordinal_position
-            """
-        ),
-        {"schema": GERRY_DB_SCHEMA, "name": table},
-    ).all()
-    return [row[0] for row in rows]
-
-
 def rebuild_shatterable_view(
     session: Session, gerrydb_table_name: str
 ) -> RebuildViewResult:
@@ -273,18 +253,6 @@ def rebuild_shatterable_view(
     parent = assert_safe_ident(layer_pairs[0][0])
     child = assert_safe_ident(layer_pairs[0][1])
 
-    view_columns = _view_columns(session, parent)
-    child_columns = _view_columns(session, child)
-    missing = sorted(set(view_columns) - set(child_columns))
-    if missing:
-        raise ValueError(f"Child layer {child} lacks parent columns: {missing}")
-    child_only = sorted(set(child_columns) - set(view_columns))
-    if child_only:
-        raise ValueError(
-            f"Parent layer {parent} lacks child columns: {child_only}. "
-            "Add them to the parent before rebuilding the view."
-        )
-
     indexes = session.execute(
         sa.text(
             "SELECT indexname, indexdef FROM pg_indexes "
@@ -300,15 +268,7 @@ def rebuild_shatterable_view(
 
     suffix = uuid4().hex[:16]
     temp_view = f"{REBUILD_PREFIX}{suffix}"
-    column_sql = ", ".join(_quote_ident(c) for c in view_columns)
-    session.execute(
-        sa.text(
-            f"CREATE MATERIALIZED VIEW {GERRY_DB_SCHEMA}.{temp_view} AS "
-            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{parent} "
-            f"UNION ALL "
-            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{child}"
-        )
-    )
+    view_columns = build_shatterable_view(session, parent, child, temp_view)
 
     index_renames: list[tuple[str, str]] = []
     for i, (index_name, indexdef) in enumerate(indexes):
@@ -361,7 +321,6 @@ class InvalidationCounts:
     district_unions: int
     evaluations: int
     stats_published: int
-    county_demographics: int
 
 
 def invalidate_document_caches(
@@ -372,23 +331,18 @@ def invalidate_document_caches(
     For every document on a districtr map with this `gerrydb_table_name`:
     deletes its `document.district_unions` and `document.evaluation` rows and
     clears `stats_published_at`, so `/stats` computes inline and republishes
-    instead of redirecting to the published GeoJSON. Also deletes the
-    `evaluation.county_demographics` rows of those maps' parent layers, the
-    key county aggregation uses. Documents on other gerrydb tables keep all
-    their rows. With `dry_run`, only counts.
-
-    `CountyContext` keeps its own in-process copy of county results until the
-    backend process restarts.
+    instead of redirecting to the published GeoJSON. Documents on other gerrydb
+    tables keep all their rows. With `dry_run`, only counts. County aggregates
+    refresh themselves when an evaluation asks for a new column
+    (`CountyContext.eguia_ideal`).
     """
-    maps = session.exec(
-        select(DistrictrMap.districtr_map_slug, DistrictrMap.parent_layer).where(
+    slugs = session.exec(
+        select(DistrictrMap.districtr_map_slug).where(
             DistrictrMap.gerrydb_table_name == gerrydb_table_name
         )
     ).all()
-    if not maps:
+    if not slugs:
         raise ValueError(f"No districtr maps use gerrydb table {gerrydb_table_name}")
-    slugs = [slug for slug, _ in maps]
-    parent_layers = sorted({parent for _, parent in maps})
 
     document_ids = select(Document.document_id).where(
         col(Document.districtr_map_slug).in_(slugs)
@@ -399,7 +353,6 @@ def invalidate_document_caches(
         col(Document.districtr_map_slug).in_(slugs),
         col(Document.stats_published_at).is_not(None),
     )
-    county_filter = col(CountyDemographics.gerrydb_table_name).in_(parent_layers)
 
     def count(model, condition) -> int:
         return session.exec(
@@ -411,7 +364,6 @@ def invalidate_document_caches(
         district_unions=count(DistrictUnions, unions_filter),
         evaluations=count(Evaluation, evaluations_filter),
         stats_published=count(Document, published_filter),
-        county_demographics=count(CountyDemographics, county_filter),
     )
     if dry_run:
         return counts
@@ -421,5 +373,4 @@ def invalidate_document_caches(
     session.execute(
         update(Document).where(published_filter).values(stats_published_at=None)
     )
-    session.execute(delete(CountyDemographics).where(county_filter))
     return counts

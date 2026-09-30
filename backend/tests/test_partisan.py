@@ -64,6 +64,7 @@ Suite 1 — seed=42, 8 districts, no spatial structure
 
 import math
 from datetime import datetime, timezone
+import sqlalchemy
 import sqlmodel
 from unittest.mock import MagicMock
 
@@ -73,6 +74,7 @@ from hypothesis import strategies as st
 
 from app.evaluation.context import (
     DocumentEvaluationContext,
+    ElectionPartyKey,
     GerrydbTableName,
     COUNTY_CONTEXT,
     CountyContext,
@@ -574,6 +576,7 @@ def eguia_context(session, grid_shatterable_districtr_map):
     """
     COUNTY_CONTEXT._cache.pop(PARENT_GRID_NAME, None)
     COUNTY_CONTEXT._attempts.pop(PARENT_GRID_NAME, None)
+    COUNTY_CONTEXT._missing.pop(PARENT_GRID_NAME, None)
 
     grid_map = session.exec(
         sqlmodel.select(DistrictrMap).where(
@@ -588,6 +591,7 @@ def eguia_context(session, grid_shatterable_districtr_map):
 
     COUNTY_CONTEXT._cache.pop(PARENT_GRID_NAME, None)
     COUNTY_CONTEXT._attempts.pop(PARENT_GRID_NAME, None)
+    COUNTY_CONTEXT._missing.pop(PARENT_GRID_NAME, None)
 
 
 def test_grid_seats_matches_gerrychain(grid_district_context):
@@ -782,7 +786,11 @@ def test_eguia_uses_parent_layer_not_shatterable_view(
                 DistrictUnionsResponse(
                     zone=1,
                     geometry=None,
-                    demographic_data={"pres_20_dem": 100, "pres_20_rep": 200},
+                    demographic_data={
+                        "total_pop_20": 300,
+                        "pres_20_dem": 100,
+                        "pres_20_rep": 200,
+                    },
                     updated_at=_now,
                 )
             ]
@@ -977,3 +985,60 @@ def test_fuzz_competitive_metrics_invariants(district_stats):
     )
     # competitive contests counted per (district, election) pair
     assert result["n_competitive_districts"] <= n * n_e
+
+
+def test_eguia_ideal_refreshes_for_column_added_after_caching(eguia_context):
+    """A column added to the parent table after its ideals were cached gets an
+    ideal on first request, without clearing the cache or restarting."""
+    session = eguia_context.session
+    COUNTY_CONTEXT.ideals_for_eguia(PARENT_GRID_NAME, session)
+    assert (
+        ElectionPartyKey("pres_2028_dem") not in COUNTY_CONTEXT._cache[PARENT_GRID_NAME]
+    )
+
+    session.execute(
+        sqlalchemy.text(
+            f"ALTER TABLE gerrydb.{PARENT_GRID_NAME} "
+            "ADD COLUMN pres_2028_dem integer, ADD COLUMN pres_2028_rep integer"
+        )
+    )
+    session.execute(
+        sqlalchemy.text(
+            f"UPDATE gerrydb.{PARENT_GRID_NAME} "
+            "SET pres_2028_dem = pres_2016_dem, pres_2028_rep = pres_2016_rep"
+        )
+    )
+    session.commit()
+    try:
+        ideal = COUNTY_CONTEXT.eguia_ideal(
+            PARENT_GRID_NAME, ElectionPartyKey("pres_2028_dem"), session
+        )
+        expected = COUNTY_CONTEXT.eguia_ideal(
+            PARENT_GRID_NAME, ElectionPartyKey("pres_2016_dem"), session
+        )
+        assert ideal == pytest.approx(expected)
+    finally:
+        session.execute(
+            sqlalchemy.text(
+                f"ALTER TABLE gerrydb.{PARENT_GRID_NAME} "
+                "DROP COLUMN pres_2028_dem, DROP COLUMN pres_2028_rep"
+            )
+        )
+        session.commit()
+
+
+def test_eguia_ideal_refreshes_once_for_a_key_that_stays_missing():
+    """A key the refreshed ideals still lack falls back to 0.0 without
+    refreshing on every later call."""
+    table = GerrydbTableName(_STUB_TABLE)
+    singleton = CountyContext()
+    singleton._cache[table] = {}
+    singleton._populate_county_data = MagicMock()  # type: ignore
+    mock_compute = MagicMock(return_value={})
+    singleton._compute_ideal = mock_compute  # type: ignore
+
+    for _ in range(3):
+        assert (
+            singleton.eguia_ideal(table, ElectionPartyKey("x_dem"), MagicMock()) == 0.0
+        )
+    assert mock_compute.call_count == 1

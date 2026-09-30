@@ -366,7 +366,10 @@ class CountyContext:
     (e.g. Navajo Nation) are handled correctly — a single gerrydb table may span
     counties in several states.
 
-    Computed on first request and never recomputed.
+    Computed on first request. A key missing from the cached ideals (e.g. an
+    election column added to the table since) triggers one refresh of the
+    table's county rows and ideals; a key still missing afterwards falls back to
+    0.0 without refreshing again.
     """
 
     # Stop retrying after this many consecutive empty results to avoid hammering
@@ -385,6 +388,9 @@ class CountyContext:
     )
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
     _attempts: dict[GerrydbTableName, int] = dataclasses.field(default_factory=dict)
+    _missing: dict[GerrydbTableName, set[ElectionPartyKey]] = dataclasses.field(
+        default_factory=dict
+    )
 
     def _load_county_names(self) -> dict[CountyGeoid, str]:
         """Load county geoid→name mapping from CSV, downloading from S3 first if absent."""
@@ -474,6 +480,24 @@ class CountyContext:
         self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
         return self._cache[gerrydb_table]
 
+    def eguia_ideal(
+        self,
+        gerrydb_table: GerrydbTableName,
+        key: ElectionPartyKey,
+        session: sqlmodel.Session,
+    ) -> float:
+        """Return the Eguia ideal for `key`, refreshing the table's ideals once if absent."""
+        ideals = self.ideals_for_eguia(gerrydb_table, session)
+        if key in ideals:
+            return ideals[key]
+        missing = self._missing.setdefault(gerrydb_table, set())
+        if key in missing:
+            return 0.0
+        missing.add(key)
+        self._populate_county_data(gerrydb_table, session)
+        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
+        return self._cache[gerrydb_table].get(key, 0.0)
+
     def _ensure_county_data(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> None:
@@ -548,7 +572,9 @@ class CountyContext:
                 {demographic_json} AS demographic_data
             FROM gerrydb.{safe_table}
             GROUP BY geoid
-            ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
+            ON CONFLICT (geoid, gerrydb_table_name) DO UPDATE
+                SET total_pop = EXCLUDED.total_pop,
+                    demographic_data = EXCLUDED.demographic_data
         """
         session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
         session.commit()

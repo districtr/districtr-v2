@@ -236,10 +236,11 @@ def eguia_county(context: DocumentEvaluationContext) -> dict[Election, float]:
     # Keyed by parent_layer rather than gerrydb_table_name, since the latter may integrate
     # both the parent layer and the child layer (e.g. block-level vs. vtd-level), which,
     # when aggregated, will result in double population counts.
-    ideals = COUNTY_CONTEXT.ideals_for_eguia(context.parent_layer, context.session)
     return {
         election: (context.dem_seats[election] / context.num_nonempty_districts)
-        - ideals.get(ElectionPartyKey(election + "_dem"), 0.0)
+        - COUNTY_CONTEXT.eguia_ideal(
+            context.parent_layer, ElectionPartyKey(election + "_dem"), context.session
+        )
         for election in context.elections
     }
 

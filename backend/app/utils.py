@@ -11,7 +11,7 @@ from typing import Callable, NewType
 
 from fastapi import BackgroundTasks
 from sqlalchemy import text, update, Table, MetaData, func
-from sqlalchemy import bindparam, Text
+from sqlalchemy import bindparam
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
@@ -292,26 +292,81 @@ def update_districtrmap(
     return updated_districtrmap
 
 
+def build_shatterable_view(
+    session: Session, parent_layer: str, child_layer: str, view_name: str
+) -> list[str]:
+    """Create `gerrydb.<view_name>` as the parent layer's rows UNION ALL the child's.
+
+    The view carries every column of the two layers except geometry and
+    `ogc_fid`; the layers must carry exactly the same set. Returns the columns.
+    """
+    parent = assert_safe_ident(parent_layer)
+    child = assert_safe_ident(child_layer)
+    view = assert_safe_ident(view_name)
+
+    def view_columns(table: str) -> list[str]:
+        return list(
+            session.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema
+                      AND table_name = :name
+                      AND data_type != 'USER-DEFINED'
+                      AND udt_name != 'geometry'
+                      AND column_name != 'ogc_fid'
+                    ORDER BY ordinal_position
+                    """
+                ),
+                {"schema": GERRY_DB_SCHEMA, "name": table},
+            ).scalars()
+        )
+
+    columns = view_columns(parent)
+    child_columns = view_columns(child)
+    missing = sorted(set(columns) - set(child_columns))
+    if missing:
+        raise ValueError(f"Child layer {child} lacks parent columns: {missing}")
+    child_only = sorted(set(child_columns) - set(columns))
+    if child_only:
+        raise ValueError(f"Parent layer {parent} lacks child columns: {child_only}")
+
+    column_sql = ", ".join(_quote_ident(c) for c in columns)
+    session.execute(
+        text(
+            f"CREATE MATERIALIZED VIEW {GERRY_DB_SCHEMA}.{view} AS "
+            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{parent} "
+            f"UNION ALL "
+            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{child}"
+        )
+    )
+    return columns
+
+
 def create_shatterable_gerrydb_view(
     session: Session,
     parent_layer: str,
     child_layer: str,
     gerrydb_table_name: str,
 ) -> None:
-    stmt = text(
-        "CALL create_shatterable_gerrydb_view(:parent_layer_name, :child_layer_name, :gerrydb_table_name)"
-    ).bindparams(
-        bindparam(key="parent_layer_name", type_=Text),
-        bindparam(key="child_layer_name", type_=Text),
-        bindparam(key="gerrydb_table_name", type_=Text),
-    )
+    """Register `gerrydb_table_name` in `gerrydbtable` and build its shatterable view.
+
+    The registration comes first, so a name that is already taken fails before
+    any view is built.
+    """
     session.execute(
-        stmt,
-        {
-            "parent_layer_name": parent_layer,
-            "child_layer_name": child_layer,
-            "gerrydb_table_name": gerrydb_table_name,
-        },
+        text(
+            "INSERT INTO gerrydbtable (created_at, uuid, name) "
+            "VALUES (now(), gen_random_uuid(), :name)"
+        ),
+        {"name": gerrydb_table_name},
+    )
+    build_shatterable_view(
+        session,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
+        view_name=gerrydb_table_name,
     )
 
 
