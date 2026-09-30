@@ -34,7 +34,7 @@ def make_entry(**overrides):
         "status": "submitted",
         "hidden": False,
         "flagged": True,
-        "moderation_score": 0.02,
+        "moderation_match": None,
         "fields": {
             "title": "A comment title",
             "comment": "Comment body",

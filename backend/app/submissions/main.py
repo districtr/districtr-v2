@@ -55,7 +55,7 @@ from app.submissions.fields import (
     PRIVATE_FIELDS,
     validate_submission_fields,
 )
-from app.submissions.moderation import moderate_submission_in_background
+from app.submissions.moderation import moderate_submission
 from app.submissions.models import (
     CollectionMode,
     CustomFieldPublic,
@@ -131,10 +131,10 @@ def auto_finalize_draft_submissions(
     one-way: those were deliberate, consented submissions.
 
     Idempotent; called inside the caller's transaction; does not commit.
-    Returns the ids of rows flipped to submitted — callers MUST enqueue
-    moderate_submission_in_background for each AFTER commit: the gallery card
-    renders the map's name/description, so an unscored auto entry would let
-    an abusive map title sail past the nsfw filter.
+    Returns the ids of rows flipped to submitted — callers MUST run
+    moderate_submission on each before committing: the gallery card renders
+    the map's name/description, so an unchecked auto entry would let an
+    abusive map title sail past the nsfw filter.
     """
     if public_id is None:
         return []
@@ -388,10 +388,10 @@ def _create_submission(
     session.add(submission)
     session.flush()
     _insert_content(submission.id, data.fields, session)
+    moderate_submission(submission.id, session)
     session.commit()
     session.refresh(submission)
 
-    background_tasks.add_task(moderate_submission_in_background, submission.id)
     _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission.submission_id)
 
@@ -457,9 +457,9 @@ def _finalize_submission(
     submission.submitted_at = datetime.now(timezone.utc)
     session.add(submission)
     _insert_content(submission.id, data.fields, session)
+    moderate_submission(submission.id, session)
     session.commit()
 
-    background_tasks.add_task(moderate_submission_in_background, submission.id)
     _schedule_clone_thumbnail(background_tasks, clone)
     return SubmissionCreated(id=submission.id, submission_id=submission_id)
 
@@ -725,7 +725,7 @@ def list_submissions_admin(
             status=s.status,
             hidden=s.hidden,
             flagged=s.flagged,
-            moderation_score=s.moderation_score,
+            moderation_match=s.moderation_match,
             fields=fields.get(s.id, {}),
         )
         for s in submissions
@@ -819,8 +819,8 @@ def admin_add_submission(
     auto-collection): no snapshot is taken, and takedown never demotes the
     author's working document. Scratch work is refused: the submissions list
     has no draft_status filter, so a scratch map added here would be public
-    immediately, which no other path allows. No moderation task: there is no
-    text content to score, and an admin vouched for the map.
+    immediately, which no other path allows. No moderation pass: there is no
+    text content to check, and an admin vouched for the map.
     """
     config = get_form_config(data.portal_id, session)
     require_portal_admin(auth_result, config)

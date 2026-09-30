@@ -20,12 +20,12 @@
                     {% if entry.document.map_metadata.draft_status %}<span class="w-status">{{ entry.document.map_metadata.draft_status }}</span>{% endif %}
                     {% if entry.flagged %}<span class="w-status" style="background: var(--w-color-critical-100);">Reported by a visitor</span>{% endif %}
                     {% if entry.nsfw %}<span class="w-status w-status--primary">Blurred (nsfw)</span>{% endif %}
+                    {% if entry.moderation_match %}<span class="w-status" title="The word filter flagged this entry because it contains this phrase.">Filter matched: <mark>{{ entry.moderation_match }}</mark></span>{% endif %}
                     {% if entry.hidden %}<span class="w-status">Hidden</span>{% endif %}
                 </h3>
                 <p style="margin:0"><small>
                     {% if entry.document.map_module %}{{ entry.document.map_module }} · {% endif %}
-                    Moderation score: {{ entry.moderation_score|floatformat:2|default:"–" }}
-                    {% if entry.submitted_at %}· submitted {{ entry.submitted_at }}{% elif entry.created_at %}· started {{ entry.created_at }}{% endif %}
+                    {% if entry.submitted_at %}submitted {{ entry.submitted_at }}{% elif entry.created_at %}started {{ entry.created_at }}{% endif %}
                 </small></p>
             </div>
             <div style="text-align:right; display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">

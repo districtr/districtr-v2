@@ -574,8 +574,7 @@ def create_document(
                 session.flush()
             if zone_label_remapping:
                 # Same path as the editor's own notes, so the map's length and
-                # count limits (0 = descriptions disabled) and moderation apply;
-                # the label text is raw CSV input.
+                # count limits (0 = descriptions disabled) apply.
                 sync_district_notes(
                     document_id=document_id,
                     notes=[
@@ -586,7 +585,6 @@ def create_document(
                         for original_label, new_zone in zone_label_remapping.items()
                     ],
                     session=session,
-                    background_tasks=background_tasks,
                 )
         except NoResultFound:
             session.rollback()
@@ -621,14 +619,12 @@ def create_document(
         if data.portal_id is not None:
             # A creation payload can already carry a submitted-tier status
             # (e.g. copies); apply the same auto-collect flip as the
-            # metadata endpoint, with the same post-commit moderation pass
-            # (the gallery card renders the map's name/description).
+            # metadata endpoint, with the same moderation pass (the gallery
+            # card renders the map's name/description).
             for flipped_id in submissions.auto_finalize_draft_submissions(
                 session, new_document.public_id, data.metadata.draft_status
             ):
-                background_tasks.add_task(
-                    submissions.moderate_submission_in_background, flipped_id
-                )
+                submissions.moderate_submission(flipped_id, session)
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -1026,7 +1022,6 @@ def _sync_update_assignments(
             document_id=document_id,
             notes=data.comments,
             session=session,
-            background_tasks=background_tasks,
         )
         # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
@@ -1847,7 +1842,6 @@ def get_connected_component_bboxes(
 )
 def update_districtrmap_metadata(
     metadata: DocumentMetadata,
-    background_tasks: BackgroundTasks,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
@@ -1873,12 +1867,13 @@ def update_districtrmap_metadata(
             session, document.public_id, merged.get("draft_status")
         )
         # Auto entries are live references, so the rendered card text (map
-        # name/description) can change AFTER the initial score. Re-score
-        # submitted live-ref entries when either field actually changed; the
-        # client resends unchanged values on most saves.
-        rescore: set[int] = set(flipped)
+        # name/description) can change AFTER the first check. Re-check
+        # submitted live-ref entries only when either field actually changed:
+        # the client resends unchanged values on most saves, and a re-check
+        # would undo a portal admin's manual unblur.
+        recheck: set[int] = set(flipped)
         if any(previous.get(k) != merged.get(k) for k in ("name", "description")):
-            rescore.update(
+            recheck.update(
                 session.exec(
                     select(Submission.id).where(
                         and_(
@@ -1889,11 +1884,9 @@ def update_districtrmap_metadata(
                     )
                 ).all()
             )
+        for submission_id in recheck:
+            submissions.moderate_submission(submission_id, session)
         session.commit()
-        for submission_id in rescore:
-            background_tasks.add_task(
-                submissions.moderate_submission_in_background, submission_id
-            )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")

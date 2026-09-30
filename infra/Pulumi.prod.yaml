@@ -34,8 +34,6 @@ config:
     - peter@mggg.org
   districtr-infra:secretKey:
     secure: v1:dHM/3HqOvfLfoMgx:48kANUBIY2+yLOYo3BgQLly0YEOXYmw6K45Y9BabOph74VwoWV+oZ/mcvHcuD9GY1xz/vpwZcFJJQRxVwfH9sDeY+39I9ap/8xPDpQARDMs=
-  districtr-infra:openaiApiKey:
-    secure: v1:iUv/8za+O1Hy6I1+:c0m3/SPlOxsRUVVr6IVdRsYsMRNQuQx4/HmxyajNrOIG+vMDT1AxrHc0NC4WaqaqQ4WTu9MwTxSGmTe4ljV7vGf9WHkG62Up+/Qqr4Zv952ZDmEekBjIi7mxMY4KBUvLIv1L3dGwvp//+nJsVLZDMB/C/vQdPZ2znZ2y6X9RB1yyl0cjgUwgLsXeYRFqBxy8lKCxL6ZTZGt3fUW3h3goFDZ2p432PUPkZDUv2K92PY6KPGpzNg19
   districtr-infra:turnstileSecretKey:
     secure: v1:9+HQZehKIWAHgG5/:AiCzLomhh9XXVvd0lLcfZGN520RqxFbHNJEE2EtZDVvLpuw/aCg84OUmi16CAlXsyzF/
   districtr-infra:turnstileSessionSecretKey:

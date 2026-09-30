@@ -112,7 +112,7 @@ Per-stack config lives in `Pulumi.{dev,prod}.yaml`. Non-secret values
 plain text. Secrets are KMS-encrypted in the same file and safe to commit.
 Required secrets are `secretKey`, `s3BucketName`, `djangoSecretKey`,
 `jwtSigningKey` and `jwtVerifyingKey`. Optional ones are `resendApiKey`,
-`openaiApiKey`, `turnstileSecretKey`, `turnstileSessionSecretKey`,
+`turnstileSecretKey`, `turnstileSessionSecretKey`,
 `researchApiKey`, and `jwtNextVerifyingKey` during key rotation. The backend
 verifies JWTs against the CMS. Its `AUTH_JWKS_URL`, `AUTH_ISSUER` and
 `AUTH_AUDIENCE` come from `cmsDomain` and `jwtAudience`. Defaults per stack
@@ -246,7 +246,7 @@ One-time, with admin credentials:
    # Save the two blocks as private.pem and public.pem.
    pulumi config set --secret jwtSigningKey < private.pem
    pulumi config set --secret jwtVerifyingKey < public.pem
-   # optional: resendApiKey, openaiApiKey, turnstileSecretKey, turnstileSessionSecretKey
+   # optional: resendApiKey, turnstileSecretKey, turnstileSessionSecretKey
    ```
    Fill the non-secret `Pulumi.{dev,prod}.yaml` values (domains, `cmsDomain`,
    `jwtAudience`, CDN URL).

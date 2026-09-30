@@ -197,9 +197,7 @@ def get_document_public(
             ]
 
     # Fetch zone notes. Both district and community maps use zone as the
-    # scoped identifier. Edit access always sees the real text; public access
-    # sees a placeholder for nsfw notes.
-    MODERATION_PLACEHOLDER = "Comment removed due to moderation."
+    # scoped identifier.
     document_comments_list = None
     if result.real_document_id:
         notes = session.exec(
@@ -209,15 +207,12 @@ def get_document_public(
         ).all()
         if len(notes) > 0:
             document_comments_list = []
-            is_edit_access = not document_id.is_public
             for note in notes:
-                show_text = is_edit_access or not note.nsfw
                 document_comments_list.append(
                     DocumentCommentPublic(
                         comment_id=str(note.id),
                         zone=note.zone,
-                        text=note.note if show_text else MODERATION_PLACEHOLDER,
-                        moderated=note.nsfw,
+                        text=note.note,
                         created_at=note.created_at,
                         updated_at=note.updated_at,
                     )

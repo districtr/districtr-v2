@@ -2,6 +2,12 @@
 
 Why the system is shaped the way it is, in reverse-chronological order. Each entry is PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md) (the what); this file is the why.
 
+## Moderation goes deterministic, submissions only (2026-09-29)
+
+- **A word list, not a model.** `backend/app/submissions/moderation.py` flags a submission when it contains a blocklisted phrase (whole-word, punctuation-insensitive). `blocklist.sha256` stores SHA-256 digests of the phrases, not the words; `python -m app.submissions.moderation "<phrase>"` prints a phrase's line and whether it's listed. The OpenAI endpoint and `safetext` are gone: same text, same verdict, no network call, no API key. The list is curated to spare identity terms and place/person names that tripped on testimony. The matched phrase is stored as `moderation_match` and shown to portal admins, so a false positive can be traced to its list entry. It replaces the 0–1 `moderation_score`, which a yes/no check can't fill meaningfully (migration `f1c6a3d85b20`). The check also runs inside the request's transaction, not as a background task: it takes under a millisecond and can't fail on the network, so an entry is never public before it's been checked.
+- **District notes are not moderated.** They are the author's own annotations; the `nsfw`/`moderation_score` columns and the public placeholder are dropped (migration `e4b8c1f07a92`).
+- **Flagged means blurred, never masked.** Card and table views both blur with an opt-in reveal. Portal admins see full text in the Portals hub and can blur, unblur, hide or restore.
+
 ## Wagtail cutover and portal submissions (PRs #710–#719, merged to dev 2026-09-23; stack #745–#772)
 
 The custom CMS and Auth0 are replaced by Wagtail, and the comment system by portal submissions. The choices that shape it, with where to re-verify each:
