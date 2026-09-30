@@ -369,12 +369,6 @@ class PortalPage(ContentPageBase):
 
     def clean(self):
         super().clean()
-        # One plan gallery per portal page: the hub's Pin edits it, so a
-        # second one would collect pins the editor never sees.
-        if sum(block.block_type == "plan_gallery" for block in self.body) > 1:
-            raise ValidationError(
-                {"body": "A portal page can have only one plan gallery."}
-            )
         old_slug = self._stored_slug() if self._owns_form_config_key() else None
         if old_slug and self.slug != old_slug:
             configs = self._form_configs()

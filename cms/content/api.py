@@ -28,6 +28,7 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
+from content.blocks import plan_gallery_source
 from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
@@ -52,20 +53,36 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
-def _inject_portal_id(body_data, portal_slug):
-    """A portal page's galleries list ITS portal's entries. The comment
-    gallery always gets the portal id. A plan gallery marked thisPortal gets
-    it as its filter when it has no curated ids or slugs of its own.
-    Injected when serving, never stored, so a slug rename can't leave a
-    gallery on the old slug."""
+def _resolve_plan_galleries(body_data, portal_slug=None):
+    """Turn each plan gallery's ``source`` into the ids/tags filters the
+    frontend's PlanGallery reads (tags = portal slugs), so only the chosen
+    filter is ever served. "This portal" gets the page's portal slug here,
+    never stored, so a slug rename can't strand the gallery; off a portal
+    page it lists the whole site."""
     for block in body_data:
-        value = block.get("value")
+        if block.get("type") != "plan_gallery":
+            continue
+        value = block["value"]
+        source = plan_gallery_source(value)
+        value.pop("source", None)
+        value.pop("thisPortal", None)
+        if source == "this_portal" and portal_slug:
+            value["ids"], value["tags"] = None, [portal_slug]
+        elif source == "ids":
+            value["tags"] = None
+        elif source == "portals":
+            value["ids"] = None
+        else:
+            value["ids"], value["tags"] = None, None
+    return body_data
+
+
+def _inject_portal_id(body_data, portal_slug):
+    """A portal page's comment galleries list ITS portal's entries (injected
+    when serving, like the plan galleries' "this portal" source)."""
+    for block in body_data:
         if block.get("type") == "comment_gallery":
-            value["portalId"] = portal_slug
-        elif block.get("type") == "plan_gallery":
-            this_portal = value.pop("thisPortal", False)
-            if this_portal and not value.get("ids") and not value.get("tags"):
-                value["tags"] = [portal_slug] if portal_slug else None
+            block["value"]["portalId"] = portal_slug
     return body_data
 
 
@@ -131,9 +148,13 @@ def _inject_form_config(body_data, portal_slug):
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
-    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
-        # Translations resolve to their default-locale portal, not their own
-        # slug (PortalPage.portal_id).
+    is_portal = CONTENT_TYPE_PAGES.get(content_type) is PortalPage
+    # Translations resolve to their default-locale portal, not their own
+    # slug (PortalPage.portal_id).
+    body_data = _resolve_plan_galleries(
+        body_data, page.portal_id if is_portal else None
+    )
+    if is_portal:
         body_data = _inject_portal_id(body_data, page.portal_id)
         body_data = _inject_form_config(body_data, page.portal_id)
     content = {

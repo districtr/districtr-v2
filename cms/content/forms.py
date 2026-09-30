@@ -11,10 +11,16 @@ re-inserts them at their original positions so saving never drops another
 team's association.
 """
 
+import json
+
 from django import forms
 from wagtail.admin.forms import WagtailAdminPageForm
 
-from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
+from authapi.teams import (
+    districtr_map_slugs_for_user,
+    user_is_team_scoped,
+    user_is_unscoped_admin,
+)
 from content.blocks import districtr_map_slug_choices
 from datastore.widgets import MapModulePickerWidget
 
@@ -40,7 +46,72 @@ def _map_choices(limit_to=None, ensure=()):
     return choices
 
 
-class PortalPageForm(WagtailAdminPageForm):
+def _admin_only_reason(child, *, portal_page):
+    """Why a non-admin may not add/change this body block, or None.
+
+    Galleries that list beyond the page's own portal (the whole site, other
+    portals — and "this portal" off a portal page, which resolves to the
+    whole site) would let a partner present any plan on the site as theirs.
+    """
+    if child.block_type == "plan_gallery":
+        source = child.value["source"]
+        if source in ("all", "portals") or (
+            source == "this_portal" and not portal_page
+        ):
+            return (
+                "Only admins can make a plan gallery list the whole site or "
+                "other portals. Choose "
+                + ('"This portal\'s submissions" or ' if portal_page else "")
+                + '"Specific maps (by ID)".'
+            )
+    return None
+
+
+def _block_key(child):
+    return child.block_type, json.dumps(
+        child.block.get_prep_value(child.value), sort_keys=True, default=str
+    )
+
+
+def admin_only_violation(body, original, *, user, portal_page):
+    """The first reason ``user`` may not save ``body``, or None.
+
+    Admins may do anything. Everyone else can't add or change admin-only
+    blocks; ones already on the page (``original``, placed by an admin) pass
+    through untouched, and removing them is fine.
+    """
+    if user is None or user_is_unscoped_admin(user):
+        return None
+    before = {child.id: _block_key(child) for child in original or []}
+    for child in body or []:
+        reason = _admin_only_reason(child, portal_page=portal_page)
+        if reason and before.get(child.id) != _block_key(child):
+            return reason
+    return None
+
+
+class AdminOnlyBlocksMixin:
+    portal_page = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # clean() runs before the instance is updated, so its body is still
+        # the page as last saved.
+        original = self.instance.body if self.instance.pk else None
+        reason = admin_only_violation(
+            cleaned_data.get("body"),
+            original,
+            user=self.for_user,
+            portal_page=self.portal_page,
+        )
+        if reason:
+            self.add_error("body", reason)
+        return cleaned_data
+
+
+class PortalPageForm(AdminOnlyBlocksMixin, WagtailAdminPageForm):
+    portal_page = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         scoped = (
@@ -63,7 +134,7 @@ class PortalPageForm(WagtailAdminPageForm):
         )
 
 
-class PlacePageForm(WagtailAdminPageForm):
+class PlacePageForm(AdminOnlyBlocksMixin, WagtailAdminPageForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.for_user and user_is_team_scoped(self.for_user):

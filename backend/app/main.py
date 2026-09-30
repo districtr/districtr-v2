@@ -1515,8 +1515,8 @@ def get_document_list(
     # Public listings drop taken-down maps (Hide is the one moderation
     # lever) and maps of closed portals. Internal-mode maps stay off the
     # site-wide list only: internal means no gallery on the page by default,
-    # and an owner who adds one (their portal's gallery, or curated ids from
-    # Pin) has chosen to show them. include_hidden is the CMS hub's own
+    # and an owner who adds one (their portal's gallery, or a curated gallery
+    # of map ids) has chosen to show them. include_hidden is the CMS hub's own
     # metadata lookup, which shows all of them. (A LISTING guarantee: any
     # map's metadata remains fetchable by its sequential public_id, as it
     # always has been.)

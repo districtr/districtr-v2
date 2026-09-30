@@ -138,3 +138,19 @@ fieldset:has(.table-picker) {
     color: var(--w-color-text-meta, #666);
     font-style: italic;
 }
+.tp-label-field {
+    flex: 0 1 16rem;
+    min-width: 9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.tp-label-caption {
+    font-size: 0.75em;
+    font-weight: 600;
+    color: var(--w-color-text-meta, #666);
+}
+.tp-selected .tp-label {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875em;
+}

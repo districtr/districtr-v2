@@ -41,7 +41,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 
 `FormConfig.collection_mode` (`cms/datastore/models.py`, checked in `backend/app/submissions/models.py`) takes one of four values:
 
-- `internal` collects maps made from the portal, and the portal page starts with no gallery. The owner can add a plan gallery later or pin maps from the Portals hub, and those galleries list the maps. They never appear in a site-wide list.
+- `internal` collects maps made from the portal, and the portal page starts with no gallery. The owner can add plan galleries later (this portal's submissions or curated map IDs), and those galleries list the maps. They never appear in a site-wide list.
 - `auto_public` collects maps into the public gallery once they are marked in progress or ready to share. There is no form.
 - `prompt` asks the author to submit with a short form when a map is marked ready to share. This is the default.
 - `form` shows a form on the portal page. Maps are not collected automatically.
@@ -52,7 +52,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 - `content/0002_provision_site` creates the Portals, Places and Static index pages, the locales, and the Admin approval workflow.
 - `content/0003_import_legacy_content` runs `migrate_tiptap` during `migrate` to import `cms.tags_content` and `cms.places_content`. If legacy rows exist and `MIGRATE_TIPTAP_OWNERS` is unset, the migration refuses to run.
 - The content API (`cms/content/api.py`) serves the types `portals`, `places` and `static`. It also accepts `tags` as a temporary alias for `portals`. The backend's `/api/documents/list` likewise accepts `tags` as an alias of `portal_ids`, so a frontend built before the cutover keeps its filtered galleries.
-- A plan gallery marked "List this portal's plans" (`thisPortal`) and every comment gallery on a portal page get the portal's id when served, never stored. The wizard's galleries use this, so a slug rename carries them along.
+- A plan gallery's **Show** choice (`source`: this portal's submissions, specific map IDs, other portals, or the whole site) is resolved into its `ids`/`tags` filters when served, so only the chosen filter reaches the frontend. "This portal" and every comment gallery on a portal page get the portal's id at that point, never stored. Blocks saved before `source` infer it from their old filters (ids, then slugs, then the retired `thisPortal` checkbox). A portal page may carry any number of plan galleries. The wizard's galleries use this, so a slug rename carries them along.
 - The backend's `app/cms` package now only serves site settings (`/api/cms/site_settings`, the under-construction flag).
 
 ### Tests

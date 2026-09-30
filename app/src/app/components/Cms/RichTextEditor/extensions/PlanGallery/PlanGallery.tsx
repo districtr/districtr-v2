@@ -42,7 +42,7 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
   includeInProgress = false,
   ...flags
 }: PlanGalleryProps) => {
-  // Curated ids show exactly what was pinned. Every other gallery, tag
+  // Curated ids show exactly the maps listed. Every other gallery, tag
   // filtered or site-wide, lists submitted plans only, never scratch maps.
   const isFiltered = !ids?.length;
   const draftStatuses = includeInProgress ? SUBMITTED_STATUSES : [DRAFT_STATUSES.READY_TO_SHARE];

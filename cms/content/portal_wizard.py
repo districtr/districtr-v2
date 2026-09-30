@@ -106,18 +106,19 @@ def _starter_body(mode: str, *, title: str, views: list[dict]):
             _section("Make a submission"),
             {"type": "form", "value": {"allowListModules": []}},
         ]
-    # The slug is never stored: the plan gallery's thisPortal and the comment
-    # gallery's portalId are injected when serving (content/api.py), so a
-    # rename can't strand them. auto_public promises in-progress maps too.
+    # The slug is never stored: the plan gallery's "this portal" source and
+    # the comment gallery's portalId are resolved when serving
+    # (content/api.py), so a rename can't strand them. auto_public promises
+    # in-progress maps too.
     if mode in ("prompt", "auto_public"):
         body += [
             _section("Map gallery"),
             {
                 "type": "plan_gallery",
                 "value": {
+                    "source": "this_portal",
                     "ids": [],
                     "tags": [],
-                    "thisPortal": True,
                     "includeInProgress": mode == "auto_public",
                 },
             },

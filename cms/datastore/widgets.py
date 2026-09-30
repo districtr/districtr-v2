@@ -11,6 +11,8 @@ field's choices/queryset, which is also what validates the POST.
 The value travels in one hidden input (a value, or a JSON list when
 ``multiple``) so the widget also works inside StreamField blocks, where
 Wagtail's telepath adapter reads and writes a single ``[name]`` input.
+``labelled=(value_key, label_key)`` makes the list one of objects instead,
+each picked item carrying an editable label (e.g. a button's text).
 """
 
 import json
@@ -32,13 +34,19 @@ class TablePickerWidget(forms.HiddenInput):
     # (hidden by default; already-selected ones always show). None = no toggle.
     deprecated_label = None
 
-    def __init__(self, attrs=None, multiple=False, ordered=False):
+    def __init__(self, attrs=None, multiple=False, ordered=False, labelled=None):
         super().__init__(attrs)
         self.multiple = multiple
         self.ordered = ordered
+        self.labelled = labelled
         self.choices = []
 
     def format_value(self, value):
+        if isinstance(value, str):
+            # Already serialized (telepath block state round-trips).
+            return value
+        if self.labelled:
+            return json.dumps(list(value or []))
         if self.multiple:
             return json.dumps([str(v) for v in (value or [])])
         return "" if value is None else str(value)
@@ -60,6 +68,8 @@ class TablePickerWidget(forms.HiddenInput):
                 parsed = None
             if isinstance(parsed, list):
                 values = parsed
+        if self.labelled:
+            return [v for v in values if isinstance(v, dict)]
         return [str(v) for v in values if str(v)]
 
     def row_data(self, values):
@@ -85,6 +95,7 @@ class TablePickerWidget(forms.HiddenInput):
         context["widget"]["config"] = {
             "multiple": self.multiple,
             "ordered": self.ordered,
+            "labelled": self.labelled,
             "noun": self.noun,
             "columns": self.columns,
             "filters": self.filters,

@@ -1,6 +1,6 @@
 """
 Tests for the Portals hub: index scoping, the gallery-as-takedown-surface,
-the curated-gallery pin, and the metrics proxy.
+and the metrics proxy.
 
 The backend is never called: moderation.services' HTTP layer is mocked, with
 a URL router so the gallery's two backend calls (submissions + batched
@@ -102,8 +102,7 @@ class PortalsIndexTests(TestCase):
         self.assertContains(response, "Edit form")
 
     def test_team_less_partner_sees_nothing(self):
-        # Fail closed, matching the backend's teams: [] -> 403 — this list
-        # also gates add_to_portal_gallery, a pure CMS write.
+        # Fail closed, matching the backend's teams: [] -> 403.
         partner = make_admin_user(email="partner@districtr.org", group_name="partner")
         self.client.force_login(partner)
         response = self.client.get(self.url)
@@ -194,20 +193,6 @@ class PortalGalleryViewTests(TestCase):
             response = self.client.get(self.url)
         self.assertContains(response, "/api/document/42/thumbnail")
         self.assertContains(response, "Plan 42")
-        self.assertContains(response, "Pin to page gallery")
-
-    def test_draft_map_cannot_be_pinned(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.side_effect = backend_router(
-                {
-                    "/api/submissions/admin": [
-                        make_entry(map_public_id=42, status="draft")
-                    ],
-                    "/api/documents/list": [make_document(42)],
-                }
-            )
-            response = self.client.get(self.url)
-        self.assertNotContains(response, "Pin to page gallery")
 
     def test_backend_403_detail_surfaces(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -306,108 +291,6 @@ class SubmissionActionTests(TestCase):
         response, request = self.post({"id": "11", "action": "nsfw", "value": "1"})
         self.assertRedirects(response, reverse("wagtailadmin_home"))
         request.assert_not_called()
-
-
-class AddToPortalGalleryTests(TestCase):
-    def setUp(self):
-        create_mirror_tables_for_form_config()
-        self.url = reverse("portals_add_to_gallery")
-        self.portal = make_portal("midwest-portal")
-        partner = make_admin_user(email="partner@districtr.org", group_name="partner")
-        # Moderation reach (admin_teams), not page ownership, authorizes
-        # gallery pinning — and team-less partners fail closed.
-        make_team("Gallery Team", members=[partner])
-        make_form_config("midwest-portal", admin_teams=["gallery-team"])
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-
-    def add(self, **overrides):
-        data = {"portal": "midwest-portal", "public_id": "42"}
-        data.update(overrides)
-        return self.client.post(self.url, data)
-
-    def _gallery_ids(self):
-        self.portal.refresh_from_db()
-        page = self.portal.get_latest_revision_as_object()
-        return [
-            list(block.value["ids"])
-            for block in page.body
-            if block.block_type == "plan_gallery"
-        ]
-
-    def test_appends_to_new_gallery_block_as_draft(self):
-        response = self.add()
-        self.assertRedirects(
-            response, reverse("portals_index"), fetch_redirect_response=False
-        )
-        self.portal.refresh_from_db()
-        self.assertEqual(self._gallery_ids(), [[42]])
-        # Draft revision only: the live page body is untouched — pages keep
-        # their review workflow even though submissions have none.
-        self.assertEqual(
-            [b for b in self.portal.body if b.block_type == "plan_gallery"], []
-        )
-
-    def test_duplicate_plan_not_added_twice(self):
-        self.add()
-        self.add()
-        self.portal.refresh_from_db()
-        self.assertEqual(self._gallery_ids(), [[42]])
-
-    def test_pins_append_to_the_curated_gallery_in_order(self):
-        self.add(public_id="42")
-        self.add(public_id="7")
-        self.assertEqual(self._gallery_ids(), [[42, 7]])
-
-    def test_pin_leaves_the_automatic_gallery_alone(self):
-        # A wizard portal's gallery has no ids; pinning into it would turn
-        # "every map in this portal" into a one-map curated list, and adding
-        # a second gallery would split the page. Pin refuses instead.
-        self.portal.body = [
-            {"type": "plan_gallery", "value": {"ids": [], "thisPortal": True}}
-        ]
-        self.portal.save_revision(clean=False).publish()
-        self.add()
-        self.assertEqual(self._gallery_ids(), [[]])
-
-    def test_duplicate_check_reads_a_saved_gallery(self):
-        # A saved page stores list items as {"id", "type", "value"} dicts;
-        # the duplicate guard compared the int against those and never hit.
-        self.portal.body = [{"type": "plan_gallery", "value": {"ids": [42, 7, 7]}}]
-        self.portal.save_revision(clean=False).publish()
-        self.add(public_id="42")
-        self.assertEqual(self._gallery_ids(), [[42, 7, 7]])
-        self.add(public_id="9")
-        self.assertEqual(self._gallery_ids(), [[42, 7, 9]])
-
-    def test_portal_page_allows_one_plan_gallery(self):
-        from django.core.exceptions import ValidationError
-
-        self.portal.body = [
-            {"type": "plan_gallery", "value": {"ids": [1]}},
-            {"type": "plan_gallery", "value": {"ids": [2]}},
-        ]
-        with self.assertRaises(ValidationError):
-            self.portal.full_clean()
-
-    def test_inaccessible_portal_denied(self):
-        response = self.add(portal="not-a-portal")
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
-
-    def test_another_teams_real_portal_is_denied(self):
-        # The per-URL guard, against a portal that exists: the partner's
-        # own team doesn't administer it, so the page stays untouched.
-        other = make_portal("other-portal")
-        make_form_config("other-portal", admin_teams=["someone-else"])
-        response = self.add(portal="other-portal")
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
-        page = other.get_latest_revision_as_object()
-        self.assertEqual([b for b in page.body if b.block_type == "plan_gallery"], [])
-
-    def test_invalid_input_is_400(self):
-        self.assertEqual(self.add(public_id="not-a-number").status_code, 400)
-
-    def test_get_not_allowed(self):
-        self.assertEqual(self.client.get(self.url).status_code, 405)
 
 
 class MetricsProxyTests(TestCase):
