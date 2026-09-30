@@ -1,8 +1,8 @@
 """
-Admin forms for content pages: the Districtr-map fields are proper selectors
-everywhere — a dropdown of map modules on PortalPage, and an orderable
-multi-select on PlacePage (the saved order is the display order on the
-public place page).
+Admin forms for content pages: the Districtr-map fields use the shared
+map-module picker (datastore/widgets.py) — single-select on PortalPage, an
+orderable multi-select on PlacePage (the saved order is the display order on
+the public place page).
 
 Team scoping (authapi/teams.py): a team-scoped member's choices are narrowed
 to their teams' maps — the choice set itself is the guard. Shared PlacePages (in scope on *any* overlap) may also carry other
@@ -16,6 +16,7 @@ from wagtail.admin.forms import WagtailAdminPageForm
 
 from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
 from content.blocks import districtr_map_slug_choices
+from datastore.widgets import MapModulePickerWidget
 
 _SCOPED_HELP_TEXT = "Only Districtr maps your team owns are listed."
 
@@ -39,42 +40,6 @@ def _map_choices(limit_to=None, ensure=()):
     return choices
 
 
-class OrderedSlugSelectWidget(forms.Widget):
-    """Multi-select that keeps an explicit order: chosen modules render as a
-    list with move-up/move-down/remove controls plus an add dropdown, posted
-    as repeated hidden inputs (getlist preserves submission order)."""
-
-    template_name = "content/widgets/ordered_slug_select.html"
-
-    def __init__(self, attrs=None, choices=()):
-        super().__init__(attrs)
-        self.choices = list(choices)
-
-    def get_context(self, name, value, attrs):
-        context = super().get_context(name, value, attrs)
-        selected = [str(v) for v in (value or [])]
-        labels = dict(self.choices)
-        context["widget"]["selected"] = [(v, labels.get(v, v)) for v in selected]
-        context["widget"]["options"] = [
-            (v, label) for v, label in self.choices if v not in selected
-        ]
-        return context
-
-    def value_from_datadict(self, data, files, name):
-        if hasattr(data, "getlist"):
-            return data.getlist(name)
-        value = data.get(name)
-        if value is None:
-            return []
-        return list(value) if isinstance(value, (list, tuple)) else [value]
-
-
-class OrderedMultipleChoiceField(forms.MultipleChoiceField):
-    """MultipleChoiceField whose cleaned value preserves submission order."""
-
-    widget = OrderedSlugSelectWidget
-
-
 class PortalPageForm(WagtailAdminPageForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -88,6 +53,7 @@ class PortalPageForm(WagtailAdminPageForm):
         self.fields["districtr_map_slug"] = forms.ChoiceField(
             choices=[("", "---------")]
             + _map_choices(limit_to=scoped, ensure=[current] if scoped is None else ()),
+            widget=MapModulePickerWidget(),
             # Optional: portals offer their modules through the page's
             # map_create_buttons block now (the wizard leaves this blank);
             # the field remains for legacy portal pages that still carry it.
@@ -112,8 +78,10 @@ class PlacePageForm(WagtailAdminPageForm):
                 ("Modules shown on this place page, in this order."),
             )
         original = self.fields["districtr_map_slugs"]
-        self.fields["districtr_map_slugs"] = OrderedMultipleChoiceField(
+        # MultipleChoiceField keeps the submitted (picker) order.
+        self.fields["districtr_map_slugs"] = forms.MultipleChoiceField(
             choices=choices,
+            widget=MapModulePickerWidget(multiple=True, ordered=True),
             required=required,
             label=original.label,
             help_text=help_text,

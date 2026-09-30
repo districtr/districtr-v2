@@ -7,6 +7,8 @@ sees/edits only their team's map modules, admins are unaffected, and team-less
 non-admins reach nothing.
 """
 
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
@@ -114,6 +116,41 @@ class MapModuleScopingTests(TestCase):
     def test_teamless_partner_gets_no_view(self):
         loner = make_user("partner", "mm-loner@d.org")
         self.assertFalse(self.policy.user_has_permission(loner, "view"))
+
+    def test_team_form_syncs_map_grants(self):
+        """The Team editor's module picker replaces the grant set: kept grants
+        keep their row, unpicked ones go, new ones are added."""
+        from authapi.models import TeamDistrictrMap
+
+        team = make_team("Sync Team", maps=[self.map_a])
+        kept = TeamDistrictrMap.objects.get(team=team)
+        admin = make_user("admin", "mm-sync@d.org", access_admin=True)
+        self.client.force_login(admin)
+        url = reverse("wagtailsnippets_authapi_team:edit", args=[team.pk])
+        data = {
+            "name": team.name,
+            "slug": team.slug,
+            "memberships-TOTAL_FORMS": "0",
+            "memberships-INITIAL_FORMS": "0",
+            "memberships-MIN_NUM_FORMS": "0",
+            "memberships-MAX_NUM_FORMS": "1000",
+        }
+
+        picks = json.dumps([str(self.map_a.pk), str(self.map_b.pk)])
+        self.assertEqual(
+            self.client.post(url, {**data, "map_modules": picks}).status_code, 302
+        )
+        links = TeamDistrictrMap.objects.filter(team=team)
+        self.assertEqual(
+            {link.districtr_map_id for link in links}, {self.map_a.pk, self.map_b.pk}
+        )
+        self.assertTrue(links.filter(pk=kept.pk).exists())
+
+        picks = json.dumps([str(self.map_b.pk)])
+        self.client.post(url, {**data, "map_modules": picks})
+        self.assertEqual(
+            list(links.values_list("districtr_map_id", flat=True)), [self.map_b.pk]
+        )
 
 
 class ContentPageScopingTests(TestCase):

@@ -1,0 +1,20 @@
+{# Controller: datastore/static/datastore/table_picker.js #}
+<div class="table-picker" data-controller="table-picker">
+    {% include "django/forms/widgets/input.html" %}
+    {{ widget.config|json_script }}
+    <ul class="tp-selected" data-table-picker-target="selected"></ul>
+    <div class="tp-toolbar">
+        <input type="search" class="tp-search" placeholder="Search {{ widget.config.noun }}…" aria-label="Search {{ widget.config.noun }}" autocomplete="off" data-table-picker-target="search">
+        {% for key, all_label in widget.config.filters %}
+            <select aria-label="Filter: {{ all_label }}" data-table-picker-target="filter" data-key="{{ key }}"><option value="">{{ all_label }}</option></select>
+        {% endfor %}
+        <button type="button" class="button button-small button-secondary" data-table-picker-target="toggle" data-action="table-picker#toggle">Browse {{ widget.config.noun }}</button>
+        <span class="tp-count" data-table-picker-target="count"></span>
+    </div>
+    <div class="tp-table-wrap" data-table-picker-target="table" hidden>
+        <table class="listing tp-table">
+            <thead><tr><th></th>{% for key, header in widget.config.columns %}<th>{{ header }}</th>{% endfor %}</tr></thead>
+            <tbody data-table-picker-target="body"></tbody>
+        </table>
+    </div>
+</div>

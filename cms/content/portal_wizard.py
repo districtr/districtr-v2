@@ -32,6 +32,7 @@ from authapi.teams import (
     user_is_unscoped_admin,
 )
 from content.forms import _map_choices
+from datastore.widgets import MapModulePickerWidget
 from datastore.models import (
     SUBMISSION_FIELD_CHOICES,
     DistrictrMap,
@@ -161,11 +162,11 @@ class PortalWizardForm(forms.Form):
         "this portal?",
     )
     map_modules = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
+        widget=MapModulePickerWidget(multiple=True, ordered=True),
         required=False,
         label="Draw-a-map links",
-        help_text="Each one you tick becomes a 'Draw a map' card on the "
-        "portal page. Pick at least one when the portal collects maps; "
+        help_text="Each one you pick becomes a 'Draw a map' card on the "
+        "portal page, in this order. Pick at least one when the portal collects maps; "
         "optional for written testimony, where people can draw a map and "
         "link it in the form.",
     )
@@ -346,7 +347,7 @@ def portal_wizard(request):
         if question_formset.non_form_errors():
             return _render()
         # Display names, not choice labels ("Name (slug)") — labels would
-        # leak into the page's visible card text. Order follows the choices.
+        # leak into the page's visible card text. Order is the picked order.
         names = dict(
             DistrictrMap.objects.filter(
                 districtr_map_slug__in=data["map_modules"]

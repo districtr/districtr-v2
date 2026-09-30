@@ -29,7 +29,9 @@ from django import forms
 from django.db import ProgrammingError, connection, transaction
 from django.forms.models import inlineformset_factory
 from django.shortcuts import redirect
+from django.templatetags.static import static
 from django.urls import path, reverse
+from django.utils.html import format_html
 from wagtail import hooks
 from wagtail.admin import messages
 from wagtail.admin.forms.models import WagtailAdminModelForm
@@ -71,6 +73,7 @@ from datastore.models import (
     Overlay,
     custom_field_key,
 )
+from datastore.widgets import OverlayPickerWidget
 from datastore.views import (
     DATASTORE_ADMIN_PERMISSION,
     OVERLAY_ADMIN_PERMISSION,
@@ -84,6 +87,22 @@ DISTRICTRMAP_TEAM_FIELD = "team_links__team_id"
 @hooks.register("register_icons")
 def register_icons(icons):
     return icons + ["datastore/icons/database.svg"]
+
+
+# Global so the table pickers (datastore/widgets.py) work wherever they
+# render: forms, InlinePanels, and StreamField blocks alike.
+@hooks.register("insert_global_admin_css")
+def table_picker_css():
+    return format_html(
+        '<link rel="stylesheet" href="{}">', static("datastore/table_picker.css")
+    )
+
+
+@hooks.register("insert_global_admin_js")
+def table_picker_js():
+    return format_html(
+        '<script src="{}"></script>', static("datastore/table_picker.js")
+    )
 
 
 class _MapScoped(TeamScopedGetObjectMixin):
@@ -108,29 +127,49 @@ class TeamScopedMapUsageView(_MapScoped, UsageView):
 
 def _name_ordered_formfield(db_field, **kwargs):
     """Order the link-table FK dropdowns by target name (the mirrors have no
-    Meta.ordering); overlays additionally by layer type, so the line/text
-    overlays of one data source sit adjacent."""
+    Meta.ordering)."""
     formfield = db_field.formfield(**kwargs)
     if hasattr(formfield, "queryset"):
-        if db_field.related_model is Overlay:
-            formfield.queryset = formfield.queryset.order_by("name", "layer_type")
-        else:
-            formfield.queryset = formfield.queryset.order_by("name")
+        formfield.queryset = formfield.queryset.order_by("name")
     return formfield
 
 
-# The three link tables managed from the DistrictrMap edit page. The mirrors
+class DistrictrMapForm(WagtailAdminModelForm):
+    """Map form with the attached overlays as one filterable picker; save()
+    syncs the DistrictrMapOverlays links to the picked set."""
+
+    overlays = forms.ModelMultipleChoiceField(
+        queryset=Overlay.objects.order_by("name", "layer_type"),
+        required=False,
+        label="Attached overlays",
+        help_text="Overlays available on this map.",
+        widget=OverlayPickerWidget(multiple=True),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["overlays"] = list(
+                self.instance.overlay_links.values_list("overlay_id", flat=True)
+            )
+
+    def save(self, commit=True):
+        instance = super().save(commit)
+        if commit:
+            picked = {overlay.pk for overlay in self.cleaned_data["overlays"]}
+            links = DistrictrMapOverlays.objects.filter(districtr_map=instance)
+            links.exclude(overlay_id__in=picked).delete()
+            existing = set(links.values_list("overlay_id", flat=True))
+            DistrictrMapOverlays.objects.bulk_create(
+                DistrictrMapOverlays(districtr_map=instance, overlay_id=pk)
+                for pk in picked - existing
+            )
+        return instance
+
+
+# The other link tables managed from the DistrictrMap edit page. The mirrors
 # are managed=False plain models, so these are plain Django inline formsets
 # (no ParentalKey/InlinePanel); one blank extra row per save adds one link.
-OverlayLinkFormSet = inlineformset_factory(
-    DistrictrMap,
-    DistrictrMapOverlays,
-    fk_name="districtr_map",
-    fields=["overlay"],
-    extra=1,
-    can_delete=True,
-    formfield_callback=_name_ordered_formfield,
-)
 GroupLinkFormSet = inlineformset_factory(
     DistrictrMap,
     DistrictrMapsToGroups,
@@ -166,9 +205,6 @@ class DistrictrMapEditView(EditView):
 
     def get_link_formsets(self, data=None):
         formsets = {
-            "overlays_formset": OverlayLinkFormSet(
-                data, instance=self.object, prefix="overlay_links"
-            ),
             "groups_formset": GroupLinkFormSet(
                 data, instance=self.object, prefix="group_links"
             ),
@@ -219,12 +255,14 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     list_display = [
         "name",
         "districtr_map_slug",
+        "state_abbr",
+        "boundary_type",
         "num_districts",
         "map_type",
         "visible",
     ]
-    list_filter = ["visible", "map_type"]
-    search_fields = ["name", "districtr_map_slug"]
+    list_filter = ["visible", "map_type", "boundary_type", "state_abbr"]
+    search_fields = ["name", "districtr_map_slug", "description", "state_name"]
     list_per_page = 50
     inspect_view_enabled = True
     inspect_view_class = TeamScopedMapInspectView
@@ -250,6 +288,10 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                     # a rename. Set once by the compose tool.
                     FieldPanel("districtr_map_slug", read_only=True),
                     FieldPanel("map_type"),
+                    FieldPanel("description"),
+                    FieldPanel("state_abbr"),
+                    FieldPanel("state_name"),
+                    FieldPanel("boundary_type"),
                     FieldPanel("data_source_name"),
                     FieldPanel("statefps"),
                 ],
@@ -288,7 +330,9 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                 ],
                 heading="Moderation",
             ),
-        ]
+            FieldPanel("overlays"),
+        ],
+        base_form_class=DistrictrMapForm,
     )
 
 

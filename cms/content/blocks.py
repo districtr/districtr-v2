@@ -33,6 +33,8 @@ value itself is untouched until then).
 from wagtail import blocks
 from wagtail.rich_text import expand_db_html
 
+from datastore.widgets import MapModulePickerWidget
+
 # The full set of marks/nodes the legacy editor could produce
 # (app/src/app/components/RichTextRenderer/RichTextRenderer.tsx: StarterKit +
 # Underline + TextStyle/Color + Link + Image). There is no Draftail feature
@@ -256,7 +258,9 @@ class FormBlock(CompatStructBlock):
     """
 
     allowListModules = blocks.ListBlock(
-        blocks.ChoiceBlock(choices=districtr_map_slug_choices),
+        blocks.ChoiceBlock(
+            choices=districtr_map_slug_choices, widget=MapModulePickerWidget()
+        ),
         default=[],
         label="Allow-listed modules",
         help_text="Districtr map modules submitters may attach (empty = all).",
@@ -272,7 +276,9 @@ class MapCreateButtonsViewBlock(blocks.StructBlock):
     """One entry of the ``views`` attr: Pick<DistrictrMap, 'name' | 'districtr_map_slug'>."""
 
     name = blocks.CharBlock(required=False)
-    districtr_map_slug = blocks.ChoiceBlock(choices=districtr_map_slug_choices)
+    districtr_map_slug = blocks.ChoiceBlock(
+        choices=districtr_map_slug_choices, widget=MapModulePickerWidget()
+    )
 
     class Meta:
         icon = "globe"

@@ -1,0 +1,92 @@
+/* datastore/widgets.py::TablePickerWidget */
+.table-picker {
+    max-width: 60rem;
+}
+/* Fieldsets default to min-width: min-content, which lets the nowrap table
+   widen the whole page instead of scrolling inside .tp-table-wrap. */
+fieldset:has(.table-picker) {
+    min-width: 0;
+}
+.tp-selected {
+    list-style: none;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    /* Maps can carry dozens of overlays; keep the page scannable. */
+    max-height: 18rem;
+    overflow-y: auto;
+}
+.tp-selected li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.25rem;
+    border: 1px solid var(--w-color-border-field-default, #ccc);
+    border-radius: 4px;
+}
+.tp-selected strong {
+    white-space: nowrap;
+}
+.tp-meta {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--w-color-text-meta, #666);
+    font-size: 0.875em;
+}
+.tp-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.tp-toolbar .tp-search {
+    flex: 1 1 16rem;
+}
+.tp-toolbar select {
+    flex: 0 1 14rem;
+    width: auto;
+}
+.tp-count {
+    color: var(--w-color-text-meta, #666);
+    font-size: 0.875em;
+}
+.tp-table-wrap {
+    max-height: 24rem;
+    overflow: auto;
+    margin-top: 0.5rem;
+    border: 1px solid var(--w-color-border-field-default, #ccc);
+    border-radius: 4px;
+}
+.tp-table {
+    margin: 0;
+}
+.tp-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--w-color-surface-page, #fff);
+}
+.tp-table th,
+.tp-table td {
+    cursor: pointer;
+    font-size: 0.875em;
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
+}
+/* Name wraps; everything else stays on one line. */
+.tp-table td:nth-child(2) {
+    white-space: normal;
+    min-width: 12rem;
+}
+.tp-table td:last-child {
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tp-table tr.tp-picked td {
+    background: var(--w-color-surface-field-inactive, #eef6f7);
+}
