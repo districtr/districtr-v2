@@ -278,8 +278,8 @@ class TestTeamScoping:
         assert response.status_code == 200
 
     def test_read_all_scope_does_not_bypass_team_scoping(self, client, form_config):
-        # read:read-all governs authorship-boundary reads, not moderation
-        # reach — only review:review-all lifts the teams restriction.
+        # Only review:review-all lifts the teams restriction; a wide scope
+        # from the retired content set (read:read-all) must not.
         _set_auth({**TEAM_B_PAYLOAD, "scope": f"{REVIEW_SCOPE} read:read-all"})
         response = client.get(f"/api/submissions/admin?portal_id={PORTAL}")
         assert response.status_code == 403

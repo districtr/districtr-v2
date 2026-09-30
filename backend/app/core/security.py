@@ -14,26 +14,12 @@ logger = logging.getLogger(__name__)
 
 class TokenScope:
     create_districtr_maps = "create:districtr_maps"
-    read_districtr_maps = "read:districtr_maps"
-    update_districtr_maps = "update:districtr_maps"
-    delete_districtr_maps = "delete:districtr_maps"
-
     create_content = "create:content"
-    read_content = "read:content"
-    read_all_content = "read:read-all"
-
-    update_content = "update:content"
     update_all_content = "update:update-all"
-    publish_content = "update:publish"
-    delete_content = "delete:content"
-    delete_all_content = "delete:delete-all"
 
     review_content = "create:content_review"
-    # Explicit bypass of per-reviewer scoping (the `teams` claim; formerly
-    # the review_tags claim).
-    # Deliberately separate from read:read-all: the *-all read/update/delete
-    # scopes govern access across CMS authorship boundaries, while this one
-    # widens moderation reach.
+    # Explicit bypass of per-team scoping (the `teams` claim): widens
+    # moderation reach to every portal.
     review_all_content = "review:review-all"
 
 
