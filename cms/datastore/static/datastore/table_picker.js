@@ -92,7 +92,7 @@
                 const values = entries.map((e) => e.value);
                 const reorderable = this.ordered && values.length > 1;
                 this.selectedTarget.replaceChildren(...values.map((value, index) => {
-                    const row = this.byValue.get(value) || {value, name: `${value} (missing)`};
+                    const row = this.byValue.get(value) || {value, name: `${value} (unavailable)`};
                     const item = document.createElement('li');
                     const el = (tag, className, text) => {
                         const node = document.createElement(tag);

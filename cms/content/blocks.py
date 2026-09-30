@@ -68,8 +68,13 @@ RICH_TEXT_FEATURES = [
 ]
 
 
-def districtr_map_slug_choices():
+def districtr_map_slug_choices(scoped=True):
     """Lazy ChoiceBlock feed from the managed=False mirror of districtrmap.
+
+    ``scoped`` narrows to the current user's team modules when they're
+    team-scoped — what the pickers offer. Validation uses the full set
+    (scoped=False) so modules an admin placed survive a partner's save; the
+    page forms enforce what a partner may add (content/forms.py).
 
     Imported inside the function to avoid app-loading-order issues and to
     keep database access strictly lazy (form render/validation only). The
@@ -80,15 +85,21 @@ def districtr_map_slug_choices():
     """
     from django.db import DatabaseError, transaction
 
+    from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
+    from core.middleware import current_user
     from datastore.models import DistrictrMap
 
+    user = current_user.get() if scoped else None
     try:
         with transaction.atomic():
+            maps = DistrictrMap.objects.order_by("name")
+            if user is not None and user_is_team_scoped(user):
+                maps = maps.filter(
+                    districtr_map_slug__in=districtr_map_slugs_for_user(user)
+                )
             return [
                 (slug, f"{name} ({slug})")
-                for slug, name in DistrictrMap.objects.order_by("name").values_list(
-                    "districtr_map_slug", "name"
-                )
+                for slug, name in maps.values_list("districtr_map_slug", "name")
             ]
     except DatabaseError:
         return []
@@ -130,7 +141,7 @@ class MapModulesField(forms.Field):
             raise ValidationError(self.error_messages["required"], code="required")
         if not self.labelled:
             items = [{"districtr_map_slug": str(slug), "name": ""} for slug in items]
-        choices = dict(districtr_map_slug_choices())
+        choices = dict(districtr_map_slug_choices(scoped=False))
         views, seen = [], set()
         for item in items:
             slug = item.get("districtr_map_slug") if isinstance(item, dict) else None
@@ -374,6 +385,10 @@ class FormBlock(CompatStructBlock):
     class Meta:
         icon = "form"
         label = "Submission form"
+        help_text = (
+            "Places the portal's submission form here. Which questions it "
+            "asks is set in Portals → this portal → Edit form, not on the page."
+        )
         nullable_if_empty = ("allowListModules",)
 
 
