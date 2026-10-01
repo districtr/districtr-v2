@@ -119,11 +119,13 @@ def _render_node(node: dict, warnings: list[str]) -> str:
         alt = html.escape(attrs.get("alt") or "", quote=True)
         title = attrs.get("title")
         title_attr = f' title="{html.escape(title, quote=True)}"' if title else ""
-        return f'<img src="{src}" alt="{alt}"{title_attr}>'
+        return f'<img src="{src}" alt="{alt}"{title_attr}/>'
+    # Void tags must self-close: Wagtail's editor parser (Draftail
+    # from_database_format) keeps a tag stack and 500s on a bare <br>.
     if node_type == "hardBreak":
-        return "<br>"
+        return "<br/>"
     if node_type == "horizontalRule":
-        return "<hr>"
+        return "<hr/>"
 
     warnings.append(f"unsupported node type {node_type!r} degraded to its text content")
     return _render_children(node, warnings)
