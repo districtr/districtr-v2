@@ -5,8 +5,10 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 from pydantic import (
+    AliasChoices,
     AnyUrl,
     BeforeValidator,
+    Field,
     PostgresDsn,
     computed_field,
     model_validator,
@@ -16,7 +18,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 from pathlib import Path
 from enum import Enum
-from openai import OpenAI
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -118,14 +119,6 @@ class Settings(BaseSettings):
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 
-    # Moderation
-
-    OPENAI_API_KEY: str | None = None
-
-    def get_openai_client(self) -> OpenAI | None:
-        if self.OPENAI_API_KEY:
-            return OpenAI(api_key=self.OPENAI_API_KEY)
-
     # Security
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
@@ -157,12 +150,14 @@ class Settings(BaseSettings):
     # in-process LRU; a redeploy or task restart starts fresh.
     GRAPH_CACHE_PATH: str = "/tmp/districtr-graph-cache"
 
-    # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
-    # S3_BUCKET_NAME and update all references and env var documentation.
-    R2_BUCKET_NAME: str | None = None
+    # Object storage is AWS S3. R2_BUCKET_NAME is accepted as a legacy env-var
+    # alias — it is still the bucket secret's name in existing deployments.
+    AWS_S3_BUCKET: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AWS_S3_BUCKET", "R2_BUCKET_NAME"),
+    )
     CDN_URL: str | None = None
-    ACCOUNT_ID: str | None = None
-    AWS_S3_BUCKET: str | None = None
+    # Optional custom S3 endpoint (e.g. an S3-compatible host); unset = real AWS.
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
@@ -181,13 +176,11 @@ class Settings(BaseSettings):
                 return boto3.client("s3")
             return None
 
+        # AWS S3; AWS_S3_ENDPOINT overrides the host only for an S3-compatible
+        # endpoint. Mirrors cms/datastore/services.py::get_s3_client.
         kwargs = {}
-
-        if self.ACCOUNT_ID:
-            kwargs["endpoint_url"] = (
-                f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com"
-            )
-            kwargs["region_name"] = "auto"
+        if self.AWS_S3_ENDPOINT:
+            kwargs["endpoint_url"] = self.AWS_S3_ENDPOINT
 
         return boto3.client(
             service_name="s3",
@@ -202,14 +195,15 @@ class Settings(BaseSettings):
         if self.CDN_URL is not None:
             return self.CDN_URL
 
-        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
+        return f"https://{self.AWS_S3_BUCKET}.s3.amazonaws.com"
 
-    # Auth0
+    # Auth — tokens are issued by the Districtr CMS (cms/authapi) and
+    # verified against its JWKS endpoint.
 
-    AUTH0_DOMAIN: str
-    AUTH0_API_AUDIENCE: str
-    AUTH0_ISSUER: str
-    AUTH0_ALGORITHMS: str
+    AUTH_JWKS_URL: str
+    AUTH_AUDIENCE: str
+    AUTH_ISSUER: str
+    AUTH_ALGORITHMS: str = "RS256"
 
 
 @lru_cache()

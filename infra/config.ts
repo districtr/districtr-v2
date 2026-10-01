@@ -62,18 +62,28 @@ export const config = {
   s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
-  // Auth0 (non-secret identifiers)
-  auth0Domain: cfg.require("auth0Domain"),
-  auth0ApiAudience: cfg.require("auth0ApiAudience"),
-  auth0Issuer: cfg.require("auth0Issuer"),
-  auth0Algorithms: cfg.get("auth0Algorithms") ?? "RS256",
+  // Districtr CMS (Wagtail) — the JWT issuer. The backend verifies tokens
+  // against https://{cmsDomain}/.well-known/jwks.json.
+  cmsDomain: cfg.require("cmsDomain"),
+  /** `aud` claim minted by the CMS and required by the backend verifier. */
+  jwtAudience: cfg.get("jwtAudience") ?? `https://${apiDomain}/`,
+  /**
+   * Legacy page-author mapping for content/0003's one-time TipTap import,
+   * "auth0|<sub>=<email>,..." or "unowned". A secret: it names people by
+   * email and the stack files are public. Set it for the cutover deploy
+   * only; the migration refuses to import legacy pages without it.
+   */
+  migrateTiptapOwners: cfg.getSecret("migrateTiptapOwners"),
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
-  auth0ClientId: cfg.requireSecret("auth0ClientId"),
-  auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
-  auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
-  openaiApiKey: cfg.getSecret("openaiApiKey"),
+  djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
+  // RS256 PEM pair from `manage.py generate_jwt_keys`.
+  jwtSigningKey: cfg.requireSecret("jwtSigningKey"),
+  jwtVerifyingKey: cfg.requireSecret("jwtVerifyingKey"),
+  // Set only during key rotation (served alongside the active key in JWKS).
+  jwtNextVerifyingKey: cfg.getSecret("jwtNextVerifyingKey"),
+  resendApiKey: cfg.getSecret("resendApiKey"),
   turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
   turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
   researchApiKey: cfg.getSecret("researchApiKey"),
@@ -83,6 +93,7 @@ export const config = {
   // `pulumi up`; config values override for manual rollbacks.
   backendImageTagOverride: cfg.get("backendImageTag"),
   frontendImageTagOverride: cfg.get("frontendImageTag"),
+  cmsImageTagOverride: cfg.get("cmsImageTag"),
 
   // Forces the frontend into maintenance mode during planned downtime
   // (e.g. DB migration), independent of the CMS flag in the database.
@@ -102,6 +113,9 @@ export const config = {
   frontendMemory: cfg.getNumber("frontendMemory") ?? 2048,
   frontendMinCount: cfg.getNumber("frontendMinCount") ?? (isProd ? 2 : 1),
   frontendMaxCount: cfg.getNumber("frontendMaxCount") ?? (isProd ? 4 : 2),
+  // ~20 admin users + ISR-shielded content reads: one small task, no autoscaling.
+  cmsCpu: cfg.getNumber("cmsCpu") ?? 512,
+  cmsMemory: cfg.getNumber("cmsMemory") ?? 1024,
 
   // Database
   dbInstanceClass: cfg.get("dbInstanceClass") ?? (isProd ? "db.t4g.large" : "db.t4g.small"),

@@ -1,3 +1,4 @@
+import {serializeMapSaves} from '@/app/utils/sync/serializeMapSaves';
 import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
 import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -797,7 +798,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
+  // One save at a time across stores; see serializeMapSaves.
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, {silent = false} = {}) => {
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
 
@@ -910,7 +912,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         detail: 'An unknown error occured during PUT assignments.',
       },
     };
-  },
+  }),
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument);
     const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();

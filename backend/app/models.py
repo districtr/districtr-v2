@@ -123,6 +123,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     comment_length_limit: int | None = Field(nullable=True)
     # Maximum number of comments per document
     comment_count_limit: int | None = Field(nullable=True)
+    # Descriptive metadata for module pickers (CMS) and listings.
+    description: str | None = Field(nullable=True)
+    state_abbr: str | None = Field(nullable=True)
+    state_name: str | None = Field(nullable=True)
+    # Free text, e.g. "Congressional", "State House", "State Senate", "Custom"
+    boundary_type: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -160,6 +166,10 @@ class DistrictrMapUpdate(BaseModel):
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
+    description: str | None = None
+    state_abbr: str | None = None
+    state_name: str | None = None
+    boundary_type: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -192,7 +202,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,
-            ForeignKey("districtrmap.uuid"),
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
             nullable=False,
             primary_key=True,
         )
@@ -288,6 +298,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
+    # The portal this map was created to fit, or None. A map belongs to at most
+    # one portal: stamped at creation for maps started from a portal page and
+    # on the clone for form/finalize submissions; other portals borrow a map by
+    # listing its id. The FK to comments.form_configs (ON UPDATE CASCADE, ON
+    # DELETE SET NULL) is appended in app/submissions/models.py: FormConfig
+    # imports this module, so declaring it here would be circular.
+    portal_id: str | None = Field(
+        default=None,
+        sa_column=Column(String(255), nullable=True, index=True),
+    )
     document_type: DocumentType = Field(
         sa_column=Column(
             ENUM(
@@ -325,6 +345,9 @@ class DocumentCreate(BaseModel):
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
+    # Portal slug: when set, a draft submission is created alongside the
+    # document (the map-from-portal auto-submit pathway).
+    portal_id: str | None = None
 
 
 # TODO: Remove this table
@@ -348,7 +371,6 @@ class DocumentCommentPublic(BaseModel):
     comment_id: str
     zone: int | None = None
     text: str
-    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -357,7 +379,9 @@ class DocumentCommentCreate(BaseModel):
     """Create/update a document comment. If comment_id is provided, it's an update."""
 
     comment_id: int | None = None
-    zone: int | None = None
+    # ge=0 mirrors comments.district_notes' zone_non_negative CHECK so bad
+    # input 422s instead of surfacing as an IntegrityError 500.
+    zone: int | None = Field(default=None, ge=0)
     text: str
 
 
@@ -401,6 +425,8 @@ class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
+    # Draft-submission write capability, present when portal_id was given.
+    submission_id: str | None = None
 
 
 class Assignments(SQLModel, table=True):
@@ -485,33 +511,54 @@ class MapGroup(SQLModel, table=True):
 
 class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtrmap_uuid, group_slug) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtrmap_uuid: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            nullable=False,
+        )
     )
     group_slug: str = Field(
         sa_column=Column(
             String,
-            ForeignKey("map_group.slug"),
-            primary_key=True,
+            ForeignKey("map_group.slug", ondelete="CASCADE"),
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint("districtrmap_uuid", "group_slug", name="group_map_unique"),
     )
 
 
 class DistrictrMapOverlays(SQLModel, table=True):
     __tablename__ = "districtrmap_overlays"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtr_map_id, overlay_id) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtr_map_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
     )
     overlay_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint(
+            "districtr_map_id", "overlay_id", name="districtrmap_overlays_unique"
+        ),
+        # Created by migration 24137793FE9B; declared here so autogenerate
+        # doesn't propose dropping it.
+        Index("idx_districtrmap_overlays_overlay_id", "overlay_id"),
     )
 
 

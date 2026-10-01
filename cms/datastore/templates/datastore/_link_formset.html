@@ -1,0 +1,26 @@
+{% load wagtailadmin_tags %}
+{# One inline-formset section on the DistrictrMap edit page. Renders inside
+   the editor <form>; each row is the link's FK dropdown plus a Delete
+   checkbox, and the extra blank row adds a new link on save. #}
+<section class="w-mt-8" data-link-formset="{{ formset.prefix }}">
+    <h2 class="w-h2">{{ heading }}</h2>
+    {% if description %}<p class="help">{{ description }}</p>{% endif %}
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}
+        <div class="help-block help-critical">
+            {% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+    <ul class="fields" style="list-style: none; padding: 0;">
+        {% for link_form in formset.forms %}
+            <li style="display: flex; align-items: flex-end; gap: 1.5rem; margin-bottom: 0.5rem;">
+                {% for hidden in link_form.hidden_fields %}{{ hidden }}{% endfor %}
+                {% for field in link_form.visible_fields %}
+                    <div {% if field.name != "DELETE" %}style="flex: 1; max-width: 30rem;"{% endif %}>
+                        {% formattedfield field %}
+                    </div>
+                {% endfor %}
+            </li>
+        {% endfor %}
+    </ul>
+</section>

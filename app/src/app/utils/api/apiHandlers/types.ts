@@ -83,6 +83,9 @@ export interface Community {
 export interface DocumentObject extends StatusObject {
   document_id: string;
   public_id: number | null;
+  /** Draft-submission finalize capability, present when the document was
+   * created with a portal_id (map-from-portal pathway). */
+  submission_id?: string | null;
   /** True when the map has an edit password; lets read-only viewers unlock draw mode. */
   password_required?: boolean;
   districtr_map_slug: string;
@@ -120,7 +123,6 @@ export interface DocumentComment {
   comment_id?: string; // undefined for local-only comments
   zone?: number | null;
   text: string;
-  moderated?: boolean; // true when comment failed moderation; edit access sees full text
   created_at?: string;
   updated_at?: string;
 }
@@ -131,6 +133,8 @@ export interface MinPublicDocument {
   document_type: 'district' | 'coi';
   map_module: string;
   updated_at: string;
+  /** A visible submission of this map was marked sensitive: blur, don't drop. */
+  nsfw?: boolean;
 }
 
 export interface DocumentCreate {
@@ -138,6 +142,9 @@ export interface DocumentCreate {
   map_type?: MapType;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
+  /** Portal slug: creates a draft submission alongside the document
+   * (the map-from-portal auto-submit pathway). */
+  portal_id?: string | null;
 }
 
 export type ShatterResult = Array<{
@@ -166,54 +173,6 @@ export type MapGroup = {
   name: string;
   slug: string;
 };
-
-export interface CommentCreate {
-  title: string;
-  comment: string;
-  commenter_id: number | null;
-  document_id: string | null;
-}
-
-export interface CommentPublic {
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface CommenterCreate {
-  first_name: string;
-  email: string;
-  salutation: string | null;
-  last_name: string | null;
-  place: string | null;
-  state: string | null;
-  zip_code: string | null;
-}
-
-export interface CommenterPublic {
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface TagPublic {
-  slug: string;
-}
-
-export interface TagCreate {
-  tag: string;
-}
-
-export interface FullCommentForm {
-  comment: CommentCreate;
-  commenter: CommenterCreate;
-  tags: TagCreate[];
-  turnstile_token: string;
-}
-
-export interface FullCommentFormResponse {
-  comment: CommentPublic;
-  commenter: CommenterPublic;
-  tags: TagPublic[];
-}
 
 export interface Overlay {
   overlay_id: string;

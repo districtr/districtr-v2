@@ -54,3 +54,50 @@ export const editPath = (
  */
 export const evalPath = (routePrefix: string, public_id: number): string =>
   `/${routePrefix}/${public_id}/eval`;
+
+/** The map routes a pasted link may point at: /map or /coi, then an optional
+ * id segment, then an optional /edit or /eval. */
+const MAP_PATH = /^\/(?:map|coi)(?:\/([^/]+))?(?:\/(?:edit|eval))?\/?$/;
+
+/**
+ * Extract a document reference (UUID or numeric public id) from a map link or
+ * bare id a user might paste: edit links, read and eval links, legacy
+ * `?document_id=` links, or the id itself. Null for anything else, including
+ * classic districtr `/plan/<n>` links, which would otherwise name an
+ * unrelated v2 map. The host isn't checked: dev, beta and prod links all
+ * name the same kind of map.
+ *
+ * Order: a numeric public id in the path first, then the private_edit_id
+ * token, then `document_id`, then a UUID path segment. The backend resolves a
+ * public id and a UUID to the same map, and a token damaged in transit can
+ * still decode to a well-formed UUID for some other document, so the path id
+ * is the safer source whenever the link carries one (every current edit link
+ * does).
+ */
+export const parseMapRef = (input: string, base?: string): string | null => {
+  const trimmed = (input ?? '').trim();
+  if (!trimmed) return null;
+  if (isUUID(trimmed) || /^\d+$/.test(trimmed)) return trimmed;
+  let url: URL;
+  try {
+    url = new URL(
+      trimmed,
+      base ?? (typeof window !== 'undefined' ? window.location.href : undefined)
+    );
+  } catch {
+    return null;
+  }
+  const match = url.pathname.match(MAP_PATH);
+  if (!match) return null;
+  const segment = match[1] ?? '';
+  if (/^\d+$/.test(segment)) return segment;
+  const privateId = url.searchParams.get(PRIVATE_EDIT_ID_PARAM);
+  if (privateId) {
+    const uuid = expandUUID(privateId);
+    if (uuid) return uuid;
+  }
+  const documentId = url.searchParams.get('document_id');
+  if (documentId && isUUID(documentId)) return documentId;
+  if (isUUID(segment)) return segment;
+  return null;
+};

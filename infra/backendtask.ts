@@ -37,7 +37,6 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
 
   addSecret("DATABASE_URL", database.databaseUrl);
   addSecret("SECRET_KEY", config.secretKey);
-  addSecret("OPENAI_API_KEY", config.openaiApiKey);
   addSecret("TURNSTILE_SECRET_KEY", config.turnstileSecretKey);
   addSecret("TURNSTILE_SESSION_SECRET_KEY", config.turnstileSessionSecretKey);
   addSecret("RESEARCH_API_KEY", config.researchApiKey);
@@ -82,10 +81,11 @@ export function createBackendTaskConfig(repos: Repos, database: Database) {
     {name: "BACKEND_CORS_ORIGINS", value: config.corsOrigins},
     {name: "R2_BUCKET_NAME", value: config.s3BucketName},
     {name: "CDN_URL", value: config.cdnUrl},
-    {name: "AUTH0_DOMAIN", value: config.auth0Domain},
-    {name: "AUTH0_API_AUDIENCE", value: config.auth0ApiAudience},
-    {name: "AUTH0_ISSUER", value: config.auth0Issuer},
-    {name: "AUTH0_ALGORITHMS", value: config.auth0Algorithms},
+    // JWT verification against the CMS issuer (see infra/cms.ts).
+    {name: "AUTH_JWKS_URL", value: `https://${config.cmsDomain}/.well-known/jwks.json`},
+    {name: "AUTH_ISSUER", value: `https://${config.cmsDomain}`},
+    {name: "AUTH_AUDIENCE", value: config.jwtAudience},
+    {name: "AUTH_ALGORITHMS", value: "RS256"},
     // Session tokens issued but not yet required; flip to "true" after rollout.
     {name: "SESSION_ENFORCE", value: "false"},
     // Auth via the task role (default boto3 chain), not static keys.

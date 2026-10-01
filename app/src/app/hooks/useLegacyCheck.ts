@@ -11,7 +11,7 @@ import {LEGACY_DISTRICTR_URL} from '@/app/constants/legacy';
  * decide whether that means "offer nothing" or "redirect anyway".
  */
 export const useLegacyCheck = (path?: string | null) => {
-  // ponytail: search read from window rather than useSearchParams, which forces
+  // Search is read from window rather than useSearchParams, which forces
   // prerendered pages (/_not-found) to bail to client rendering. null until mounted
   // so the query doesn't fire once without the search and again with it.
   const [search, setSearch] = useState<string | null>(null);

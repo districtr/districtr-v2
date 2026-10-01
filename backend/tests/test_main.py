@@ -17,7 +17,7 @@ from app.evaluation.context import (
 )
 from app.core.models import DocumentID
 from pydantic import ValidationError
-from tests.test_utils import handle_full_submission_approve, patch_turnstile
+from tests.test_utils import patch_turnstile
 from datetime import datetime, timezone
 from fastapi import BackgroundTasks
 import app.evaluation.main as evaluation_main
@@ -1402,153 +1402,98 @@ def test_new_document_from_block_assignments_unknown_geoids_skipped(
 def test_document_list(
     client, session: Session, document_id_total_vap, document_id_all_stats
 ):
-    response = client.get("/api/documents/list")
+    public_ids = [
+        _public_id_of(client, document_id_all_stats),
+        _public_id_of(client, document_id_total_vap),
+    ]
+    curated = "&".join(f"ids={i}" for i in public_ids)
+
+    # A curated lookup returns exactly the maps named, in that order...
+    response = client.get(f"/api/documents/list?{curated}")
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) > 0
-    assert data[0].get("public_id")
-    # use that ID later
-    public_id = data[0].get("public_id")
+    assert [d["public_id"] for d in response.json()] == public_ids
+    # ...and pages through them.
+    page = client.get(f"/api/documents/list?{curated}&offset=1&limit=1").json()
+    assert [d["public_id"] for d in page] == public_ids[1:]
 
-    # limit 1
-    response = client.get("/api/documents/list?limit=1")
-    assert response.status_code == 200
-    data = response.json()
-    document_1 = data[0]
-    assert len(data) == 1
-
-    # offset 1
-    response = client.get("/api/documents/list?offset=1&limit=1")
-    assert response.status_code == 200
-    data = response.json()
-    document_2 = data[0]
-    assert len(data) == 1
-    # assert not equal previous data
-    assert document_1.get("public_id") != document_2.get("public_id")
-
-    # filter on tags "test"
-    # update metadata to add tag "test"
-    metadata_payload = {
-        "name": "Test Map",
-        "tags": ["test", "map"],
-        "description": "This is a test metadata entry",
-        "event_id": "1234",
-        "draft_status": "ready_to_share",
-    }
-
-    response = client.put(
-        f"/api/document/{document_id_total_vap}/metadata", json=metadata_payload
-    )
-    assert response.status_code == 200
-
-    # submit a comment with tag "test"
-    comment_data = {
-        "commenter": {
-            "first_name": "Test",
-            "email": "test@example.com",
-            "place": "Portland",
-            "state": "OR",
-        },
-        "comment": {
-            "title": "Test Comment",
-            "comment": "This is a test comment with some content.",
-            "document_id": document_id_total_vap,
-        },
-        "tags": [{"tag": "test"}],
-        "turnstile_token": "test_token",
-    }
-    response = client.post("/api/comments/submit", json=comment_data)
-    assert response.status_code == 201
-    handle_full_submission_approve(client, response.json())
-    response = client.get("/api/documents/list?tags=test")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) > 0
-    assert "test" in data[0].get("map_metadata").get("tags")
-
-    # filter on IDs
-    # Use a real public_id from the data to ensure this works in all environments
-    response = client.get(f"/api/documents/list?ids={public_id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    assert data[0].get("public_id") == public_id
-
-
-def test_document_list_metadata_tags_and_draft_status(client, document_id_total_vap):
-    # A scratch map with a metadata tag is not yet "submitted" to tag galleries.
+    # Submit the map to a portal: a portal gallery lists its finished
+    # submissions (the frozen clone).
     response = client.put(
         f"/api/document/{document_id_total_vap}/metadata",
-        json={"tags": ["workshop"], "draft_status": "scratch"},
+        json={"name": "Test Map", "tags": ["test"], "draft_status": "ready_to_share"},
     )
     assert response.status_code == 200
-    response = client.get("/api/documents/list?tags=workshop")
+    from app.submissions.models import FormConfig
+
+    session.add(
+        FormConfig(
+            portal_id="test-portal",
+            name="Test portal",
+            fields=["title", "comment"],
+            required_fields=[],
+        )
+    )
+    session.commit()
+    response = client.post(
+        "/api/submissions",
+        json={
+            "portal_id": "test-portal",
+            "fields": {"title": "Test Comment", "comment": "Some content."},
+            "map_ref": document_id_total_vap,
+            "turnstile_token": "test_token",
+        },
+    )
+    assert response.status_code == 201, response.json()
+    data = client.get("/api/documents/list?portal_id=test-portal").json()
+    assert len(data) == 1
+    assert "test" in data[0]["map_metadata"]["tags"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",  # no unfiltered listing
+        "ids=1&portal_id=p",  # one mode at a time
+        "&".join(f"ids={i}" for i in range(1, 52)),  # curated caps at 50
+        "portal_id=p&include_hidden=true",  # hidden maps never list by portal
+        "portal_id=p&draft_status=scratch",  # scratch maps are never listed
+    ],
+)
+def test_document_list_rejects_unbounded_queries(client, query):
+    assert client.get(f"/api/documents/list?{query}").status_code == 422
+
+
+def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
+    client, document_id_total_vap
+):
+    # Design decision: a map enters a portal gallery only through a
+    # submission. Metadata tags are display-only annotations, and a slug that
+    # matches one must not list the map.
+    response = client.put(
+        f"/api/document/{document_id_total_vap}/metadata",
+        json={"tags": ["workshop"], "draft_status": "in_progress"},
+    )
+    assert response.status_code == 200
+    response = client.get("/api/documents/list?portal_id=workshop")
     assert response.status_code == 200
     assert response.json() == []
 
-    # Moving to in_progress submits it; the partial update must not wipe tags.
+    # The partial metadata update must not wipe sibling keys (dev's merge
+    # semantics, which the draft-status flows depend on).
     response = client.put(
         f"/api/document/{document_id_total_vap}/metadata",
-        json={"draft_status": "in_progress"},
+        json={"draft_status": "ready_to_share"},
     )
     assert response.status_code == 200
-    response = client.get("/api/documents/list?tags=workshop")
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["map_metadata"]["tags"] == ["workshop"]
-    assert data[0]["map_metadata"]["draft_status"] == "in_progress"
-
-    # Explicit completion-status filter narrows the listing.
-    response = client.get(
-        "/api/documents/list?tags=workshop&draft_status=ready_to_share"
-    )
-    assert response.json() == []
-    response = client.get("/api/documents/list?tags=workshop&draft_status=in_progress")
-    assert len(response.json()) == 1
+    listed = client.get(
+        f"/api/documents/list?ids={_public_id_of(client, document_id_total_vap)}"
+    ).json()
+    assert listed[0]["map_metadata"]["tags"] == ["workshop"]
+    assert listed[0]["map_metadata"]["draft_status"] == "ready_to_share"
 
 
-def test_document_list_comment_tags(client, document_id_total_vap):
-    # The comment-form tag path must match on its own: the document's own
-    # metadata tags deliberately do NOT include the queried slug, and
-    # in_progress pins the submitted-statuses default on this path too.
-    response = client.put(
-        f"/api/document/{document_id_total_vap}/metadata",
-        json={"tags": ["other"], "draft_status": "in_progress"},
-    )
-    assert response.status_code == 200
-    comment_data = {
-        "commenter": {
-            "first_name": "Test",
-            "email": "test@example.com",
-            "place": "Portland",
-            "state": "OR",
-        },
-        "comment": {
-            "title": "Test Comment",
-            "comment": "This is a test comment with some content.",
-            "document_id": document_id_total_vap,
-        },
-        "tags": [{"tag": "workshop"}],
-        "turnstile_token": "test_token",
-    }
-    response = client.post("/api/comments/submit", json=comment_data)
-    assert response.status_code == 201
-    handle_full_submission_approve(client, response.json())
-
-    response = client.get("/api/documents/list?tags=workshop")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["map_metadata"]["tags"] == ["other"]
-
-    # The scratch gate applies to comment-tagged documents as well.
-    response = client.put(
-        f"/api/document/{document_id_total_vap}/metadata",
-        json={"draft_status": "scratch"},
-    )
-    assert response.status_code == 200
-    response = client.get("/api/documents/list?tags=workshop")
-    assert response.json() == []
+def _public_id_of(client, document_id):
+    return client.get(f"/api/document/{document_id}").json()["public_id"]
 
 
 def test_get_district_unions(client, document_id_total_vap):

@@ -1,0 +1,89 @@
+"""
+Teams: the partner-organization boundary of the CMS (see authapi/teams.py).
+"""
+
+from django.conf import settings
+from django.db import models
+from modelcluster.fields import ParentalKey
+from modelcluster.models import ClusterableModel
+
+
+class Team(ClusterableModel):
+    """A partner organization — the access-control boundary of the CMS.
+
+    Team membership scopes a non-admin user's Wagtail admin to their teams'
+    resources: the portal forms a team administers (FormConfig.admin_teams), the Districtr map
+    modules assigned to it (TeamDistrictrMap), and the portal/place pages
+    tied to those modules (authapi/teams.py). Admins and superusers are never
+    scoped. A non-admin with no team is scoped to nothing (fail closed).
+    Managed by admins in the "Teams" snippet (authapi/wagtail_hooks.py).
+
+    The slug is minted into the JWT `teams` claim on every backend call and
+    matched by the backend against form_configs.admin_teams — renaming a
+    team is safe, but changing its slug PERMANENTLY revokes the team's
+    moderation reach: form_configs.admin_teams keeps the old string, the
+    next token carries the new one, and they never match again (an admin
+    must re-edit every affected portal form). Treat slugs as immutable
+    after creation.
+
+    Deleting a team leaves its slug in those portals' admin_teams (the record
+    of who moderated what). Retire a deleted team's slug for good: a new team
+    created under the same slug would inherit that moderation reach.
+    """
+
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(
+        max_length=255,
+        unique=True,
+        help_text=(
+            "Stable identifier, minted into members' JWT `teams` claim and "
+            "stored in portal forms' admin_teams. Changing it permanently "
+            "orphans those grants — treat as immutable."
+        ),
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TeamMembership(models.Model):
+    """A user's membership in a Team (InlinePanel child of Team)."""
+
+    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="team_memberships",
+    )
+
+    class Meta:
+        unique_together = [("team", "user")]
+
+    def __str__(self):
+        return f"{self.user.get_username()} ∈ {self.team.name}"
+
+
+class TeamDistrictrMap(models.Model):
+    """A Districtr map module assigned to a Team (InlinePanel child of Team).
+
+    Direct assignment — MapGroup is a listing facet, not an access boundary.
+    db_constraint=False because DistrictrMap is a managed=False mirror of a
+    backend-owned table in the public schema.
+    """
+
+    team = ParentalKey(Team, on_delete=models.CASCADE, related_name="districtr_maps")
+    districtr_map = models.ForeignKey(
+        "datastore.DistrictrMap",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="team_links",
+    )
+
+    class Meta:
+        unique_together = [("team", "districtr_map")]
+
+    def __str__(self):
+        return f"{self.team.name} → {self.districtr_map_id}"
