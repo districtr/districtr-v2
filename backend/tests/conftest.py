@@ -694,7 +694,7 @@ def ks_ellis_parent_layer_only_districtr_map(
 #   block  (r, c): county=(r//2)*2+(c//4), within-county index=(r%2)*4+(c%4)
 #           geo_id = "{county:05d}{idx:07d}"          (bare → unit_type="block")
 #
-# _populate_county_data extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
+# CountyContext._load extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
 # for the county GEOID — both encodings map to f"{county:05d}". ✓
 #
 # All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).
