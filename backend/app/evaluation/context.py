@@ -532,29 +532,46 @@ class CountyContext:
             .astype(float)
             .fillna(0)
         )
-        pops = counties[TOTAL_POP_COL].to_numpy()
-        total_pop = pops.sum()
-        if total_pop == 0:
-            raise ValueError(f"Total county population is zero for '{gerrydb_table}'.")
-
-        ideals: dict[ElectionPartyKey, float] = {}
-        for e in elections:
-            dem, rep = counties[f"{e}_dem"], counties[f"{e}_rep"]
-            ideals[ElectionPartyKey(f"{e}_dem")] = float(
-                np.dot(dem > rep, pops) / total_pop
-            )
-            ideals[ElectionPartyKey(f"{e}_rep")] = float(
-                np.dot(rep > dem, pops) / total_pop
-            )
-
         return CountyTable(
             populations={
                 CountyGeoid(geoid): int(pop)
                 for geoid, pop in counties[TOTAL_POP_COL].items()
                 if geoid
             },
-            ideals=ideals,
+            ideals=self._compute_ideal(counties),
         )
+
+    @staticmethod
+    def _compute_ideal(df: pd.DataFrame) -> dict[ElectionPartyKey, float]:
+        """Population-weighted county-level Dem/Rep win frequency per election.
+
+        `df` has one row per county, a `total_pop_20` column and, per election,
+        `<election>_dem` and `<election>_rep` vote columns. For the Dem key:
+
+            ideal = sum_c (p_c * 1{dem_c > rep_c}) / sum_c p_c
+
+        and symmetrically for Rep; a tied county counts for neither party.
+        """
+        county_pops = df[TOTAL_POP_COL].to_numpy()
+        total_pop = county_pops.sum()
+        if total_pop == 0:
+            raise ValueError("Total county population is zero.")
+
+        dem_cols: list[ElectionPartyKey] = [
+            ElectionPartyKey(c) for c in df.columns if c.endswith("_dem")
+        ]
+        ideals: dict[ElectionPartyKey, float] = {}
+        for dem_col in dem_cols:
+            base = dem_col.removesuffix("_dem")
+            rep_col = ElectionPartyKey(f"{base}_rep")
+            if rep_col not in df.columns:
+                continue
+            results_dem = df[dem_col] > df[rep_col]
+            results_rep = df[rep_col] > df[dem_col]
+            ideals[dem_col] = float(np.dot(results_dem, county_pops) / total_pop)
+            ideals[rep_col] = float(np.dot(results_rep, county_pops) / total_pop)
+
+        return ideals
 
 
 # Server-owned singleton. Shared across all requests; one entry per gerrydb table.

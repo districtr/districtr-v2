@@ -63,6 +63,7 @@ Suite 1 — seed=42, 8 districts, no spatial structure
 """
 
 import math
+import pandas as pd
 from datetime import datetime, timezone
 import sqlalchemy
 import sqlmodel
@@ -973,3 +974,29 @@ def test_eguia_ideal_refreshes_for_column_added_after_caching(eguia_context):
             )
         )
         session.commit()
+
+
+def test_compute_ideal_weights_won_counties_by_population():
+    """Each party's ideal is the population share of the counties it won; a tied
+    county counts for neither, and elections without both parties are skipped."""
+    counties = pd.DataFrame(
+        {
+            "total_pop_20": [100, 200, 700],
+            "pres_20_dem": [60, 10, 50],
+            "pres_20_rep": [40, 90, 50],
+            "sen_20_dem": [1, 1, 1],
+        },
+        index=["01001", "01003", "01005"],
+    )
+    assert CountyContext._compute_ideal(counties) == {
+        ElectionPartyKey("pres_20_dem"): pytest.approx(0.1),
+        ElectionPartyKey("pres_20_rep"): pytest.approx(0.2),
+    }
+
+
+def test_compute_ideal_raises_on_zero_population():
+    counties = pd.DataFrame(
+        {"total_pop_20": [0, 0], "pres_20_dem": [1, 2], "pres_20_rep": [2, 1]}
+    )
+    with pytest.raises(ValueError, match="population is zero"):
+        CountyContext._compute_ideal(counties)
