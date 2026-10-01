@@ -22,9 +22,3 @@
   --w-color-secondary-hue: 195.2;
   --w-color-secondary-saturation: 100%;
 }
-
-/* Legibility: a touch more breathing room between the stacked approve /
- * reject / dismiss buttons in the moderation queues. */
-.moderation-buttons .button-small {
-  margin-inline-end: 0.25rem;
-}

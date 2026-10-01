@@ -18,7 +18,7 @@ interface SubmissionPublic {
 }
 
 /** Flattened row shape the gallery renderers consume. */
-export interface CommentListing {
+export interface SubmissionListing {
   /** Submission id (for the report/flag action) */
   id: number;
   title: string;
@@ -36,7 +36,7 @@ export interface CommentListing {
 }
 
 /** Filter options for querying public submissions */
-export interface CommentFilters {
+export interface SubmissionFilters {
   /** Filter by specific submission IDs (curated galleries) */
   ids?: number[];
   /** Filter by portal slugs (a gallery block's `tags` attribute) */
@@ -78,7 +78,7 @@ const body = (fields: Record<string, string>) =>
     .filter(Boolean)
     .join('\n\n');
 
-const flatten = (row: SubmissionPublic): CommentListing => ({
+const flatten = (row: SubmissionPublic): SubmissionListing => ({
   id: row.id,
   title: row.fields.title ?? '',
   comment: body(row.fields),
@@ -93,9 +93,9 @@ const flatten = (row: SubmissionPublic): CommentListing => ({
 });
 
 /** Fetch visible public submissions with optional filters. */
-export const getPublicComments = async (
-  filters: CommentFilters
-): Promise<{ok: true; response: CommentListing[]} | {ok: false; error: {detail: string}}> => {
+export const getPublicSubmissions = async (
+  filters: SubmissionFilters
+): Promise<{ok: true; response: SubmissionListing[]} | {ok: false; error: {detail: string}}> => {
   const queryParams: Record<string, string | number | boolean | (string | number)[]> = {};
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null && value !== '') {

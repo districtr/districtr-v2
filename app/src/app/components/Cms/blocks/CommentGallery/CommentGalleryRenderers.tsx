@@ -7,14 +7,14 @@
 'use client';
 import {Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
 import {PersonIcon, CalendarIcon, GlobeIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
-import {flagSubmission, type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
+import {flagSubmission, type SubmissionListing} from '@/app/utils/api/apiHandlers/getSubmissions';
 import {formatDistanceToNow} from 'date-fns';
 import {useState} from 'react';
 import {NsfwShield} from '@/app/components/Shared/NsfwShield';
 
 /** Display options passed from CommentGallery to control which fields are shown */
 interface CommentRenderersProps {
-  comment: CommentListing;
+  comment: SubmissionListing;
   options: {
     showIdentifier?: boolean;
     showTitles?: boolean;
@@ -27,13 +27,13 @@ interface CommentRenderersProps {
 }
 
 /** Formats commenter's first and last name, with fallback to 'Anonymous' */
-const getCommenterName = (comment: CommentListing) => {
+const getCommenterName = (comment: SubmissionListing) => {
   const parts = [comment.first_name, comment.last_name].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : 'Anonymous';
 };
 
 /** Formats location string from place, state, and zip */
-const getLocationString = (comment: CommentListing) => {
+const getLocationString = (comment: SubmissionListing) => {
   const parts = [];
   if (comment.place) parts.push(comment.place);
   if (comment.state) parts.push(comment.state);

@@ -1,6 +1,6 @@
 """
-Per-user calls from the Wagtail admin to the FastAPI backend's moderation
-endpoints.
+Per-user calls from the Wagtail admin (the Portals hub and site settings) to
+the FastAPI backend.
 
 Unlike datastore/services.py (service tokens), these calls mint a short-lived
 access token for the ACTING USER (authapi.serializers.mint_user_access_token),

@@ -176,7 +176,3 @@ def get_assigned_nodes_bboxes(
         )
         for row in rows
     ]
-
-
-def get_zone_connected_component_bboxes():
-    pass

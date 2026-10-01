@@ -463,25 +463,6 @@ class AssignmentsCreate(BaseModel):
     comments: list[DocumentCommentCreate] | None = None
 
 
-class AssignmentsResponse(SQLModel):
-    geo_id: str
-    zone: int | None
-    parent_path: str | None
-    # document_id: str
-
-
-class GEOIDS(BaseModel):
-    geoids: list[str]
-
-
-class GEOIDSResponse(GEOIDS):
-    updated_at: datetime
-
-
-class AssignedGEOIDS(GEOIDS):
-    zone: int | None
-
-
 class ShatterResult(BaseModel):
     parent_path: str
     child_path: str
