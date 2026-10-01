@@ -8,6 +8,9 @@ on:
       # The datastore mirror drift check depends on the backend schema:
       - "backend/app/models.py"
       - "backend/app/alembic/**"
+      # The field-registry lockstep test reads both of these:
+      - "backend/app/submissions/fields.py"
+      - "app/src/app/components/Forms/fieldRegistry.tsx"
   # Also on PRs, so the suite runs against the MERGE RESULT rather than only
   # the branch tip.
   pull_request:

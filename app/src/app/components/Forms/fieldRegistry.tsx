@@ -13,11 +13,18 @@ import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 
 export type FieldSection = 'submission' | 'about';
 
+/** Loose shape check only; the backend runs the real RFC validation
+ * (email-validator). Unicode-friendly, unlike the browser's type="email",
+ * which rejects addresses like josé@example.com before they're ever sent. */
+const EMAIL_PATTERN = '[^@\\s]+@[^@\\s]+\\.[^@\\s]+';
+export const EMAIL_RE = new RegExp(`^(?:${EMAIL_PATTERN})$`);
+
 export interface FieldSpec {
   label: string;
   type: TextField.RootProps['type'];
   section: FieldSection;
   autoComplete?: TextField.RootProps['autoComplete'];
+  inputMode?: TextField.RootProps['inputMode'];
   component?: typeof TextField.Root | typeof TextArea | typeof Select.Root;
   options?: Array<{label: string; value: string}>;
   pattern?: string;
@@ -33,11 +40,11 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
     invalidMessage: 'Enter a submission title',
   },
   comment: {
-    label: 'Testimony',
+    label: 'Your Comment',
     type: 'text',
     section: 'submission',
     component: TextArea,
-    invalidMessage: 'Enter your testimony',
+    invalidMessage: 'Enter your comment',
   },
   salutation: {
     label: 'Salutation',
@@ -60,9 +67,14 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
   },
   email: {
     label: 'Email',
-    type: 'email',
+    // text + inputMode, not type="email": see EMAIL_RE.
+    type: 'text',
+    inputMode: 'email',
     section: 'about',
     autoComplete: 'email',
+    // Native constraint so the form's checkValidity() still gates Submit.
+    pattern: EMAIL_PATTERN,
+    validator: value => EMAIL_RE.test(value ?? ''),
     invalidMessage: 'Enter a valid email address',
   },
   place: {
@@ -92,18 +104,14 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
   },
 };
 
-/** Render order within each section. */
-export const FIELD_ORDER = [
-  'title',
-  'comment',
-  'salutation',
-  'first_name',
-  'last_name',
-  'email',
-  'place',
-  'state',
-  'zip_code',
-];
+/** Render order within each section: registry insertion order, so a new
+ * field can't be registered yet render no input. */
+export const FIELD_ORDER = Object.keys(FIELD_REGISTRY);
+
+/** Length caps for admin-defined custom questions, by field type — mirrored
+ * from backend fields.py::CUSTOM_FIELD_MAX_LENGTHS so the input stops where
+ * the server would reject. */
+export const CUSTOM_FIELD_MAX_LENGTHS = {text: 255, textarea: 5000} as const;
 
 /** Fields the public list never serves — mirrored from the backend. */
 export const PRIVATE_FIELDS = new Set(['email']);

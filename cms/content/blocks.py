@@ -4,9 +4,12 @@ nodes used by the Next.js frontend.
 
 CRITICAL CONTRACT: struct-child names keep the EXACT camelCase attribute
 names defined in app/src/app/constants/cms.ts (PLAN_GALLERY_ATTRIBUTES,
-COMMENT_GALLERY_ATTRIBUTES, FORM_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES,
-and the boilerplate/sectionHeader node attrs) so the frontend can spread a
-block's ``value`` straight into the matching React component as props.
+COMMENT_GALLERY_ATTRIBUTES, MAP_CREATE_BUTTONS_ATTRIBUTES, and the
+boilerplate/sectionHeader node attrs) so the frontend can spread a block's
+``value`` straight into the matching React component as props. The form
+block has no attribute list: its value is typed by FormBlock in
+app/src/app/utils/api/cmsContent.ts and spread into SubmissionFormProps
+(see the note in constants/cms.ts).
 
 TipTap node name (app/src/app/components/Cms/RichTextEditor/extensions/)
 maps to stream block name as follows:
@@ -27,8 +30,13 @@ ChoiceBlock validation if the block is *edited* in the admin (the stored
 value itself is untouched until then).
 """
 
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.choices import CallableChoiceIterator
 from wagtail import blocks
 from wagtail.rich_text import expand_db_html
+
+from datastore.widgets import MapModulePickerWidget
 
 # The full set of marks/nodes the legacy editor could produce
 # (app/src/app/components/RichTextRenderer/RichTextRenderer.tsx: StarterKit +
@@ -60,30 +68,126 @@ RICH_TEXT_FEATURES = [
 ]
 
 
-def districtr_map_slug_choices():
+def districtr_map_slug_choices(scoped=True):
     """Lazy ChoiceBlock feed from the managed=False mirror of districtrmap.
+
+    ``scoped`` narrows to the current user's team modules when they're
+    team-scoped — what the pickers offer. Validation uses the full set
+    (scoped=False) so modules an admin placed survive a partner's save; the
+    page forms enforce what a partner may add (content/forms.py).
 
     Imported inside the function to avoid app-loading-order issues and to
     keep database access strictly lazy (form render/validation only). The
     mirror table does not exist in test databases — degrade to no choices
     rather than 500ing the whole page editor (same tolerance as
-    TagPage.clean; the savepoint keeps a failed query from aborting an
+    PortalPage.clean; the savepoint keeps a failed query from aborting an
     outer transaction).
     """
     from django.db import DatabaseError, transaction
 
+    from authapi.teams import districtr_map_slugs_for_user, user_is_team_scoped
+    from core.middleware import current_user
     from datastore.models import DistrictrMap
 
+    user = current_user.get() if scoped else None
     try:
         with transaction.atomic():
+            maps = DistrictrMap.objects.order_by("name")
+            if user is not None and user_is_team_scoped(user):
+                maps = maps.filter(
+                    districtr_map_slug__in=districtr_map_slugs_for_user(user)
+                )
             return [
                 (slug, f"{name} ({slug})")
-                for slug, name in DistrictrMap.objects.order_by("name").values_list(
-                    "districtr_map_slug", "name"
-                )
+                for slug, name in maps.values_list("districtr_map_slug", "name")
             ]
     except DatabaseError:
         return []
+
+
+def _list_items(value):
+    """A plain list from either ListBlock storage ([{"type": "item",
+    "value": v, "id": ...}], how these fields were saved before
+    MapModulesBlock) or a plain list."""
+    return [
+        item["value"] if isinstance(item, dict) and item.get("type") == "item" else item
+        for item in (value or [])
+    ]
+
+
+class MapModulesField(forms.Field):
+    """Validates the picker's list against the districtrmap mirror.
+
+    Plain: a list of slugs. ``labelled``: a list of {"name",
+    "districtr_map_slug"} views, where a blank name falls back to the
+    module's name.
+    """
+
+    def __init__(self, *, labelled=False, **kwargs):
+        self.labelled = labelled
+        super().__init__(
+            widget=MapModulePickerWidget(
+                multiple=True,
+                ordered=True,
+                labelled=("districtr_map_slug", "name") if labelled else None,
+            ),
+            **kwargs,
+        )
+        self.widget.choices = CallableChoiceIterator(districtr_map_slug_choices)
+
+    def clean(self, value):
+        items = list(value or [])
+        if self.required and not items:
+            raise ValidationError(self.error_messages["required"], code="required")
+        if not self.labelled:
+            items = [{"districtr_map_slug": str(slug), "name": ""} for slug in items]
+        choices = dict(districtr_map_slug_choices(scoped=False))
+        views, seen = [], set()
+        for item in items:
+            slug = item.get("districtr_map_slug") if isinstance(item, dict) else None
+            if slug not in choices:
+                raise ValidationError(f"{slug!r} is not a known map module.")
+            if slug in seen:
+                continue
+            seen.add(slug)
+            # Choice labels are "Name (slug)"; the bare name is the default.
+            default_name = choices[slug].removesuffix(f" ({slug})")
+            name = str(item.get("name") or "").strip() or default_name
+            views.append({"name": name, "districtr_map_slug": slug})
+        return views if self.labelled else [v["districtr_map_slug"] for v in views]
+
+
+class MapModulesBlock(blocks.FieldBlock):
+    """An ordered list of map modules picked in one filterable table
+    (datastore/widgets.py) — replaces a ListBlock of one-module rows.
+
+    Reads the old ListBlock storage as well as its own plain list, so pages
+    saved before the switch keep their modules.
+    """
+
+    def __init__(self, labelled=False, required=False, help_text=None, **kwargs):
+        self.field = MapModulesField(
+            labelled=labelled, required=required, help_text=help_text
+        )
+        super().__init__(**kwargs)
+
+    def get_default(self):
+        return []
+
+    def to_python(self, value):
+        return _list_items(value)
+
+    def get_prep_value(self, value):
+        return list(value or [])
+
+    def get_api_representation(self, value, context=None):
+        return list(value or [])
+
+    def get_searchable_content(self, value):
+        return []
+
+    class Meta:
+        default = []
 
 
 class FrontendRichTextBlock(blocks.RichTextBlock):
@@ -144,43 +248,83 @@ class SectionHeaderBlock(blocks.StructBlock):
         label = "Section header"
 
 
-class PlanGalleryBlock(CompatStructBlock):
-    """TipTap ``planGalleryNode``; mirrors PLAN_GALLERY_ATTRIBUTES.
+# Matches the backend's cap on /api/documents/list?ids=.
+MAX_CURATED_IDS = 50
 
-    ``ids`` IS the curated gallery: an ordered, reorderable list of plan ids
-    maintained on the page itself (the Portals gallery's "Pin to page
-    gallery" appends here). ``tags`` filters instead when no ids are curated.
-    """
 
-    ids = blocks.ListBlock(
-        blocks.IntegerBlock(),
-        default=[],
-        label="Curated plan IDs",
-        help_text="The plans shown, in this order (empty = filter by tags "
-        'instead). "Pin to page gallery" in the Portals gallery appends '
-        "here.",
-    )
-    tags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        help_text="Restrict the gallery to plans with these tags (empty = no filter).",
-    )
-    title = blocks.CharBlock(required=False)
-    description = blocks.TextBlock(required=False)
-    paginate = blocks.BooleanBlock(required=False, default=True)
-    showListView = blocks.BooleanBlock(required=False, default=True)
-    showThumbnails = blocks.BooleanBlock(required=False, default=True)
-    showTitles = blocks.BooleanBlock(required=False, default=True)
-    showDescriptions = blocks.BooleanBlock(required=False, default=True)
-    showUpdatedAt = blocks.BooleanBlock(required=False, default=True)
-    showTags = blocks.BooleanBlock(required=False, default=True)
-    showModule = blocks.BooleanBlock(required=False, default=True)
-    limit = blocks.IntegerBlock(default=12)
+def _gallery_display_blocks():
+    """Presentation options shared by both gallery blocks (after each
+    block's own source field, so that one comes first in the editor)."""
+    return [
+        ("title", blocks.CharBlock(required=False)),
+        ("description", blocks.TextBlock(required=False)),
+        ("paginate", blocks.BooleanBlock(required=False, default=True)),
+        ("showListView", blocks.BooleanBlock(required=False, default=True)),
+        ("showThumbnails", blocks.BooleanBlock(required=False, default=True)),
+        ("showTitles", blocks.BooleanBlock(required=False, default=True)),
+        ("showDescriptions", blocks.BooleanBlock(required=False, default=True)),
+        ("showUpdatedAt", blocks.BooleanBlock(required=False, default=True)),
+        ("showTags", blocks.BooleanBlock(required=False, default=True)),
+        ("showModule", blocks.BooleanBlock(required=False, default=True)),
+        ("limit", blocks.IntegerBlock(default=12)),
+    ]
+
+
+class SubmissionsGalleryBlock(CompatStructBlock):
+    """The page's portal's submitted maps at one status. Portal pages only
+    (content/forms.py); the slug is injected when serving (content/api.py),
+    so a rename can't strand the gallery. Stream name: plan_gallery."""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            [
+                (
+                    "status",
+                    blocks.ChoiceBlock(
+                        choices=[
+                            ("ready_to_share", "Finished maps"),
+                            ("in_progress", "Maps in progress"),
+                        ],
+                        default="ready_to_share",
+                        widget=forms.RadioSelect,
+                        label="Show",
+                    ),
+                ),
+                *_gallery_display_blocks(),
+            ],
+            **kwargs,
+        )
 
     class Meta:
         icon = "table"
-        label = "Plan gallery"
-        nullable_if_empty = ("ids", "tags")
+        label = "Submissions gallery"
+
+
+class CuratedGalleryBlock(CompatStructBlock):
+    """Specific maps, in the order entered. Works on any page."""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            [
+                (
+                    "ids",
+                    blocks.ListBlock(
+                        blocks.IntegerBlock(min_value=1),
+                        min_num=1,
+                        max_num=MAX_CURATED_IDS,
+                        label="Map IDs",
+                        help_text=f"Up to {MAX_CURATED_IDS} public map IDs, "
+                        "shown in this order.",
+                    ),
+                ),
+                *_gallery_display_blocks(),
+            ],
+            **kwargs,
+        )
+
+    class Meta:
+        icon = "table"
+        label = "Curated gallery"
 
 
 class CommentGalleryBlock(CompatStructBlock):
@@ -197,7 +341,8 @@ class CommentGalleryBlock(CompatStructBlock):
     tags = blocks.ListBlock(
         blocks.CharBlock(),
         default=[],
-        help_text="Restrict the gallery to comments with these tags (empty = no filter).",
+        help_text="Portal slugs whose submissions to list. A portal page's "
+        "gallery always lists that portal's submissions.",
     )
     place = blocks.CharBlock(required=False)
     state = blocks.CharBlock(required=False)
@@ -221,7 +366,8 @@ class CommentGalleryBlock(CompatStructBlock):
 
 
 class FormBlock(CompatStructBlock):
-    """The submission-form placement marker; mirrors FORM_ATTRIBUTES.
+    """The submission-form placement marker; its value is FormBlock in
+    app/src/app/utils/api/cmsContent.ts.
 
     Which fields the form shows lives portal-level in the FormConfig mirror
     (datastore.models.FormConfig), injected into the API representation by
@@ -231,40 +377,32 @@ class FormBlock(CompatStructBlock):
     ``allowListModules.includes(slug)`` rejects every module.
     """
 
-    mandatoryTags = blocks.ListBlock(
-        blocks.CharBlock(),
-        default=[],
-        label="Mandatory tags",
-        help_text="Tags automatically applied to every submission.",
-    )
-    allowListModules = blocks.ListBlock(
-        blocks.ChoiceBlock(choices=districtr_map_slug_choices),
-        default=[],
+    allowListModules = MapModulesBlock(
         label="Allow-listed modules",
-        help_text="Districtr map modules submitters may attach (empty = all).",
+        help_text="Districtr map modules submitters may attach (none = all).",
     )
 
     class Meta:
         icon = "form"
         label = "Submission form"
+        help_text = (
+            "Places the portal's submission form here. Which questions it "
+            "asks is set in Portals → this portal → Edit form, not on the page."
+        )
         nullable_if_empty = ("allowListModules",)
-
-
-class MapCreateButtonsViewBlock(blocks.StructBlock):
-    """One entry of the ``views`` attr: Pick<DistrictrMap, 'name' | 'districtr_map_slug'>."""
-
-    name = blocks.CharBlock(required=False)
-    districtr_map_slug = blocks.ChoiceBlock(choices=districtr_map_slug_choices)
-
-    class Meta:
-        icon = "globe"
-        label = "Map view"
 
 
 class MapCreateButtonsBlock(blocks.StructBlock):
     """TipTap ``mapCreateButtonsNode``; mirrors MAP_CREATE_BUTTONS_ATTRIBUTES."""
 
-    views = blocks.ListBlock(MapCreateButtonsViewBlock(), default=[])
+    # Each view is Pick<DistrictrMap, 'name' | 'districtr_map_slug'>; the
+    # name is the button label.
+    views = MapModulesBlock(
+        labelled=True,
+        label="Map modules",
+        help_text="One button per module, in this order. Type a label to "
+        "rename a button (blank = the module's name).",
+    )
     type = blocks.ChoiceBlock(
         choices=[("simple", "Simple"), ("megaphone", "Megaphone"), ("cards", "Cards")],
         default="simple",
@@ -281,7 +419,8 @@ class ContentStreamBlock(blocks.StreamBlock):
     rich_text = FrontendRichTextBlock(features=RICH_TEXT_FEATURES, label="Rich text")
     boilerplate = BoilerplateBlock()
     section_header = SectionHeaderBlock()
-    plan_gallery = PlanGalleryBlock()
+    plan_gallery = SubmissionsGalleryBlock()
+    curated_gallery = CuratedGalleryBlock()
     comment_gallery = CommentGalleryBlock()
     form = FormBlock()
     map_create_buttons = MapCreateButtonsBlock()

@@ -13,6 +13,7 @@ creates it inside the per-test transaction (same pattern as content/tests.py
 uses for the legacy cms schema).
 """
 
+import json
 from unittest import mock
 
 import jwt as pyjwt
@@ -337,7 +338,12 @@ class RegenerateMapThumbnailViewTests(TestCase):
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_super_partner_allowed(self):
-        make_admin_user(email="super@districtr.org", group_name="super_partner")
+        from core.testing import make_team
+
+        super_partner = make_admin_user(
+            email="super@districtr.org", group_name="super_partner"
+        )
+        make_team("Map Team", members=[super_partner], maps=[self.districtr_map])
         self.client.login(username="super@districtr.org", password=PASSWORD)
         with mock.patch(
             "datastore.services.regenerate_map_thumbnail",
@@ -345,6 +351,16 @@ class RegenerateMapThumbnailViewTests(TestCase):
         ) as regenerate:
             self.client.post(self.url)
         regenerate.assert_called_once_with("co_demo")
+
+    def test_team_less_super_partner_refused(self):
+        # Fail closed: without a team, a super partner used to fall back to
+        # unscoped access to every team's map modules.
+        make_admin_user(email="loner@districtr.org", group_name="super_partner")
+        self.client.login(username="loner@districtr.org", password=PASSWORD)
+        with mock.patch("datastore.services.regenerate_map_thumbnail") as regenerate:
+            response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 404)
+        regenerate.assert_not_called()
 
     def test_missing_map_is_404(self):
         url = reverse(
@@ -398,7 +414,7 @@ class DistrictrMapEditViewTests(TestCase):
             "num_districts_modifiable": "on",
             "visible": "on",
         }
-        for prefix in ("overlay_links", "group_links", "team_links"):
+        for prefix in ("group_links", "team_links"):
             data.update(
                 {
                     f"{prefix}-TOTAL_FORMS": "1",
@@ -435,7 +451,7 @@ class DistrictrMapEditViewTests(TestCase):
             self.url,
             self.form_data(
                 **{
-                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "overlays": json.dumps([str(self.overlay.pk)]),
                     "group_links-0-group": self.group.pk,
                     "team_links-0-team": str(self.team.pk),
                 }
@@ -465,7 +481,7 @@ class DistrictrMapEditViewTests(TestCase):
             self.url,
             self.form_data(
                 **{
-                    "overlay_links-0-overlay": str(self.overlay.pk),
+                    "overlays": json.dumps([str(self.overlay.pk)]),
                     "team_links-0-team": str(self.team.pk),
                 }
             ),
@@ -477,52 +493,31 @@ class DistrictrMapEditViewTests(TestCase):
         )
         self.assertFalse(TeamDistrictrMap.objects.exists())
 
-    def test_delete_checkbox_removes_link(self):
-        link = DistrictrMapOverlays.objects.create(
+    def test_unpicking_an_overlay_removes_its_link(self):
+        DistrictrMapOverlays.objects.create(
             districtr_map=self.districtr_map, overlay=self.overlay
         )
-        response = self.client.post(
-            self.url,
-            self.form_data(
-                **{
-                    "overlay_links-TOTAL_FORMS": "2",
-                    "overlay_links-INITIAL_FORMS": "1",
-                    "overlay_links-0-id": str(link.pk),
-                    "overlay_links-0-overlay": str(self.overlay.pk),
-                    "overlay_links-0-DELETE": "on",
-                }
-            ),
-        )
+        response = self.client.post(self.url, self.form_data(overlays="[]"))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(DistrictrMapOverlays.objects.exists())
 
-    def test_duplicate_link_is_a_form_error_not_a_500(self):
+    def test_repicking_an_attached_overlay_keeps_its_one_link(self):
         link = DistrictrMapOverlays.objects.create(
             districtr_map=self.districtr_map, overlay=self.overlay
         )
+        pk = str(self.overlay.pk)
         response = self.client.post(
-            self.url,
-            self.form_data(
-                **{
-                    "overlay_links-TOTAL_FORMS": "2",
-                    "overlay_links-INITIAL_FORMS": "1",
-                    "overlay_links-0-id": str(link.pk),
-                    "overlay_links-0-overlay": str(self.overlay.pk),
-                    "overlay_links-1-overlay": str(self.overlay.pk),
-                }
-            ),
+            self.url, self.form_data(overlays=json.dumps([pk, pk]))
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "could not be saved")
-        self.assertEqual(DistrictrMapOverlays.objects.count(), 1)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            list(DistrictrMapOverlays.objects.values_list("pk", flat=True)), [link.pk]
+        )
 
-    def test_invalid_formset_choice_does_not_save_map_changes(self):
+    def test_invalid_overlay_choice_does_not_save_map_changes(self):
         response = self.client.post(
             self.url,
-            self.form_data(
-                name="Renamed",
-                **{"overlay_links-0-overlay": "bogus-not-a-uuid"},
-            ),
+            self.form_data(name="Renamed", overlays=json.dumps(["bogus-not-a-uuid"])),
         )
         self.assertEqual(response.status_code, 200)
         self.districtr_map.refresh_from_db()

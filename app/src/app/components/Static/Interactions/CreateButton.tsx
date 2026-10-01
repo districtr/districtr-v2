@@ -19,7 +19,8 @@ import {setDraftSubmission} from '@/app/utils/draftSubmissions';
 export const useCreateMapDocument = (
   view: Partial<DistrictrMap>,
   isCommunity?: boolean,
-  portalId?: string | null
+  portalId?: string | null,
+  collectionMode?: string | null
 ) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
@@ -47,6 +48,7 @@ export const useCreateMapDocument = (
         setDraftSubmission(r.response.document_id, {
           submissionId: r.response.submission_id,
           portalId,
+          collectionMode,
         });
       }
       router.push(
@@ -75,8 +77,14 @@ export const CreateButton: React.FC<{
   isCommunity?: boolean;
   /** Portal slug: new maps get a draft submission for this portal. */
   portalId?: string | null;
-}> = ({view, extraClasses, isCommunity, portalId}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(view, isCommunity, portalId);
+  collectionMode?: string | null;
+}> = ({view, extraClasses, isCommunity, portalId, collectionMode}) => {
+  const {createPlan, isCreating} = useCreateMapDocument(
+    view,
+    isCommunity,
+    portalId,
+    collectionMode
+  );
 
   return (
     <Button

@@ -2,7 +2,7 @@
 ProseMirror (TipTap) document -> StreamField raw-data conversion.
 
 Used by `manage.py migrate_tiptap` to port the legacy cms.tags_content /
-cms.places_content JSONB docs into content.TagPage / content.PlacePage
+cms.places_content JSONB docs into content.PortalPage / content.PlacePage
 bodies. Custom nodes (exact TipTap names, see content/blocks.py) become
 their corresponding struct blocks with attrs copied verbatim; consecutive
 runs of standard prose nodes collapse into ONE `rich_text` block whose value

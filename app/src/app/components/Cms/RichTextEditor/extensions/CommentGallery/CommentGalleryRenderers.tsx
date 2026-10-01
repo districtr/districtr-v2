@@ -5,7 +5,7 @@
  * They handle conditional display of fields based on the options prop.
  */
 'use client';
-import {Badge, Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
+import {Box, Button, Flex, Heading, Table, Text} from '@radix-ui/themes';
 import {PersonIcon, CalendarIcon, GlobeIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {flagSubmission, type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
 import {formatDistanceToNow} from 'date-fns';
@@ -141,13 +141,8 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
             </Text>
           )}
 
-          {/* Tags, Map, Report */}
+          {/* Map, Report */}
           <Flex wrap="wrap" gap="2" align="center">
-            {comment.tags?.map(tag => (
-              <Badge key={tag} size="1" variant="surface" color="purple" className="cursor-default">
-                #{tag}
-              </Badge>
-            ))}
             {options.showMaps && comment.public_id && <MapLink publicId={comment.public_id} />}
             <ReportButton submissionId={comment.id} />
           </Flex>
@@ -158,63 +153,81 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
 };
 
 /** Row renderer for table/list view - displays comment fields as table cells.
- * nsfw rows show a placeholder title instead of a blur (tables can't blur a
- * whole row cleanly); the card view offers the opt-in reveal. */
-export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => (
-  <Table.Row className="hover:bg-slate-50 transition-colors">
-    {options.showTitles && (
-      <Table.Cell>
-        <Text weight="medium" className="line-clamp-1">
-          {comment.nsfw ? '(sensitive content hidden)' : comment.title}
-        </Text>
-      </Table.Cell>
-    )}
-    {options.showIdentifier && (
-      <Table.Cell>
-        <Flex align="center" gap="1.5">
-          <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
-          <Text size="2">{getCommenterName(comment)}</Text>
-        </Flex>
-      </Table.Cell>
-    )}
-    {options.showPlaces && (
-      <Table.Cell>
-        <Text size="2" color="gray">
-          {comment.place || '—'}
-        </Text>
-      </Table.Cell>
-    )}
-    {options.showStates && (
-      <Table.Cell>
-        <Text size="2" color="gray">
-          {comment.state || '—'}
-        </Text>
-      </Table.Cell>
-    )}
-    {options.showZipCodes && (
-      <Table.Cell>
-        <Text size="2" color="gray">
-          {comment.zip_code || '—'}
-        </Text>
-      </Table.Cell>
-    )}
-    {options.showMaps && (
-      <Table.Cell>
-        {comment.public_id ? (
-          <MapLink publicId={comment.public_id} />
-        ) : (
-          <Text size="2" color="gray">
-            —
+ * nsfw rows blur every free-text cell until the reader opts in, the same
+ * decision and reach as the card's NsfwShield. */
+export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => {
+  const [revealed, setRevealed] = useState(false);
+  const blurred = comment.nsfw && !revealed;
+  const blur = blurred ? ' blur-sm select-none' : '';
+  const text = (value: string | null | undefined) => value || '—';
+  return (
+    <Table.Row className="hover:bg-slate-50 transition-colors">
+      {options.showTitles && (
+        <Table.Cell>
+          <Text weight="medium" className={`line-clamp-1${blur}`} aria-hidden={blurred}>
+            {text(comment.title)}
           </Text>
-        )}
-      </Table.Cell>
-    )}
-    {options.showCreatedAt && (
+        </Table.Cell>
+      )}
       <Table.Cell>
-        <Text size="2" color="gray">
-          {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+        {blurred && (
+          <Button size="1" variant="soft" color="gray" onClick={() => setRevealed(true)}>
+            Show sensitive content
+          </Button>
+        )}
+        <Text size="2" className={`line-clamp-3 whitespace-pre-line${blur}`} aria-hidden={blurred}>
+          {text(comment.comment)}
         </Text>
       </Table.Cell>
-    )}
-  </Table.Row>
-);
+      {options.showIdentifier && (
+        <Table.Cell>
+          <Flex align="center" gap="1.5">
+            <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
+            <Text size="2" className={blur} aria-hidden={blurred}>
+              {getCommenterName(comment)}
+            </Text>
+          </Flex>
+        </Table.Cell>
+      )}
+      {options.showPlaces && (
+        <Table.Cell>
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+            {text(comment.place)}
+          </Text>
+        </Table.Cell>
+      )}
+      {options.showStates && (
+        <Table.Cell>
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+            {text(comment.state)}
+          </Text>
+        </Table.Cell>
+      )}
+      {options.showZipCodes && (
+        <Table.Cell>
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
+            {text(comment.zip_code)}
+          </Text>
+        </Table.Cell>
+      )}
+      {options.showMaps && (
+        <Table.Cell>
+          {comment.public_id ? (
+            <MapLink publicId={comment.public_id} />
+          ) : (
+            <Text size="2" color="gray">
+              —
+            </Text>
+          )}
+        </Table.Cell>
+      )}
+      {options.showCreatedAt && (
+        <Table.Cell>
+          <Text size="2" color="gray">
+            {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+          </Text>
+        </Table.Cell>
+      )}
+    </Table.Row>
+  );
+};

@@ -1,14 +1,20 @@
 'use client';
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
-import {Blockquote, Box, Button, Dialog, Flex, Spinner} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Dialog, Flex, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
-import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useTurnstile} from '@/app/hooks/useTurnstile';
 import {useLayoutEffect, useRef} from 'react';
-import {FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
+import {CUSTOM_FIELD_MAX_LENGTHS, FIELD_ORDER, FIELD_REGISTRY} from './fieldRegistry';
+
+export interface CustomFieldSpec {
+  key: string;
+  label: string;
+  fieldType: 'text' | 'textarea';
+  required: boolean;
+}
 
 export interface SubmissionFormProps {
   disabled?: boolean;
@@ -18,7 +24,8 @@ export interface SubmissionFormProps {
   fields?: string[] | null;
   requiredFields?: string[] | null;
   requireEmailConfirm?: boolean;
-  mandatoryTags: string[];
+  /** Admin-defined questions beyond the registry (answers are public). */
+  customFields?: CustomFieldSpec[] | null;
   allowListModules: string[] | null;
 }
 
@@ -33,7 +40,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   fields,
   requiredFields,
   requireEmailConfirm,
-  mandatoryTags,
+  customFields,
   allowListModules,
 }) => {
   const formRef = useRef<HTMLFormElement>(null);
@@ -82,6 +89,27 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   }
   const submissionFields = shown.filter(name => FIELD_REGISTRY[name].section === 'submission');
   const aboutFields = shown.filter(name => FIELD_REGISTRY[name].section === 'about');
+  // checkValidity() only sees native constraints, so the confirm field's match
+  // rule is enforced here — otherwise require_email_confirm degrades to "type
+  // anything twice". A config that requires confirmation without collecting
+  // an email has nothing to confirm, so it doesn't block the form.
+  const emailConfirmed =
+    !requireEmailConfirm || !shown.includes('email') || emailConfirm === emailValue;
+  const canSubmit = !!captchaToken && formIsValid && emailConfirmed;
+
+  const renderCustomField = (spec: CustomFieldSpec) => (
+    <Box key={spec.key} flexGrow="1">
+      <FormField
+        disabled={disabled}
+        name={spec.key}
+        label={`${spec.label}${spec.required ? ' *' : ''}`}
+        type="text"
+        component={spec.fieldType === 'textarea' ? TextArea : undefined}
+        maxLength={CUSTOM_FIELD_MAX_LENGTHS[spec.fieldType]}
+        required={spec.required}
+      />
+    </Box>
+  );
 
   const renderField = (name: string) => {
     const spec = FIELD_REGISTRY[name];
@@ -95,6 +123,7 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
           component={spec.component}
           options={spec.options}
           autoComplete={spec.autoComplete}
+          inputMode={spec.inputMode}
           pattern={spec.pattern}
           validator={spec.validator}
           required={required.has(name)}
@@ -105,9 +134,11 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             <FormField
               disabled={disabled}
               name="email_confirm"
-              label="Confirm Email *"
-              type="email"
-              required={true}
+              label={`Confirm Email${required.has('email') ? ' *' : ''}`}
+              type="text"
+              inputMode="email"
+              // Optional email stays optional: confirm only what was typed.
+              required={required.has('email') || !!emailValue}
               value={emailConfirm}
               onChangeValue={setEmailConfirm}
               validator={value => value === emailValue}
@@ -153,13 +184,15 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
       <form
         onSubmit={e => {
           e.preventDefault();
-          // checkValidity() only sees native constraints, so the confirm
-          // field's match rule must be enforced here — otherwise
-          // require_email_confirm degrades to "type anything twice".
-          const emailConfirmed =
-            !requireEmailConfirm || (shown.includes('email') && emailConfirm === emailValue);
-          if (captchaToken && formIsValid && emailConfirmed) {
-            submitForm(portalId, shown);
+          if (!emailConfirmed) {
+            setError('Email addresses must match');
+            return;
+          }
+          if (canSubmit) {
+            // Custom keys must be in the allowlist too, or the store filter
+            // strips their answers before POST (silent loss for optional
+            // customs; an unrecoverable 422 for required ones).
+            submitForm(portalId, [...shown, ...(customFields ?? []).map(c => c.key)]);
           }
         }}
         ref={formRef}
@@ -167,20 +200,16 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         <Flex direction="column" gap="4">
           <ContentHeader title="Add Your Comment" />
           {submissionFields.map(renderField)}
-          <Flex
-            direction={{
-              initial: 'column',
-              md: 'row',
-            }}
-            gap="4"
-          >
-            <CommentFormTagSelector mandatoryTags={mandatoryTags} />
-            <MapSelector allowListModules={allowListModules} />
-          </Flex>
+          <MapSelector allowListModules={allowListModules} />
           {aboutFields.length > 0 && <ContentHeader title="Tell us about yourself" />}
           <Flex direction="column" gap="4" width="100%">
             {aboutFields.map(renderField)}
           </Flex>
+          {(customFields?.length ?? 0) > 0 && (
+            <Flex direction="column" gap="4" width="100%">
+              {customFields!.map(renderCustomField)}
+            </Flex>
+          )}
           <Flex direction="column" gap="4">
             <Box flexGrow="1" flexBasis="60%">
               <AcknowledgementField
@@ -200,8 +229,8 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
             <Button
               type="submit"
               size="4"
-              color={!captchaToken || !formIsValid ? 'gray' : 'green'}
-              className={`${!captchaToken || !formIsValid ? 'cursor-not-allowed opacity-50' : ''} w-min`}
+              color={canSubmit ? 'green' : 'gray'}
+              className={`${canSubmit ? '' : 'cursor-not-allowed opacity-50'} w-min`}
               onMouseEnter={() => setHighlightErrors(true)}
               onMouseLeave={() => setHighlightErrors(false)}
             >

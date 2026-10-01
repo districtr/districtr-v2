@@ -3,9 +3,11 @@ Team-based Wagtail admin scoping (authapi.models.Team / authapi.teams).
 
 Covers the membership helpers, the team-scoped permission policy (object +
 queryset scoping), and an end-to-end admin check that a team-scoped member
-sees/edits only their team's map modules while admins and team-less users are
-unaffected.
+sees/edits only their team's map modules, admins are unaffected, and team-less
+non-admins reach nothing.
 """
+
+import json
 
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
@@ -19,7 +21,7 @@ from authapi.teams import (
     team_ids_for_user,
     user_is_team_scoped,
 )
-from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
+from content.models import PlacePage, PlacesIndexPage, PortalPage, PortalsIndexPage
 from content.wagtail_hooks import (
     _is_out_of_scope_page,
     scope_content_pages_in_explorer,
@@ -40,8 +42,12 @@ class TeamHelperTests(TestCase):
         make_team("Team", members=[admin])
         self.assertFalse(user_is_team_scoped(admin))
 
-    def test_partner_without_team_not_scoped(self):
-        self.assertFalse(user_is_team_scoped(make_user("partner", "e@d.org")))
+    def test_partner_without_team_is_scoped_to_nothing(self):
+        # Fail closed: a team-less partner used to fall back to unscoped
+        # access, i.e. every team's pages and modules.
+        loner = make_user("partner", "e@d.org")
+        self.assertTrue(user_is_team_scoped(loner))
+        self.assertEqual(team_ids_for_user(loner), set())
 
     def test_partner_with_team_is_scoped(self):
         partner = make_user("partner", "e@d.org")
@@ -111,9 +117,44 @@ class MapModuleScopingTests(TestCase):
         loner = make_user("partner", "mm-loner@d.org")
         self.assertFalse(self.policy.user_has_permission(loner, "view"))
 
+    def test_team_form_syncs_map_grants(self):
+        """The Team editor's module picker replaces the grant set: kept grants
+        keep their row, unpicked ones go, new ones are added."""
+        from authapi.models import TeamDistrictrMap
+
+        team = make_team("Sync Team", maps=[self.map_a])
+        kept = TeamDistrictrMap.objects.get(team=team)
+        admin = make_user("admin", "mm-sync@d.org", access_admin=True)
+        self.client.force_login(admin)
+        url = reverse("wagtailsnippets_authapi_team:edit", args=[team.pk])
+        data = {
+            "name": team.name,
+            "slug": team.slug,
+            "memberships-TOTAL_FORMS": "0",
+            "memberships-INITIAL_FORMS": "0",
+            "memberships-MIN_NUM_FORMS": "0",
+            "memberships-MAX_NUM_FORMS": "1000",
+        }
+
+        picks = json.dumps([str(self.map_a.pk), str(self.map_b.pk)])
+        self.assertEqual(
+            self.client.post(url, {**data, "map_modules": picks}).status_code, 302
+        )
+        links = TeamDistrictrMap.objects.filter(team=team)
+        self.assertEqual(
+            {link.districtr_map_id for link in links}, {self.map_a.pk, self.map_b.pk}
+        )
+        self.assertTrue(links.filter(pk=kept.pk).exists())
+
+        picks = json.dumps([str(self.map_b.pk)])
+        self.client.post(url, {**data, "map_modules": picks})
+        self.assertEqual(
+            list(links.values_list("districtr_map_id", flat=True)), [self.map_b.pk]
+        )
+
 
 class ContentPageScopingTests(TestCase):
-    """TagPages are scoped through their FormConfig's admin_teams; PlacePages
+    """PortalPages are scoped through their FormConfig's admin_teams; PlacePages
     through their districtr map slugs -> DistrictrMap -> TeamDistrictrMap
     (in scope when the page features at least one team map). Enforced by the
     content/wagtail_hooks page hooks."""
@@ -132,27 +173,27 @@ class ContentPageScopingTests(TestCase):
         home = Site.objects.get(is_default_site=True).root_page
         # content/0002_provision_site provisions the index pages; fall back to creating them
         # for databases migrated before it.
-        cls.tags_index = TagsIndexPage.objects.first()
-        if cls.tags_index is None:
-            cls.tags_index = TagsIndexPage(title="Tags", slug="tags")
-            home.add_child(instance=cls.tags_index)
-        cls.tag_in = TagPage(
+        cls.portals_index = PortalsIndexPage.objects.first()
+        if cls.portals_index is None:
+            cls.portals_index = PortalsIndexPage(title="Tags", slug="tags")
+            home.add_child(instance=cls.portals_index)
+        cls.tag_in = PortalPage(
             title="In Tag", slug="in-tag", districtr_map_slug="chi_wards"
         )
-        cls.tags_index.add_child(instance=cls.tag_in)
-        cls.tag_out = TagPage(
+        cls.portals_index.add_child(instance=cls.tag_in)
+        cls.tag_out = PortalPage(
             title="Out Tag", slug="out-tag", districtr_map_slug="tx_other"
         )
-        cls.tags_index.add_child(instance=cls.tag_out)
+        cls.portals_index.add_child(instance=cls.tag_out)
         # Another team's portal on a module this team ALSO holds: the module
         # grant must not hand over the page.
-        cls.tag_shared_module = TagPage(
+        cls.tag_shared_module = PortalPage(
             title="Their Tag", slug="their-tag", districtr_map_slug="chi_wards"
         )
-        cls.tags_index.add_child(instance=cls.tag_shared_module)
+        cls.portals_index.add_child(instance=cls.tag_shared_module)
         # A wizard-made portal: no single-map slug, owned via admin_teams.
-        cls.tag_wizard = TagPage(title="Wizard Tag", slug="wizard-tag")
-        cls.tags_index.add_child(instance=cls.tag_wizard)
+        cls.tag_wizard = PortalPage(title="Wizard Tag", slug="wizard-tag")
+        cls.portals_index.add_child(instance=cls.tag_wizard)
         for portal_id, teams in (
             ("in-tag", ["tag-team-a"]),
             ("wizard-tag", ["tag-team-a"]),
@@ -190,9 +231,11 @@ class ContentPageScopingTests(TestCase):
     def test_slugs_for_user_resolves_through_map(self):
         self.assertEqual(districtr_map_slugs_for_user(self.member), {"chi_wards"})
 
-    def test_explorer_hides_out_of_scope_tagpage_for_member(self):
+    def test_explorer_hides_out_of_scope_portalpage_for_member(self):
         result = scope_content_pages_in_explorer(
-            self.tags_index, self.tags_index.get_children(), self._request(self.member)
+            self.portals_index,
+            self.portals_index.get_children(),
+            self._request(self.member),
         )
         slugs = set(result.values_list("slug", flat=True))
         self.assertEqual(slugs, {"in-tag", "wizard-tag"})
@@ -207,9 +250,18 @@ class ContentPageScopingTests(TestCase):
         # in-place overlaps the team's map; out-place does not.
         self.assertEqual(slugs, {"in-place"})
 
+    def test_explorer_hides_every_portal_from_team_less_partner(self):
+        loner = make_user("partner", "loner-explorer@d.org")
+        result = scope_content_pages_in_explorer(
+            self.portals_index, self.portals_index.get_children(), self._request(loner)
+        )
+        self.assertEqual(list(result.values_list("slug", flat=True)), [])
+
     def test_explorer_unfiltered_for_admin(self):
         tags = scope_content_pages_in_explorer(
-            self.tags_index, self.tags_index.get_children(), self._request(self.admin)
+            self.portals_index,
+            self.portals_index.get_children(),
+            self._request(self.admin),
         )
         places = scope_content_pages_in_explorer(
             self.places_index,
@@ -306,25 +358,56 @@ class ContentPageFormScopingTests(TestCase):
     def _bound(self, model, *, user, data=None):
         return self._form_class(model)(data=data, instance=model(), for_user=user)
 
-    def test_tagpage_form_offers_only_team_slugs(self):
-        form = self._bound(TagPage, user=self.member)
-        choices = dict(form.fields["districtr_map_slug"].choices)
-        choices.pop("", None)  # placeholder
-        self.assertEqual(set(choices), {"chi_wards"})
+    def test_block_pickers_offer_only_team_modules(self):
+        from content.blocks import districtr_map_slug_choices
+        from core.middleware import current_user
 
-    def test_tagpage_form_rejects_out_of_scope_slug(self):
-        form = self._bound(
-            TagPage,
-            user=self.member,
-            data={
-                "title": "T",
-                "slug": "t",
-                "districtr_map_slug": "tx_other",
-                "body-count": "0",
-            },
+        token = current_user.set(self.member)
+        try:
+            self.assertEqual(
+                [s for s, _ in districtr_map_slug_choices()], ["chi_wards"]
+            )
+            # Validation still knows every module (admin-placed ones survive).
+            self.assertEqual(
+                {s for s, _ in districtr_map_slug_choices(scoped=False)},
+                {"chi_wards", "tx_other"},
+            )
+        finally:
+            current_user.reset(token)
+
+    def test_partner_body_guard(self):
+        """#777: a partner can't add another team's modules (by picker or by
+        crafted POST) or the admin-only boilerplate; what an admin already
+        placed on the page passes through."""
+        from content.forms import admin_only_violation
+
+        def body(*slugs, extra=()):
+            page = PortalPage()
+            page.body = [
+                {
+                    "type": "map_create_buttons",
+                    "id": "b",
+                    "value": {
+                        "type": "simple",
+                        "views": [{"name": "", "districtr_map_slug": s} for s in slugs],
+                    },
+                },
+                *extra,
+            ]
+            return page.body
+
+        def check(new, old=None, user=None):
+            return admin_only_violation(new, old, user=user or self.member)
+
+        self.assertIsNone(check(body("chi_wards")))
+        self.assertIn("tx_other", check(body("chi_wards", "tx_other")))
+        self.assertIsNone(check(body("tx_other", "chi_wards"), old=body("tx_other")))
+        self.assertIsNone(check(body("tx_other"), user=self.admin))
+        boilerplate = {"type": "boilerplate", "id": "bp", "value": {}}
+        self.assertIsNotNone(check(body(extra=[boilerplate])))
+        self.assertIsNone(
+            check(body(extra=[boilerplate]), old=body(extra=[boilerplate]))
         )
-        form.is_valid()
-        self.assertIn("districtr_map_slug", form.errors)
 
     def test_placepage_form_rejects_out_of_scope_slug(self):
         form = self._bound(
@@ -339,13 +422,6 @@ class ContentPageFormScopingTests(TestCase):
         )
         form.is_valid()
         self.assertIn("districtr_map_slugs", form.errors)
-
-    def test_admin_form_unrestricted(self):
-        # Admins get a dropdown of ALL map modules (not just one team's).
-        form = self._bound(TagPage, user=self.admin)
-        choices = dict(form.fields["districtr_map_slug"].choices)
-        choices.pop("", None)  # placeholder
-        self.assertEqual(set(choices), {"chi_wards", "tx_other"})
 
     def test_placepage_form_preserves_other_teams_slugs_and_order(self):
         # A shared PlacePage carries another team's map; saving must keep it,

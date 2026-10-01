@@ -15,7 +15,7 @@ export const CMS_API_URL =
     ? (process.env.CMS_URL ?? process.env.NEXT_PUBLIC_CMS_URL)
     : process.env.NEXT_PUBLIC_CMS_URL;
 
-export type CmsContentTypes = 'tags' | 'places' | 'static';
+export type CmsContentTypes = 'portals' | 'places' | 'static';
 
 /** StreamField blocks returned in `content.body` */
 export interface RichTextBlock {
@@ -38,15 +38,17 @@ export interface SectionHeaderBlock {
 }
 
 export interface PlanGalleryBlock {
-  type: 'plan_gallery';
-  /** camelCase props matching PLAN_GALLERY_ATTRIBUTES; ids/tags may be null (no filter) */
+  /** plan_gallery is the submissions gallery: the CMS content API resolves it
+   * to `portalId` + `draftStatus`. curated_gallery carries `ids`. */
+  type: 'plan_gallery' | 'curated_gallery';
   value: PlanGalleryProps;
   id: string;
 }
 
 export interface CommentGalleryBlock {
   type: 'comment_gallery';
-  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no filter) */
+  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no
+   * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
   value: CommentGalleryProps;
   id: string;
 }
@@ -54,15 +56,21 @@ export interface CommentGalleryBlock {
 export interface FormBlock {
   type: 'form';
   value: {
-    mandatoryTags: string[];
     /** null = all modules allowed */
     allowListModules: string[] | null;
     /** The following are injected from the portal's FormConfig by the CMS
      * content API; null on pages without a form config. */
     portalId?: string | null;
+    collectionMode?: string | null;
     fields?: string[] | null;
     requiredFields?: string[] | null;
     requireEmailConfirm?: boolean;
+    customFields?: Array<{
+      key: string;
+      label: string;
+      fieldType: 'text' | 'textarea';
+      required: boolean;
+    }> | null;
   };
   id: string;
 }
@@ -91,7 +99,7 @@ export interface CMSContent {
   updated_at: string;
 }
 
-export interface TagsCMSContent extends CMSContent {
+export interface PortalCMSContent extends CMSContent {
   districtr_map_slug: string | null;
 }
 export interface PlacesCMSContent extends CMSContent {
@@ -101,7 +109,7 @@ export interface PlacesCMSContent extends CMSContent {
 export type StaticCMSContent = CMSContent;
 
 interface CmsContentTypesEnum {
-  tags: TagsCMSContent;
+  portals: PortalCMSContent;
   places: PlacesCMSContent;
   static: StaticCMSContent;
 }
@@ -118,7 +126,7 @@ export interface CMSContentListItem {
   slug: string;
   title: string;
   language: string;
-  /** Map association for tags entries */
+  /** Map association for portal entries */
   districtr_map_slug?: string | null;
   /** Map associations for places entries */
   districtr_map_slugs?: string[] | null;

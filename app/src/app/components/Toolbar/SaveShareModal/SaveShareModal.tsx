@@ -7,7 +7,6 @@ import {ShareMapSection} from './ShareMapSection';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
-import {DRAFT_STATUSES} from '@/app/constants/document/draftStatus';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {routeForType} from '@constants/document/routes';
@@ -15,7 +14,8 @@ import {editPath} from '@/app/utils/map/editUrl';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {ACCESS_STATES} from '@constants/document/state';
-import {getDraftSubmission} from '@/app/utils/draftSubmissions';
+import {canSubmitDraft, getDraftSubmission} from '@/app/utils/draftSubmissions';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useDraftSubmissionStore} from '@/app/store/draftSubmissionStore';
 
 export const SaveShareModal: React.FC<{
@@ -41,6 +41,7 @@ export const SaveShareModal: React.FC<{
   const generateLink = useSaveShareStore(state => state.generateLink);
   const openSubmitPrompt = useDraftSubmissionStore(state => state.openPrompt);
   const draftSubmission = getDraftSubmission(mapDocument?.document_id);
+  const {isOutdated, save} = useMapSaveStatus();
   const sharingMode = useSaveShareStore(state => state.sharingMode);
   const sharePassword = useSaveShareStore(state => state.password);
   // Without a password, the editable share link contains the secret UUID.
@@ -77,15 +78,15 @@ export const SaveShareModal: React.FC<{
     setMapLock(null);
   };
 
+  // "Done" saves everything the user changed: pending assignment edits as
+  // well as the details form. A failed assignments save already surfaced
+  // (conflict modal / toast) and doesn't block saving the details.
   const handleSave = async () => {
-    setMapLock({
-      isLocked: true,
-      reason: 'Saving map assignments',
-    });
-    handleMetadataChange(innerFormState).then(() => {
-      setMapLock(null);
-      onClose();
-    });
+    setMapLock({isLocked: true, reason: 'Saving map'});
+    if (isOutdated) await save(false, {silent: true});
+    await handleMetadataChange(innerFormState);
+    setMapLock(null);
+    onClose();
   };
 
   const handleInnerFormStateChange = (updates: Partial<DocumentMetadata>) => {
@@ -117,27 +118,24 @@ export const SaveShareModal: React.FC<{
           />
           <hr className="my-4" />
           <ShareMapSection isEditing={isEditing} />
-          {isEditing &&
-            draftSubmission &&
-            !draftSubmission.submitted &&
-            // Finalize hard-requires ready_to_share server-side; offering the
-            // modal earlier guarantees a 409 (and burns a captcha token).
-            mapMetadata?.draft_status === DRAFT_STATUSES.READY_TO_SHARE && (
-              <Button
-                variant="soft"
-                color="violet"
-                size="3"
-                className="mt-2"
-                onClick={() => {
-                  if (mapDocument?.document_id) {
-                    onClose();
-                    openSubmitPrompt(mapDocument.document_id);
-                  }
-                }}
-              >
-                Submit to the {draftSubmission.portalId} portal
-              </Button>
-            )}
+          {isEditing && canSubmitDraft(draftSubmission, mapMetadata?.draft_status) && (
+            <Button
+              variant="soft"
+              color="violet"
+              size="3"
+              className="mt-2"
+              onClick={async () => {
+                if (!mapDocument?.document_id) return;
+                // Persist name/description edits made in this dialog first —
+                // the submission prompt replaces it, and unsaved details were lost.
+                await handleMetadataChange(innerFormState);
+                onClose();
+                openSubmitPrompt(mapDocument.document_id);
+              }}
+            >
+              Submit to the {draftSubmission.portalId} portal
+            </Button>
+          )}
           {isEditing ? (
             <Flex direction="column" gap="2" className="mt-4">
               <Flex direction="row" gap="2" justify="between">

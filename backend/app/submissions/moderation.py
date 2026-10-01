@@ -1,136 +1,109 @@
-"""Text scoring and submission moderation.
+"""Deterministic submission moderation.
 
-The scorer (OpenAI moderation endpoint with a local profanity-list fallback)
-is the single source of truth for the whole app.
+A submission is flagged when its text contains any blocklisted phrase
+(whole-word match after normalize()). blocklist.sha256 holds the phrases'
+digests, not the phrases, so the words stay out of the repo. No network
+calls, no model: the same text always gets the same verdict.
 
-Moderation is automatic-only: a score at/above MODERATION_THRESHOLD sets
-`nsfw`, which the frontend renders blurred with an opt-in reveal. Reviewers
-may flip `nsfw` both ways and hard-hide spam via the admin endpoints — there
-is no approval gate.
+Only portal submissions are moderated. A flag sets `nsfw`, which the frontend
+renders blurred with an opt-in reveal; nothing is withheld. Portal admins may
+flip `nsfw` both ways and hard-hide spam via the admin endpoints (the CMS
+Portals hub) — there is no approval gate.
 """
 
-import logging
+import hashlib
+import re
+import sys
+from pathlib import Path
 
 from sqlmodel import Session, col, select, update
 
-from app.core.config import settings
-from app.core.db import engine
-from safetext import SafeText
-
-logger = logging.getLogger(__name__)
-
-st = SafeText(language="en")
-
-MODERATION_THRESHOLD: float = 0.2
+# Longest blocklisted phrase, in words. Longer phrases can't match; the
+# __main__ helper refuses them.
+MAX_PHRASE_WORDS = 6
 
 
-def rate_offensive_text_ai(text: str) -> tuple[bool, float] | None:
-    """Score text via the OpenAI moderation endpoint.
-
-    Returns (ok, score) with score in [0, 1] (1 = certainly offensive), or
-    None when no OpenAI client is configured.
-    """
-    openai_client = settings.get_openai_client()
-    if not openai_client:
-        return None
-
-    try:
-        response = openai_client.moderations.create(
-            input=text, model="omni-moderation-latest"
-        )
-        scores = response.results[0].category_scores
-        return (True, max(scores.__dict__.values()))
-    except Exception as e:
-        logger.info(f"Error during moderation: {e}")
-        return (False, 1.0)
+def normalize(text: str) -> list[str]:
+    """Lowercase and split on every run of non-alphanumerics."""
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
 
 
-def check_profanity(text: str) -> tuple[bool, float]:
-    """Local profanity-list fallback. Returns (ok, score)."""
-    try:
-        profanity = st.check_profanity(text.strip())
-        return (True, 1.0 if len(profanity) > 0 else 0.0)
-    except Exception:
-        return (False, 1.0)
+def digest(words: list[str]) -> str:
+    return hashlib.sha256(" ".join(words).encode()).hexdigest()
 
 
-def score_text(text: str) -> float:
-    """Score text: 0 = clean, 1 = certainly offensive.
-
-    Prefers the OpenAI moderation endpoint when configured, falling back to
-    the local profanity list; scores 1.0 when both scorers error.
-    """
-    if not text or not text.strip():
-        return 0.0
-
-    if settings.OPENAI_API_KEY:
-        result = rate_offensive_text_ai(text)
-        if result and result[0]:
-            return result[1]
-
-    ok, score = check_profanity(text)
-    if ok:
-        return score
-
-    return 1.0
+BLOCKLIST: frozenset[str] = frozenset(
+    line
+    for line in (Path(__file__).parent / "blocklist.sha256").read_text().splitlines()
+    if line and not line.startswith("#")
+)
 
 
-def moderate_submission_by_id(
-    submission_id: int, session: Session | None = None
-) -> None:
-    """Background task: score a submission's content + tags + map card text.
+def find_blocked_phrase(text: str) -> str | None:
+    """The first run of 1..MAX_PHRASE_WORDS words (normalized, space-joined)
+    whose digest is in the blocklist, or None when the text is clean."""
+    words = normalize(text or "")
+    for i in range(len(words)):
+        for n in range(1, MAX_PHRASE_WORDS + 1):
+            phrase = words[i : i + n]
+            if len(phrase) == n and digest(phrase) in BLOCKLIST:
+                return " ".join(phrase)
+    return None
 
-    Scores the concatenation of every content value, tag, and the attached
-    map's metadata name/description — the gallery card renders the map's
-    name/description, so leaving them unscored would let an abusive map
-    title sail past the nsfw filter under a clean one-word comment. The only
-    outcome is one blur bit, so per-field granularity buys nothing. Opens
-    its own session when none is given (the background-task case: the
-    request-scoped session is closed by the time this runs).
+
+def moderate_submission(submission_id: int, session: Session) -> None:
+    """Check a submission's content and map card text; persist the matched
+    phrase (moderation_match, shown to portal admins so a false positive can be
+    traced to its blocklist entry) and nsfw.
+
+    Checks the concatenation of every content value and the attached map's
+    metadata name/description. The gallery card renders the map's
+    name/description, so leaving them unchecked would let an abusive map title
+    sail past the nsfw filter under a clean one-word comment. The outcome is
+    one blur bit plus the phrase, so per-field granularity buys nothing.
+
+    Runs inside the caller's transaction and does not commit: the check is
+    in-process and sub-millisecond, so the entry is never visible unchecked.
     """
     # Local import: models imports nothing from here, but keeping the module
     # import-light avoids cycles with app.models consumers.
     from app.models import Document
+    from app.submissions.fields import PRIVATE_FIELDS
     from app.submissions.models import Submission, SubmissionContent
 
-    def _run(sess: Session) -> None:
-        submission = sess.get(Submission, submission_id)
-        if submission is None:
-            return
-        values = sess.scalars(
-            select(SubmissionContent.value).where(
-                col(SubmissionContent.submission_id) == submission_id
-            )
-        ).all()
-        map_texts: list[str] = []
-        if submission.map_public_id is not None:
-            metadata = sess.scalars(
-                select(Document.map_metadata).where(
-                    col(Document.public_id) == submission.map_public_id
-                )
-            ).first()
-            if metadata:
-                map_texts = [
-                    str(metadata.get(key) or "") for key in ("name", "description")
-                ]
-        text = " ".join([*values, *(submission.tags or []), *map_texts])
-        score = score_text(text)
-        sess.execute(
-            update(Submission)
-            .where(col(Submission.id) == submission_id)
-            .values(moderation_score=score, nsfw=score >= MODERATION_THRESHOLD)
+    submission = session.get(Submission, submission_id)
+    if submission is None:
+        return
+    values = session.scalars(
+        select(SubmissionContent.value).where(
+            col(SubmissionContent.submission_id) == submission_id,
+            # Private answers (email) never leave the backend, and aren't
+            # shown publicly, so they have nothing to be checked for.
+            col(SubmissionContent.field).not_in(PRIVATE_FIELDS),
         )
-        try:
-            sess.commit()
-        except Exception:
-            sess.rollback()
-            logger.exception(
-                f"Failed to save moderation score for submission {submission_id}"
+    ).all()
+    map_texts: list[str] = []
+    if submission.map_public_id is not None:
+        metadata = session.scalars(
+            select(Document.map_metadata).where(
+                col(Document.public_id) == submission.map_public_id
             )
-            raise
+        ).first()
+        if metadata:
+            map_texts = [
+                str(metadata.get(key) or "") for key in ("name", "description")
+            ]
+    match = find_blocked_phrase(" ".join([*values, *map_texts]))
+    session.execute(
+        update(Submission)
+        .where(col(Submission.id) == submission_id)
+        .values(moderation_match=match, nsfw=match is not None)
+    )
 
-    if session is not None:
-        _run(session)
-    else:
-        with Session(engine) as owned_session:
-            _run(owned_session)
+
+if __name__ == "__main__":
+    # Print the blocklist line for a phrase (and whether it's already listed).
+    words = normalize(" ".join(sys.argv[1:]))
+    if not words or len(words) > MAX_PHRASE_WORDS:
+        sys.exit(f"usage: phrase of 1..{MAX_PHRASE_WORDS} words")
+    print(digest(words), "(listed)" if digest(words) in BLOCKLIST else "(not listed)")

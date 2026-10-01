@@ -8,7 +8,7 @@ from fastapi import (
     Security,
 )
 from fastapi.responses import JSONResponse, Response
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 import anyio
 import msgpack
 import psutil
@@ -60,10 +60,12 @@ from app.core.security import (
 import app.admin_ops.main as admin_ops
 import app.cms.main as cms
 import app.exports.main as exports
-from app.district_notes import (
+from app.models import DocumentCommentCreate
+from app.district_notes.models import (
     DEFAULT_MAX_COMMENT_LENGTH,
     DEFAULT_MAX_COMMENTS_PER_DISTRICT,
-    DistrictNote,
+)
+from app.district_notes.services import (
     duplicate_district_notes,
     sync_district_notes,
 )
@@ -73,7 +75,6 @@ from app.evaluation.types import MetricsEnvelope
 import app.save_share.main as save_share
 import app.submissions.main as submissions
 from app.submissions.models import (
-    CollectionMode,
     FormConfig,
     Submission,
     SubmissionStatus,
@@ -99,11 +100,11 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
 )
-from app.save_share.models import SUBMITTED_DRAFT_STATUSES, DocumentDraftStatus
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.sql.functions import coalesce
 from app.utils import (
     get_gerrydb_numeric_cols,
@@ -474,23 +475,26 @@ def create_document(
         # FormConfig (config deleted, cached page), and losing the draft
         # must degrade to "a normal map", never "no map".
         try:
-            submissions.get_form_config(data.portal_id, session)
-        except HTTPException:
+            submissions.get_form_config(data.portal_id, session, require_accepting=True)
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
             logger.warning(
                 f"create_document: no form config for portal {data.portal_id!r}; "
                 "creating the map without a draft submission"
             )
-            data.portal_id = None
-    if data.portal_id is not None:
-        draft = Submission(
-            portal_id=data.portal_id,
-            map_public_id=new_document.public_id,
-            status=SubmissionStatus.draft,
-            tags=[data.portal_id],
-        )
-        session.add(draft)
-        session.flush()
-        draft_submission_id = draft.submission_id
+        else:
+            # The map belongs to the portal it was started from.
+            new_document.portal_id = data.portal_id
+            session.add(new_document)
+            draft = Submission(
+                portal_id=data.portal_id,
+                map_public_id=new_document.public_id,
+                status=SubmissionStatus.draft,
+            )
+            session.add(draft)
+            session.flush()
+            draft_submission_id = draft.submission_id
 
     total_assignments = 0
     skipped_geo_ids: list[str] = []
@@ -568,14 +572,19 @@ def create_document(
                 # The response select below reads through session.connection(),
                 # which does not autoflush.
                 session.flush()
-            for original_label, new_zone in zone_label_remapping.items():
-                display_label = original_label if original_label else "(blank)"
-                session.add(
-                    DistrictNote(
-                        document_id=document_id,
-                        zone=new_zone,
-                        note=f"Originally labeled as {display_label}",
-                    )
+            if zone_label_remapping:
+                # Same path as the editor's own notes, so the map's length and
+                # count limits (0 = descriptions disabled) apply.
+                sync_district_notes(
+                    document_id=document_id,
+                    notes=[
+                        DocumentCommentCreate(
+                            zone=new_zone,
+                            text=f"Originally labeled as {original_label or '(blank)'}",
+                        )
+                        for original_label, new_zone in zone_label_remapping.items()
+                    ],
+                    session=session,
                 )
         except NoResultFound:
             session.rollback()
@@ -610,14 +619,12 @@ def create_document(
         if data.portal_id is not None:
             # A creation payload can already carry a submitted-tier status
             # (e.g. copies); apply the same auto-collect flip as the
-            # metadata endpoint, with the same post-commit moderation pass
-            # (the gallery card renders the map's name/description).
+            # metadata endpoint, with the same moderation pass (the gallery
+            # card renders the map's name/description).
             for flipped_id in submissions.auto_finalize_draft_submissions(
                 session, new_document.public_id, data.metadata.draft_status
             ):
-                background_tasks.add_task(
-                    submissions.moderate_submission_by_id, flipped_id
-                )
+                submissions.moderate_submission(flipped_id, session)
 
     stmt = (
         select(  # type: ignore[no-matching-overload] # ty: ignore[no-matching-overload]
@@ -1015,7 +1022,6 @@ def _sync_update_assignments(
             document_id=document_id,
             notes=data.comments,
             session=session,
-            background_tasks=background_tasks,
         )
         # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
@@ -1443,21 +1449,49 @@ def get_document_object(
         )
 
 
+# Curated galleries name their maps; beyond this a gallery should list a portal.
+MAX_LISTED_IDS = 50
+
+
 @app.get("/api/documents/list")
 def get_document_list(
     session: Session = Depends(get_session),
+    ids: list[int] = Query(
+        default=[],
+        max_length=MAX_LISTED_IDS,
+        description="Curated gallery: these maps, in this order.",
+    ),
+    portal_id: str | None = Query(
+        default=None,
+        description="Portal gallery: maps submitted to this portal.",
+    ),
+    draft_status: Literal["ready_to_share", "in_progress"] = Query(
+        default="ready_to_share",
+        description="Portal galleries only: finished or in-progress maps.",
+    ),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
-    ids: list[int] = Query(default=[]),
-    tags: list[str] = Query(default=[]),
-    draft_status: list[DocumentDraftStatus] = Query(default=[]),
     include_hidden: bool = Query(
         default=False,
-        description="Keep maps taken down by a moderator (the CMS's own "
-        "metadata lookups). A listing convenience, not an access check: any "
-        "map's metadata is fetchable by its public_id.",
+        description="With ids only: keep maps taken down by a moderator or "
+        "collected by closed portals (the CMS's own metadata lookups). A "
+        "listing convenience, not an access check: any map's metadata is "
+        "fetchable by its public_id.",
     ),
 ):
+    """A gallery's maps: either a curated list of up to 50 ids, or one
+    portal's submitted maps at one status. There is no unfiltered listing."""
+    if bool(ids) == bool(portal_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Pass either ids (up to {MAX_LISTED_IDS}) or portal_id.",
+        )
+    if include_hidden and not ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="include_hidden only applies to an ids lookup.",
+        )
+
     def _submission_exists(*conditions):
         return exists(
             select(literal(1))
@@ -1479,9 +1513,6 @@ def get_document_list(
                 col(Submission.nsfw).is_(True), col(Submission.hidden).is_(False)
             ).label("nsfw"),
         )
-        .distinct(
-            Document.public_id,
-        )
         .join(
             DistrictrMap,
             col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
@@ -1491,55 +1522,60 @@ def get_document_list(
         .limit(limit)
     )
 
-    if len(tags) > 0:
-        # A document is in a tag's gallery when a visible submission carries
-        # it.
-        submission_tagged = exists(
+    # Public listings drop taken-down maps (Hide is the one moderation
+    # lever) and maps of closed portals. include_hidden is the CMS hub's own
+    # metadata lookup, which shows all of them.
+    if not include_hidden:
+        stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
+        stmt = stmt.where(
+            ~exists(
+                select(literal(1))
+                .select_from(Submission)
+                .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
+                .where(
+                    and_(
+                        Submission.map_public_id == Document.public_id,
+                        col(FormConfig.accepting).is_(False),
+                    )
+                )
+                .correlate(Document)
+            )
+        )
+
+    if ids:
+        # Curated galleries show exactly the maps named, in the editor's
+        # order (a fixed order is also what makes offset paging safe).
+        stmt = stmt.where(col(Document.public_id).in_(ids)).order_by(
+            func.array_position(pg_array(ids, type_=Integer), col(Document.public_id)),
+            col(Document.public_id),
+        )
+    else:
+        # A map is in a portal's gallery when it belongs to that portal
+        # (document.portal_id) and a visible submission row carries it.
+        # Membership and moderation authority share one key, the portal, so
+        # nobody can list a map in a portal whose reviewers can't take it down.
+        submission_visible = exists(
             select(literal(1))
             .select_from(Submission)
             .join(FormConfig, col(FormConfig.portal_id) == Submission.portal_id)
             .where(
                 and_(
                     Submission.map_public_id == Document.public_id,
-                    # Gallery membership is the submission's OWN portal, never
-                    # its free-form tags: visibility and moderation authority
-                    # must share a key, or an attacker submits to a portal
-                    # they choose (whose reviewers they picked) while tagging
-                    # a victim portal whose reviewers can't see the row.
-                    col(Submission.portal_id).in_(tags),
+                    col(Submission.portal_id) == Document.portal_id,
                     col(Submission.status) == SubmissionStatus.submitted,
                     col(Submission.hidden).is_(False),
-                    # Internal-mode portals never surface in tag galleries
-                    # or the public submissions list. (This is a LISTING
-                    # guarantee: any map's metadata remains fetchable by its
-                    # sequential public_id, as it always has been.)
-                    col(FormConfig.collection_mode) != CollectionMode.internal,
+                    col(FormConfig.accepting).is_(True),
                 )
             )
             .correlate(Document)
         )
-        stmt = stmt.where(submission_tagged)
-        # Tagged listings only surface maps past scratch: moving a map to
-        # in_progress or ready_to_share is what "submits" it to the gallery
-        # (deliberate submissions are frozen clones at ready_to_share;
-        # auto-collected ones are live maps whose status this reflects).
-        if len(draft_status) == 0:
-            draft_status = list(SUBMITTED_DRAFT_STATUSES)
-
-    if len(draft_status) > 0:
         # this is fine to keep as ->> because you're comparing to text
-        stmt = stmt.where(
-            col(Document.map_metadata)["draft_status"].astext.in_(
-                [st.value for st in draft_status]
-            )
+        stmt = (
+            stmt.where(col(Document.portal_id) == portal_id)
+            .where(submission_visible)
+            .where(col(Document.map_metadata)["draft_status"].astext == draft_status)
+            .order_by(col(Document.public_id).desc())
         )
-
-    if len(ids) > 0:
-        stmt = stmt.where(col(Document.public_id).in_(ids))
-        # A curated (pinned) gallery must honour a takedown too: Hide is the
-        # one moderation lever, and it has to reach every public listing.
-        if not include_hidden:
-            stmt = stmt.where(~_submission_exists(col(Submission.hidden).is_(True)))
 
     results = session.exec(stmt).all()
     return [
@@ -1806,7 +1842,6 @@ def get_connected_component_bboxes(
 )
 def update_districtrmap_metadata(
     metadata: DocumentMetadata,
-    background_tasks: BackgroundTasks,
     document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
@@ -1814,8 +1849,9 @@ def update_districtrmap_metadata(
         # Merge into the existing metadata: the frontend sends partial updates
         # (e.g. just draft_status), and replacing the whole JSON would wipe the
         # other fields (name, tags set at creation, ...).
+        previous = document.map_metadata or {}
         merged = {
-            **(document.map_metadata or {}),
+            **previous,
             **metadata.model_dump(exclude_unset=True),
         }
         stmt = (
@@ -1831,11 +1867,13 @@ def update_districtrmap_metadata(
             session, document.public_id, merged.get("draft_status")
         )
         # Auto entries are live references, so the rendered card text (map
-        # name/description) can change AFTER the initial score — re-score
-        # submitted live-ref entries whenever those fields are touched.
-        rescore: set[int] = set(flipped)
-        if metadata.name is not None or metadata.description is not None:
-            rescore.update(
+        # name/description) can change AFTER the first check. Re-check
+        # submitted live-ref entries only when either field actually changed:
+        # the client resends unchanged values on most saves, and a re-check
+        # would undo a portal admin's manual unblur.
+        recheck: set[int] = set(flipped)
+        if any(previous.get(k) != merged.get(k) for k in ("name", "description")):
+            recheck.update(
                 session.exec(
                     select(Submission.id).where(
                         and_(
@@ -1846,11 +1884,9 @@ def update_districtrmap_metadata(
                     )
                 ).all()
             )
+        for submission_id in recheck:
+            submissions.moderate_submission(submission_id, session)
         session.commit()
-        for submission_id in rescore:
-            background_tasks.add_task(
-                submissions.moderate_submission_by_id, submission_id
-            )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")

@@ -1,5 +1,4 @@
 import type {CommentGalleryProps} from '@/app/components/Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
-import type {PlanGalleryProps} from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import type {MapCreateButtonsProps} from '@/app/components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
 
 export const NODE_TYPE_ATTR_NAME = 'data-type';
@@ -7,7 +6,6 @@ export const NODE_TYPE_ATTR_NAME = 'data-type';
 export const RICH_TEXT_NODE_TYPES = {
   BOILERPLATE: 'boilerplate-node',
   SECTION_HEADER: 'section-header-node',
-  PLAN_GALLERY: 'plan-gallery-node',
   FORM: 'form-node',
   MAP_CREATE_BUTTONS: 'map-create-buttons-node',
   COMMENT_GALLERY: 'comment-gallery-node',
@@ -35,34 +33,8 @@ export const MAP_CREATE_BUTTONS_ATTRIBUTES = [
   {name: 'type', default: 'simple'},
   // Injected by the CMS content API on portal pages.
   {name: 'portalId', default: null},
+  {name: 'collectionMode', default: null},
 ] as const satisfies readonly AnyMapCreateButtonsAttrSpec[];
-
-type PlanGalleryAttrSpec<K extends keyof PlanGalleryProps> = {
-  name: K;
-  default?: any;
-};
-
-type AnyPlanGalleryAttrSpec = {
-  [K in keyof PlanGalleryProps]: PlanGalleryAttrSpec<K>;
-}[keyof PlanGalleryProps];
-
-export const PLAN_GALLERY_ATTRIBUTES = [
-  // `ids` is the curated gallery: ordered plan ids maintained on the page.
-  {name: 'ids', default: null},
-  {name: 'tags', default: null},
-  {name: 'title', default: null},
-  {name: 'description', default: null},
-  {name: 'paginate', default: true},
-  {name: 'showListView', default: true},
-  {name: 'includeInProgress', default: false},
-  {name: 'showThumbnails', default: true},
-  {name: 'showTitles', default: true},
-  {name: 'showDescriptions', default: true},
-  {name: 'showUpdatedAt', default: true},
-  {name: 'showTags', default: true},
-  {name: 'showModule', default: true},
-  {name: 'limit', default: 12},
-] as const satisfies readonly AnyPlanGalleryAttrSpec[];
 
 type CommentGalleryAttrSpec<K extends keyof CommentGalleryProps> = {
   name: K;

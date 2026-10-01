@@ -185,7 +185,7 @@ export const fetchDocument = async (
     ok: true,
     response: {
       document: {
-        // in case of missing fields or moderation overwrites
+        // in case of missing fields or server-side trims
         ...subordinateDocument,
         ...priorityDocument,
         // Server-owned fields: no UI edits these locally, so the local copy's

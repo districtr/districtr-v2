@@ -13,9 +13,11 @@ export function FormField({
   disabled,
   required,
   autoComplete,
+  inputMode,
   options,
   validator,
   pattern,
+  maxLength,
   invalidMessage,
   value: valueOverride,
   onChangeValue,
@@ -53,12 +55,14 @@ export function FormField({
     'aria-label': name,
     value: disabled ? '' : (value ?? ''),
     autoComplete: disabled ? 'off' : autoComplete,
+    inputMode,
     onBlur: () => required && !validate(value) && setInvalid(true),
     onFocus: () => setInvalid(false),
     className: invalid ? 'border-2 border-red-500' : '',
     'data-invalid': invalid,
     'aria-invalid': invalid,
     pattern,
+    maxLength,
   };
   return (
     <Tooltip

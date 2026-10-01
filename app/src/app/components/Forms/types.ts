@@ -7,6 +7,7 @@ export type FormFieldProps = {
   placeholder?: string;
   type: TextField.RootProps['type'];
   autoComplete?: TextField.RootProps['autoComplete'];
+  inputMode?: TextField.RootProps['inputMode'];
   component?: typeof TextField.Root | typeof TextArea | typeof Select.Root;
   disabled?: boolean;
   required?: boolean;
@@ -15,6 +16,7 @@ export type FormFieldProps = {
     value: string;
   }>;
   pattern?: string;
+  maxLength?: number;
   invalidMessage?: string;
   validator?: (value: string) => boolean;
   /** Override the store read/write (e.g. the email-confirm stub field). */
