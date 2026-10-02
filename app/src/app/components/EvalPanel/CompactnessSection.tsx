@@ -281,9 +281,9 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                         <Table.Row
                           key={zone}
                           tabIndex={0}
-                          onMouseEnter={() => onDistrictEnter(zone)}
+                          onMouseEnter={() => onDistrictEnter([zone])}
                           onMouseLeave={onDistrictLeave}
-                          onFocus={() => onDistrictEnter(zone)}
+                          onFocus={() => onDistrictEnter([zone])}
                           onBlur={onDistrictLeave}
                           onClick={() => zoomToDistrict(Number(zone))}
                           style={{cursor: 'pointer'}}
