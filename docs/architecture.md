@@ -143,7 +143,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 
 ### Migrations
 
-Alembic with 60+ versions. UDF handling stores previous definitions under `sql/versions/{down_revision}/` for downgrade support. `deploy-api.yml` runs migrations as a one-off ECS task before each deploy. The CMS runs `manage.py migrate` the same way in `deploy-cms.yml`.
+Alembic with 60+ versions. UDF handling stores previous definitions under `sql/versions/{down_revision}/` for downgrade support. `deploy-api.yml` runs migrations as a one-off ECS task before each deploy that changes alembic, backend dependencies, or the Dockerfile (or is dispatched with `force_migrations`). The CMS runs `manage.py migrate` the same way in `deploy-cms.yml`.
 
 ## Pipelines (`pipelines/`)
 
