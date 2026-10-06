@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
+import {Callout, Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import {useChartStore} from '@store/chartStore';
@@ -15,7 +15,8 @@ import {
   getChartHeight,
 } from './PopulationChart/PopulationChart';
 import {DistrictMeters} from './DistrictMeters';
-import {Pencil1Icon} from '@radix-ui/react-icons';
+import {ExclamationTriangleIcon, Pencil1Icon} from '@radix-ui/react-icons';
+import {demographyService} from '@/app/utils/demography/demographyService';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
@@ -111,6 +112,28 @@ export const PopulationPanel = () => {
           Loading population data...
         </Text>
       </Flex>
+    );
+  }
+  // Re-read on every render: useZonePopulations re-renders on the chart hash,
+  // which demographyService bumps when this changes.
+  const unmatchedPaths = demographyService.unmatchedPaths;
+  if (unmatchedPaths.length) {
+    const count = unmatchedPaths.length;
+    return (
+      <Callout.Root color="red" size="1" role="alert" mt="2">
+        <Callout.Icon>
+          <ExclamationTriangleIcon />
+        </Callout.Icon>
+        <Callout.Text>
+          Population totals can&apos;t be shown. {count.toLocaleString()} assigned{' '}
+          {count === 1 ? 'area has' : 'areas have'} no matching population data, so totals would be
+          wrong. Your assignments are unchanged. Please report this map to the Districtr team.
+        </Callout.Text>
+        <Callout.Text size="1" color="gray">
+          Affected: {unmatchedPaths.slice(0, 5).join(', ')}
+          {count > 5 && ` and ${(count - 5).toLocaleString()} more`}
+        </Callout.Text>
+      </Callout.Root>
     );
   }
   return (

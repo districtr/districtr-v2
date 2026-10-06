@@ -377,7 +377,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
   mutateZoneAssignments: (mapRef, features, zone) => {
-    const {accumulatedAssignments, zonesLastUpdated} = get();
+    const {accumulatedAssignments, zonesLastUpdated, shatterIds} = get();
     const {setPaintedChanges} = useChartStore.getState();
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
@@ -399,8 +399,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       const state = featureStateCache[sourceLayer]?.[id];
       const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
       const prevAssignment = stateChanges?.zone || state?.zone || false;
+      // Never zone a shattered parent: its children carry the zone, and a saved
+      // parent row breaks population loading. Paint functions should already
+      // filter these out; this catches any that don't (e.g. a stale feature cache).
       const shouldSkip =
-        accumulatedAssignments.has(id) || state?.['locked'] || prevAssignment === zone || false;
+        accumulatedAssignments.has(id) ||
+        shatterIds.parents.has(id) ||
+        state?.['locked'] ||
+        prevAssignment === zone ||
+        false;
       if (shouldSkip) return;
       accumulatedAssignments.set(id, zone);
       zonesLastUpdated.set(prevAssignment, timestamp);

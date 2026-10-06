@@ -107,5 +107,11 @@ export const formatCoiAssignmentsFromDocument = (assignments: Assignment[]) => {
     }
   });
 
+  // A shattered parent's communities live on its children. Drop any membership
+  // saved for the parent itself (communities overlap, so check each one): demography
+  // has no row for a shattered parent, so it would fail the population join. The
+  // next save then persists the cleaned set.
+  communityAssignments.forEach(geoids => shatterIds.parents.forEach(p => geoids.delete(p)));
+
   return {communityAssignments, shatterIds, parentToChild, childToParent} as const;
 };

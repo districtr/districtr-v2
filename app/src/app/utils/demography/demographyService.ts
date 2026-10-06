@@ -178,6 +178,14 @@ class DemographyService {
   colorScale?: AnyD3Scale;
 
   /**
+   * Assigned units with no demography row, set when freshly loaded data still
+   * fails the population join. That's bad saved data, so the population panel
+   * shows these instead of bars. Cleared by any successful calculation.
+   */
+  unmatchedPaths: string[] = [];
+  private lastMissingPaths: string[] = [];
+
+  /**
    * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
    * re-entering the same county under the brush (e.g. dragging back and
    * forth across a border) doesn't re-scan `table`. Invalidated wherever
@@ -208,7 +216,14 @@ class DemographyService {
       zoneAssignments: getActivePopulationAssignments(),
       coalitionGroups,
     });
-    if (!popsOk) return;
+    if (!popsOk) {
+      // This table was just loaded for the current shatter state, so a failed
+      // join here can't be a mid-shatter race (e.g. painting a freshly broken unit
+      // before its blocks load): it's bad data. Surface it rather than empty bars.
+      this.unmatchedPaths = this.lastMissingPaths;
+      useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
+      return;
+    }
     this.updateSummaryStats();
     this.hash = hash;
   }
@@ -288,6 +303,7 @@ class DemographyService {
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.unmatchedPaths = [];
     this.filteredCache.clear();
   }
 
@@ -428,6 +444,7 @@ class DemographyService {
       )
     );
     if (missingPopulations.size) {
+      this.lastMissingPaths = missingPopulations.array('path') as string[];
       return {
         ok: false,
       };
@@ -907,6 +924,7 @@ class DemographyService {
   ) {
     const populations = this.calculatePopulations(zoneAssignments, coalitionGroups);
     if (populations.ok) {
+      this.unmatchedPaths = [];
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
       return true;
     } else {

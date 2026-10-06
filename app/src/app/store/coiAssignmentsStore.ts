@@ -827,7 +827,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     community: Zone,
     mode: CoiPaintMode = ACTIVE_TOOLS.BRUSH
   ) => {
-    const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
+    const {accumulatedAssignments, communityAssignments, communityLastUpdated, shatterIds} = get();
     const {setPaintedChanges} = useChartStore.getState();
     // Clone the live Maps up front and mutate the local copies only.
     const nextAccumulatedAssignments = new Map(accumulatedAssignments);
@@ -849,7 +849,15 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       if (!id || !sourceLayer) return;
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
-      if (nextAccumulatedAssignments.has(id) || currentFeatureState?.locked) return;
+      // Never assign a shattered parent: its children carry the communities, and a
+      // saved parent row breaks population loading. Paint functions should already
+      // filter these out; this catches any that don't (e.g. a stale feature cache).
+      if (
+        nextAccumulatedAssignments.has(id) ||
+        shatterIds.parents.has(id) ||
+        currentFeatureState?.locked
+      )
+        return;
 
       const currentCommunities = getCommunitiesForGeoidFromAssignments(communityAssignments, id);
       const newCommunities = new Set(currentCommunities);
