@@ -6,17 +6,16 @@ import {
 } from 'maplibre-gl';
 import {BLOCK_HOVER_LAYER_ID} from '@/app/constants/map/layerIds';
 import {boxAroundPoint} from '@utils/map/bboxAroundPoint';
-import {filterFeatures} from '@utils/map/filterFeatures';
-import {fastUniqBy} from '@utils/arrays';
+import {filterFeatures, getFilterFeaturesState} from '@utils/map/filterFeatures';
 import {demographyService} from '../demography/demographyService';
 
 /**
- * Module-scoped memo of the last computed result, keyed by the sorted set of
- * county FIPS codes under the brush. Consecutive mousemove events over the
- * same set of counties (the common case while dragging) skip the
- * demography lookup + filterFeatures pass entirely.
+ * Module-scoped memo of the last computed result. Consecutive mousemove events
+ * over the same counties with unchanged filter state (the common case while
+ * dragging; painting only touches accumulatedAssignments until mouseup) skip
+ * the filterFeatures pass entirely.
  */
-let lastCountyKey: string | null = null;
+let lastDeps: unknown[] = [];
 let lastResult: MapGeoJSONFeature[] | undefined;
 
 /**
@@ -44,35 +43,28 @@ export const getFeaturesIntersectingCounties = (
   });
 
   if (!countyFeatures?.length) {
-    lastCountyKey = null;
+    lastDeps = [];
     lastResult = undefined;
     return;
   }
 
-  const distinctCounties = fastUniqBy(
-    countyFeatures.map(feature => ({
-      fips: `${feature.properties.STATEFP}${feature.properties.COUNTYFP}`,
-    })),
-    'fips'
-  );
+  const fipsCodes = Array.from(
+    new Set(countyFeatures.map(f => `${f.properties.STATEFP}${f.properties.COUNTYFP}`))
+  ).sort();
+  // getFiltered serves these arrays from a per-county cache that is cleared when
+  // the demography table reloads (e.g. after a shatter), so their identity is a key too.
+  const countyBlocks = fipsCodes.map(fips => demographyService.getFiltered(fips));
 
   // filterLocked is part of the key: the inspector writes unfiltered entries,
   // and a brush click at the same spot must not replay one onto locked units.
-  const countyKey =
-    distinctCounties
-      .map(({fips}) => fips)
-      .sort()
-      .join(',') + `|${filterLocked}`;
-
-  if (countyKey === lastCountyKey) {
+  const deps = [filterLocked, ...countyBlocks, ...Object.values(getFilterFeaturesState())];
+  if (deps.length === lastDeps.length && deps.every((dep, i) => dep === lastDeps[i])) {
     return lastResult;
   }
-  lastCountyKey = countyKey;
-
-  const blockFeatures = distinctCounties.flatMap(({fips}) => demographyService.getFiltered(fips));
+  lastDeps = deps;
 
   lastResult = filterFeatures({
-    _features: blockFeatures,
+    _features: countyBlocks.flat(),
     filterLocked,
   });
   return lastResult;

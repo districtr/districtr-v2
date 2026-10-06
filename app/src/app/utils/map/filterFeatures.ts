@@ -11,6 +11,32 @@ import {MultiPolygon, Polygon} from 'geojson';
 import {MAP_MODES} from '@constants/map/mode';
 
 const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
+
+/**
+ * Every piece of store state filterFeatures reads. The stores swap in new
+ * objects when these change, so callers can memoize a filterFeatures result
+ * on reference equality of these values.
+ */
+export const getFilterFeaturesState = () => {
+  const {captiveIds, mapDocument} = useMapStore.getState();
+  const {mapOptions, selectedZone, activeTool, mapMode} = useMapControlsStore.getState();
+  const {zoneAssignments, shatterIds: districtShatterIds} = useAssignmentsStore.getState();
+  const {shatterIds: coiShatterIds} = useCoiAssignmentsStore.getState();
+  const {paintConstraint, _idCache} = useOverlayStore.getState();
+  return {
+    captiveIds,
+    mapDocument,
+    mapOptions,
+    selectedZone,
+    activeTool,
+    mapMode,
+    zoneAssignments,
+    shatterIds: mapMode === MAP_MODES.COI ? coiShatterIds : districtShatterIds,
+    paintConstraint,
+    _idCache,
+  };
+};
+
 /**
  * filterFeatures
  * Filters the provided features based on certain criteria, such as locked features and captive IDs.
@@ -44,12 +70,18 @@ export const filterFeatures = ({
 }) => {
   // first, dedupe
   const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
-  const {captiveIds, mapDocument} = useMapStore.getState();
-  const {mapOptions, selectedZone, activeTool, mapMode} = useMapControlsStore.getState();
-  const {zoneAssignments, shatterIds: districtShatterIds} = useAssignmentsStore.getState();
-  const {shatterIds: coiShatterIds} = useCoiAssignmentsStore.getState();
-  const shatterIds = mapMode === MAP_MODES.COI ? coiShatterIds : districtShatterIds;
-  const {paintConstraint, _idCache} = useOverlayStore.getState();
+  const {
+    captiveIds,
+    mapDocument,
+    mapOptions,
+    selectedZone,
+    activeTool,
+    mapMode,
+    zoneAssignments,
+    shatterIds,
+    paintConstraint,
+    _idCache,
+  } = getFilterFeaturesState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size && !allowOutsideCaptiveIds) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
