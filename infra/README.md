@@ -87,7 +87,7 @@ Every AWS service this project uses, what it does here, and where it's defined:
 | **ECS on Fargate** | Cluster, backend + frontend + CMS services and task definitions, plus one-off `migrate` and `cms-migrate` task definitions | `cluster.ts`, `backend.ts`, `frontend.ts`, `cms.ts` |
 | **Application Auto Scaling** | CPU target-tracking autoscaling for the backend and frontend services (the CMS runs one task) | `backend.ts`, `frontend.ts` |
 | **ECR** | Container image registry (immutable tags, scan-on-push, keep-last-20 lifecycle) | `ecr.ts` |
-| **RDS** | PostgreSQL + PostGIS (gp3, encrypted, Multi-AZ on prod), Pulumi-generated password | `database.ts` |
+| **RDS** | PostgreSQL + PostGIS (gp3, encrypted, single-AZ — prod sets `dbMultiAz: false`), Pulumi-generated password | `database.ts` |
 | **SSM Parameter Store** | Secrets (SecureString) and `…/meta/*-image-tag` pointers, injected into task definitions | `backendtask.ts`, `frontend.ts`, `cms.ts` |
 | **KMS** | Encrypts Pulumi config secrets (`alias/districtr-pulumi-secrets`) and the SSM SecureStrings | secrets provider, `scripts/bootstrap.sh` |
 | **CloudWatch** | Log groups (backend / frontend / migrate / cms / cms-migrate), Container Insights (prod), metric alarms | `cluster.ts`, `monitoring.ts` |
