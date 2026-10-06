@@ -26,6 +26,7 @@ from wagtail import hooks
 from wagtail.admin.site_summary import PagesSummaryItem
 from wagtail.admin.ui.components import Component
 
+from authapi.views import EXTRACT_GROUPS, extract_page_url
 from core.menu import in_groups
 
 SHORTCUT_GROUPS = ("partner", "super_partner", "admin")
@@ -75,6 +76,15 @@ class DistrictrShortcutsPanel(Component):
                     "label": "New portal",
                     "url": reverse("content_portal_wizard"),
                     "icon": "plus",
+                }
+            )
+
+        if in_groups(user, EXTRACT_GROUPS):
+            cards.append(
+                {
+                    "label": "Download data",
+                    "url": extract_page_url(),
+                    "icon": "download",
                 }
             )
 
