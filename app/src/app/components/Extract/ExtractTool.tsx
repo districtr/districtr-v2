@@ -1,9 +1,5 @@
 'use client';
-import maplibregl, {
-  type ExpressionSpecification,
-  type GeoJSONSource,
-  type PointLike,
-} from 'maplibre-gl';
+import maplibregl, {type FilterSpecification, type GeoJSONSource} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import {useEffect, useMemo, useRef, useState} from 'react';
@@ -15,20 +11,46 @@ import GlMap, {
   type MapRef,
 } from 'react-map-gl/maplibre';
 import {
+  Box,
   Button,
   Card,
   Flex,
   Heading,
+  IconButton,
   Link,
-  SegmentedControl,
   Select,
-  Slider,
   Switch,
   Text,
 } from '@radix-ui/themes';
+import {
+  BorderDashedIcon,
+  EraserIcon,
+  HamburgerMenuIcon,
+  HandIcon,
+  Pencil2Icon,
+} from '@radix-ui/react-icons';
 import {bbox as turfBbox, booleanPointInPolygon, polygon} from '@turf/turf';
-import {MAP_OPTIONS, MINIMAL_BASEMAP_STYLE_URL} from '@constants/map/viewDefaults';
+import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';
+import {
+  BLOCK_SOURCE_ID,
+  CANONICAL_LAYER_IDS,
+  MAP_LAYER_ANCHOR_IDS,
+  type BlockScope,
+} from '@constants/map/layerIds';
+import {BASEMAP_IDS, EMPTY_FT_COLLECTION} from '@constants/map/layerStyle';
+import {MapLayerAnchors} from '@components/Map/MapLayerAnchors';
+import {BlockLayers} from '@components/Map/PolygonLayers/BlockLayers';
+import {CountyLayers} from '@components/Map/PolygonLayers/CountyLayers';
+import {ToolButton} from '@components/Toolbar/ToolButtons';
+import {useToolHotkeys, type ActiveToolConfig} from '@components/Toolbar/ToolUtils';
+import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
+import {useAltHeld} from '@/app/hooks/useAltHeld';
+import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {useMapModules} from '@/app/hooks/useMapModules';
+import {useMapControlsStore} from '@store/mapControlsStore';
+import {useMapStore} from '@store/mapStore';
+import {boxAroundPoint} from '@utils/map/bboxAroundPoint';
+import {setHoverFeatures} from '@utils/map/hoverFeatures';
 import {getPointSelectionData} from '@/app/utils/api/apiHandlers/getPointSelectionData';
 import {CMS_PUBLIC_URL, TILESET_URL} from '@/app/utils/api/constants';
 import {
@@ -39,13 +61,45 @@ import {
   type ExtractToken,
 } from '@/app/utils/api/extract';
 
-const SOURCE = 'extract-units';
-const FILL = 'extract-fill';
-const LASSO = 'extract-lasso';
-const EMPTY: GeoJSON.FeatureCollection = {type: 'FeatureCollection', features: []};
+/**
+ * Data-extract page. It reuses the editor's look rather than its machinery:
+ * the toolbar buttons, brush-size control, block/county layers, and hover
+ * state are the editor's own; the selection is local. The editor stores
+ * assume a document (IndexedDB writes, autosave, undo), so they aren't used.
+ */
 
-type Tool = 'pan' | 'brush' | 'eraser' | 'lasso';
-type Shape = GeoJSON.Feature<GeoJSON.Polygon>;
+type ExtractToolMode = 'pan' | 'lasso' | 'brush' | 'eraser';
+
+const TOOLS: ActiveToolConfig<ExtractToolMode>[] = [
+  {
+    mode: 'pan',
+    label: 'Move',
+    icon: HandIcon,
+    hotKeyLabel: 'M',
+    hotKeyAccessor: e => e.code === 'KeyM',
+  },
+  {
+    mode: 'lasso',
+    label: 'Lasso',
+    icon: BorderDashedIcon,
+    hotKeyLabel: 'L',
+    hotKeyAccessor: e => e.code === 'KeyL',
+  },
+  {
+    mode: 'brush',
+    label: 'Paint',
+    icon: Pencil2Icon,
+    hotKeyLabel: 'P',
+    hotKeyAccessor: e => e.code === 'KeyP',
+  },
+  {
+    mode: 'eraser',
+    label: 'Erase',
+    icon: EraserIcon,
+    hotKeyLabel: 'E',
+    hotKeyAccessor: e => e.code === 'KeyE',
+  },
+];
 
 const FORMATS: {value: ExtractFormat; label: string}[] = [
   {value: 'gpkg', label: 'GeoPackage'},
@@ -54,14 +108,22 @@ const FORMATS: {value: ExtractFormat; label: string}[] = [
   {value: 'csv', label: 'CSV (no geometry)'},
 ];
 
-const SELECTED: ExpressionSpecification = ['boolean', ['feature-state', 'selected'], false];
+// Selected units are drawn as zone 1 by the editor's own zone layers.
+const SELECTED_ZONE = 1;
+const ALL: FilterSpecification = ['literal', true];
+const LASSO = 'extract-lasso';
+type Shape = GeoJSON.Feature<GeoJSON.Polygon>;
 
 // Centroids come from tilesets/{layer}_points.parquet, which the editor
 // already loads; cached per layer for the page's lifetime.
 const pointCache = new Map<string, Promise<GeoJSON.FeatureCollection<GeoJSON.Point>>>();
 const loadPoints = (layer: string) => {
   if (!pointCache.has(layer)) {
-    const points = getPointSelectionData({layer, columns: ['path', 'x', 'y'], source: SOURCE});
+    const points = getPointSelectionData({
+      layer,
+      columns: ['path', 'x', 'y'],
+      source: BLOCK_SOURCE_ID,
+    });
     pointCache.set(layer, points);
     points.catch(() => pointCache.delete(layer));
   }
@@ -125,6 +187,12 @@ const Gate: React.FC<{children: React.ReactNode}> = ({children}) => (
 
 const ExtractMap = () => {
   const mapRef = useRef<MapRef | null>(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const basemap = useMapControlsStore(state => state.mapOptions.basemap ?? BASEMAP_IDS.MINIMAL);
+  const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, basemap);
+  const brushSize = useMapControlsStore(state => state.brushSize);
+  const showHotkeyHints = useAltHeld();
+
   const modules = useMapModules();
   const sortedModules = useMemo(
     () => [...modules].sort((a, b) => a.name.localeCompare(b.name)),
@@ -133,18 +201,21 @@ const ExtractMap = () => {
   const [slug, setSlug] = useState<string>();
   const districtrMap = modules.find(m => m.districtr_map_slug === slug);
   const [useChild, setUseChild] = useState(false);
+  const scope: BlockScope = useChild && districtrMap?.child_layer ? 'CHILD' : 'PARENT';
   const layer = districtrMap
-    ? useChild && districtrMap.child_layer
-      ? districtrMap.child_layer
+    ? scope === 'CHILD'
+      ? districtrMap.child_layer!
       : districtrMap.parent_layer
     : undefined;
+  const hoverLayerId = CANONICAL_LAYER_IDS.BLOCK[scope].HOVER;
 
-  const [tool, setTool] = useState<Tool>('lasso');
-  const [brushSize, setBrushSize] = useState(15);
+  const [tool, setTool] = useState<ExtractToolMode>('lasso');
+  const tools = TOOLS.map(t => ({...t, disabled: !layer}));
+  useToolHotkeys(tools, setTool);
   const [format, setFormat] = useState<ExtractFormat>('gpkg');
-  // Shapes outlive a layer swap; the selection is re-derived from them.
+  // Shapes outlive a unit swap; the selection is re-derived from them.
   const shapes = useRef<Shape[]>([]);
-  const [shapesData, setShapesData] = useState<GeoJSON.FeatureCollection>(EMPTY);
+  const [shapesData, setShapesData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const selection = useRef(new Set<string>());
   const [count, setCount] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
@@ -165,7 +236,10 @@ const ExtractMap = () => {
       if (selection.current.has(id) === selected) continue;
       if (selected) selection.current.add(id);
       else selection.current.delete(id);
-      map.setFeatureState({source: SOURCE, sourceLayer: onLayer, id}, {selected});
+      map.setFeatureState(
+        {source: BLOCK_SOURCE_ID, sourceLayer: onLayer, id},
+        {zone: selected ? SELECTED_ZONE : null}
+      );
     }
     setCount(selection.current.size);
     setResult(null);
@@ -173,8 +247,9 @@ const ExtractMap = () => {
 
   const clearSelection = () => {
     const map = mapRef.current?.getMap();
-    if (map?.getSource(SOURCE) && layer)
-      map.removeFeatureState({source: SOURCE, sourceLayer: layer});
+    if (map?.getSource(BLOCK_SOURCE_ID) && layer) {
+      map.removeFeatureState({source: BLOCK_SOURCE_ID, sourceLayer: layer});
+    }
     selection.current = new Set();
     setCount(0);
     setResult(null);
@@ -206,7 +281,7 @@ const ExtractMap = () => {
     if (extent) mapRef.current?.fitBounds(extent, {padding: 20, duration: 0});
   };
 
-  const onLayerChange = (child: boolean) => {
+  const onUnitsChange = (child: boolean) => {
     if (!districtrMap) return;
     clearSelection();
     setUseChild(child);
@@ -216,23 +291,18 @@ const ExtractMap = () => {
     if (shapes.current.length) selectInShapes(nextLayer, shapes.current);
   };
 
-  const paintAt = (point: {x: number; y: number}) => {
-    const map = mapRef.current?.getMap();
-    if (!map || !layer) return;
-    const box: [PointLike, PointLike] = [
-      [point.x - brushSize, point.y - brushSize],
-      [point.x + brushSize, point.y + brushSize],
-    ];
-    const ids = map.queryRenderedFeatures(box, {layers: [FILL]}).map(f => String(f.id));
-    applySelection(layer, ids, tool === 'brush');
-  };
+  // Same brush geometry as the editor (boxAroundPoint on the hover layer).
+  const unitsUnderBrush = (e: MapLayerMouseEvent) =>
+    mapRef.current?.getMap().queryRenderedFeatures(boxAroundPoint(e, brushSize), {
+      layers: [hoverLayerId],
+    }) ?? [];
 
   const setLasso = (ring: [number, number][]) => {
     const source = mapRef.current?.getMap().getSource(LASSO) as GeoJSONSource | undefined;
     source?.setData(
       ring.length > 1
         ? {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: ring}}
-        : EMPTY
+        : EMPTY_FT_COLLECTION
     );
   };
 
@@ -242,16 +312,30 @@ const ExtractMap = () => {
       drag.current = {mode: 'lasso', ring: [e.lngLat.toArray() as [number, number]]};
     } else {
       drag.current = {mode: 'paint', ring: []};
-      paintAt(e.point);
+      applySelection(
+        layer,
+        unitsUnderBrush(e).map(f => String(f.id)),
+        tool === 'brush'
+      );
     }
   };
 
   const onMouseMove = (e: MapLayerMouseEvent) => {
+    if (!layer) return;
+    const isBrush = tool === 'brush' || tool === 'eraser';
+    const features = isBrush ? unitsUnderBrush(e) : [];
+    if (isBrush) setHoverFeatures(features);
     const d = drag.current;
-    if (!d) return;
-    if (d.mode === 'paint') return paintAt(e.point);
-    d.ring.push(e.lngLat.toArray() as [number, number]);
-    setLasso(d.ring);
+    if (d?.mode === 'paint') {
+      applySelection(
+        layer,
+        features.map(f => String(f.id)),
+        tool === 'brush'
+      );
+    } else if (d?.mode === 'lasso') {
+      d.ring.push(e.lngLat.toArray() as [number, number]);
+      setLasso(d.ring);
+    }
   };
 
   const onMouseUp = () => {
@@ -275,203 +359,227 @@ const ExtractMap = () => {
     else setError(response.detail);
   };
 
+  const unitsLabel = scope === 'CHILD' ? 'Blocks' : layer?.includes('vtd') ? 'VTDs' : 'Units';
+
   return (
-    <Flex className="h-screen">
-      <Flex direction="column" gap="4" p="4" className="w-80 shrink-0 overflow-y-auto border-r">
-        <Heading size="4">Download data</Heading>
-        <Flex direction="column" gap="1">
-          <Text size="2" weight="bold">
-            Map module
-          </Text>
-          <Select.Root value={slug} onValueChange={onModuleChange}>
-            <Select.Trigger placeholder="Choose a map module" />
-            <Select.Content>
-              {sortedModules.map(m => (
-                <Select.Item key={m.districtr_map_slug} value={m.districtr_map_slug}>
-                  {/* v1/v2 modules share names; the slug tells them apart. */}
-                  {m.name} ({m.districtr_map_slug})
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-        </Flex>
-
-        {districtrMap && (
-          <>
-            {districtrMap.child_layer && (
-              <Text as="label" size="2">
-                <Flex gap="2" align="center">
-                  <Switch checked={useChild} onCheckedChange={onLayerChange} />
-                  Select blocks instead of{' '}
-                  {districtrMap.parent_layer.includes('vtd') ? 'VTDs' : 'parent units'}
-                </Flex>
-              </Text>
-            )}
-            <Text size="1" color="gray">
-              Units: <code>{layer}</code>
-            </Text>
-
-            <Flex direction="column" gap="2">
-              <Text size="2" weight="bold">
-                Tool
-              </Text>
-              <SegmentedControl.Root value={tool} onValueChange={v => setTool(v as Tool)}>
-                <SegmentedControl.Item value="pan">Pan</SegmentedControl.Item>
-                <SegmentedControl.Item value="lasso">Lasso</SegmentedControl.Item>
-                <SegmentedControl.Item value="brush">Brush</SegmentedControl.Item>
-                <SegmentedControl.Item value="eraser">Erase</SegmentedControl.Item>
-              </SegmentedControl.Root>
-              {(tool === 'brush' || tool === 'eraser') && (
-                <Flex direction="column" gap="1">
-                  <Text size="1" color="gray">
-                    Brush size
-                  </Text>
-                  <Slider
-                    min={2}
-                    max={60}
-                    value={[brushSize]}
-                    onValueChange={([v]) => setBrushSize(v)}
+    // Same frame as the editor's MapPage: sidebar on the right, topbar over the map.
+    <div className="h-screen h-dvh w-screen overflow-hidden flex flex-row-reverse">
+      <div
+        className="p-3 z-10 flex-none border-l-[1px] border-gray-500 shadow-xl overflow-y-auto"
+        style={{width: '35vw', minWidth: 320}}
+      >
+        <Flex direction="column" gap="3">
+          <Box className="my-1 pb-3 border-b-[1px] border-gray-300">
+            <Flex direction="column" gap="3">
+              <Flex direction="row" wrap="wrap" gap="1">
+                {tools.map(t => (
+                  <ToolButton
+                    key={t.mode}
+                    tool={t}
+                    isActive={tool === t.mode}
+                    onClick={() => setTool(tool === t.mode ? 'pan' : t.mode)}
+                    showHotkeyHint={showHotkeyHints}
+                    style={{minWidth: 40, flexGrow: 1, flexBasis: 0}}
                   />
-                </Flex>
+                ))}
+              </Flex>
+              {(tool === 'brush' || tool === 'eraser') && <BrushSizeSelector />}
+              {tool === 'lasso' && (
+                <Text size="2" color="gray">
+                  Drag to draw a shape. Units whose centre falls inside are selected, and shapes
+                  carry over when you switch units.
+                </Text>
               )}
-              <Text size="1" color="gray">
-                {tool === 'lasso'
-                  ? 'Drag to draw a shape; units whose centre falls inside are selected. Shapes carry over when you switch units.'
-                  : tool === 'pan'
-                    ? 'Drag to move the map.'
-                    : 'Drag over units. Brush and erase edits are dropped if you switch units.'}
-              </Text>
             </Flex>
+          </Box>
 
+          <Card>
             <Flex direction="column" gap="2">
-              <Text size="2">
-                <strong>{count.toLocaleString()}</strong> units selected
-                {shapes.current.length > 0 && ` · ${shapes.current.length} shape(s)`}
-              </Text>
-              <Button
-                variant="soft"
-                color="gray"
-                disabled={!count && !shapes.current.length}
-                onClick={() => {
-                  clearSelection();
-                  setShapes([]);
-                }}
-              >
-                Clear selection
-              </Button>
-            </Flex>
-
-            <Flex direction="column" gap="2">
-              <Text size="2" weight="bold">
-                Format
-              </Text>
-              <Select.Root value={format} onValueChange={v => setFormat(v as ExtractFormat)}>
-                <Select.Trigger />
+              <Heading size="3">Map module</Heading>
+              <Select.Root value={slug} onValueChange={onModuleChange}>
+                <Select.Trigger placeholder="Choose a map module" />
                 <Select.Content>
-                  {FORMATS.map(f => (
-                    <Select.Item key={f.value} value={f.value}>
-                      {f.label}
+                  {sortedModules.map(m => (
+                    <Select.Item key={m.districtr_map_slug} value={m.districtr_map_slug}>
+                      {/* v1/v2 modules share names; the slug tells them apart. */}
+                      {m.name} ({m.districtr_map_slug})
                     </Select.Item>
                   ))}
                 </Select.Content>
               </Select.Root>
-              <Button disabled={!count || !!busy} onClick={onDownload}>
-                Prepare download
-              </Button>
-              <Text size="1" color="gray">
-                The first download from a layer can take up to a minute.
-              </Text>
-            </Flex>
-          </>
-        )}
-
-        {busy && <Text size="2">{busy}</Text>}
-        {error && (
-          <Text size="2" color="red">
-            {error}
-          </Text>
-        )}
-        {result && (
-          <Card>
-            <Flex direction="column" gap="1">
-              <Link href={result.url} weight="bold">
-                Download {result.filename}
-              </Link>
-              <Text size="1" color="gray">
-                {result.count.toLocaleString()} units · link expires{' '}
-                {new Date(result.expires_at).toLocaleString()}
-              </Text>
+              {districtrMap?.child_layer && (
+                <Text as="label" size="2">
+                  <Flex gap="2" align="center">
+                    <Switch checked={useChild} onCheckedChange={onUnitsChange} />
+                    Select blocks instead of{' '}
+                    {districtrMap.parent_layer.includes('vtd') ? 'VTDs' : 'parent units'}
+                  </Flex>
+                </Text>
+              )}
+              {layer && (
+                <Text size="1" color="gray">
+                  Source layer: <code>{layer}</code>
+                </Text>
+              )}
             </Flex>
           </Card>
-        )}
-      </Flex>
 
-      <div className="relative flex-1">
-        <GlMap
-          ref={mapRef}
-          mapStyle={MINIMAL_BASEMAP_STYLE_URL}
-          initialViewState={{
-            longitude: (MAP_OPTIONS.center as [number, number])[0],
-            latitude: (MAP_OPTIONS.center as [number, number])[1],
-            zoom: MAP_OPTIONS.zoom ?? 3,
-          }}
-          dragPan={tool === 'pan'}
-          dragRotate={false}
-          cursor={tool === 'pan' ? 'grab' : 'crosshair'}
-          interactiveLayerIds={layer ? [FILL] : []}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseOut={onMouseUp}
-        >
-          {districtrMap?.tiles_s3_path && layer && (
-            <Source
-              key={districtrMap.tiles_s3_path}
-              id={SOURCE}
-              type="vector"
-              url={`pmtiles://${TILESET_URL}/${districtrMap.tiles_s3_path}`}
-              promoteId="path"
-            >
-              <Layer
-                key={`${layer}-fill`}
-                id={FILL}
-                type="fill"
-                source-layer={layer}
-                paint={{
-                  'fill-color': ['case', SELECTED, '#2563eb', '#94a3b8'],
-                  'fill-opacity': ['case', SELECTED, 0.6, 0.08],
-                }}
-              />
-              <Layer
-                key={`${layer}-line`}
-                id="extract-outline"
-                type="line"
-                source-layer={layer}
-                paint={{
-                  'line-color': '#475569',
-                  'line-opacity': 0.5,
-                  'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.1, 12, 0.8],
-                }}
-              />
-            </Source>
+          {districtrMap && (
+            <Card>
+              <Flex direction="column" gap="2">
+                <Heading size="3">Download</Heading>
+                <Text size="2">
+                  <strong>{count.toLocaleString()}</strong> {unitsLabel.toLowerCase()} selected
+                  {shapes.current.length > 0 && ` · ${shapes.current.length} shape(s)`}
+                </Text>
+                <Flex gap="2" align="center">
+                  <Select.Root value={format} onValueChange={v => setFormat(v as ExtractFormat)}>
+                    <Select.Trigger className="flex-1" />
+                    <Select.Content>
+                      {FORMATS.map(f => (
+                        <Select.Item key={f.value} value={f.value}>
+                          {f.label}
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select.Root>
+                  <Button disabled={!count || !!busy} onClick={onDownload}>
+                    Prepare download
+                  </Button>
+                </Flex>
+                <Button
+                  variant="soft"
+                  color="gray"
+                  disabled={!count && !shapes.current.length}
+                  onClick={() => {
+                    clearSelection();
+                    setShapes([]);
+                  }}
+                >
+                  Clear selection
+                </Button>
+                {busy && <Text size="2">{busy}</Text>}
+                {error && (
+                  <Text size="2" color="red">
+                    {error}
+                  </Text>
+                )}
+                {result && (
+                  <Flex direction="column" gap="1">
+                    <Link href={result.url} weight="bold">
+                      Download {result.filename}
+                    </Link>
+                    <Text size="1" color="gray">
+                      {result.count.toLocaleString()} units · link expires{' '}
+                      {new Date(result.expires_at).toLocaleString()}
+                    </Text>
+                  </Flex>
+                )}
+                <Text size="1" color="gray">
+                  The first download from a layer can take up to a minute.
+                </Text>
+              </Flex>
+            </Card>
           )}
-          <Source id="extract-shapes" type="geojson" data={shapesData}>
-            <Layer
-              id="extract-shapes-line"
-              type="line"
-              paint={{'line-color': '#f97316', 'line-width': 2, 'line-dasharray': [2, 1]}}
-            />
-          </Source>
-          <Source id={LASSO} type="geojson" data={EMPTY}>
-            <Layer
-              id="extract-lasso-line"
-              type="line"
-              paint={{'line-color': '#f97316', 'line-width': 2}}
-            />
-          </Source>
-          <NavigationControl showCompass={false} position="bottom-right" />
-        </GlMap>
+        </Flex>
       </div>
-    </Flex>
+
+      <div className="h-full relative w-full flex-1 flex flex-col">
+        {/* Echoes the editor's Topbar. */}
+        <Flex
+          align="center"
+          justify="between"
+          gap="4"
+          className="border-b-[1px] border-gray-500 shadow-xl p-1 pl-5 pr-4 relative z-10 min-h-[45px]"
+        >
+          <IconButton variant="ghost" asChild>
+            <a href="/" className="ml-2">
+              <HamburgerMenuIcon className="mr-2" />
+              <Heading size="3">Districtr</Heading>
+            </a>
+          </IconButton>
+          <Text size="2" weight="bold">
+            Download data
+            {districtrMap && (
+              <Text weight="regular" color="gray">
+                {' '}
+                · {districtrMap.name} · {unitsLabel}
+              </Text>
+            )}
+          </Text>
+        </Flex>
+        <div className={`flex-1 min-h-0 relative cursor-${tool}`}>
+          <GlMap
+            ref={mapRef}
+            mapStyle={getMapStyleForBasemap(basemap)}
+            initialViewState={{
+              longitude: (MAP_OPTIONS.center as [number, number])[0],
+              latitude: (MAP_OPTIONS.center as [number, number])[1],
+              zoom: MAP_OPTIONS.zoom ?? 3,
+            }}
+            maxZoom={MAP_OPTIONS.maxZoom || undefined}
+            pitchWithRotate={false}
+            maxPitch={0}
+            minPitch={0}
+            dragRotate={false}
+            dragPan={tool === 'pan'}
+            onLoad={() => {
+              // setHoverFeatures (and the editor's other map utils) read the map from mapStore.
+              useMapStore.getState().setMapRef(mapRef);
+              setIsMapLoaded(true);
+            }}
+            interactiveLayerIds={layer ? [hoverLayerId] : []}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseOut={() => {
+              setHoverFeatures([]);
+              onMouseUp();
+            }}
+          >
+            {isMapLoaded && <MapLayerAnchors />}
+            {areAnchorLayersReady && (
+              <>
+                <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.countyBoundaries} />
+                {districtrMap?.tiles_s3_path && layer && (
+                  <Source
+                    key={districtrMap.tiles_s3_path}
+                    id={BLOCK_SOURCE_ID}
+                    type="vector"
+                    url={`pmtiles://${TILESET_URL}/${districtrMap.tiles_s3_path}`}
+                    promoteId="path"
+                  >
+                    <BlockLayers
+                      key={layer}
+                      scope={scope}
+                      layerFilter={ALL}
+                      outlineFilter={ALL}
+                      sourceLayerId={layer}
+                    />
+                  </Source>
+                )}
+                <Source id="extract-shapes" type="geojson" data={shapesData}>
+                  <Layer
+                    id="extract-shapes-line"
+                    type="line"
+                    beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+                    paint={{'line-color': '#000', 'line-width': 2, 'line-dasharray': [2, 1]}}
+                  />
+                </Source>
+                <Source id={LASSO} type="geojson" data={EMPTY_FT_COLLECTION}>
+                  <Layer
+                    id="extract-lasso-line"
+                    type="line"
+                    beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+                    paint={{'line-color': '#000', 'line-width': 2}}
+                  />
+                </Source>
+              </>
+            )}
+            <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          </GlMap>
+        </div>
+      </div>
+    </div>
   );
 };

@@ -64,7 +64,8 @@ body {
 .cursor-eraser canvas {
   cursor: pointer;
 }
-.cursor-shatter canvas {
+.cursor-shatter canvas,
+.cursor-lasso canvas {
   cursor: crosshair;
 }
 
