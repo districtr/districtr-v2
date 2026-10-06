@@ -72,7 +72,7 @@ jobs:
           AUTH_ALGORITHMS: RS256
 
       - name: Run tests
-        run: pytest -v --cov=.
+        run: pytest -v
         working-directory: backend
         env:
           DOMAIN: postgres
