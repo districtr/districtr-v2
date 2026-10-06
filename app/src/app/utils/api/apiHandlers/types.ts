@@ -52,6 +52,8 @@ export interface DistrictrMap {
   tiles_s3_path: string | null;
   num_districts: number | null;
   map_type: MapType;
+  /** [minx, miny, maxx, maxy]; gerrydb/views returns every column. */
+  extent?: [number, number, number, number];
 }
 
 export interface StatusObject {

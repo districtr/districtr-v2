@@ -9,7 +9,7 @@ import {
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
-import {useMemo, useRef} from 'react';
+import {useEffect, useMemo, useRef} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -18,10 +18,10 @@ import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import type {HelpTipKey} from '@/app/components/HelpTip/helpTipContent';
 
-export type ActiveToolConfig = {
+export type ActiveToolConfig<M extends string = ActiveTool> = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
   hotKeyLabel: string;
-  mode: ActiveTool;
+  mode: M;
   disabled?: boolean;
   label: string;
   variant?: IconButtonProps['variant'];
@@ -157,4 +157,28 @@ export const useActiveTools = () => {
   // Filtering (rather than disabling) also removes the tools' hotkeys, since the
   // toolbar's key handler only checks the tools returned here.
   return superDraw ? config : config.filter(t => !SUPER_DRAW_TOOLS.includes(t.mode));
+};
+
+/** Tool hotkeys (ignored while typing). Shared by the editor toolbar and the
+ * data-extract page; the listener binds once and reads the latest tools. */
+export const useToolHotkeys = <M extends string>(
+  tools: ActiveToolConfig<M>[],
+  select: (mode: M) => void
+) => {
+  const latest = useRef({tools, select});
+  latest.current = {tools, select};
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
+      const tool = latest.current.tools.find(f => !f.disabled && f.hotKeyAccessor(event));
+      if (tool) {
+        event.preventDefault();
+        tool.onClick ? tool.onClick() : latest.current.select(tool.mode);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 };

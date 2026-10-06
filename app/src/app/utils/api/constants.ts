@@ -20,3 +20,8 @@ export const TURNSTILE_SESSION_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SESS
 
 /** MapTiler API key for basemaps (Streets/Satellite) and geocoding. */
 export const MAPTILER_API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY ?? '';
+
+/** Browser-facing CMS origin (Wagtail admin + the extract-token endpoint). */
+export const CMS_PUBLIC_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:8001';
+/** The data-extract service (separate repo: districtr-extract). */
+export const EXTRACT_URL = process.env.NEXT_PUBLIC_EXTRACT_URL || 'http://localhost:8002';

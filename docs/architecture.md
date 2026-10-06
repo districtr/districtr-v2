@@ -185,6 +185,10 @@ ECS Fargate services (backend, frontend, CMS) behind an ALB, RDS PostGIS, images
 - `test-cms.yml` - CMS tests on `cms/` changes
 - `test-app.yml` - frontend unit tests (`bun run test`) on `app/` changes
 
+### Data extract (separate service)
+
+CMS users in the `data_user` group (or admins) open `/extract` on the app, paint units or lasso shapes (selection by centroid, re-derived from the shapes when switching between parent and child units), and download the source GeoPackage rows for the selection as GeoPackage, Shapefile, GeoJSON or CSV. The page fetches a 15-minute token from the CMS session (`GET /api/extract-token/`, `aud=districtr:extract`, scope `create:extract`, which the FastAPI backend rejects) and calls the `districtr-extract` service: a Lambda in its own repo that reads `s3://…/gerrydb/{layer}.gpkg` through an ETag-keyed GeoParquet cache with DuckDB and returns a link that works for 24 hours. The FastAPI backend and Postgres are not involved.
+
 ## Key Architectural Decisions
 
 Dated, PR-anchored history: [`decisions.md`](decisions.md).
