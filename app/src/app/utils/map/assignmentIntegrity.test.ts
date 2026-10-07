@@ -1,10 +1,11 @@
 import {beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
 import {
-  buildRepairPlan,
   checkAssignments,
-  findMissingBlocks,
-  findParentAssignments,
+  districtSnapshot,
+  findAssignmentIssues,
+  findNewIssueIds,
   hasIssues,
+  planRepair,
   repairAssignments,
   suggestParentAssignmentChoice,
 } from './assignmentIntegrity';
@@ -25,7 +26,7 @@ const doc = {document_id: 'd1', districtr_map_slug: 'm', access: 'edit', updated
 // Stores are singletons; repair tests swap in a stub save, so restore the real ones.
 const realDistrictSave = useAssignmentsStore.getState().handlePutAssignments;
 const realCoiSave = useCoiAssignmentsStore.getState().handlePutAssignments;
-const noIssues = {documentId: 'd1', parentAssignments: [], missingBlocks: new Map(), unmatched: []};
+const noIssues = {parentAssignments: [], missingBlocks: new Map(), unmatched: [], unverified: []};
 
 // vtd:A and vtd:B are broken up and both still saved whole; ghost has no demography row.
 const districtState = () => ({
@@ -46,13 +47,21 @@ const districtState = () => ({
     ['b1', 'vtd:B'],
   ]),
 });
+// The backend says vtd:A also has a2, which the map never saved.
+const blocksByParent = new Map([
+  ['vtd:A', ['a1', 'a2']],
+  ['vtd:B', ['b1']],
+]);
+// What a check of districtState() (with ghost unmatched) shows the user.
 const repairIssues = {
   documentId: 'd1',
   parentAssignments: ['vtd:A', 'vtd:B'],
   missingBlocks: new Map([['vtd:A', ['a2']]]),
   unmatched: ['ghost'],
   unverified: [],
+  blocksByParent,
 };
+const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
 
 beforeEach(() => {
   edgesMock.mockReset();
@@ -61,36 +70,55 @@ beforeEach(() => {
   useAssignmentsStore.setState({handlePutAssignments: realDistrictSave});
   useCoiAssignmentsStore.setState({handlePutAssignments: realCoiSave});
   useMapControlsStore.setState({mapMode: 'districts'} as any);
-  useAssignmentRepairStore.setState({issues: null, open: false, dismissedFor: null, choices: {}});
+  useAssignmentRepairStore.setState({
+    issues: null,
+    open: false,
+    dismissedFor: null,
+    choices: {},
+    newIds: [],
+  });
   demographyService.unmatchedPaths = [];
   spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
   spyOn(idb, 'updateIdbCoiAssignments').mockImplementation(() => {});
   spyOn(demographyService, 'updatePopulations').mockImplementation(() => true);
 });
 
-describe('pure checks', () => {
-  test('flags broken-up units that still have their own assignment', () => {
-    const assigned = new Set(['vtd:A', 'a1', 'vtd:C']);
-    expect(findParentAssignments(new Set(['vtd:A', 'vtd:B']), id => assigned.has(id))).toEqual([
+describe('findAssignmentIssues', () => {
+  test('the local pass finds whole-unit assignments and unmatched units', () => {
+    const found = findAssignmentIssues(districtSnapshot(districtState()), [
+      'ghost',
+      'vtd:A', // broken up, so reported as a whole-unit assignment instead
+      'gone', // no longer assigned
+    ]);
+    expect(found).toEqual({
+      parentAssignments: ['vtd:A', 'vtd:B'],
+      unmatched: ['ghost'],
+      missingBlocks: new Map(),
+      unverified: [],
+    });
+  });
+
+  test('a null-zone whole-unit assignment still counts', () => {
+    const st = districtState();
+    st.zoneAssignments.set('vtd:A', null);
+    expect(findAssignmentIssues(districtSnapshot(st), []).parentAssignments).toEqual([
       'vtd:A',
+      'vtd:B',
     ]);
   });
 
-  test('reports blocks missing per unit, and units with no edges as unverified', () => {
-    const edges = [
-      {parent_path: 'vtd:A', child_path: 'a1'},
-      {parent_path: 'vtd:A', child_path: 'a2'},
-      {parent_path: 'vtd:B', child_path: 'b1'},
-    ];
-    const {missingBlocks, unverified} = findMissingBlocks(
-      ['vtd:A', 'vtd:B', 'vtd:C'],
-      edges,
-      new Set(['a1', 'b1'])
+  test('with blocks, reports missing ones and units with none listed as unverified', () => {
+    const found = findAssignmentIssues(
+      districtSnapshot(districtState()),
+      [],
+      new Map([['vtd:A', ['a1', 'a2']]])
     );
-    expect([...missingBlocks]).toEqual([['vtd:A', ['a2']]]);
-    expect(unverified).toEqual(['vtd:C']);
+    expect([...found.missingBlocks]).toEqual([['vtd:A', ['a2']]]);
+    expect(found.unverified).toEqual(['vtd:B']);
   });
+});
 
+describe('pure helpers', () => {
   test('suggests keeping blocks only when some block carries an assignment', () => {
     const assigned = new Set(['a2']);
     const hasZone = (id: string) => assigned.has(id);
@@ -100,20 +128,31 @@ describe('pure checks', () => {
 
   test('hasIssues counts each kind of finding', () => {
     expect(hasIssues({...noIssues, unverified: ['vtd:A']})).toBe(false);
-    expect(hasIssues({...noIssues, unverified: [], parentAssignments: ['vtd:A']})).toBe(true);
-    expect(hasIssues({...noIssues, unverified: [], unmatched: ['x']})).toBe(true);
-    expect(hasIssues({...noIssues, unverified: [], missingBlocks: new Map([['p', ['b']]])})).toBe(
-      true
+    expect(hasIssues({...noIssues, parentAssignments: ['vtd:A']})).toBe(true);
+    expect(hasIssues({...noIssues, unmatched: ['x']})).toBe(true);
+    expect(hasIssues({...noIssues, missingBlocks: new Map([['p', ['b']]])})).toBe(true);
+  });
+
+  test('planRepair follows each choice; a unit made whole needs no missing blocks', () => {
+    expect(planRepair(repairIssues, choices)).toEqual({
+      keepWhole: ['vtd:B'],
+      dropAssignments: ['vtd:A', 'ghost'],
+      addBlocks: new Map([['vtd:A', ['a2']]]),
+    });
+    expect(planRepair(repairIssues, {'vtd:A': 'whole', 'vtd:B': 'whole'}).addBlocks).toEqual(
+      new Map()
     );
   });
 
-  test('a plan built against already-repaired state changes nothing', () => {
-    const plan = buildRepairPlan(
-      repairIssues,
-      {'vtd:A': 'blocks', 'vtd:B': 'whole'},
-      {isBroken: id => id === 'vtd:A', hasAssignment: () => false, isChild: () => true}
-    );
-    expect(plan).toEqual({keepWhole: [], dropAssignments: [], addBlocks: new Map()});
+  test('only issues the user has not seen are new; resolved ones are not', () => {
+    const current = {
+      ...noIssues,
+      parentAssignments: ['vtd:A', 'vtd:C'],
+      missingBlocks: new Map([['vtd:A', ['a2', 'a3']]]),
+      unmatched: ['ghost', 'ghost2'],
+    };
+    expect(findNewIssueIds(current, repairIssues)).toEqual(['vtd:C', 'ghost2', 'vtd:A']);
+    expect(findNewIssueIds({...noIssues, parentAssignments: ['vtd:A']}, repairIssues)).toEqual([]);
   });
 });
 
@@ -121,10 +160,8 @@ describe('repairAssignments', () => {
   test('districts: blocks drops the whole assignment and fills missing blocks; whole un-breaks', async () => {
     const save = mock(async () => ({ok: true}));
     useAssignmentsStore.setState({...districtState(), handlePutAssignments: save} as any);
-    useAssignmentRepairStore.setState({
-      issues: repairIssues,
-      choices: {'vtd:A': 'blocks', 'vtd:B': 'whole'},
-    });
+    demographyService.unmatchedPaths = ['ghost'];
+    useAssignmentRepairStore.setState({issues: repairIssues, choices});
     await repairAssignments();
     const s = useAssignmentsStore.getState();
     // a2 takes vtd:A's zone, read before vtd:A's own assignment is dropped.
@@ -141,17 +178,14 @@ describe('repairAssignments', () => {
     useMapControlsStore.setState({mapMode: 'coi'} as any);
     const save = mock(async () => ({ok: true}));
     useCoiAssignmentsStore.setState({
+      ...districtState(),
       communityAssignments: new Map([
         [1, new Set(['vtd:A', 'a1'])],
         [2, new Set(['vtd:B', 'b1'])],
       ]),
-      ...districtState(),
       handlePutAssignments: save,
     } as any);
-    useAssignmentRepairStore.setState({
-      issues: {...repairIssues, unmatched: []},
-      choices: {'vtd:A': 'blocks', 'vtd:B': 'whole'},
-    });
+    useAssignmentRepairStore.setState({issues: {...repairIssues, unmatched: []}, choices});
     await repairAssignments();
     const s = useCoiAssignmentsStore.getState();
     expect([...s.communityAssignments.get(1)!].sort()).toEqual(['a1', 'a2']);
@@ -159,13 +193,33 @@ describe('repairAssignments', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  test('a unit the user never saw is re-raised, and nothing is applied', async () => {
+    const save = mock(async () => ({ok: true}));
+    const st = districtState();
+    // vtd:C was broken up and saved whole after the user opened the modal.
+    st.zoneAssignments.set('vtd:C', 4).set('c1', 4);
+    st.shatterIds.parents.add('vtd:C');
+    st.shatterIds.children.add('c1');
+    st.parentToChild.set('vtd:C', new Set(['c1']));
+    st.childToParent.set('c1', 'vtd:C');
+    useAssignmentsStore.setState({...st, handlePutAssignments: save} as any);
+    demographyService.unmatchedPaths = ['ghost'];
+    useAssignmentRepairStore.setState({issues: repairIssues, choices});
+    await repairAssignments();
+    expect(useAssignmentsStore.getState().zoneAssignments.get('vtd:A')).toBe(1);
+    expect(save).not.toHaveBeenCalled();
+    const r = useAssignmentRepairStore.getState();
+    expect(r.open).toBe(true);
+    expect(r.newIds).toEqual(['vtd:C']);
+    expect(r.issues?.parentAssignments).toEqual(['vtd:A', 'vtd:B', 'vtd:C']);
+    // Earlier picks stay; the new unit's block has a zone, so it suggests blocks.
+    expect(r.choices).toEqual({...choices, 'vtd:C': 'blocks'});
+  });
+
   test('issues from another document are ignored', async () => {
     const save = mock(async () => ({ok: true}));
     useAssignmentsStore.setState({...districtState(), handlePutAssignments: save} as any);
-    useAssignmentRepairStore.setState({
-      issues: {...repairIssues, documentId: 'other'},
-      choices: {'vtd:A': 'blocks', 'vtd:B': 'whole'},
-    });
+    useAssignmentRepairStore.setState({issues: {...repairIssues, documentId: 'other'}, choices});
     await repairAssignments();
     expect(useAssignmentsStore.getState().zoneAssignments.has('vtd:A')).toBe(true);
     expect(save).not.toHaveBeenCalled();
@@ -173,10 +227,14 @@ describe('repairAssignments', () => {
 
   test('the store re-checks issues against its own state, so a repeat is a no-op', () => {
     useAssignmentsStore.setState(districtState() as any);
-    const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
-    useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices);
+    demographyService.unmatchedPaths = ['ghost'];
+    expect(useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices)).toEqual({
+      applied: true,
+    });
     const once = Object.fromEntries(useAssignmentsStore.getState().zoneAssignments);
-    useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices);
+    expect(useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices)).toEqual({
+      applied: true,
+    });
     expect(Object.fromEntries(useAssignmentsStore.getState().zoneAssignments)).toEqual(once);
   });
 });

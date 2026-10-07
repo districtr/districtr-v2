@@ -1,6 +1,7 @@
 'use client';
 import {useState, type ReactNode} from 'react';
 import {
+  Badge,
   Button,
   Callout,
   Dialog,
@@ -97,6 +98,14 @@ const ZoomButton = ({geoIds, layers}: {geoIds: string[]; layers: string[]}) => {
   );
 };
 
+/** Marks a unit a repair attempt found after the user had already reviewed the list. */
+const NewBadge = ({show}: {show: boolean}) =>
+  show ? (
+    <Badge size="1" color="amber" variant="soft">
+      New
+    </Badge>
+  ) : null;
+
 const Section = ({
   title,
   detail,
@@ -131,12 +140,14 @@ export const RepairAssignmentsModal = () => {
   const issues = useCurrentRepairIssues();
   const open = useAssignmentRepairStore(state => state.open);
   const choices = useAssignmentRepairStore(state => state.choices);
+  const newIds = useAssignmentRepairStore(state => state.newIds);
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const [repairing, setRepairing] = useState(false);
   if (!issues || !mapDocument) return null;
 
   const label = MAP_MODE_LABELS[mapMode];
+  const newSet = new Set(newIds);
   const isCoi = mapMode === MAP_MODES.COI;
   const parentLayers = [mapDocument.parent_layer].filter((l): l is string => !!l);
   const anyLayers = [mapDocument.parent_layer, mapDocument.child_layer].filter(
@@ -196,6 +207,14 @@ export const RepairAssignmentsModal = () => {
           Until you fix the units below, population totals won&apos;t show and the map won&apos;t
           save.
         </Dialog.Description>
+        {newIds.length > 0 && (
+          <Callout.Root color="amber" size="1" mb="3">
+            <Callout.Text>
+              The map changed after this list opened, so nothing was fixed yet. Check the units
+              marked New, then fix and save again.
+            </Callout.Text>
+          </Callout.Root>
+        )}
         <Flex direction="column" gap="4">
           {issues.parentAssignments.length > 0 && (
             <Section
@@ -218,7 +237,7 @@ export const RepairAssignmentsModal = () => {
                 <Flex key={parent} align="center" justify="between" gap="3">
                   <Flex direction="column">
                     <Text size="1" weight="medium">
-                      {parent}
+                      {parent} <NewBadge show={newSet.has(parent)} />
                     </Text>
                     <Text size="1" color="gray">
                       Whole: {describe([parent])} · Blocks:{' '}
@@ -251,7 +270,8 @@ export const RepairAssignmentsModal = () => {
                 .map(([parent, blocks]) => (
                   <Flex key={parent} align="center" justify="between" gap="3">
                     <Text size="1">
-                      {parent}: {plural(blocks.length, 'block', 'blocks')}
+                      {parent}: {plural(blocks.length, 'block', 'blocks')}{' '}
+                      <NewBadge show={newSet.has(parent)} />
                     </Text>
                     <ZoomButton geoIds={[parent]} layers={parentLayers} />
                   </Flex>
@@ -271,7 +291,7 @@ export const RepairAssignmentsModal = () => {
               {issues.unmatched.slice(0, MAX_LISTED).map(id => (
                 <Flex key={id} align="center" justify="between" gap="3">
                   <Text size="1">
-                    {id}: {describe([id])}
+                    {id}: {describe([id])} <NewBadge show={newSet.has(id)} />
                   </Text>
                   <ZoomButton geoIds={[id]} layers={anyLayers} />
                 </Flex>

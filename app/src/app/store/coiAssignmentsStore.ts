@@ -35,8 +35,19 @@ import {editPath} from '../utils/map/editUrl';
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
-import type {AssignmentIssues, ParentAssignmentChoice} from './assignmentRepairStore';
-import {buildRepairPlan, checkAssignments} from '../utils/map/assignmentIntegrity';
+import type {
+  AssignmentIssues,
+  AssignmentRepairResult,
+  ParentAssignmentChoice,
+} from './assignmentRepairStore';
+import {
+  checkAssignments,
+  communitySnapshot,
+  findAssignmentIssues,
+  findNewIssueIds,
+  planRepair,
+} from '../utils/map/assignmentIntegrity';
+import {demographyService} from '../utils/demography/demographyService';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -132,9 +143,9 @@ export interface CoiAssignmentsStore {
 
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
   applyAssignmentRepair: (
-    issues: AssignmentIssues,
+    seen: AssignmentIssues,
     choices: Record<string, ParentAssignmentChoice>
-  ) => void;
+  ) => AssignmentRepairResult;
 
   /** Ingests COI assignments and shatter state from document payload. */
   ingestFromDocument: (
@@ -1287,16 +1298,19 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
-  applyAssignmentRepair: (issues, choices) => {
+  applyAssignmentRepair: (seen, choices) => {
     const state = get();
-    // Plan against the same snapshot it's applied to, so what's checked and what's
-    // changed can't drift apart.
-    const {keepWhole, dropAssignments, addBlocks} = buildRepairPlan(issues, choices, {
-      isBroken: id => state.shatterIds.parents.has(id),
-      hasAssignment: id =>
-        getCommunitiesForGeoidFromAssignments(state.communityAssignments, id).size > 0,
-      isChild: id => state.shatterIds.children.has(id),
-    });
+    // Re-run the check against the exact state about to change, so what's checked
+    // and what's changed can't drift apart. Anything the user hasn't seen goes back
+    // to them rather than being applied.
+    const current = findAssignmentIssues(
+      communitySnapshot(state),
+      demographyService.unmatchedPaths,
+      seen.blocksByParent
+    );
+    const newIds = findNewIssueIds(current, seen);
+    if (newIds.length) return {applied: false, current, newIds};
+    const {keepWhole, dropAssignments, addBlocks} = planRepair(current, choices);
     const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
     const shatterIds = {
       parents: new Set(state.shatterIds.parents),
@@ -1346,6 +1360,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     if (mapDocument) {
       idb.updateIdbCoiAssignments(mapDocument, communityAssignments, clientLastUpdated, true);
     }
+    return {applied: true};
   },
 
   resetCommunityAssignments: () => {

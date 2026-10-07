@@ -1,8 +1,7 @@
 import {create} from 'zustand';
 
-export type AssignmentIssues = {
-  /** Document the check ran against; the modal only shows for this document. */
-  documentId: string;
+/** What's wrong with a map's assignments, as found by findAssignmentIssues. */
+export type FoundIssues = {
   /** Broken-up units that still have their own assignment. */
   parentAssignments: string[];
   /** Broken-up unit -> blocks the backend says it contains that the map never saved. */
@@ -11,6 +10,17 @@ export type AssignmentIssues = {
   unmatched: string[];
   /** Broken-up units whose blocks couldn't be checked (no edges came back). */
   unverified: string[];
+};
+
+export type AssignmentIssues = FoundIssues & {
+  /** Document the check ran against; the modal only shows for this document. */
+  documentId: string;
+  /**
+   * Each broken-up unit's blocks, fetched from the backend for the check. A unit's
+   * blocks are fixed for a given map, so the repair re-checks against these
+   * instead of fetching again.
+   */
+  blocksByParent: Map<string, string[]>;
 };
 
 /**
@@ -29,6 +39,14 @@ export type AssignmentRepairPlan = {
   addBlocks: Map<string, string[]>;
 };
 
+/**
+ * What a store's applyAssignmentRepair did. When its re-check finds issues the user
+ * hasn't seen, it applies nothing and hands back the current issues to show them.
+ */
+export type AssignmentRepairResult =
+  | {applied: true}
+  | {applied: false; current: FoundIssues; newIds: string[]};
+
 export const useAssignmentRepairStore = create<{
   issues: AssignmentIssues | null;
   open: boolean;
@@ -36,4 +54,6 @@ export const useAssignmentRepairStore = create<{
   dismissedFor: string | null;
   /** The user's pick per entry in issues.parentAssignments. */
   choices: Record<string, ParentAssignmentChoice>;
-}>(() => ({issues: null, open: false, dismissedFor: null, choices: {}}));
+  /** Units a repair attempt found that the user hadn't seen; the modal marks them New. */
+  newIds: string[];
+}>(() => ({issues: null, open: false, dismissedFor: null, choices: {}, newIds: []}));

@@ -27,8 +27,18 @@ import {
 } from './errors';
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
-import type {AssignmentIssues, ParentAssignmentChoice} from './assignmentRepairStore';
-import {buildRepairPlan, checkAssignments} from '../utils/map/assignmentIntegrity';
+import type {
+  AssignmentIssues,
+  AssignmentRepairResult,
+  ParentAssignmentChoice,
+} from './assignmentRepairStore';
+import {
+  checkAssignments,
+  districtSnapshot,
+  findAssignmentIssues,
+  findNewIssueIds,
+  planRepair,
+} from '../utils/map/assignmentIntegrity';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 import {MAP_MODES} from '@constants/map/mode';
@@ -139,9 +149,9 @@ export interface AssignmentsStore {
   removeAssignmentsForZonesAbove: (maxZone: number) => void;
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
   applyAssignmentRepair: (
-    issues: AssignmentIssues,
+    seen: AssignmentIssues,
     choices: Record<string, ParentAssignmentChoice>
-  ) => void;
+  ) => AssignmentRepairResult;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -762,15 +772,19 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  applyAssignmentRepair: (issues, choices) => {
+  applyAssignmentRepair: (seen, choices) => {
     const state = get();
-    // Plan against the same snapshot it's applied to, so what's checked and what's
-    // changed can't drift apart.
-    const {keepWhole, dropAssignments, addBlocks} = buildRepairPlan(issues, choices, {
-      isBroken: id => state.shatterIds.parents.has(id),
-      hasAssignment: id => state.zoneAssignments.has(id),
-      isChild: id => state.shatterIds.children.has(id),
-    });
+    // Re-run the check against the exact state about to change, so what's checked
+    // and what's changed can't drift apart. Anything the user hasn't seen goes back
+    // to them rather than being applied.
+    const current = findAssignmentIssues(
+      districtSnapshot(state),
+      demographyService.unmatchedPaths,
+      seen.blocksByParent
+    );
+    const newIds = findNewIssueIds(current, seen);
+    if (newIds.length) return {applied: false, current, newIds};
+    const {keepWhole, dropAssignments, addBlocks} = planRepair(current, choices);
     const {zoneAssignments, shatterIds, parentToChild, childToParent} =
       cloneTemporalSnapshot(state);
     addBlocks.forEach((blocks, parent) => {
@@ -815,6 +829,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // After set: this reads shatter state from the store to tag parent_path.
     if (mapDocument)
       idb.updateIdbAssignments(mapDocument, zoneAssignments, clientLastUpdated, true);
+    return {applied: true};
   },
 
   removeAssignmentsForZonesAbove: maxZone => {
