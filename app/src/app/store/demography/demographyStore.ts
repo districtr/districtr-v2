@@ -245,8 +245,11 @@ export var useDemographyStore = create(
             mapDocument.map_type === MAP_TYPES.COMMUNITY
               ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
               : useAssignmentsStore.getState().zoneAssignments.size > 0;
+          // Documents saved without statefps come back with it null; reading .length
+          // off that threw here and skipped the assignment check below.
           const isConnecticut =
-            mapDocument.statefps.length === 1 && mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
+            mapDocument.statefps?.length === 1 &&
+            mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
           const paintByCounty =
             !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
           useMapControlsStore.getState().setMapOptions({paintByCounty});
