@@ -2,11 +2,18 @@ import React, {useState, useRef, useEffect} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOverlay';
+import {queryClient} from '@utils/api/queryClient';
+import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
 
-// Hard cap so the overlay can never get stuck if a load signal never arrives.
-// Matches the backend's ceiling (ALB idle + statement_timeout, 120s): a cold
-// stats dissolve can legitimately run well past 15s.
-const MAX_TRANSITION_MS = 120_000;
+// Hard cap so the overlay can never get stuck if a load signal never arrives
+// (some views, e.g. COI display, never send one).
+const MAX_TRANSITION_MS = 15000;
+// A cold stats dissolve or evaluation can run to the backend's 120s ceiling
+// (ALB idle timeout); keep covering while one of those requests is in flight.
+const MAX_IN_FLIGHT_MS = 120_000;
+const isViewDataFetching = () =>
+  queryClient.isFetching({queryKey: [PUBLIC_SOURCE_ID]}) > 0 ||
+  queryClient.isFetching({queryKey: ['evaluation']}) > 0;
 
 /**
  * Drives the view transition overlay. Animates the evaluate step sequence and clears
@@ -38,7 +45,14 @@ export const useViewTransition = () => {
     const isEval = viewTransition === 'evaluate';
     const minMs = isEval ? EVAL_TRANSITION_STEPS.length * EVAL_STEP_DURATION_MS : 0;
     const minTimer = setTimeout(() => setMinElapsed(true), minMs);
-    const maxTimer = setTimeout(() => setViewTransition(null), MAX_TRANSITION_MS);
+    let maxTimer = setTimeout(() => {
+      // The request's own settle clears the overlay; this only bounds a hang.
+      if (isViewDataFetching()) {
+        maxTimer = setTimeout(() => setViewTransition(null), MAX_IN_FLIGHT_MS - MAX_TRANSITION_MS);
+      } else {
+        setViewTransition(null);
+      }
+    }, MAX_TRANSITION_MS);
     const stepTimer = isEval
       ? setInterval(
           () => setStep(prev => Math.min(prev + 1, EVAL_TRANSITION_STEPS.length - 1)),

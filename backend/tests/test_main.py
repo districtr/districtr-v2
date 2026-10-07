@@ -1563,11 +1563,10 @@ def test_get_district_unions(client, document_id_total_vap):
     assert len(features) == 2
 
 
-def test_district_unions_lock_loser_outwaits_lock_timeout(
-    client, session, engine, document_id_total_vap
-):
-    """A cold /stats that loses the rebuild-lock race polls until the winner
-    releases, instead of 504ing on the pool-wide lock_timeout."""
+@pytest.fixture
+def stats_lock_winner(client, engine, document_id_total_vap, monkeypatch):
+    """A cold document plus a stand-in winner holding its rebuild lock."""
+    monkeypatch.setattr("app.utils.STATS_LOCK_POLL_SECONDS", 0.05)
     response = client.put(
         "/api/assignments",
         json={
@@ -1578,18 +1577,36 @@ def test_district_unions_lock_loser_outwaits_lock_timeout(
     )
     assert response.status_code == 200
     public_id = client.get(f"/api/document/{document_id_total_vap}").json()["public_id"]
-
-    # Stand-in winner mid-union: hold the lock past the loser's lock_timeout.
     winner = engine.connect()
     winner.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": public_id})
-    threading.Timer(0.5, winner.close).start()
+    yield winner
+    winner.close()
+
+
+def test_district_unions_lock_loser_waits_for_winner(
+    client, session, document_id_total_vap, stats_lock_winner
+):
+    """A cold /stats that loses the rebuild-lock race polls until the winner
+    releases, instead of 504ing on the pool-wide lock_timeout."""
+    threading.Timer(0.5, stats_lock_winner.close).start()
     # A blocking pg_advisory_xact_lock would 504 on this.
     session.execute(text("SET LOCAL lock_timeout = '100ms'"))
 
     start = time.monotonic()
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
-    assert time.monotonic() - start >= 0.5, "loser skipped the lock"
+    # Ten polls' worth: a loser that gave up early would answer well before.
+    assert time.monotonic() - start >= 0.5, "loser didn't wait for the winner"
+    assert len(response.json()["features"]) == 2  # zone 1 + unassigned
+
+
+def test_district_unions_lock_loser_gives_up_at_deadline(
+    client, document_id_total_vap, stats_lock_winner, monkeypatch
+):
+    """Past the deadline the loser 504s rather than start a duplicate union."""
+    monkeypatch.setattr("app.utils.STATS_LOCK_WAIT_SECONDS", 0.2)
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 504
 
 
 def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):

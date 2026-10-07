@@ -10,7 +10,7 @@ from time import monotonic, sleep
 from uuid import uuid4
 from typing import Callable, NewType
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
@@ -35,8 +35,11 @@ metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Same budget as the evaluation lock (evaluation/main.py): statement_timeout
-# caps a live winner's union at 120s.
+# Loser budget for the district-stats rebuild lock. Matches the ALB idle
+# timeout (infra/alb.ts): past it the HTTP client has already been 504'd, so a
+# loser gives up rather than start a duplicate union on the shared DB. A live
+# winner can hold the lock longer (a timed-out ST_CoverageUnion falls back to
+# ST_UnaryUnion, each capped by statement_timeout).
 STATS_LOCK_POLL_SECONDS = 1.0
 STATS_LOCK_WAIT_SECONDS = 120.0
 
@@ -736,19 +739,16 @@ def update_or_select_district_stats(
                 {"key": doc_row.public_id},
             ).scalar_one():
                 # End the transaction so the pool reclaims our connection
-                # while we sleep. Every caller reaches here with no pending
-                # writes, so the rollback only discards reads.
+                # while we sleep. No caller has pending writes here; the
+                # rollback discards reads and, for /evaluation, the caller's
+                # own xact-scoped lock (evaluation/main.py).
                 session.rollback()
                 sleep(STATS_LOCK_POLL_SECONDS)
                 if monotonic() >= deadline:
-                    # Winner is wedged; rebuild without the lock — ON CONFLICT
-                    # DO NOTHING tolerates the race.
-                    logger.warning(
-                        "district stats lock wait timed out for %s; "
-                        "rebuilding without it",
-                        document_id,
+                    raise HTTPException(
+                        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                        detail="District stats are still being computed; retry shortly",
                     )
-                    break
             post_lock_rows = (
                 session.execute(
                     text(
