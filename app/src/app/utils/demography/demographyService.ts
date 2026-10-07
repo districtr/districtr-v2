@@ -104,6 +104,13 @@ const getActivePopulationAssignments = (): PopulationAssignments => {
 /**
  * Class to organize queries on current demographic data
  */
+/**
+ * Key for a demography load: the broken-up units whose blocks it includes, plus the
+ * document. demographyStore builds loads from it; isLoadedFor compares against it.
+ */
+export const demographyDataHash = (brokenIds: Iterable<string>, documentId?: string) =>
+  `${Array.from(brokenIds).join(',')}|${documentId}`;
+
 class DemographyService {
   /**
    * Arquero main data table.
@@ -189,6 +196,14 @@ class DemographyService {
   clearUnmatched(ids: string[]): void {
     const repaired = new Set(ids);
     this.unmatchedPaths = this.unmatchedPaths.filter(id => !repaired.has(id));
+  }
+
+  /**
+   * Whether the loaded table (and so unmatchedPaths) is for these broken-up units on
+   * this document. After a shatter or heal it isn't until the reload lands.
+   */
+  isLoadedFor(brokenIds: Iterable<string>, documentId: string): boolean {
+    return this.hash === demographyDataHash(brokenIds, documentId);
   }
 
   /**

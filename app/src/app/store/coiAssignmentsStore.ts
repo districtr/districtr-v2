@@ -1300,6 +1300,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
   applyAssignmentRepair: (seen, choices) => {
     const state = get();
+    // Unmatched units come from the last population-data load. Until it catches up
+    // with a shatter or heal they may be stale, and acting on them could delete
+    // assignments that are now valid, so refuse until then.
+    if (!demographyService.isLoadedFor(state.shatterIds.parents, seen.documentId)) {
+      return {applied: false, reason: 'loading'};
+    }
     // Re-run the check against the exact state about to change, so what's checked
     // and what's changed can't drift apart. Anything the user hasn't seen goes back
     // to them rather than being applied.
@@ -1309,7 +1315,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       seen.blocksByParent
     );
     const newIds = findNewIssueIds(current, seen);
-    if (newIds.length) return {applied: false, current, newIds};
+    if (newIds.length) return {applied: false, reason: 'changed', current, newIds};
     const {keepWhole, dropAssignments, addBlocks} = planRepair(current, choices);
     const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
     const shatterIds = {

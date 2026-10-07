@@ -141,6 +141,7 @@ export const RepairAssignmentsModal = () => {
   const open = useAssignmentRepairStore(state => state.open);
   const choices = useAssignmentRepairStore(state => state.choices);
   const newIds = useAssignmentRepairStore(state => state.newIds);
+  const populationUpdating = useAssignmentRepairStore(state => state.populationUpdating);
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const [repairing, setRepairing] = useState(false);
@@ -207,7 +208,15 @@ export const RepairAssignmentsModal = () => {
           Until you fix the units below, population totals won&apos;t show and the map won&apos;t
           save.
         </Dialog.Description>
-        {newIds.length > 0 && (
+        {populationUpdating && (
+          <Callout.Root color="amber" size="1" mb="3">
+            <Callout.Text>
+              Population data is still updating after your last change, so nothing was fixed yet.
+              Try again in a moment.
+            </Callout.Text>
+          </Callout.Root>
+        )}
+        {!populationUpdating && newIds.length > 0 && (
           <Callout.Root color="amber" size="1" mb="3">
             <Callout.Text>
               The map changed after this list opened, so nothing was fixed yet. Check the units

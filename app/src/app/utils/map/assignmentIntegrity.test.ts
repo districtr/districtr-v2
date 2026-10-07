@@ -15,7 +15,7 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {idb} from '@/app/utils/idb/idb';
-import {demographyService} from '@/app/utils/demography/demographyService';
+import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 
 // mock.module updates already-imported bindings in place, so assignmentIntegrity's
 // getChildEdges import points at this mock.
@@ -62,6 +62,10 @@ const repairIssues = {
   blocksByParent,
 };
 const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
+// Marks population data as loaded for the store's current broken-up units on d1.
+const populationLoadedFor = (parents: Set<string>) => {
+  demographyService.hash = demographyDataHash(parents, 'd1');
+};
 
 beforeEach(() => {
   edgesMock.mockReset();
@@ -78,6 +82,7 @@ beforeEach(() => {
     newIds: [],
   });
   demographyService.unmatchedPaths = [];
+  demographyService.hash = '';
   spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
   spyOn(idb, 'updateIdbCoiAssignments').mockImplementation(() => {});
   spyOn(demographyService, 'updatePopulations').mockImplementation(() => true);
@@ -159,8 +164,10 @@ describe('pure helpers', () => {
 describe('repairAssignments', () => {
   test('districts: blocks drops the whole assignment and fills missing blocks; whole un-breaks', async () => {
     const save = mock(async () => ({ok: true}));
-    useAssignmentsStore.setState({...districtState(), handlePutAssignments: save} as any);
+    const st = districtState();
+    useAssignmentsStore.setState({...st, handlePutAssignments: save} as any);
     demographyService.unmatchedPaths = ['ghost'];
+    populationLoadedFor(st.shatterIds.parents);
     useAssignmentRepairStore.setState({issues: repairIssues, choices});
     await repairAssignments();
     const s = useAssignmentsStore.getState();
@@ -185,6 +192,7 @@ describe('repairAssignments', () => {
       ]),
       handlePutAssignments: save,
     } as any);
+    populationLoadedFor(useCoiAssignmentsStore.getState().shatterIds.parents);
     useAssignmentRepairStore.setState({issues: {...repairIssues, unmatched: []}, choices});
     await repairAssignments();
     const s = useCoiAssignmentsStore.getState();
@@ -204,6 +212,7 @@ describe('repairAssignments', () => {
     st.childToParent.set('c1', 'vtd:C');
     useAssignmentsStore.setState({...st, handlePutAssignments: save} as any);
     demographyService.unmatchedPaths = ['ghost'];
+    populationLoadedFor(st.shatterIds.parents);
     useAssignmentRepairStore.setState({issues: repairIssues, choices});
     await repairAssignments();
     expect(useAssignmentsStore.getState().zoneAssignments.get('vtd:A')).toBe(1);
@@ -214,6 +223,25 @@ describe('repairAssignments', () => {
     expect(r.issues?.parentAssignments).toEqual(['vtd:A', 'vtd:B', 'vtd:C']);
     // Earlier picks stay; the new unit's block has a zone, so it suggests blocks.
     expect(r.choices).toEqual({...choices, 'vtd:C': 'blocks'});
+  });
+
+  test('nothing is applied while population data lags the broken-up units', async () => {
+    const save = mock(async () => ({ok: true}));
+    const st = districtState();
+    useAssignmentsStore.setState({...st, handlePutAssignments: save} as any);
+    demographyService.unmatchedPaths = ['ghost'];
+    // The last load was for vtd:A only; vtd:B's shatter hasn't reloaded yet.
+    populationLoadedFor(new Set(['vtd:A']));
+    useAssignmentRepairStore.setState({issues: repairIssues, choices});
+    await repairAssignments();
+    expect(Object.fromEntries(useAssignmentsStore.getState().zoneAssignments)).toEqual(
+      Object.fromEntries(st.zoneAssignments)
+    );
+    expect(save).not.toHaveBeenCalled();
+    const r = useAssignmentRepairStore.getState();
+    expect(r.populationUpdating).toBe(true);
+    expect(r.open).toBe(true);
+    expect(r.issues).toEqual(repairIssues);
   });
 
   test('issues from another document are ignored', async () => {
@@ -228,10 +256,13 @@ describe('repairAssignments', () => {
   test('the store re-checks issues against its own state, so a repeat is a no-op', () => {
     useAssignmentsStore.setState(districtState() as any);
     demographyService.unmatchedPaths = ['ghost'];
+    populationLoadedFor(useAssignmentsStore.getState().shatterIds.parents);
     expect(useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices)).toEqual({
       applied: true,
     });
     const once = Object.fromEntries(useAssignmentsStore.getState().zoneAssignments);
+    // vtd:B is no longer broken up; the reload for that has landed.
+    populationLoadedFor(useAssignmentsStore.getState().shatterIds.parents);
     expect(useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices)).toEqual({
       applied: true,
     });

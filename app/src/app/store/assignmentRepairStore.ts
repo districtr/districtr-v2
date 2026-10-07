@@ -40,12 +40,14 @@ export type AssignmentRepairPlan = {
 };
 
 /**
- * What a store's applyAssignmentRepair did. When its re-check finds issues the user
- * hasn't seen, it applies nothing and hands back the current issues to show them.
+ * What a store's applyAssignmentRepair did. It applies nothing when population data
+ * hasn't caught up with the latest shatter or heal ('loading'), or when its re-check
+ * finds issues the user hasn't seen ('changed', with the current issues to show).
  */
 export type AssignmentRepairResult =
   | {applied: true}
-  | {applied: false; current: FoundIssues; newIds: string[]};
+  | {applied: false; reason: 'loading'}
+  | {applied: false; reason: 'changed'; current: FoundIssues; newIds: string[]};
 
 export const useAssignmentRepairStore = create<{
   issues: AssignmentIssues | null;
@@ -56,4 +58,13 @@ export const useAssignmentRepairStore = create<{
   choices: Record<string, ParentAssignmentChoice>;
   /** Units a repair attempt found that the user hadn't seen; the modal marks them New. */
   newIds: string[];
-}>(() => ({issues: null, open: false, dismissedFor: null, choices: {}, newIds: []}));
+  /** A repair was refused because population data was still loading. */
+  populationUpdating: boolean;
+}>(() => ({
+  issues: null,
+  open: false,
+  dismissedFor: null,
+  choices: {},
+  newIds: [],
+  populationUpdating: false,
+}));

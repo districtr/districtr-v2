@@ -179,7 +179,13 @@ const readActiveSnapshot = () =>
     : districtSnapshot(useAssignmentsStore.getState());
 
 const clearRepair = () =>
-  useAssignmentRepairStore.setState({issues: null, open: false, choices: {}, newIds: []});
+  useAssignmentRepairStore.setState({
+    issues: null,
+    open: false,
+    choices: {},
+    newIds: [],
+    populationUpdating: false,
+  });
 
 const EDGE_BATCH_SIZE = 100;
 
@@ -261,6 +267,7 @@ export const checkAssignments = async (
     issues: {...found, documentId: mapDocument.document_id, blocksByParent},
     choices: suggestChoices(found, snapshot, previous),
     newIds: [],
+    populationUpdating: false,
     // A dismissed background re-check leaves the modal as it is, so it can't close
     // one a blocked save just opened.
     open: quiet ? open || dismissedFor !== mapDocument.document_id : true,
@@ -270,9 +277,10 @@ export const checkAssignments = async (
 
 /**
  * Applies the user's choices through the active store's repair action, then saves
- * through the normal conflict-checked save. The store re-runs the check against its
- * own state first; if that finds anything the user hasn't seen, nothing is applied
- * and the modal shows the current list with the new units marked.
+ * through the normal conflict-checked save. Nothing is applied while population data
+ * is still catching up with a shatter or heal (the modal says so), or when the store's
+ * re-check of its own state finds anything the user hasn't seen (the modal shows the
+ * current list with the new units marked).
  */
 export const repairAssignments = async () => {
   const {issues, choices} = useAssignmentRepairStore.getState();
@@ -281,6 +289,11 @@ export const repairAssignments = async () => {
   ++checkSeq;
   const store = isCoiMode() ? useCoiAssignmentsStore : useAssignmentsStore;
   const result = store.getState().applyAssignmentRepair(issues, choices);
+  if (!result.applied && result.reason === 'loading') {
+    // The load check re-runs when the data lands and refreshes the list.
+    useAssignmentRepairStore.setState({populationUpdating: true, open: true});
+    return;
+  }
   if (!result.applied) {
     useAssignmentRepairStore.setState({
       issues: {...issues, ...result.current},

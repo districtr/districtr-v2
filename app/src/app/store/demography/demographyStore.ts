@@ -7,7 +7,7 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyService} from '@/app/utils/demography/demographyService';
+import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
@@ -60,7 +60,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = demographyDataHash(getActiveBrokenIds(), mapDocument?.document_id);
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -195,7 +195,7 @@ export var useDemographyStore = create(
       const {setNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
-      const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
+      const dataHash = demographyDataHash(brokenIds, mapDocument.document_id);
 
       // Bump before the early return: when the shatter state goes back to the
       // already-loaded one (shatter, then undo/exit before its load lands), the
