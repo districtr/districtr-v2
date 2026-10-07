@@ -77,8 +77,11 @@ export type CoiAssignmentsPayload = {
   childToParent: Map<string, string>;
 };
 
-/** autosave: a background save; it respects a dismissed repair prompt. */
-type SaveOptions = {silent?: boolean; autosave?: boolean};
+type SaveOptions = {
+  silent?: boolean;
+  /** A background save; stays quiet once the user has dismissed the repair modal. */
+  autosave?: boolean;
+};
 
 export interface CoiAssignmentsStore {
   /** Map of community id -> set of geoids (overlap allowed). */
@@ -871,9 +874,8 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       if (!id || !sourceLayer) return;
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
-      // Never assign a shattered parent: its children carry the communities, and a
-      // saved parent assignment breaks population loading. Paint functions should already
-      // filter these out; this catches any that don't (e.g. a stale feature cache).
+      // Never assign a shattered parent: its blocks carry the communities, and its own
+      // assignment breaks the population join. Backstop for paint functions that miss the filter.
       if (
         nextAccumulatedAssignments.has(id) ||
         shatterIds.parents.has(id) ||
@@ -1300,15 +1302,12 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
   applyAssignmentRepair: (seen, choices) => {
     const state = get();
-    // Unmatched units come from the last population-data load. Until it catches up
-    // with a shatter or heal they may be stale, and acting on them could delete
-    // assignments that are now valid, so refuse until then.
+    // Demography may lag a shatter or heal, and its stale unmatched ids could delete
+    // valid assignments, so refuse until it catches up.
     if (!demographyService.isLoadedFor(state.shatterIds.parents, seen.documentId)) {
       return {applied: false, reason: 'loading'};
     }
-    // Re-run the check against the exact state about to change, so what's checked
-    // and what's changed can't drift apart. Anything the user hasn't seen goes back
-    // to them rather than being applied.
+    // Re-check the state about to change; anything the user hasn't seen goes back to them.
     const current = findAssignmentIssues(
       communitySnapshot(state),
       demographyService.unmatchedPaths,
@@ -1358,8 +1357,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated,
     });
-    // Undo past a repair could only bring back the assignments it fixed, so start a
-    // fresh history rather than letting it be stepped back into.
+    // Clear undo history: undoing a repair could only bring the bad assignments back.
     useCoiAssignmentsStore.temporal.getState().clear();
     if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
     const {mapDocument} = useMapStore.getState();
@@ -1563,7 +1561,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
-      // The repair modal is open; saving now would persist the bad assignments.
+      // Blocked until the user repairs: saving now would persist the bad assignments.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }
 

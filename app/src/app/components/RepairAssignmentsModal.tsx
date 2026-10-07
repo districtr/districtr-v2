@@ -154,7 +154,8 @@ export const RepairAssignmentsModal = () => {
   const anyLayers = [mapDocument.parent_layer, mapDocument.child_layer].filter(
     (l): l is string => !!l
   );
-  // Read at render: the modal's lists are a snapshot of the check, not live state.
+  // The lists come from the check. Zone labels read the current store state at render,
+  // without a subscription.
   const {parentToChild} = isCoi
     ? useCoiAssignmentsStore.getState()
     : useAssignmentsStore.getState();

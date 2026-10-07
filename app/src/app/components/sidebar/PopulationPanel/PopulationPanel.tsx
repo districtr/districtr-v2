@@ -120,8 +120,7 @@ export const PopulationPanel = () => {
   // which demographyService bumps when this changes.
   const unmatchedPaths = demographyService.unmatchedPaths;
   if (unmatchedPaths.length && repairIssues) {
-    // The sidebar's RepairAssignmentsCallout is the alert (and the way into the
-    // fix); repeating it here would just be a second copy.
+    // The sidebar's RepairAssignmentsCallout is the one alert and the way into the fix.
     return (
       <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
         Population totals will show once you fix this map&apos;s assignments.

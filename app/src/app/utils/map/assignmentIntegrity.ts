@@ -53,7 +53,7 @@ export const communitySnapshot = ({
   return {shatterIds, parentToChild, hasAssignment: inAnyCommunity, hasZone: inAnyCommunity};
 };
 
-/** Groups the backend's parent/child edges into each broken-up unit's blocks. */
+/** Groups the backend's parent/child edges into each shattered parent's blocks. */
 export const groupBlocksByParent = (edges: ShatterResult) => {
   const blocksByParent = new Map<string, string[]>();
   edges.forEach(({parent_path, child_path}) => {
@@ -70,7 +70,7 @@ export const groupBlocksByParent = (edges: ShatterResult) => {
  * it's about to change) can't disagree about what's broken.
  *
  * Without `blocksByParent` this is the cheap local pass; with it, it also lists
- * blocks the backend says a broken-up unit has that the map doesn't. A unit with
+ * blocks the backend has for a shattered parent that the map doesn't. A parent with
  * no blocks listed can't be checked, so it's reported as unverified rather than as
  * missing every block.
  */
@@ -95,8 +95,7 @@ export const findAssignmentIssues = (
   }
   return {
     parentAssignments: Array.from(parents).filter(snapshot.hasAssignment),
-    // A broken-up unit is never in demography, so its own assignment is reported
-    // above rather than here.
+    // A shattered parent is never in demography; its own assignment is reported above.
     unmatched: unmatchedPaths.filter(id => !parents.has(id) && snapshot.hasAssignment(id)),
     missingBlocks,
     unverified,
@@ -109,9 +108,9 @@ export const hasIssues = (issues: FoundIssues) =>
   issues.unmatched.length > 0;
 
 /**
- * Units in `current` the user hasn't seen in `seen`: new whole-unit assignments,
- * new unmatched units, and units with newly missing blocks. A repair that finds any
- * re-raises them to the user instead of applying changes they didn't review.
+ * Ids in `current` the user hasn't seen in `seen`: new parent assignments, new
+ * unmatched ids, and parents with newly missing blocks. A repair that finds any
+ * re-raises them instead of applying changes the user didn't review.
  */
 export const findNewIssueIds = (current: FoundIssues, seen: FoundIssues) => {
   const seenParents = new Set(seen.parentAssignments);
@@ -128,16 +127,15 @@ export const findNewIssueIds = (current: FoundIssues, seen: FoundIssues) => {
 };
 
 /**
- * Suggested fix for a unit saved both ways: if any of its blocks carries an
- * assignment, the blocks hold real edits, so keep them; otherwise the whole-unit
- * assignment is the only one there is.
+ * Suggested fix for a parent saved both ways: keep the blocks if any of them carries an
+ * assignment (they hold real edits); otherwise the parent's own assignment is the only one.
  */
 export const suggestParentAssignmentChoice = (
   blocks: Iterable<string>,
   hasZone: (id: string) => boolean
 ): ParentAssignmentChoice => (Array.from(blocks).some(hasZone) ? 'blocks' : 'whole');
 
-/** A choice for every unit saved both ways: the user's earlier pick, else the suggestion. */
+/** A choice for every parent saved both ways: the user's earlier pick, else the suggestion. */
 export const suggestChoices = (
   issues: FoundIssues,
   snapshot: AssignmentSnapshot,
@@ -164,7 +162,7 @@ export const planRepair = (
       ...issues.parentAssignments.filter(parent => !keepWholeSet.has(parent)),
       ...issues.unmatched,
     ],
-    // A unit made whole again doesn't need its missing blocks back.
+    // A parent made whole again doesn't need its missing blocks back.
     addBlocks: new Map(
       Array.from(issues.missingBlocks).filter(([parent]) => !keepWholeSet.has(parent))
     ),
@@ -189,7 +187,7 @@ const clearRepair = () =>
 
 const EDGE_BATCH_SIZE = 100;
 
-/** Every broken-up unit's blocks from the backend; empty if the fetch fails. */
+/** Every shattered parent's blocks from the backend; empty if the fetch fails. */
 const fetchBlocksByParent = async (districtr_map_slug: string, parents: string[]) => {
   const edges: ShatterResult = [];
   try {
@@ -202,7 +200,7 @@ const fetchBlocksByParent = async (districtr_map_slug: string, parents: string[]
       );
     }
   } catch (error) {
-    // Leaves every unit unverified; the local findings still get reported.
+    // Leaves every parent unverified; the local findings still get reported.
     console.error('Failed to fetch block edges for the assignment check', error);
     return new Map<string, string[]>();
   }
@@ -214,13 +212,11 @@ const fetchBlocksByParent = async (districtr_map_slug: string, parents: string[]
 let checkSeq = 0;
 
 /**
- * Checks the open map for assignments that would corrupt its totals, and shows the
- * results. The detection itself is findAssignmentIssues; this adds the side effects:
- * the cheap local pass runs every time, and only when it finds something does this
- * fetch every broken-up unit's blocks, re-run the check with them, and open the
- * repair modal. Returns false when there's anything to repair. Background triggers
- * (`load`, `autosave`) stay quiet once the user has dismissed the modal for this
- * document: still false, but no modal and no refetch.
+ * Checks the open map for assignments that would corrupt its totals and shows what it
+ * finds. Runs the cheap local pass; only if that finds something, fetches every
+ * shattered parent's blocks, re-runs the check with them, and opens the repair modal.
+ * Returns false when anything needs fixing. Background triggers (`load`, `autosave`)
+ * stay quiet after "Not now": still false, but no modal and no refetch.
  */
 export const checkAssignments = async (
   trigger: 'load' | 'autosave' | 'save' | 'manual'
@@ -276,11 +272,13 @@ export const checkAssignments = async (
 };
 
 /**
- * Applies the user's choices through the active store's repair action, then saves
- * through the normal conflict-checked save. Nothing is applied while population data
- * is still catching up with a shatter or heal (the modal says so), or when the store's
- * re-check of its own state finds anything the user hasn't seen (the modal shows the
- * current list with the new units marked).
+ * Applies the user's choices through the active store's applyAssignmentRepair, then
+ * saves through the normal conflict-checked save. The store applies nothing:
+ * - while demography lags a shatter or heal, because its unmatched ids may be stale and
+ *   removing them could delete assignments that are now valid (the modal says so);
+ * - when its re-check of the state it's about to change finds anything the user hasn't
+ *   seen (the modal shows the current list with those marked New).
+ * A repair clears undo history, since undoing it could only bring the bad assignments back.
  */
 export const repairAssignments = async () => {
   const {issues, choices} = useAssignmentRepairStore.getState();
@@ -303,7 +301,7 @@ export const repairAssignments = async () => {
     });
     return;
   }
-  // These assignments were flagged against the old demography table; un-breaking a unit
+  // These were flagged against the old demography table; un-shattering a parent
   // re-fetches demography, which re-flags anything still wrong.
   demographyService.clearUnmatched([...issues.parentAssignments, ...issues.unmatched]);
   demographyService.updatePopulations({
@@ -316,10 +314,10 @@ export const repairAssignments = async () => {
 let cancelPendingZoom: (() => void) | null = null;
 
 /**
- * Zooms the map to the given units: from their centroids (the first layer whose
- * point data has them) to their rendered outlines, via the same snap-then-fly as
- * the validation panel. `onFound` runs just before the camera moves. Returns
- * false when none of the units are on this map.
+ * Zooms the map to the given geo ids: from their centroids (from the first layer whose
+ * point data has them) to their rendered outlines, using the validation panel's
+ * snap-then-fly. `onFound` runs just before the camera moves. Returns false when none
+ * of them are on this map.
  */
 export const zoomToGeoIds = async (
   geoIds: string[],

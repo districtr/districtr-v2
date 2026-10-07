@@ -2,13 +2,13 @@ import {create} from 'zustand';
 
 /** What's wrong with a map's assignments, as found by findAssignmentIssues. */
 export type FoundIssues = {
-  /** Broken-up units that still have their own assignment. */
+  /** Shattered parents that still have their own assignment. */
   parentAssignments: string[];
-  /** Broken-up unit -> blocks the backend says it contains that the map never saved. */
+  /** Shattered parent -> blocks the backend lists for it that the map never saved. */
   missingBlocks: Map<string, string[]>;
-  /** Assigned units with no population data that parentAssignments doesn't explain. */
+  /** Assigned ids with no demography row, other than shattered parents. */
   unmatched: string[];
-  /** Broken-up units whose blocks couldn't be checked (no edges came back). */
+  /** Shattered parents whose blocks couldn't be checked (no edges came back). */
   unverified: string[];
 };
 
@@ -16,33 +16,32 @@ export type AssignmentIssues = FoundIssues & {
   /** Document the check ran against; the modal only shows for this document. */
   documentId: string;
   /**
-   * Each broken-up unit's blocks, fetched from the backend for the check. A unit's
-   * blocks are fixed for a given map, so the repair re-checks against these
-   * instead of fetching again.
+   * Each shattered parent's blocks, fetched for the check. A parent's blocks are
+   * fixed for a map, so the repair re-checks against these instead of refetching.
    */
   blocksByParent: Map<string, string[]>;
 };
 
 /**
- * How to resolve a unit saved both whole and as blocks: keep the blocks (drop the
- * whole-unit assignment), or use the whole unit (drop its blocks and un-break it).
+ * Fix for a parent saved both whole and as blocks: keep the blocks (drop the parent's
+ * own assignment), or keep the whole parent (drop its blocks and un-shatter it).
  */
 export type ParentAssignmentChoice = 'blocks' | 'whole';
 
 /** The assignment changes a repair applies, built from the issues and the user's choices. */
 export type AssignmentRepairPlan = {
-  /** Broken-up units to make whole again: their blocks' assignments are dropped. */
+  /** Shattered parents to make whole again; their blocks' assignments are dropped. */
   keepWhole: string[];
-  /** Assignments dropped outright: whole-unit ones whose blocks are kept, and unmatched ids. */
+  /** Assignments dropped outright: parents whose blocks are kept, and unmatched ids. */
   dropAssignments: string[];
-  /** Broken-up unit -> blocks to add back, taking the unit's own assignment if it has one. */
+  /** Shattered parent -> blocks to add back, with the parent's own assignment if it has one. */
   addBlocks: Map<string, string[]>;
 };
 
 /**
- * What a store's applyAssignmentRepair did. It applies nothing when population data
- * hasn't caught up with the latest shatter or heal ('loading'), or when its re-check
- * finds issues the user hasn't seen ('changed', with the current issues to show).
+ * What a store's applyAssignmentRepair did. It applies nothing while demography lags a
+ * shatter or heal ('loading'), or when its re-check finds issues the user hasn't seen
+ * ('changed', with the current issues to show).
  */
 export type AssignmentRepairResult =
   | {applied: true}
@@ -52,13 +51,16 @@ export type AssignmentRepairResult =
 export const useAssignmentRepairStore = create<{
   issues: AssignmentIssues | null;
   open: boolean;
-  /** Document whose load-time prompt was waved off; save and manual checks still open. */
+  /**
+   * Document where the user chose "Not now". Load and autosave checks then stay quiet;
+   * explicit saves and manual checks still open the modal.
+   */
   dismissedFor: string | null;
   /** The user's pick per entry in issues.parentAssignments. */
   choices: Record<string, ParentAssignmentChoice>;
-  /** Units a repair attempt found that the user hadn't seen; the modal marks them New. */
+  /** Ids a repair attempt found that the user hadn't seen; the modal marks them New. */
   newIds: string[];
-  /** A repair was refused because population data was still loading. */
+  /** A repair was refused because demography was still loading. */
   populationUpdating: boolean;
 }>(() => ({
   issues: null,

@@ -43,8 +43,11 @@ import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 import {MAP_MODES} from '@constants/map/mode';
 
-/** autosave: a background save; it respects a dismissed repair prompt. */
-type SaveOptions = {silent?: boolean; autosave?: boolean};
+type SaveOptions = {
+  silent?: boolean;
+  /** A background save; stays quiet once the user has dismissed the repair modal. */
+  autosave?: boolean;
+};
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -419,9 +422,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       const state = featureStateCache[sourceLayer]?.[id];
       const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
       const prevAssignment = stateChanges?.zone || state?.zone || false;
-      // Never zone a shattered parent: its children carry the zone, and a saved
-      // parent assignment breaks population loading. Paint functions should already
-      // filter these out; this catches any that don't (e.g. a stale feature cache).
+      // Never zone a shattered parent: its blocks carry the zone, and its own assignment
+      // breaks the population join. Backstop for paint functions that miss the filter.
       const shouldSkip =
         accumulatedAssignments.has(id) ||
         shatterIds.parents.has(id) ||
@@ -774,15 +776,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
   applyAssignmentRepair: (seen, choices) => {
     const state = get();
-    // Unmatched units come from the last population-data load. Until it catches up
-    // with a shatter or heal they may be stale, and acting on them could delete
-    // assignments that are now valid, so refuse until then.
+    // Demography may lag a shatter or heal, and its stale unmatched ids could delete
+    // valid assignments, so refuse until it catches up.
     if (!demographyService.isLoadedFor(state.shatterIds.parents, seen.documentId)) {
       return {applied: false, reason: 'loading'};
     }
-    // Re-run the check against the exact state about to change, so what's checked
-    // and what's changed can't drift apart. Anything the user hasn't seen goes back
-    // to them rather than being applied.
+    // Re-check the state about to change; anything the user hasn't seen goes back to them.
     const current = findAssignmentIssues(
       districtSnapshot(state),
       demographyService.unmatchedPaths,
@@ -827,12 +826,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       clientLastUpdated,
       pendingShatterUndoState: null,
     });
-    // Undo past a repair could only bring back the assignments it fixed, so start a
-    // fresh history rather than letting it be stepped back into.
+    // Clear undo history: undoing a repair could only bring the bad assignments back.
     useAssignmentsStore.temporal.getState().clear();
     if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
     const {mapDocument} = useMapStore.getState();
-    // After set: this reads shatter state from the store to tag parent_path.
+    // Must run after set(): updateIdbAssignments reads shatterIds from the store to tag parent_path.
     if (mapDocument)
       idb.updateIdbAssignments(mapDocument, zoneAssignments, clientLastUpdated, true);
     return {applied: true};
@@ -897,7 +895,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
-      // The repair modal is open; saving now would persist the bad assignments.
+      // Blocked until the user repairs: saving now would persist the bad assignments.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }
 

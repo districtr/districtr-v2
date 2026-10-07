@@ -105,8 +105,8 @@ const getActivePopulationAssignments = (): PopulationAssignments => {
  * Class to organize queries on current demographic data
  */
 /**
- * Key for a demography load: the broken-up units whose blocks it includes, plus the
- * document. demographyStore builds loads from it; isLoadedFor compares against it.
+ * Key for a demography load: the shattered parents whose blocks it includes, plus the
+ * document. demographyStore keys each load with it, and isLoadedFor compares against it.
  */
 export const demographyDataHash = (brokenIds: Iterable<string>, documentId?: string) =>
   `${Array.from(brokenIds).join(',')}|${documentId}`;
@@ -185,9 +185,9 @@ class DemographyService {
   colorScale?: AnyD3Scale;
 
   /**
-   * Assigned units with no demography row, set when freshly loaded data still
-   * fails the population join. That's bad saved data, so the population panel
-   * shows these instead of bars. Cleared by any successful calculation.
+   * Assigned ids with no demography row, recorded when a fresh load still fails the
+   * population join. That's bad saved data: the panel shows an error instead of bars
+   * and the assignment check reports them. Cleared by any successful calculation.
    */
   unmatchedPaths: string[] = [];
   private lastMissingPaths: string[] = [];
@@ -199,7 +199,7 @@ class DemographyService {
   }
 
   /**
-   * Whether the loaded table (and so unmatchedPaths) is for these broken-up units on
+   * Whether the loaded table (and so unmatchedPaths) is for these shattered parents on
    * this document. After a shatter or heal it isn't until the reload lands.
    */
   isLoadedFor(brokenIds: Iterable<string>, documentId: string): boolean {
@@ -238,11 +238,10 @@ class DemographyService {
       coalitionGroups,
     });
     if (!popsOk) {
-      // updateData only gets here with the latest load for the current shatter
-      // state (its request-id guard drops stale loads), so a failed join is bad
-      // data, not a mid-shatter race: surface it rather than empty bars. Summary
-      // stats only read the table, so finish them; a repair then just needs
-      // updatePopulations rather than a refetch.
+      // A failed join on a fresh load is bad saved data (updateData's request-id guard
+      // drops stale loads), so record the unmatched ids for the panel and the check.
+      // Summary stats only read the table, so finish them; a repair then only needs
+      // updatePopulations.
       this.unmatchedPaths = this.lastMissingPaths;
       this.updateSummaryStats();
       this.hash = hash;

@@ -197,9 +197,8 @@ export var useDemographyStore = create(
       // based on current map state
       const dataHash = demographyDataHash(brokenIds, mapDocument.document_id);
 
-      // Bump before the early return: when the shatter state goes back to the
-      // already-loaded one (shatter, then undo/exit before its load lands), the
-      // in-flight load is for a state that no longer exists and must not land.
+      // Bump before the early return, so a load still in flight for an abandoned
+      // shatter state (shatter, then undo before it lands) is dropped.
       const requestId = ++updateDataRequestId;
       if (currDataHash === dataHash) return;
 
@@ -246,8 +245,7 @@ export var useDemographyStore = create(
             mapDocument.map_type === MAP_TYPES.COMMUNITY
               ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
               : useAssignmentsStore.getState().zoneAssignments.size > 0;
-          // Documents saved without statefps come back with it null; reading .length
-          // off that threw here and skipped the assignment check below.
+          // statefps is null for maps without it in the DB.
           const isConnecticut =
             mapDocument.statefps?.length === 1 &&
             mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
