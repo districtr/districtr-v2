@@ -7,7 +7,6 @@ import {
   Dialog,
   Flex,
   IconButton,
-  ScrollArea,
   SegmentedControl,
   Text,
   Tooltip,
@@ -122,16 +121,15 @@ const Section = ({
       {title}
     </Text>
     <Text size="2">{detail}</Text>
-    <ScrollArea type="auto" scrollbars="vertical" style={{maxHeight: 200}}>
-      <Flex direction="column" gap="2" pr="3">
-        {children}
-        {count > MAX_LISTED && (
-          <Text size="1" color="gray">
-            and {(count - MAX_LISTED).toLocaleString()} more
-          </Text>
-        )}
-      </Flex>
-    </ScrollArea>
+    {/* No inner scroll: lists stop at MAX_LISTED, and the dialog scrolls if it's tall. */}
+    <Flex direction="column" gap="2">
+      {children}
+      {count > MAX_LISTED && (
+        <Text size="1" color="gray">
+          and {(count - MAX_LISTED).toLocaleString()} more
+        </Text>
+      )}
+    </Flex>
   </Flex>
 );
 
