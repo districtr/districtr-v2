@@ -35,14 +35,6 @@ metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Loser budget for the district-stats rebuild lock. Matches the ALB idle
-# timeout (infra/alb.ts): past it the HTTP client has already been 504'd, so a
-# loser gives up rather than start a duplicate union on the shared DB. A live
-# winner can hold the lock longer (a timed-out ST_CoverageUnion falls back to
-# ST_UnaryUnion, each capped by statement_timeout).
-STATS_LOCK_POLL_SECONDS = 1.0
-STATS_LOCK_WAIT_SECONDS = 120.0
-
 
 class RowFormat(str, Enum):
     """Wire formats supported by `package_rows`."""
@@ -637,6 +629,11 @@ def _json_build_object_sql(pairs: list[str]) -> str:
     return f"({joined})::json"
 
 
+# Wait budget matches the ALB idle timeout: past it the client is gone.
+STATS_LOCK_POLL_SECONDS = 1.0
+STATS_LOCK_WAIT_SECONDS = 120.0
+
+
 def update_or_select_district_stats(
     session: Session,
     document_id: str,
@@ -725,23 +722,17 @@ def update_or_select_district_stats(
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = _json_build_object_sql(json_pairs)
 
-        # Serialize concurrent cache rebuilds at the document level: a loser
-        # waits instead of computing an expensive spatial union it will lose
-        # to ON CONFLICT. Losers poll rather than block: a blocked waiter
-        # holds its pooled connection for the whole union, and a cold union
-        # outlasts the pool-wide 15s lock_timeout (core/db.py), which 504'd
-        # the waiter. After acquiring the lock, re-check the cache — the
-        # winner may have already warmed it.
+        # One rebuild per document; losers poll rather than block, since a
+        # blocked waiter holds a pooled connection and trips the 15s
+        # lock_timeout (core/db.py). Once locked, re-check the cache — the
+        # winner may have warmed it.
         if missing_zones and doc_row.public_id is not None:
             deadline = monotonic() + STATS_LOCK_WAIT_SECONDS
             while not session.execute(
                 text("SELECT pg_try_advisory_xact_lock(:key)"),
                 {"key": doc_row.public_id},
             ).scalar_one():
-                # End the transaction so the pool reclaims our connection
-                # while we sleep. No caller has pending writes here; the
-                # rollback discards reads and, for /evaluation, the caller's
-                # own xact-scoped lock (evaluation/main.py).
+                # Free the connection while sleeping (no caller has pending writes).
                 session.rollback()
                 sleep(STATS_LOCK_POLL_SECONDS)
                 if monotonic() >= deadline:

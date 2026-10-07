@@ -5,11 +5,9 @@ import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOver
 import {queryClient} from '@utils/api/queryClient';
 import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
 
-// Hard cap so the overlay can never get stuck if a load signal never arrives
-// (some views, e.g. COI display, never send one).
+// Safety cap for when a load signal never arrives (e.g. COI display).
 const MAX_TRANSITION_MS = 15000;
-// A cold stats dissolve or evaluation can run to the backend's 120s ceiling
-// (ALB idle timeout); keep covering while one of those requests is in flight.
+// Longer cap while stats/evaluation is still fetching (backend gives up at 120s).
 const MAX_IN_FLIGHT_MS = 120_000;
 const isViewDataFetching = () =>
   queryClient.isFetching({queryKey: [PUBLIC_SOURCE_ID]}) > 0 ||
@@ -46,7 +44,6 @@ export const useViewTransition = () => {
     const minMs = isEval ? EVAL_TRANSITION_STEPS.length * EVAL_STEP_DURATION_MS : 0;
     const minTimer = setTimeout(() => setMinElapsed(true), minMs);
     let maxTimer = setTimeout(() => {
-      // The request's own settle clears the overlay; this only bounds a hang.
       if (isViewDataFetching()) {
         maxTimer = setTimeout(() => setViewTransition(null), MAX_IN_FLIGHT_MS - MAX_TRANSITION_MS);
       } else {

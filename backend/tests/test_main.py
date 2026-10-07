@@ -1586,8 +1586,7 @@ def stats_lock_winner(client, engine, document_id_total_vap, monkeypatch):
 def test_district_unions_lock_loser_waits_for_winner(
     client, session, document_id_total_vap, stats_lock_winner
 ):
-    """A cold /stats that loses the rebuild-lock race polls until the winner
-    releases, instead of 504ing on the pool-wide lock_timeout."""
+    """A rebuild-lock loser waits for the winner instead of 504ing at 15s."""
     threading.Timer(0.5, stats_lock_winner.close).start()
     # A blocking pg_advisory_xact_lock would 504 on this.
     session.execute(text("SET LOCAL lock_timeout = '100ms'"))
@@ -1595,7 +1594,6 @@ def test_district_unions_lock_loser_waits_for_winner(
     start = time.monotonic()
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
-    # Ten polls' worth: a loser that gave up early would answer well before.
     assert time.monotonic() - start >= 0.5, "loser didn't wait for the winner"
     assert len(response.json()["features"]) == 2  # zone 1 + unassigned
 

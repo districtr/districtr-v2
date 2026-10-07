@@ -46,8 +46,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
 
   useEffect(() => {
     if (publicDistrictsQuery.isError) {
-      // publicSourceLoaded never flips on failure; drop the overlay now rather
-      // than leaving the error under it until the safety cap.
+      // publicSourceLoaded never flips on failure, so clear the overlay here.
       setViewTransition(null);
       setNotification({
         message: publicDistrictsQuery.error?.message || 'Failed to fetch public district stats',
