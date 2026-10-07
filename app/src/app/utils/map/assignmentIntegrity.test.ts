@@ -3,10 +3,10 @@ import {
   buildRepairPlan,
   checkAssignments,
   findMissingBlocks,
-  findParentRows,
+  findParentAssignments,
   hasIssues,
   repairAssignments,
-  suggestParentRowChoice,
+  suggestParentAssignmentChoice,
 } from './assignmentIntegrity';
 import {useAssignmentRepairStore} from '@/app/store/assignmentRepairStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -25,7 +25,7 @@ const doc = {document_id: 'd1', districtr_map_slug: 'm', access: 'edit', updated
 // Stores are singletons; repair tests swap in a stub save, so restore the real ones.
 const realDistrictSave = useAssignmentsStore.getState().handlePutAssignments;
 const realCoiSave = useCoiAssignmentsStore.getState().handlePutAssignments;
-const noIssues = {documentId: 'd1', parentRows: [], missingBlocks: new Map(), unmatched: []};
+const noIssues = {documentId: 'd1', parentAssignments: [], missingBlocks: new Map(), unmatched: []};
 
 // vtd:A and vtd:B are broken up and both still saved whole; ghost has no demography row.
 const districtState = () => ({
@@ -48,7 +48,7 @@ const districtState = () => ({
 });
 const repairIssues = {
   documentId: 'd1',
-  parentRows: ['vtd:A', 'vtd:B'],
+  parentAssignments: ['vtd:A', 'vtd:B'],
   missingBlocks: new Map([['vtd:A', ['a2']]]),
   unmatched: ['ghost'],
   unverified: [],
@@ -69,9 +69,11 @@ beforeEach(() => {
 });
 
 describe('pure checks', () => {
-  test('flags broken-up units that still have their own row', () => {
+  test('flags broken-up units that still have their own assignment', () => {
     const assigned = new Set(['vtd:A', 'a1', 'vtd:C']);
-    expect(findParentRows(new Set(['vtd:A', 'vtd:B']), id => assigned.has(id))).toEqual(['vtd:A']);
+    expect(findParentAssignments(new Set(['vtd:A', 'vtd:B']), id => assigned.has(id))).toEqual([
+      'vtd:A',
+    ]);
   });
 
   test('reports blocks missing per unit, and units with no edges as unverified', () => {
@@ -91,14 +93,14 @@ describe('pure checks', () => {
 
   test('suggests keeping blocks only when some block carries an assignment', () => {
     const assigned = new Set(['a2']);
-    const isAssigned = (id: string) => assigned.has(id);
-    expect(suggestParentRowChoice(['a1', 'a2'], isAssigned)).toBe('blocks');
-    expect(suggestParentRowChoice(['b1', 'b2'], isAssigned)).toBe('whole');
+    const hasZone = (id: string) => assigned.has(id);
+    expect(suggestParentAssignmentChoice(['a1', 'a2'], hasZone)).toBe('blocks');
+    expect(suggestParentAssignmentChoice(['b1', 'b2'], hasZone)).toBe('whole');
   });
 
   test('hasIssues counts each kind of finding', () => {
     expect(hasIssues({...noIssues, unverified: ['vtd:A']})).toBe(false);
-    expect(hasIssues({...noIssues, unverified: [], parentRows: ['vtd:A']})).toBe(true);
+    expect(hasIssues({...noIssues, unverified: [], parentAssignments: ['vtd:A']})).toBe(true);
     expect(hasIssues({...noIssues, unverified: [], unmatched: ['x']})).toBe(true);
     expect(hasIssues({...noIssues, unverified: [], missingBlocks: new Map([['p', ['b']]])})).toBe(
       true
@@ -109,14 +111,14 @@ describe('pure checks', () => {
     const plan = buildRepairPlan(
       repairIssues,
       {'vtd:A': 'blocks', 'vtd:B': 'whole'},
-      {isBroken: id => id === 'vtd:A', hasRow: () => false, isChild: () => true}
+      {isBroken: id => id === 'vtd:A', hasAssignment: () => false, isChild: () => true}
     );
-    expect(plan).toEqual({keepWhole: [], dropRows: [], addBlocks: new Map()});
+    expect(plan).toEqual({keepWhole: [], dropAssignments: [], addBlocks: new Map()});
   });
 });
 
 describe('repairAssignments', () => {
-  test('districts: blocks drops the whole row and fills missing blocks; whole un-breaks', async () => {
+  test('districts: blocks drops the whole assignment and fills missing blocks; whole un-breaks', async () => {
     const save = mock(async () => ({ok: true}));
     useAssignmentsStore.setState({...districtState(), handlePutAssignments: save} as any);
     useAssignmentRepairStore.setState({
@@ -125,7 +127,7 @@ describe('repairAssignments', () => {
     });
     await repairAssignments();
     const s = useAssignmentsStore.getState();
-    // a2 takes vtd:A's zone, read before vtd:A's own row is dropped.
+    // a2 takes vtd:A's zone, read before vtd:A's own assignment is dropped.
     expect(Object.fromEntries(s.zoneAssignments)).toEqual({a1: 2, a2: 1, 'vtd:B': 3});
     expect([...s.shatterIds.parents]).toEqual(['vtd:A']);
     expect([...s.shatterIds.children].sort()).toEqual(['a1', 'a2']);
@@ -172,15 +174,15 @@ describe('repairAssignments', () => {
   test('the store re-checks issues against its own state, so a repeat is a no-op', () => {
     useAssignmentsStore.setState(districtState() as any);
     const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
-    useAssignmentsStore.getState().repairAssignmentRows(repairIssues, choices);
+    useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices);
     const once = Object.fromEntries(useAssignmentsStore.getState().zoneAssignments);
-    useAssignmentsStore.getState().repairAssignmentRows(repairIssues, choices);
+    useAssignmentsStore.getState().applyAssignmentRepair(repairIssues, choices);
     expect(Object.fromEntries(useAssignmentsStore.getState().zoneAssignments)).toEqual(once);
   });
 });
 
 describe('checkAssignments', () => {
-  test('a null-zone whole-unit row still blocks the save and opens the modal', async () => {
+  test('a null-zone whole-unit assignment still blocks the save and opens the modal', async () => {
     const st = districtState();
     st.zoneAssignments = new Map([
       ['vtd:A', null],
@@ -191,7 +193,7 @@ describe('checkAssignments', () => {
     edgesMock.mockImplementation(async () => [{parent_path: 'vtd:A', child_path: 'a1'}]);
     expect(await checkAssignments('save')).toBe(false);
     const r = useAssignmentRepairStore.getState();
-    expect(r.issues?.parentRows).toEqual(['vtd:A']);
+    expect(r.issues?.parentAssignments).toEqual(['vtd:A']);
     expect(r.choices).toEqual({'vtd:A': 'blocks'});
     expect(r.open).toBe(true);
     // Guards the mock wiring: the check really went through the mocked edges call.

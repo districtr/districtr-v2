@@ -18,7 +18,7 @@ import {
   repairAssignments,
   zoomToGeoIds,
 } from '@utils/map/assignmentIntegrity';
-import {useAssignmentRepairStore, type ParentRowChoice} from '@store/assignmentRepairStore';
+import {useAssignmentRepairStore, type ParentAssignmentChoice} from '@store/assignmentRepairStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useAssignmentsStore} from '@store/assignmentsStore';
@@ -167,11 +167,11 @@ export const RepairAssignmentsModal = () => {
     if (!zones.length) return 'unassigned';
     return `${zones.length === 1 ? 'District' : 'Districts'} ${zones.join(', ')}`;
   };
-  const setChoice = (parent: string, choice: ParentRowChoice) =>
+  const setChoice = (parent: string, choice: ParentAssignmentChoice) =>
     useAssignmentRepairStore.setState({choices: {...choices, [parent]: choice}});
-  const setAllChoices = (choice: ParentRowChoice) =>
+  const setAllChoices = (choice: ParentAssignmentChoice) =>
     useAssignmentRepairStore.setState({
-      choices: Object.fromEntries(issues.parentRows.map(parent => [parent, choice])),
+      choices: Object.fromEntries(issues.parentAssignments.map(parent => [parent, choice])),
     });
   const missingBlockTotal = Array.from(issues.missingBlocks.values()).reduce(
     (sum, blocks) => sum + blocks.length,
@@ -197,11 +197,11 @@ export const RepairAssignmentsModal = () => {
           save.
         </Dialog.Description>
         <Flex direction="column" gap="4">
-          {issues.parentRows.length > 0 && (
+          {issues.parentAssignments.length > 0 && (
             <Section
-              title={`${plural(issues.parentRows.length, 'unit was', 'units were')} saved both whole and as blocks`}
+              title={`${plural(issues.parentAssignments.length, 'unit was', 'units were')} saved both whole and as blocks`}
               detail={`Choose one for each. Keep blocks keeps each block's own ${label}. Keep whole unit gives all of it the whole unit's ${label} and removes its blocks.`}
-              count={issues.parentRows.length}
+              count={issues.parentAssignments.length}
             >
               <Flex gap="2" align="center">
                 <Text size="1" color="gray">
@@ -214,7 +214,7 @@ export const RepairAssignmentsModal = () => {
                   Keep whole unit
                 </Button>
               </Flex>
-              {issues.parentRows.slice(0, MAX_LISTED).map(parent => (
+              {issues.parentAssignments.slice(0, MAX_LISTED).map(parent => (
                 <Flex key={parent} align="center" justify="between" gap="3">
                   <Flex direction="column">
                     <Text size="1" weight="medium">
@@ -229,7 +229,7 @@ export const RepairAssignmentsModal = () => {
                     <SegmentedControl.Root
                       size="1"
                       value={choices[parent] ?? 'blocks'}
-                      onValueChange={value => setChoice(parent, value as ParentRowChoice)}
+                      onValueChange={value => setChoice(parent, value as ParentAssignmentChoice)}
                     >
                       <SegmentedControl.Item value="blocks">Keep blocks</SegmentedControl.Item>
                       <SegmentedControl.Item value="whole">Keep whole unit</SegmentedControl.Item>

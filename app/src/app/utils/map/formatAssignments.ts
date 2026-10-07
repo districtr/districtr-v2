@@ -80,7 +80,7 @@ export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
       childToParent.set(assignment.geo_id, assignment.parent_path);
     }
   }
-  // A parent row saved alongside its children is left in place on purpose: the
+  // A parent assignment saved alongside its children is left in place on purpose: the
   // load-time assignment check (assignmentIntegrity.ts) flags it and the user
   // picks the fix in the repair modal.
   return {zoneAssignments, shatterIds, parentToChild, childToParent} as const;

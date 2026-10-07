@@ -27,7 +27,7 @@ import {
 } from './errors';
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
-import type {AssignmentIssues, ParentRowChoice} from './assignmentRepairStore';
+import type {AssignmentIssues, ParentAssignmentChoice} from './assignmentRepairStore';
 import {buildRepairPlan, checkAssignments} from '../utils/map/assignmentIntegrity';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
@@ -138,9 +138,9 @@ export interface AssignmentsStore {
     | undefined;
   removeAssignmentsForZonesAbove: (maxZone: number) => void;
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
-  repairAssignmentRows: (
+  applyAssignmentRepair: (
     issues: AssignmentIssues,
-    choices: Record<string, ParentRowChoice>
+    choices: Record<string, ParentAssignmentChoice>
   ) => void;
 }
 
@@ -410,7 +410,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
       const prevAssignment = stateChanges?.zone || state?.zone || false;
       // Never zone a shattered parent: its children carry the zone, and a saved
-      // parent row breaks population loading. Paint functions should already
+      // parent assignment breaks population loading. Paint functions should already
       // filter these out; this catches any that don't (e.g. a stale feature cache).
       const shouldSkip =
         accumulatedAssignments.has(id) ||
@@ -762,13 +762,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  repairAssignmentRows: (issues, choices) => {
+  applyAssignmentRepair: (issues, choices) => {
     const state = get();
     // Plan against the same snapshot it's applied to, so what's checked and what's
     // changed can't drift apart.
-    const {keepWhole, dropRows, addBlocks} = buildRepairPlan(issues, choices, {
+    const {keepWhole, dropAssignments, addBlocks} = buildRepairPlan(issues, choices, {
       isBroken: id => state.shatterIds.parents.has(id),
-      hasRow: id => state.zoneAssignments.has(id),
+      hasAssignment: id => state.zoneAssignments.has(id),
       isChild: id => state.shatterIds.children.has(id),
     });
     const {zoneAssignments, shatterIds, parentToChild, childToParent} =
@@ -795,7 +795,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild.delete(parent);
       shatterIds.parents.delete(parent);
     });
-    dropRows.forEach(id => zoneAssignments.delete(id));
+    dropAssignments.forEach(id => zoneAssignments.delete(id));
 
     const clientLastUpdated = new Date().toISOString();
     set({
@@ -807,7 +807,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       clientLastUpdated,
       pendingShatterUndoState: null,
     });
-    // Undo past a repair could only bring back the rows it fixed, so start a
+    // Undo past a repair could only bring back the assignments it fixed, so start a
     // fresh history rather than letting it be stepped back into.
     useAssignmentsStore.temporal.getState().clear();
     if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
@@ -876,7 +876,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
-      // The repair modal is open; saving now would persist the bad rows.
+      // The repair modal is open; saving now would persist the bad assignments.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }
 

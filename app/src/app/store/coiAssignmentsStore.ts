@@ -35,7 +35,7 @@ import {editPath} from '../utils/map/editUrl';
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
-import type {AssignmentIssues, ParentRowChoice} from './assignmentRepairStore';
+import type {AssignmentIssues, ParentAssignmentChoice} from './assignmentRepairStore';
 import {buildRepairPlan, checkAssignments} from '../utils/map/assignmentIntegrity';
 import {
   DocumentNotFoundError,
@@ -131,9 +131,9 @@ export interface CoiAssignmentsStore {
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
-  repairAssignmentRows: (
+  applyAssignmentRepair: (
     issues: AssignmentIssues,
-    choices: Record<string, ParentRowChoice>
+    choices: Record<string, ParentAssignmentChoice>
   ) => void;
 
   /** Ingests COI assignments and shatter state from document payload. */
@@ -861,7 +861,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
       // Never assign a shattered parent: its children carry the communities, and a
-      // saved parent row breaks population loading. Paint functions should already
+      // saved parent assignment breaks population loading. Paint functions should already
       // filter these out; this catches any that don't (e.g. a stale feature cache).
       if (
         nextAccumulatedAssignments.has(id) ||
@@ -1287,13 +1287,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
-  repairAssignmentRows: (issues, choices) => {
+  applyAssignmentRepair: (issues, choices) => {
     const state = get();
     // Plan against the same snapshot it's applied to, so what's checked and what's
     // changed can't drift apart.
-    const {keepWhole, dropRows, addBlocks} = buildRepairPlan(issues, choices, {
+    const {keepWhole, dropAssignments, addBlocks} = buildRepairPlan(issues, choices, {
       isBroken: id => state.shatterIds.parents.has(id),
-      hasRow: id => getCommunitiesForGeoidFromAssignments(state.communityAssignments, id).size > 0,
+      hasAssignment: id =>
+        getCommunitiesForGeoidFromAssignments(state.communityAssignments, id).size > 0,
       isChild: id => state.shatterIds.children.has(id),
     });
     const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
@@ -1326,7 +1327,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       parentToChild.delete(parent);
       shatterIds.parents.delete(parent);
     });
-    dropRows.forEach(id => removeGeoidFromAllCommunities(communityAssignments, id));
+    dropAssignments.forEach(id => removeGeoidFromAllCommunities(communityAssignments, id));
 
     const clientLastUpdated = new Date().toISOString();
     set({
@@ -1337,7 +1338,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
       clientLastUpdated,
     });
-    // Undo past a repair could only bring back the rows it fixed, so start a
+    // Undo past a repair could only bring back the assignments it fixed, so start a
     // fresh history rather than letting it be stepped back into.
     useCoiAssignmentsStore.temporal.getState().clear();
     if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
@@ -1541,7 +1542,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
-      // The repair modal is open; saving now would persist the bad rows.
+      // The repair modal is open; saving now would persist the bad assignments.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }
 

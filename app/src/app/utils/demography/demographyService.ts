@@ -454,7 +454,7 @@ class DemographyService {
       )
     );
     if (missingPopulations.size) {
-      // Deduped: community rows repeat a geoid once per community it's in.
+      // Deduped: community assignments repeat a geoid once per community it's in.
       this.lastMissingPaths = Array.from(new Set(missingPopulations.array('path') as string[]));
       return {
         ok: false,

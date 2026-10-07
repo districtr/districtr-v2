@@ -8,7 +8,7 @@ import {
   useAssignmentRepairStore,
   type AssignmentIssues,
   type AssignmentRepairPlan,
-  type ParentRowChoice,
+  type ParentAssignmentChoice,
 } from '@/app/store/assignmentRepairStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {getChildEdges} from '@/app/utils/api/apiHandlers/getChildEdges';
@@ -20,8 +20,8 @@ import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 
 /** Broken-up units that still hold their own assignment. */
-export const findParentRows = (parents: Set<string>, isAssigned: (id: string) => boolean) =>
-  Array.from(parents).filter(isAssigned);
+export const findParentAssignments = (parents: Set<string>, hasZone: (id: string) => boolean) =>
+  Array.from(parents).filter(hasZone);
 
 /**
  * Per broken-up unit, the blocks in `edges` missing from the map's known children.
@@ -56,32 +56,36 @@ export const findMissingBlocks = (
 /**
  * Suggested fix for a unit saved both ways: if any of its blocks carries an
  * assignment, the blocks hold real edits, so keep them; otherwise the whole-unit
- * row is the only assignment there is.
+ * assignment is the only one there is.
  */
-export const suggestParentRowChoice = (
+export const suggestParentAssignmentChoice = (
   blocks: Iterable<string>,
-  isAssigned: (id: string) => boolean
-): ParentRowChoice => (Array.from(blocks).some(isAssigned) ? 'blocks' : 'whole');
+  hasZone: (id: string) => boolean
+): ParentAssignmentChoice => (Array.from(blocks).some(hasZone) ? 'blocks' : 'whole');
 
 export const hasIssues = (issues: AssignmentIssues) =>
-  issues.parentRows.length > 0 || issues.missingBlocks.size > 0 || issues.unmatched.length > 0;
+  issues.parentAssignments.length > 0 ||
+  issues.missingBlocks.size > 0 ||
+  issues.unmatched.length > 0;
 
 /**
- * Turns the check's findings and the user's choices into row changes, keeping
+ * Turns the check's findings and the user's choices into assignment changes, keeping
  * only what still applies to the current state. A repair applied twice, or after
- * the map changed since the check, then can't drop rows it no longer should.
+ * the map changed since the check, then can't drop assignments it no longer should.
  */
 export const buildRepairPlan = (
   issues: AssignmentIssues,
-  choices: Record<string, ParentRowChoice>,
+  choices: Record<string, ParentAssignmentChoice>,
   current: {
     isBroken: (id: string) => boolean;
-    hasRow: (id: string) => boolean;
+    hasAssignment: (id: string) => boolean;
     isChild: (id: string) => boolean;
   }
 ): AssignmentRepairPlan => {
-  const parentRows = issues.parentRows.filter(id => current.isBroken(id) && current.hasRow(id));
-  const keepWhole = parentRows.filter(parent => choices[parent] === 'whole');
+  const parentAssignments = issues.parentAssignments.filter(
+    id => current.isBroken(id) && current.hasAssignment(id)
+  );
+  const keepWhole = parentAssignments.filter(parent => choices[parent] === 'whole');
   const keepWholeSet = new Set(keepWhole);
   const addBlocks = new Map<string, string[]>();
   issues.missingBlocks.forEach((blocks, parent) => {
@@ -91,9 +95,9 @@ export const buildRepairPlan = (
   });
   return {
     keepWhole,
-    dropRows: [
-      ...parentRows.filter(parent => !keepWholeSet.has(parent)),
-      ...issues.unmatched.filter(current.hasRow),
+    dropAssignments: [
+      ...parentAssignments.filter(parent => !keepWholeSet.has(parent)),
+      ...issues.unmatched.filter(current.hasAssignment),
     ],
     addBlocks,
   };
@@ -101,21 +105,21 @@ export const buildRepairPlan = (
 
 const isCoiMode = () => useMapControlsStore.getState().mapMode === MAP_MODES.COI;
 
-/** Shatter state plus "has a saved row" / "has a real assignment" for the active mode. */
+/** Shatter state plus "has a saved assignment" / "has a zone" for the active mode. */
 const readActiveState = () => {
   if (isCoiMode()) {
     const {shatterIds, parentToChild, communityAssignments} = useCoiAssignmentsStore.getState();
     const sets = Array.from(communityAssignments.values());
     const inAnyCommunity = (id: string) => sets.some(geoids => geoids.has(id));
-    return {shatterIds, parentToChild, hasRow: inAnyCommunity, isAssigned: inAnyCommunity};
+    return {shatterIds, parentToChild, hasAssignment: inAnyCommunity, hasZone: inAnyCommunity};
   }
   const {shatterIds, parentToChild, zoneAssignments} = useAssignmentsStore.getState();
   return {
     shatterIds,
     parentToChild,
-    // A null-zone row is still a saved row for the parent, so it counts here.
-    hasRow: (id: string) => zoneAssignments.has(id),
-    isAssigned: (id: string) => zoneAssignments.get(id) != null,
+    // A null-zone assignment is still a saved one for the parent, so it counts here.
+    hasAssignment: (id: string) => zoneAssignments.has(id),
+    hasZone: (id: string) => zoneAssignments.get(id) != null,
   };
 };
 
@@ -125,7 +129,7 @@ const EDGE_BATCH_SIZE = 100;
 let checkSeq = 0;
 
 /**
- * Checks the open map for assignment rows that would corrupt its totals. The local
+ * Checks the open map for assignments that would corrupt its totals. The local
  * checks are cheap and run every time; only when they find something does this
  * fetch the backend's block list for every broken-up unit, to confirm no blocks
  * went missing. Opens the repair modal and returns false when there's anything to
@@ -142,10 +146,10 @@ export const checkAssignments = async (
     return true;
   }
 
-  const {shatterIds, parentToChild, hasRow, isAssigned} = readActiveState();
-  const parentRows = findParentRows(shatterIds.parents, hasRow);
+  const {shatterIds, parentToChild, hasAssignment, hasZone} = readActiveState();
+  const parentAssignments = findParentAssignments(shatterIds.parents, hasAssignment);
   const unmatched = demographyService.unmatchedPaths.filter(id => !shatterIds.parents.has(id));
-  if (!parentRows.length && !unmatched.length) {
+  if (!parentAssignments.length && !unmatched.length) {
     useAssignmentRepairStore.setState({issues: null, open: false, choices: {}});
     return true;
   }
@@ -182,13 +186,19 @@ export const checkAssignments = async (
 
   const {dismissedFor, open, choices: previous} = useAssignmentRepairStore.getState();
   const choices = Object.fromEntries(
-    parentRows.map(parent => [
+    parentAssignments.map(parent => [
       parent,
-      previous[parent] ?? suggestParentRowChoice(parentToChild.get(parent) ?? [], isAssigned),
+      previous[parent] ?? suggestParentAssignmentChoice(parentToChild.get(parent) ?? [], hasZone),
     ])
   );
   useAssignmentRepairStore.setState({
-    issues: {documentId: mapDocument.document_id, parentRows, missingBlocks, unmatched, unverified},
+    issues: {
+      documentId: mapDocument.document_id,
+      parentAssignments,
+      missingBlocks,
+      unmatched,
+      unverified,
+    },
     choices,
     // A dismissed background re-check leaves the modal as it is, so it can't close
     // one a blocked save just opened.
@@ -200,7 +210,7 @@ export const checkAssignments = async (
 /**
  * Applies the user's choices through the active store's repair action, then saves
  * through the normal conflict-checked save. See buildRepairPlan and the stores'
- * repairAssignmentRows for what each choice does to the rows.
+ * applyAssignmentRepair for what each choice does to the assignments.
  */
 export const repairAssignments = async () => {
   const {issues, choices} = useAssignmentRepairStore.getState();
@@ -208,10 +218,10 @@ export const repairAssignments = async () => {
   if (!issues || !mapDocument || issues.documentId !== mapDocument.document_id) return;
   ++checkSeq;
   const store = isCoiMode() ? useCoiAssignmentsStore : useAssignmentsStore;
-  store.getState().repairAssignmentRows(issues, choices);
-  // These rows were flagged against the old demography table; un-breaking a unit
+  store.getState().applyAssignmentRepair(issues, choices);
+  // These assignments were flagged against the old demography table; un-breaking a unit
   // re-fetches demography, which re-flags anything still wrong.
-  demographyService.clearUnmatched([...issues.parentRows, ...issues.unmatched]);
+  demographyService.clearUnmatched([...issues.parentAssignments, ...issues.unmatched]);
   demographyService.updatePopulations({
     coalitionGroups: useDemographyStore.getState().coalitionGroups,
   });

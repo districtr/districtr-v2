@@ -107,7 +107,7 @@ export const formatCoiAssignmentsFromDocument = (assignments: Assignment[]) => {
     }
   });
 
-  // A parent row saved alongside its children is left in place on purpose: the
+  // A parent assignment saved alongside its children is left in place on purpose: the
   // load-time assignment check (assignmentIntegrity.ts) flags it and the user
   // picks the fix in the repair modal.
 
