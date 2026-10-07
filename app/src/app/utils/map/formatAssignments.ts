@@ -80,9 +80,8 @@ export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
       childToParent.set(assignment.geo_id, assignment.parent_path);
     }
   }
-  // A shattered parent's zone lives on its children. Drop any row saved for the
-  // parent itself: demography has no row for a shattered parent, so it would
-  // fail the population join. The next save then persists the cleaned set.
-  shatterIds.parents.forEach(parent => zoneAssignments.delete(parent));
+  // A parent row saved alongside its children is left in place on purpose: the
+  // load-time assignment check (assignmentIntegrity.ts) flags it and the user
+  // picks the fix in the repair modal.
   return {zoneAssignments, shatterIds, parentToChild, childToParent} as const;
 };

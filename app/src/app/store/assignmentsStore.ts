@@ -809,6 +809,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   handlePutAssignments: serializeMapSaves(async (overwrite = false, {silent = false} = {}) => {
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
+    // Dynamic import: assignmentIntegrity imports this store, so a static import would cycle.
+    const {checkAssignments} = await import('@utils/map/assignmentIntegrity');
+    if (!(await checkAssignments('save'))) {
+      // The repair modal is open; saving now would persist the bad rows.
+      return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
+    }
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();

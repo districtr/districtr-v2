@@ -251,6 +251,14 @@ export var useDemographyStore = create(
             useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
           }
         }
+        // Demography and assignments are both current here, so this is the load-time
+        // integrity check (and a cheap re-check on each shatter's re-hash). Dynamic
+        // import: assignmentIntegrity imports this store, so a static import would cycle.
+        if (mapDocument.access === ACCESS_STATES.EDIT) {
+          import('@utils/map/assignmentIntegrity').then(({checkAssignments}) =>
+            checkAssignments('load')
+          );
+        }
       }
 
       set({

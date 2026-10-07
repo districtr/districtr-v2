@@ -5,6 +5,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
 import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
+import type {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 
 /**
  * Clamp fitBounds padding to a fraction of each canvas dimension (default a
@@ -27,6 +28,47 @@ export const getFitBoundsPadding = (
     Math.min(desiredPadding, Math.floor(canvas.clientHeight * maxFraction))
   );
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
+};
+
+/**
+ * Union bbox of the geometries' rendered tile pieces, or null if none are in
+ * the loaded tiles (a feature can be split across tiles).
+ */
+export const queryRenderedGeoIdBounds = (
+  mapRef: MapLibreMap | null | undefined,
+  mapDocument: DocumentObject | null | undefined,
+  geoIds: string[]
+): LngLatBoundsLike | null => {
+  if (!mapRef) return null;
+  const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
+    (l): l is string => !!l
+  );
+  const pieces = sourceLayers.flatMap(sourceLayer =>
+    mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
+      sourceLayer,
+      filter: ['in', ['get', 'path'], ['literal', geoIds]],
+    })
+  );
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const eat = (coords: any) => {
+    if (typeof coords[0] === 'number') {
+      if (coords[0] < minX) minX = coords[0];
+      if (coords[0] > maxX) maxX = coords[0];
+      if (coords[1] < minY) minY = coords[1];
+      if (coords[1] > maxY) maxY = coords[1];
+    } else {
+      coords.forEach(eat);
+    }
+  };
+  pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
+  if (minX > maxX) return null;
+  return [
+    [minX, minY],
+    [maxX, maxY],
+  ];
 };
 
 /** Minimum hold at the general-area snap before the fly-in, so the orienting
@@ -158,40 +200,8 @@ export default function ZoomToFeature({
     mapRef.once('idle', onIdle);
   };
 
-  // Union bbox of the geometries' rendered tile pieces, or null if none are in
-  // the loaded tiles (a feature can be split across tiles).
-  const queryRenderedBounds = (geoIds: string[]): LngLatBoundsLike | null => {
-    if (!mapRef) return null;
-    const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
-      (l): l is string => !!l
-    );
-    const pieces = sourceLayers.flatMap(sourceLayer =>
-      mapRef.querySourceFeatures(BLOCK_SOURCE_ID, {
-        sourceLayer,
-        filter: ['in', ['get', 'path'], ['literal', geoIds]],
-      })
-    );
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    const eat = (coords: any) => {
-      if (typeof coords[0] === 'number') {
-        if (coords[0] < minX) minX = coords[0];
-        if (coords[0] > maxX) maxX = coords[0];
-        if (coords[1] < minY) minY = coords[1];
-        if (coords[1] > maxY) maxY = coords[1];
-      } else {
-        coords.forEach(eat);
-      }
-    };
-    pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
-    if (minX > maxX) return null;
-    return [
-      [minX, minY],
-      [maxX, maxY],
-    ];
-  };
+  const queryRenderedBounds = (geoIds: string[]) =>
+    queryRenderedGeoIdBounds(mapRef, mapDocument, geoIds);
 
   const zoomToFeature = (selectedIndex: number | null) => {
     let feature;
