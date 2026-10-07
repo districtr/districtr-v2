@@ -207,14 +207,8 @@ export const repairAssignments = async () => {
   const {mapDocument} = useMapStore.getState();
   if (!issues || !mapDocument || issues.documentId !== mapDocument.document_id) return;
   ++checkSeq;
-  const {shatterIds, hasRow} = readActiveState();
-  const plan = buildRepairPlan(issues, choices, {
-    isBroken: id => shatterIds.parents.has(id),
-    hasRow,
-    isChild: id => shatterIds.children.has(id),
-  });
   const store = isCoiMode() ? useCoiAssignmentsStore : useAssignmentsStore;
-  store.getState().repairAssignmentRows(plan);
+  store.getState().repairAssignmentRows(issues, choices);
   // These rows were flagged against the old demography table; un-breaking a unit
   // re-fetches demography, which re-flags anything still wrong.
   demographyService.clearUnmatched([...issues.parentRows, ...issues.unmatched]);

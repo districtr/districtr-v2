@@ -168,6 +168,15 @@ describe('repairAssignments', () => {
     expect(useAssignmentsStore.getState().zoneAssignments.has('vtd:A')).toBe(true);
     expect(save).not.toHaveBeenCalled();
   });
+
+  test('the store re-checks issues against its own state, so a repeat is a no-op', () => {
+    useAssignmentsStore.setState(districtState() as any);
+    const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
+    useAssignmentsStore.getState().repairAssignmentRows(repairIssues, choices);
+    const once = Object.fromEntries(useAssignmentsStore.getState().zoneAssignments);
+    useAssignmentsStore.getState().repairAssignmentRows(repairIssues, choices);
+    expect(Object.fromEntries(useAssignmentsStore.getState().zoneAssignments)).toEqual(once);
+  });
 });
 
 describe('checkAssignments', () => {

@@ -35,8 +35,8 @@ import {editPath} from '../utils/map/editUrl';
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
-import type {AssignmentRepairPlan} from './assignmentRepairStore';
-import {checkAssignments} from '../utils/map/assignmentIntegrity';
+import type {AssignmentIssues, ParentRowChoice} from './assignmentRepairStore';
+import {buildRepairPlan, checkAssignments} from '../utils/map/assignmentIntegrity';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -130,8 +130,11 @@ export interface CoiAssignmentsStore {
    */
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
-  /** Applies a repair from the assignment check (see utils/map/assignmentIntegrity). */
-  repairAssignmentRows: (plan: AssignmentRepairPlan) => void;
+  /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
+  repairAssignmentRows: (
+    issues: AssignmentIssues,
+    choices: Record<string, ParentRowChoice>
+  ) => void;
 
   /** Ingests COI assignments and shatter state from document payload. */
   ingestFromDocument: (
@@ -1284,8 +1287,15 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
-  repairAssignmentRows: ({keepWhole, dropRows, addBlocks}) => {
+  repairAssignmentRows: (issues, choices) => {
     const state = get();
+    // Plan against the same snapshot it's applied to, so what's checked and what's
+    // changed can't drift apart.
+    const {keepWhole, dropRows, addBlocks} = buildRepairPlan(issues, choices, {
+      isBroken: id => state.shatterIds.parents.has(id),
+      hasRow: id => getCommunitiesForGeoidFromAssignments(state.communityAssignments, id).size > 0,
+      isChild: id => state.shatterIds.children.has(id),
+    });
     const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
     const shatterIds = {
       parents: new Set(state.shatterIds.parents),
