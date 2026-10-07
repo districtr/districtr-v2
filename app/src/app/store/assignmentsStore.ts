@@ -27,9 +27,13 @@ import {
 } from './errors';
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
+import type {AssignmentRepairPlan} from './assignmentRepairStore';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 import {MAP_MODES} from '@constants/map/mode';
+
+/** autosave: a background save; it respects a dismissed repair prompt. */
+type SaveOptions = {silent?: boolean; autosave?: boolean};
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -98,7 +102,7 @@ export interface AssignmentsStore {
   resetShatterState: () => void;
   handlePutAssignments: (
     overwrite?: boolean,
-    opts?: {silent?: boolean}
+    opts?: SaveOptions
   ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
@@ -132,6 +136,8 @@ export interface AssignmentsStore {
       }
     | undefined;
   removeAssignmentsForZonesAbove: (maxZone: number) => void;
+  /** Applies a repair from the assignment check (see utils/map/assignmentIntegrity). */
+  repairAssignmentRows: (plan: AssignmentRepairPlan) => void;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -752,6 +758,53 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
+  repairAssignmentRows: ({keepWhole, dropRows, addBlocks}) => {
+    const {zoneAssignments, shatterIds, parentToChild, childToParent} =
+      cloneTemporalSnapshot(get());
+    addBlocks.forEach((blocks, parent) => {
+      const zone = zoneAssignments.get(parent) ?? null;
+      const children = parentToChild.get(parent) ?? new Set<string>();
+      blocks.forEach(block => {
+        zoneAssignments.set(block, zone);
+        children.add(block);
+        shatterIds.children.add(block);
+        childToParent.set(block, parent);
+      });
+      parentToChild.set(parent, children);
+    });
+    const removedBlocks: string[] = [];
+    keepWhole.forEach(parent => {
+      parentToChild.get(parent)?.forEach(block => {
+        removedBlocks.push(block);
+        zoneAssignments.delete(block);
+        shatterIds.children.delete(block);
+        childToParent.delete(block);
+      });
+      parentToChild.delete(parent);
+      shatterIds.parents.delete(parent);
+    });
+    dropRows.forEach(id => zoneAssignments.delete(id));
+
+    const clientLastUpdated = new Date().toISOString();
+    set({
+      zoneAssignments,
+      shatterIds,
+      parentToChild,
+      childToParent,
+      accumulatedAssignments: new Map<string, NullableZone>(),
+      clientLastUpdated,
+      pendingShatterUndoState: null,
+    });
+    // Undo past a repair could only bring back the rows it fixed, so start a
+    // fresh history rather than letting it be stepped back into.
+    useAssignmentsStore.temporal.getState().clear();
+    if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
+    const {mapDocument} = useMapStore.getState();
+    // After set: this reads shatter state from the store to tag parent_path.
+    if (mapDocument)
+      idb.updateIdbAssignments(mapDocument, zoneAssignments, clientLastUpdated, true);
+  },
+
   removeAssignmentsForZonesAbove: maxZone => {
     const {zoneAssignments, zonesLastUpdated} = get();
     const {mapDocument, getMapRef} = useMapStore.getState();
@@ -806,12 +859,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 
   // One save at a time across stores; see serializeMapSaves.
-  handlePutAssignments: serializeMapSaves(async (overwrite = false, {silent = false} = {}) => {
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, opts: SaveOptions = {}) => {
+    const {silent = false, autosave = false} = opts;
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
     // Dynamic import: assignmentIntegrity imports this store, so a static import would cycle.
     const {checkAssignments} = await import('@utils/map/assignmentIntegrity');
-    if (!(await checkAssignments('save'))) {
+    if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
       // The repair modal is open; saving now would persist the bad rows.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }

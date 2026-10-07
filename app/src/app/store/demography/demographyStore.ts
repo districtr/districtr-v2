@@ -196,9 +196,12 @@ export var useDemographyStore = create(
       // based on current map state
       const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
 
+      // Bump before the early return: when the shatter state goes back to the
+      // already-loaded one (shatter, then undo/exit before its load lands), the
+      // in-flight load is for a state that no longer exists and must not land.
+      const requestId = ++updateDataRequestId;
       if (currDataHash === dataHash) return;
 
-      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
@@ -255,9 +258,9 @@ export var useDemographyStore = create(
         // integrity check (and a cheap re-check on each shatter's re-hash). Dynamic
         // import: assignmentIntegrity imports this store, so a static import would cycle.
         if (mapDocument.access === ACCESS_STATES.EDIT) {
-          import('@utils/map/assignmentIntegrity').then(({checkAssignments}) =>
-            checkAssignments('load')
-          );
+          import('@utils/map/assignmentIntegrity')
+            .then(({checkAssignments}) => checkAssignments('load'))
+            .catch(error => console.error('Assignment check failed to run', error));
         }
       }
 

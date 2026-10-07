@@ -2,6 +2,7 @@
 import {useState, type ReactNode} from 'react';
 import {
   Button,
+  Callout,
   Dialog,
   Flex,
   IconButton,
@@ -10,26 +11,65 @@ import {
   Text,
   Tooltip,
 } from '@radix-ui/themes';
-import {ZoomInIcon} from '@radix-ui/react-icons';
+import {ExclamationTriangleIcon, ZoomInIcon} from '@radix-ui/react-icons';
 import {
+  checkAssignments,
   hasIssues,
   repairAssignments,
-  useAssignmentRepairStore,
   zoomToGeoIds,
-  type ParentRowChoice,
 } from '@utils/map/assignmentIntegrity';
+import {useAssignmentRepairStore, type ParentRowChoice} from '@store/assignmentRepairStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useAssignmentsStore} from '@store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@store/coiAssignmentsStore';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
+import {ACCESS_STATES} from '@constants/document/state';
 
 const MAX_LISTED = 50;
+
+/**
+ * The last check's issues, if they belong to the open document and it's editable;
+ * issues left over from another document (or a read-only view) never show.
+ */
+export const useCurrentRepairIssues = () => {
+  const issues = useAssignmentRepairStore(state => state.issues);
+  const documentId = useMapStore(state => state.mapDocument?.document_id);
+  const access = useMapStore(state => state.mapDocument?.access);
+  return issues && issues.documentId === documentId && access === ACCESS_STATES.EDIT
+    ? issues
+    : null;
+};
+
+/** Reopens the modal with the last check's results, or runs a fresh check. */
+export const openRepair = (hasCurrentIssues: boolean) =>
+  hasCurrentIssues ? useAssignmentRepairStore.setState({open: true}) : checkAssignments('manual');
+
+/**
+ * Sidebar entry back into the modal after "Not now" or zooming to an area. It sits
+ * in the shared sidebar so community maps (no population panel) get it too.
+ */
+export const RepairAssignmentsCallout = () => {
+  const issues = useCurrentRepairIssues();
+  const open = useAssignmentRepairStore(state => state.open);
+  if (!issues || open || !hasIssues(issues)) return null;
+  return (
+    <Callout.Root color="amber" size="1">
+      <Callout.Icon>
+        <ExclamationTriangleIcon />
+      </Callout.Icon>
+      <Callout.Text>This map has assignments to repair before it can be saved.</Callout.Text>
+      <Button size="1" color="amber" variant="soft" onClick={() => openRepair(true)}>
+        Review and repair
+      </Button>
+    </Callout.Root>
+  );
+};
 
 const plural = (count: number, one: string, many: string) =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
-/** Closes the modal (without dismissing it) and zooms; the population panel reopens it. */
+/** Closes the modal (without dismissing it) and zooms; RepairAssignmentsCallout reopens it. */
 const ZoomButton = ({geoIds, layers}: {geoIds: string[]; layers: string[]}) => {
   const [notFound, setNotFound] = useState(false);
   const label = notFound ? 'Not found on this map' : 'Zoom to this area';
@@ -84,7 +124,7 @@ const Section = ({
 
 /** Lists what the assignment check found and lets the user choose each fix. */
 export const RepairAssignmentsModal = () => {
-  const issues = useAssignmentRepairStore(state => state.issues);
+  const issues = useCurrentRepairIssues();
   const open = useAssignmentRepairStore(state => state.open);
   const choices = useAssignmentRepairStore(state => state.choices);
   const mapDocument = useMapStore(state => state.mapDocument);

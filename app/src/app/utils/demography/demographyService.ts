@@ -185,6 +185,12 @@ class DemographyService {
   unmatchedPaths: string[] = [];
   private lastMissingPaths: string[] = [];
 
+  /** Drops repaired ids from unmatchedPaths (they were flagged against the old table). */
+  clearUnmatched(ids: string[]): void {
+    const repaired = new Set(ids);
+    this.unmatchedPaths = this.unmatchedPaths.filter(id => !repaired.has(id));
+  }
+
   /**
    * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
    * re-entering the same county under the brush (e.g. dragging back and
@@ -217,10 +223,14 @@ class DemographyService {
       coalitionGroups,
     });
     if (!popsOk) {
-      // This table was just loaded for the current shatter state, so a failed
-      // join here can't be a mid-shatter race (e.g. painting a freshly broken unit
-      // before its blocks load): it's bad data. Surface it rather than empty bars.
+      // updateData only gets here with the latest load for the current shatter
+      // state (its request-id guard drops stale loads), so a failed join is bad
+      // data, not a mid-shatter race: surface it rather than empty bars. Summary
+      // stats only read the table, so finish them; a repair then just needs
+      // updatePopulations rather than a refetch.
       this.unmatchedPaths = this.lastMissingPaths;
+      this.updateSummaryStats();
+      this.hash = hash;
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
       return;
     }
@@ -444,7 +454,8 @@ class DemographyService {
       )
     );
     if (missingPopulations.size) {
-      this.lastMissingPaths = missingPopulations.array('path') as string[];
+      // Deduped: community rows repeat a geoid once per community it's in.
+      this.lastMissingPaths = Array.from(new Set(missingPopulations.array('path') as string[]));
       return {
         ok: false,
       };

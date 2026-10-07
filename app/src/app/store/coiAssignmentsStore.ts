@@ -35,6 +35,7 @@ import {editPath} from '../utils/map/editUrl';
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
+import type {AssignmentRepairPlan} from './assignmentRepairStore';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -63,6 +64,9 @@ export type CoiAssignmentsPayload = {
   parentToChild: Map<string, Set<string>>;
   childToParent: Map<string, string>;
 };
+
+/** autosave: a background save; it respects a dismissed repair prompt. */
+type SaveOptions = {silent?: boolean; autosave?: boolean};
 
 export interface CoiAssignmentsStore {
   /** Map of community id -> set of geoids (overlap allowed). */
@@ -125,6 +129,9 @@ export interface CoiAssignmentsStore {
    */
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
+  /** Applies a repair from the assignment check (see utils/map/assignmentIntegrity). */
+  repairAssignmentRows: (plan: AssignmentRepairPlan) => void;
+
   /** Ingests COI assignments and shatter state from document payload. */
   ingestFromDocument: (
     data: CoiAssignmentsPayload,
@@ -155,7 +162,7 @@ export interface CoiAssignmentsStore {
 
   handlePutAssignments: (
     overwrite?: boolean,
-    opts?: {silent?: boolean}
+    opts?: SaveOptions
   ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   resolveConflict: (
@@ -1276,6 +1283,59 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
+  repairAssignmentRows: ({keepWhole, dropRows, addBlocks}) => {
+    const state = get();
+    const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
+    const shatterIds = {
+      parents: new Set(state.shatterIds.parents),
+      children: new Set(state.shatterIds.children),
+    };
+    const parentToChild = cloneParentToChildMap(state.parentToChild);
+    const childToParent = new Map(state.childToParent);
+    addBlocks.forEach((blocks, parent) => {
+      getCommunitiesForGeoidFromAssignments(communityAssignments, parent).forEach(community =>
+        blocks.forEach(block => communityAssignments.get(community)?.add(block))
+      );
+      const children = parentToChild.get(parent) ?? new Set<string>();
+      blocks.forEach(block => {
+        children.add(block);
+        shatterIds.children.add(block);
+        childToParent.set(block, parent);
+      });
+      parentToChild.set(parent, children);
+    });
+    const removedBlocks: string[] = [];
+    keepWhole.forEach(parent => {
+      parentToChild.get(parent)?.forEach(block => {
+        removedBlocks.push(block);
+        removeGeoidFromAllCommunities(communityAssignments, block);
+        shatterIds.children.delete(block);
+        childToParent.delete(block);
+      });
+      parentToChild.delete(parent);
+      shatterIds.parents.delete(parent);
+    });
+    dropRows.forEach(id => removeGeoidFromAllCommunities(communityAssignments, id));
+
+    const clientLastUpdated = new Date().toISOString();
+    set({
+      communityAssignments,
+      shatterIds,
+      parentToChild,
+      childToParent,
+      accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
+      clientLastUpdated,
+    });
+    // Undo past a repair could only bring back the rows it fixed, so start a
+    // fresh history rather than letting it be stepped back into.
+    useCoiAssignmentsStore.temporal.getState().clear();
+    if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
+    const {mapDocument} = useMapStore.getState();
+    if (mapDocument) {
+      idb.updateIdbCoiAssignments(mapDocument, communityAssignments, clientLastUpdated, true);
+    }
+  },
+
   resetCommunityAssignments: () => {
     set({
       communityAssignments: new Map<Zone, Set<string>>(),
@@ -1465,12 +1525,13 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
   },
 
   // One save at a time across stores; see serializeMapSaves.
-  handlePutAssignments: serializeMapSaves(async (overwrite = false, {silent = false} = {}) => {
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, opts: SaveOptions = {}) => {
+    const {silent = false, autosave = false} = opts;
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
     // Dynamic import: assignmentIntegrity imports this store, so a static import would cycle.
     const {checkAssignments} = await import('@utils/map/assignmentIntegrity');
-    if (!(await checkAssignments('save'))) {
+    if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
       // The repair modal is open; saving now would persist the bad rows.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
     }

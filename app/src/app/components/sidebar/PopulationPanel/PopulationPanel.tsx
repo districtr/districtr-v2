@@ -17,11 +17,7 @@ import {
 import {DistrictMeters} from './DistrictMeters';
 import {ExclamationTriangleIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {
-  checkAssignments,
-  hasIssues,
-  useAssignmentRepairStore,
-} from '@/app/utils/map/assignmentIntegrity';
+import {openRepair, useCurrentRepairIssues} from '@/app/components/RepairAssignmentsModal';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
@@ -62,7 +58,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
-  const repairIssues = useAssignmentRepairStore(state => state.issues);
+  const repairIssues = useCurrentRepairIssues();
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -120,16 +116,12 @@ export const PopulationPanel = () => {
       </Flex>
     );
   }
-  // Reopen what the last check found (e.g. after zooming to an area from the
-  // modal) instead of re-running it, which refetches block edges.
-  const openRepair = () =>
-    repairIssues ? useAssignmentRepairStore.setState({open: true}) : checkAssignments('manual');
   // Re-read on every render: useZonePopulations re-renders on the chart hash,
   // which demographyService bumps when this changes.
   const unmatchedPaths = demographyService.unmatchedPaths;
   if (unmatchedPaths.length) {
     const count = unmatchedPaths.length;
-    const canRepair = mapDocument.access === ACCESS_STATES.EDIT;
+    const canRepair = access === ACCESS_STATES.EDIT;
     return (
       <Callout.Root color="red" size="1" role="alert" mt="2">
         <Callout.Icon>
@@ -146,25 +138,17 @@ export const PopulationPanel = () => {
           {count > 5 && ` and ${(count - 5).toLocaleString()} more`}
         </Callout.Text>
         {canRepair && (
-          <Button size="1" color="red" variant="soft" onClick={openRepair}>
+          // Reopens the last check's results if there are any, rather than
+          // re-running it, which refetches block edges.
+          <Button
+            size="1"
+            color="red"
+            variant="soft"
+            onClick={() => openRepair(Boolean(repairIssues))}
+          >
             Review and repair
           </Button>
         )}
-      </Callout.Root>
-    );
-  }
-  if (repairIssues && hasIssues(repairIssues)) {
-    // Totals are computable, but the check still found rows to repair (e.g. only
-    // null-zone whole-unit rows); keep a way back to the modal after zooming away.
-    return (
-      <Callout.Root color="amber" size="1" mt="2">
-        <Callout.Icon>
-          <ExclamationTriangleIcon />
-        </Callout.Icon>
-        <Callout.Text>This map has assignments to repair before it can be saved.</Callout.Text>
-        <Button size="1" color="amber" variant="soft" onClick={openRepair}>
-          Review and repair
-        </Button>
       </Callout.Root>
     );
   }
