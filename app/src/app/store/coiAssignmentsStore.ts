@@ -36,6 +36,7 @@ import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
 import type {AssignmentRepairPlan} from './assignmentRepairStore';
+import {checkAssignments} from '../utils/map/assignmentIntegrity';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -1529,8 +1530,6 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     const {silent = false, autosave = false} = opts;
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
-    // Dynamic import: assignmentIntegrity imports this store, so a static import would cycle.
-    const {checkAssignments} = await import('@utils/map/assignmentIntegrity');
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
       // The repair modal is open; saving now would persist the bad rows.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};

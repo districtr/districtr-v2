@@ -1,10 +1,5 @@
 import {beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
-
-// Mocked before the module under test loads, so its import binds to the mock.
-const edgesMock = mock(async () => [] as {parent_path: string; child_path: string}[]);
-mock.module('../api/apiHandlers/getChildEdges', () => ({getChildEdges: edgesMock}));
-
-const {
+import {
   buildRepairPlan,
   checkAssignments,
   findMissingBlocks,
@@ -12,14 +7,19 @@ const {
   hasIssues,
   repairAssignments,
   suggestParentRowChoice,
-} = await import('./assignmentIntegrity');
-const {useAssignmentRepairStore} = await import('@/app/store/assignmentRepairStore');
-const {useAssignmentsStore} = await import('@/app/store/assignmentsStore');
-const {useCoiAssignmentsStore} = await import('@/app/store/coiAssignmentsStore');
-const {useMapStore} = await import('@/app/store/mapStore');
-const {useMapControlsStore} = await import('@/app/store/mapControlsStore');
-const {idb} = await import('@/app/utils/idb/idb');
-const {demographyService} = await import('@/app/utils/demography/demographyService');
+} from './assignmentIntegrity';
+import {useAssignmentRepairStore} from '@/app/store/assignmentRepairStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {idb} from '@/app/utils/idb/idb';
+import {demographyService} from '@/app/utils/demography/demographyService';
+
+// mock.module updates already-imported bindings in place, so assignmentIntegrity's
+// getChildEdges import points at this mock.
+const edgesMock = mock(async () => [] as {parent_path: string; child_path: string}[]);
+mock.module('../api/apiHandlers/getChildEdges', () => ({getChildEdges: edgesMock}));
 
 const doc = {document_id: 'd1', districtr_map_slug: 'm', access: 'edit', updated_at: 'x'} as any;
 // Stores are singletons; repair tests swap in a stub save, so restore the real ones.
@@ -185,6 +185,9 @@ describe('checkAssignments', () => {
     expect(r.issues?.parentRows).toEqual(['vtd:A']);
     expect(r.choices).toEqual({'vtd:A': 'blocks'});
     expect(r.open).toBe(true);
+    // Guards the mock wiring: the check really went through the mocked edges call.
+    expect(edgesMock).toHaveBeenCalledTimes(1);
+    expect(r.issues?.unverified).toEqual([]);
   });
 
   test('a clean map passes without fetching edges', async () => {

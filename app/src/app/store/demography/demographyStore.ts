@@ -22,6 +22,7 @@ import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary'
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
+import {checkAssignments} from '@/app/utils/map/assignmentIntegrity';
 
 // Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
 // switch to planning regions as county-equivalents, but districtr's own block
@@ -258,12 +259,11 @@ export var useDemographyStore = create(
           }
         }
         // Demography and assignments are both current here, so this is the load-time
-        // integrity check (and a cheap re-check on each shatter's re-hash). Dynamic
-        // import: assignmentIntegrity imports this store, so a static import would cycle.
+        // integrity check (and a cheap re-check on each shatter's re-hash).
         if (mapDocument.access === ACCESS_STATES.EDIT) {
-          import('@utils/map/assignmentIntegrity')
-            .then(({checkAssignments}) => checkAssignments('load'))
-            .catch(error => console.error('Assignment check failed to run', error));
+          checkAssignments('load').catch(error =>
+            console.error('Assignment check failed to run', error)
+          );
         }
       }
 

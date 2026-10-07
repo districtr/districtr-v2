@@ -28,6 +28,7 @@ import {
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
 import type {AssignmentRepairPlan} from './assignmentRepairStore';
+import {checkAssignments} from '../utils/map/assignmentIntegrity';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 import {MAP_MODES} from '@constants/map/mode';
@@ -863,8 +864,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const {silent = false, autosave = false} = opts;
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
-    // Dynamic import: assignmentIntegrity imports this store, so a static import would cycle.
-    const {checkAssignments} = await import('@utils/map/assignmentIntegrity');
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
       // The repair modal is open; saving now would persist the bad rows.
       return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
