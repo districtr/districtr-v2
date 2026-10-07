@@ -119,8 +119,17 @@ export const PopulationPanel = () => {
   // Re-read on every render: useZonePopulations re-renders on the chart hash,
   // which demographyService bumps when this changes.
   const unmatchedPaths = demographyService.unmatchedPaths;
+  if (unmatchedPaths.length && repairIssues) {
+    // The sidebar's RepairAssignmentsCallout is the alert (and the way into the
+    // fix); repeating it here would just be a second copy.
+    return (
+      <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
+        Population totals will show once you fix this map&apos;s assignments.
+      </Text>
+    );
+  }
   if (unmatchedPaths.length) {
-    const count = unmatchedPaths.length;
+    // No fix on hand: a view-only map, or an editor's check that's still running.
     const canRepair = access === ACCESS_STATES.EDIT;
     return (
       <Callout.Root color="red" size="1" role="alert" mt="2">
@@ -128,25 +137,13 @@ export const PopulationPanel = () => {
           <ExclamationTriangleIcon />
         </Callout.Icon>
         <Callout.Text>
-          Population totals can&apos;t be shown. {count.toLocaleString()} assigned{' '}
-          {count === 1 ? 'area has' : 'areas have'} no matching population data, so totals would be
-          wrong. Your assignments are unchanged.
+          Something went wrong with this map&apos;s assignments, so population totals can&apos;t be
+          shown.
           {canRepair ? '' : ' Please report this map to the Districtr team.'}
         </Callout.Text>
-        <Callout.Text size="1" color="gray">
-          Affected: {unmatchedPaths.slice(0, 5).join(', ')}
-          {count > 5 && ` and ${(count - 5).toLocaleString()} more`}
-        </Callout.Text>
         {canRepair && (
-          // Reopens the last check's results if there are any, rather than
-          // re-running it, which refetches block edges.
-          <Button
-            size="1"
-            color="red"
-            variant="soft"
-            onClick={() => openRepair(Boolean(repairIssues))}
-          >
-            Review and repair
+          <Button size="1" color="red" variant="soft" onClick={() => openRepair(false)}>
+            Review and fix
           </Button>
         )}
       </Callout.Root>

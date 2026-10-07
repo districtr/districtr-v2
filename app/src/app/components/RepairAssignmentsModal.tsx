@@ -46,21 +46,25 @@ export const openRepair = (hasCurrentIssues: boolean) =>
   hasCurrentIssues ? useAssignmentRepairStore.setState({open: true}) : checkAssignments('manual');
 
 /**
- * Sidebar entry back into the modal after "Not now" or zooming to an area. It sits
- * in the shared sidebar so community maps (no population panel) get it too.
+ * The one alert for a map with assignments to fix, and the way back into the modal
+ * after "Not now" or zooming to a unit. It sits in the shared sidebar so it shows
+ * on every tab and on community maps (which have no population panel).
  */
 export const RepairAssignmentsCallout = () => {
   const issues = useCurrentRepairIssues();
   const open = useAssignmentRepairStore(state => state.open);
   if (!issues || open || !hasIssues(issues)) return null;
   return (
-    <Callout.Root color="amber" size="1">
+    <Callout.Root color="red" size="1" role="alert">
       <Callout.Icon>
         <ExclamationTriangleIcon />
       </Callout.Icon>
-      <Callout.Text>This map has assignments to repair before it can be saved.</Callout.Text>
-      <Button size="1" color="amber" variant="soft" onClick={() => openRepair(true)}>
-        Review and repair
+      <Callout.Text>
+        Something went wrong with this map&apos;s assignments. Population totals and saving are
+        paused until you fix it.
+      </Callout.Text>
+      <Button size="1" color="red" variant="soft" onClick={() => openRepair(true)}>
+        Review and fix
       </Button>
     </Callout.Root>
   );
@@ -72,7 +76,7 @@ const plural = (count: number, one: string, many: string) =>
 /** Closes the modal (without dismissing it) and zooms; RepairAssignmentsCallout reopens it. */
 const ZoomButton = ({geoIds, layers}: {geoIds: string[]; layers: string[]}) => {
   const [notFound, setNotFound] = useState(false);
-  const label = notFound ? 'Not found on this map' : 'Zoom to this area';
+  const label = notFound ? 'Not on this map' : 'Zoom to this unit';
   return (
     <Tooltip content={label}>
       <IconButton
@@ -187,32 +191,27 @@ export const RepairAssignmentsModal = () => {
   return (
     <Dialog.Root open={open} onOpenChange={next => !next && close()}>
       <Dialog.Content maxWidth="620px">
-        <Dialog.Title>This map has assignments to repair</Dialog.Title>
+        <Dialog.Title>Something went wrong with this map&apos;s assignments</Dialog.Title>
         <Dialog.Description size="2" mb="3">
-          Population totals can&apos;t be calculated until these are fixed, and the map won&apos;t
-          save. Choose how to fix each area, then repair. Only the rows listed here change.
+          Until you fix the units below, population totals won&apos;t show and the map won&apos;t
+          save.
         </Dialog.Description>
         <Flex direction="column" gap="4">
           {issues.parentRows.length > 0 && (
             <Section
-              title={`${plural(issues.parentRows.length, 'broken-up area is', 'broken-up areas are')} also saved as a whole`}
-              detail={
-                <>
-                  Keep the blocks&apos; own {label}s, or use the whole area&apos;s {label} (its
-                  blocks are dropped and it&apos;s no longer broken up).
-                </>
-              }
+              title={`${plural(issues.parentRows.length, 'unit was', 'units were')} saved both whole and as blocks`}
+              detail={`Choose one for each. Keep blocks keeps each block's own ${label}. Keep whole unit gives all of it the whole unit's ${label} and removes its blocks.`}
               count={issues.parentRows.length}
             >
               <Flex gap="2" align="center">
                 <Text size="1" color="gray">
-                  Set all:
+                  Set all to:
                 </Text>
                 <Button size="1" variant="soft" onClick={() => setAllChoices('blocks')}>
                   Keep blocks
                 </Button>
                 <Button size="1" variant="soft" onClick={() => setAllChoices('whole')}>
-                  Use whole area
+                  Keep whole unit
                 </Button>
               </Flex>
               {issues.parentRows.slice(0, MAX_LISTED).map(parent => (
@@ -222,7 +221,7 @@ export const RepairAssignmentsModal = () => {
                       {parent}
                     </Text>
                     <Text size="1" color="gray">
-                      Whole area: {describe([parent])} · Blocks:{' '}
+                      Whole: {describe([parent])} · Blocks:{' '}
                       {describe(parentToChild.get(parent) ?? [])}
                     </Text>
                   </Flex>
@@ -233,7 +232,7 @@ export const RepairAssignmentsModal = () => {
                       onValueChange={value => setChoice(parent, value as ParentRowChoice)}
                     >
                       <SegmentedControl.Item value="blocks">Keep blocks</SegmentedControl.Item>
-                      <SegmentedControl.Item value="whole">Use whole area</SegmentedControl.Item>
+                      <SegmentedControl.Item value="whole">Keep whole unit</SegmentedControl.Item>
                     </SegmentedControl.Root>
                     <ZoomButton geoIds={[parent]} layers={parentLayers} />
                   </Flex>
@@ -243,8 +242,8 @@ export const RepairAssignmentsModal = () => {
           )}
           {missingBlockTotal > 0 && (
             <Section
-              title={`${plural(missingBlockTotal, 'block is', 'blocks are')} missing from broken-up areas`}
-              detail={`They're added back with the whole area's ${label} when you keep its blocks, otherwise unassigned.`}
+              title={`${plural(missingBlockTotal, 'block is', 'blocks are')} missing`}
+              detail={`They'll be added back, with the whole unit's ${label} if it has one.`}
               count={issues.missingBlocks.size}
             >
               {Array.from(issues.missingBlocks)
@@ -261,8 +260,12 @@ export const RepairAssignmentsModal = () => {
           )}
           {issues.unmatched.length > 0 && (
             <Section
-              title={`${plural(issues.unmatched.length, 'assigned area isn’t', 'assigned areas aren’t')} in this map's population data`}
-              detail="These rows are removed."
+              title={`${plural(issues.unmatched.length, 'assigned unit has', 'assigned units have')} no population data`}
+              detail={
+                issues.unmatched.length === 1
+                  ? "It'll be removed from the map."
+                  : "They'll be removed from the map."
+              }
               count={issues.unmatched.length}
             >
               {issues.unmatched.slice(0, MAX_LISTED).map(id => (
@@ -277,13 +280,13 @@ export const RepairAssignmentsModal = () => {
           )}
           {issues.unverified.length > 0 ? (
             <Text size="2" color="gray">
-              Couldn&apos;t check the blocks of{' '}
-              {plural(issues.unverified.length, 'broken-up area', 'broken-up areas')}.
+              Couldn&apos;t check {plural(issues.unverified.length, 'unit', 'units')} for missing
+              blocks.
             </Text>
           ) : (
             missingBlockTotal === 0 && (
               <Text size="2" color="gray">
-                Checked: every broken-up area has all of its blocks.
+                No blocks are missing.
               </Text>
             )
           )}
@@ -298,7 +301,7 @@ export const RepairAssignmentsModal = () => {
             loading={repairing}
             disabled={!hasIssues(issues)}
           >
-            Repair and save
+            Fix and save
           </Button>
         </Flex>
       </Dialog.Content>
