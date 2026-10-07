@@ -119,7 +119,6 @@ const readActiveState = () => {
   };
 };
 
-// ponytail: keeps each edges GET's repeated parent_geoid params well under URL limits.
 const EDGE_BATCH_SIZE = 100;
 // Latest-wins: a check whose result lands after a newer check or a repair began
 // would otherwise write stale issues (and reopen the modal) over the newer state.
