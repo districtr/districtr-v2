@@ -14,6 +14,7 @@ import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {RepairAssignmentsModal} from '../RepairAssignmentsModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
 import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
@@ -121,6 +122,7 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
+      <RepairAssignmentsModal />
     </div>
   );
 };
