@@ -4,6 +4,8 @@ from app.core.db import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
 import subprocess
+import threading
+import time
 import uuid
 from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
@@ -1559,6 +1561,35 @@ def test_get_district_unions(client, document_id_total_vap):
     data = response.json()
     features = data.get("features", [])
     assert len(features) == 2
+
+
+def test_district_unions_lock_loser_outwaits_lock_timeout(
+    client, session, engine, document_id_total_vap
+):
+    """A cold /stats that loses the rebuild-lock race polls until the winner
+    releases, instead of 504ing on the pool-wide lock_timeout."""
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    public_id = client.get(f"/api/document/{document_id_total_vap}").json()["public_id"]
+
+    # Stand-in winner mid-union: hold the lock past the loser's lock_timeout.
+    winner = engine.connect()
+    winner.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": public_id})
+    threading.Timer(0.5, winner.close).start()
+    # A blocking pg_advisory_xact_lock would 504 on this.
+    session.execute(text("SET LOCAL lock_timeout = '100ms'"))
+
+    start = time.monotonic()
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    assert time.monotonic() - start >= 0.5, "loser skipped the lock"
 
 
 def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):

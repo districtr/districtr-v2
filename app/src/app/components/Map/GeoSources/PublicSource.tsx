@@ -22,6 +22,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const setStateFp = useMapControlsStore(state => state.setStateFp);
+  const setViewTransition = useMapControlsStore(state => state.setViewTransition);
   const setDemographyHash = useDemographyStore(state => state.setDataHash);
   const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
   const setNotification = useMapStore(state => state.setNotification);
@@ -45,13 +46,21 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
 
   useEffect(() => {
     if (publicDistrictsQuery.isError) {
+      // publicSourceLoaded never flips on failure; drop the overlay now rather
+      // than leaving the error under it until the safety cap.
+      setViewTransition(null);
       setNotification({
         message: publicDistrictsQuery.error?.message || 'Failed to fetch public district stats',
         importance: 2,
         type: 'error',
       });
     }
-  }, [publicDistrictsQuery.isError, publicDistrictsQuery.error, setNotification]);
+  }, [
+    publicDistrictsQuery.isError,
+    publicDistrictsQuery.error,
+    setNotification,
+    setViewTransition,
+  ]);
 
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
     return {

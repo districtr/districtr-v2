@@ -4,7 +4,9 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOverlay';
 
 // Hard cap so the overlay can never get stuck if a load signal never arrives.
-const MAX_TRANSITION_MS = 15000;
+// Matches the backend's ceiling (ALB idle + statement_timeout, 120s): a cold
+// stats dissolve can legitimately run well past 15s.
+const MAX_TRANSITION_MS = 120_000;
 
 /**
  * Drives the view transition overlay. Animates the evaluate step sequence and clears

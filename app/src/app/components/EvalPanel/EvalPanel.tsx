@@ -33,7 +33,7 @@ export const EvalPanel: React.FC = () => {
   // Signal the view-transition overlay, which holds the "Preparing evaluation"
   // preloader until metricsLoaded is true (see useViewTransition). Reset on mount,
   // mark loaded once the query settles. Without this the overlay hangs for the full
-  // 15s safety timeout on every eval navigation.
+  // safety timeout on every eval navigation.
   useEffect(() => {
     setLoadingState('metricsLoaded', false);
   }, [setLoadingState]);

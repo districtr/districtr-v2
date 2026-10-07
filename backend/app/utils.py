@@ -6,6 +6,7 @@ import logging
 import re
 import msgpack
 from enum import Enum
+from time import monotonic, sleep
 from uuid import uuid4
 from typing import Callable, NewType
 
@@ -33,6 +34,11 @@ from app.core.db import engine
 metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+# Same budget as the evaluation lock (evaluation/main.py): statement_timeout
+# caps a live winner's union at 120s.
+STATS_LOCK_POLL_SECONDS = 1.0
+STATS_LOCK_WAIT_SECONDS = 120.0
 
 
 class RowFormat(str, Enum):
@@ -717,14 +723,32 @@ def update_or_select_district_stats(
                 demographic_json = _json_build_object_sql(json_pairs)
 
         # Serialize concurrent cache rebuilds at the document level: a loser
-        # blocks here instead of computing an expensive spatial union it will
-        # lose to ON CONFLICT. After acquiring the lock, re-check the cache —
-        # the winner may have already warmed it.
+        # waits instead of computing an expensive spatial union it will lose
+        # to ON CONFLICT. Losers poll rather than block: a blocked waiter
+        # holds its pooled connection for the whole union, and a cold union
+        # outlasts the pool-wide 15s lock_timeout (core/db.py), which 504'd
+        # the waiter. After acquiring the lock, re-check the cache — the
+        # winner may have already warmed it.
         if missing_zones and doc_row.public_id is not None:
-            session.execute(
-                text("SELECT pg_advisory_xact_lock(:key)"),
+            deadline = monotonic() + STATS_LOCK_WAIT_SECONDS
+            while not session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:key)"),
                 {"key": doc_row.public_id},
-            )
+            ).scalar_one():
+                # End the transaction so the pool reclaims our connection
+                # while we sleep. Every caller reaches here with no pending
+                # writes, so the rollback only discards reads.
+                session.rollback()
+                sleep(STATS_LOCK_POLL_SECONDS)
+                if monotonic() >= deadline:
+                    # Winner is wedged; rebuild without the lock — ON CONFLICT
+                    # DO NOTHING tolerates the race.
+                    logger.warning(
+                        "district stats lock wait timed out for %s; "
+                        "rebuilding without it",
+                        document_id,
+                    )
+                    break
             post_lock_rows = (
                 session.execute(
                     text(
