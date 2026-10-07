@@ -4,6 +4,7 @@ import {
   districtSnapshot,
   findAssignmentIssues,
   findNewIssueIds,
+  groupBlocksByParent,
   hasIssues,
   planRepair,
   repairAssignments,
@@ -124,6 +125,21 @@ describe('findAssignmentIssues', () => {
 });
 
 describe('pure helpers', () => {
+  test("groups edges into each unit's blocks", () => {
+    expect(
+      groupBlocksByParent([
+        {parent_path: 'vtd:A', child_path: 'a1'},
+        {parent_path: 'vtd:B', child_path: 'b1'},
+        {parent_path: 'vtd:A', child_path: 'a2'},
+      ])
+    ).toEqual(
+      new Map([
+        ['vtd:A', ['a1', 'a2']],
+        ['vtd:B', ['b1']],
+      ])
+    );
+  });
+
   test('suggests keeping blocks only when some block carries an assignment', () => {
     const assigned = new Set(['a2']);
     const hasZone = (id: string) => assigned.has(id);
