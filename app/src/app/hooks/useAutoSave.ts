@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useAssignmentRepairStore} from '@/app/store/assignmentRepairStore';
 import {useMapSaveStatus} from './useMapSaveStatus';
 import {ACCESS_STATES} from '@constants/document/state';
 import {AUTOSAVE_DEBOUNCE_MS} from '@constants/document/sync';
@@ -23,11 +24,18 @@ export function useAutoSave() {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const documentId = useMapStore(state => state.mapDocument?.document_id);
+  // While this map has assignments to repair, every save is blocked anyway; skipping
+  // autosave avoids re-running the check (and refetching blocks) in the background,
+  // which would also reset the repair modal's "New" marks. Edits stay in IndexedDB.
+  const repairPending = useAssignmentRepairStore(
+    state => !!documentId && state.issues?.documentId === documentId
+  );
 
   // Listeners and timers read through this ref so they always see fresh state.
   const ref = useRef({enabled: false, save});
   ref.current = {
-    enabled: isEditing && access === ACCESS_STATES.EDIT && !!documentId && isOutdated,
+    enabled:
+      isEditing && access === ACCESS_STATES.EDIT && !!documentId && isOutdated && !repairPending,
     save,
   };
 
