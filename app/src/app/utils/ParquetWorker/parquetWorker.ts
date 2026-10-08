@@ -8,6 +8,7 @@ import {
 } from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
 import {
+  AsyncBuffer,
   byteLengthFromUrl,
   asyncBufferFromUrl,
   parquetMetadataAsync,
@@ -15,33 +16,18 @@ import {
 } from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
-import {
-  enhanceAsyncBufferWithRangeGroups,
-  EnhancedAsyncBuffer,
-  mergeByteRanges,
-} from './parquetWorkerUtils';
+import {prefetchAsyncBuffer, rowGroupsContaining} from './parquetWorkerUtils';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
   _idRgCache: {},
 
-  async getMetaData(url, enablePrefetch = true) {
+  async getMetaData(url) {
     if (this._metaCache[url]) {
       return this._metaCache[url];
     }
     const byteLength = await byteLengthFromUrl(url).then(Number);
-    let file = await asyncBufferFromUrl({url, byteLength});
-
-    // Enhance buffer with multi-range prefetch capability
-    if (enablePrefetch) {
-      file = enhanceAsyncBufferWithRangeGroups(file, {
-        url,
-        fetchInit: {mode: 'cors', credentials: 'omit'},
-        maxPartsPerRequest: 24,
-        maxGap: 64 * 1024, // 64KB gap threshold for merging ranges
-      });
-    }
-
+    const file = await asyncBufferFromUrl({url, byteLength});
     const metadata = await parquetMetadataAsync(file);
     this._metaCache[url] = {
       metadata,
@@ -90,46 +76,6 @@ const ParquetWorker: ParquetWorkerClass = {
     return rowRange;
   },
 
-  getRowGroupsFromChildValue(meta, values, values_col = 'path') {
-    const rowGroups = [];
-    if (!meta.metadata.row_groups.length) {
-      throw new Error('No row groups found');
-    }
-    const path_col_index = meta.metadata.row_groups[0].columns.findIndex(f =>
-      f.meta_data?.path_in_schema.includes(values_col)
-    );
-    const rg_length = Number(meta.metadata.row_groups[0].num_rows);
-    if (path_col_index === -1) {
-      throw new Error('No path column found');
-    }
-    let valueMin: string | undefined = undefined;
-    let valueMax: string | undefined = undefined;
-    for (const value of values) {
-      if (valueMin === undefined || value < valueMin) {
-        valueMin = value;
-      }
-      if (valueMax === undefined || value > valueMax) {
-        valueMax = value;
-      }
-    }
-    if (valueMin === undefined || valueMax === undefined) {
-      throw new Error('No statistics found');
-    }
-    for (let i = 0; i < meta.metadata.row_groups.length; i++) {
-      const rg = meta.metadata.row_groups[i];
-      const {min, max} = rg.columns[path_col_index].meta_data?.statistics || {};
-      if (min === undefined || max === undefined) {
-        throw new Error('No statistics found');
-      }
-      if (min <= valueMin && max >= valueMax) {
-        rowGroups.push(i);
-      }
-    }
-    const rgRanges = rowGroups.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
-    const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
-    return rowRange;
-  },
-
   getByteRangesForRowGroups(meta, rowGroupIndices, columnNames) {
     const ranges: Array<[number, number]> = [];
 
@@ -173,22 +119,16 @@ const ParquetWorker: ParquetWorkerClass = {
     return ranges;
   },
 
-  async prefetchByteRanges(meta, byteRanges) {
-    const enhancedFile = meta.file as EnhancedAsyncBuffer;
-    if (enhancedFile.prefetch) {
-      const mergedRanges = mergeByteRanges(byteRanges);
-      await enhancedFile.prefetch(mergedRanges);
-    }
-  },
-
   async getRowRange<T = object>(
     url: string,
     range: [number, number] | undefined,
-    columns?: string[]
+    columns?: string[],
+    file?: AsyncBuffer
   ) {
     const meta = await this.getMetaData(url);
     return (await parquetReadObjects({
-      file: meta.file,
+      file: file ?? meta.file,
+      metadata: meta.metadata,
       columns: columns ?? undefined,
       compressors,
       rowStart: range?.[0],
@@ -313,10 +253,8 @@ const ParquetWorker: ParquetWorkerClass = {
     const columns = ['parent_path', 'path', 'column_name', 'value'];
     const byteRanges = this.getByteRangesForRowGroups(meta, uniqueRowGroupIndices, columns);
 
-    // Prefetch all byte ranges in a single multi-range request
-    if (byteRanges.length > 0) {
-      await this.prefetchByteRanges(meta, byteRanges);
-    }
+    // Prefetch all byte ranges with multi-range requests, scoped to this call
+    const file = await prefetchAsyncBuffer(meta.file, url, byteRanges);
 
     // Now compute row ranges and fetch data (will hit cache)
     const ranges = this.mergeRanges(
@@ -332,7 +270,7 @@ const ParquetWorker: ParquetWorkerClass = {
     );
 
     const data = await Promise.all(
-      ranges.map(range => this.getRowRange<DemographyParquetData>(url, range, columns))
+      ranges.map(range => this.getRowRange<DemographyParquetData>(url, range, columns, file))
     );
     const parsed = this.parseDemographyData(data.flat(), mapDocument, brokenIds);
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
@@ -341,11 +279,23 @@ const ParquetWorker: ParquetWorkerClass = {
   async getPointData(layer, columns, source, filterIds) {
     const url = `${GEODATA_URL}/tilesets/${layer}_points.parquet`;
     const meta = await this.getMetaData(url);
-    let idRange: [number, number] | undefined = undefined;
+    let {file, metadata} = meta;
     if (filterIds && filterIds.size > 0) {
-      idRange = this.getRowGroupsFromChildValue(meta, Array.from(filterIds), 'path');
+      // Read only the row groups that can contain filterIds
+      const rowGroups = rowGroupsContaining(metadata, 'path', Array.from(filterIds));
+      metadata = {...metadata, row_groups: rowGroups.map(i => metadata.row_groups[i])};
+      file = await prefetchAsyncBuffer(
+        file,
+        url,
+        this.getByteRangesForRowGroups(meta, rowGroups, columns)
+      );
     }
-    const parquetData = await this.getRowRange<PointParquetData>(url, idRange, columns);
+    const parquetData = (await parquetReadObjects({
+      file,
+      metadata,
+      columns,
+      compressors,
+    })) as PointParquetData[];
     return this.generateGeojsonFromPointData(parquetData, layer, source, filterIds);
   },
 };

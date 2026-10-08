@@ -1,361 +1,170 @@
-import {AsyncBuffer} from 'hyparquet';
+import {AsyncBuffer, FileMetaData} from 'hyparquet';
 
-/** Cache entry storing a byte range and its data */
-interface CacheEntry {
+/** Bytes [start, end) of the file, found at offset in buffer */
+interface Part {
   start: number;
   end: number;
-  u8: Uint8Array;
+  offset: number;
+  buffer: ArrayBuffer;
 }
 
-/** Options for enhancing AsyncBuffer with multi-range support */
-export interface EnhanceAsyncBufferOptions {
-  url: string;
-  fetchInit?: RequestInit;
-  maxPartsPerRequest?: number;
-  maxGap?: number;
+// Bigger ranges are bandwidth-bound, so they get their own request. Also bounds
+// each multipart response, which is held whole until the read finishes.
+const MAX_BATCH_BYTES = 1 << 21; // 2mb
+
+/** Urls whose server refused or ignored a multi-range request */
+const singleRangeUrls = new Set<string>();
+
+/**
+ * Fetch byte ranges up front, batched into multi-range requests, and return an
+ * AsyncBuffer that serves slices from them, falling back to file for anything
+ * else. hyparquet 1.12 reads row groups one at a time, so this turns many
+ * sequential round trips into a few parallel ones.
+ *
+ * Use the result for one read and drop it, it holds every fetched byte.
+ * ponytail: replace with hyparquet's asyncBufferFromUrl maxRanges option once
+ * it is released and we upgrade, its planner fetches row groups in parallel.
+ *
+ * @param file - Single range AsyncBuffer for url
+ * @param url - The file url, for multi-range requests
+ * @param ranges - [start, end) byte ranges to prefetch
+ * @param maxRanges - Max ranges per request
+ */
+export async function prefetchAsyncBuffer(
+  file: AsyncBuffer,
+  url: string,
+  ranges: Array<[number, number]>,
+  maxRanges = 24
+): Promise<AsyncBuffer> {
+  const singles: Array<[number, number]> = [];
+  const batches: Array<Array<[number, number]>> = [];
+  let batch: Array<[number, number]> = [];
+  let batchBytes = 0;
+  for (const range of mergeByteRanges(ranges)) {
+    const size = range[1] - range[0];
+    if (size > MAX_BATCH_BYTES || singleRangeUrls.has(url)) {
+      singles.push(range);
+      continue;
+    }
+    if (batch.length === maxRanges || batchBytes + size > MAX_BATCH_BYTES) {
+      batches.push(batch);
+      batch = [];
+      batchBytes = 0;
+    }
+    batch.push(range);
+    batchBytes += size;
+  }
+  if (batch.length) batches.push(batch);
+
+  const parts = (
+    await Promise.all([
+      ...singles.map(range => slicePart(file, range)),
+      ...batches.map(b => (b.length === 1 ? slicePart(file, b[0]) : fetchBatch(file, url, b))),
+    ])
+  ).flat();
+
+  return {
+    byteLength: file.byteLength,
+    slice(start, end = file.byteLength) {
+      const part = parts.find(p => p.start <= start && end <= p.end);
+      if (!part) return file.slice(start, end);
+      return part.buffer.slice(part.offset + start - part.start, part.offset + end - part.start);
+    },
+  };
 }
 
-/** Extended AsyncBuffer with prefetch and cache capabilities */
-export interface EnhancedAsyncBuffer extends AsyncBuffer {
-  prefetch: (rangeGroups: Array<[number, number]>) => Promise<void>;
-  _originalSlice: AsyncBuffer['slice'];
-  _rangeCache: CacheEntry[];
+async function slicePart(file: AsyncBuffer, [start, end]: [number, number]): Promise<Part> {
+  return {start, end, offset: 0, buffer: await file.slice(start, end)};
 }
 
-/** A pending cache miss request */
-interface PendingRequest {
-  start: number;
-  end: number;
-  resolve: (value: ArrayBuffer) => void;
-  reject: (reason: Error) => void;
-}
-
-/** Merged range group with associated pending requests */
-interface MergedPendingGroup {
-  start: number;
-  end: number;
-  parts: PendingRequest[];
-}
-
-/** Parsed multipart response part */
-interface MultipartPart {
-  start: number;
-  end: number;
-  payload: Uint8Array;
+/** One multi-range request, with single range requests for whatever it didn't return */
+async function fetchBatch(
+  file: AsyncBuffer,
+  url: string,
+  batch: Array<[number, number]>
+): Promise<Part[]> {
+  const res = await fetch(url, {
+    headers: {Range: `bytes=${batch.map(([start, end]) => `${start}-${end - 1}`).join(',')}`},
+  });
+  const contentType = res.headers.get('Content-Type') ?? '';
+  const contentRange = res.headers.get('Content-Range')?.match(/bytes (\d+)-(\d+)\//);
+  let parts: Part[] = [];
+  if (res.status === 206 && /^multipart\/byteranges/i.test(contentType)) {
+    parts = parseMultipartRanges(await res.arrayBuffer());
+  } else if (res.status === 206 && contentRange) {
+    // server merged the ranges into one
+    const start = Number(contentRange[1]);
+    const end = Number(contentRange[2]) + 1;
+    parts = [{start, end, offset: 0, buffer: await res.arrayBuffer()}];
+  } else {
+    // server refused the ranges (416, 400) or ignored them (200 with the
+    // whole file), don't download the body
+    res.body?.cancel();
+  }
+  const missing = batch.filter(
+    ([start, end]) => !parts.some(p => p.start <= start && end <= p.end)
+  );
+  if (missing.length) singleRangeUrls.add(url);
+  return parts.concat(await Promise.all(missing.map(range => slicePart(file, range))));
 }
 
 /**
- * Parse multipart/byteranges HTTP response body
- * @param arrayBuffer - The response body as ArrayBuffer
- * @param contentType - The Content-Type header value containing the boundary
- * @returns Array of parsed parts with byte ranges and payloads
+ * Parse a multipart/byteranges body. Each part is located using the length
+ * from its Content-Range header, so the boundary is not needed.
  */
-function parseMultipartByteRanges(arrayBuffer: ArrayBuffer, contentType: string): MultipartPart[] {
-  const boundaryMatch = /boundary="?([^=";]+)"?/i.exec(contentType || '');
-  if (!boundaryMatch) {
-    throw new Error(`Missing boundary in Content-Type: ${contentType}`);
-  }
-  const boundary = boundaryMatch[1];
-
-  const u8 = new Uint8Array(arrayBuffer);
-  const enc = new TextEncoder();
-  const dec = new TextDecoder('latin1');
-
-  const dashBoundary = enc.encode(`--${boundary}`);
-  const dashBoundaryEnd = enc.encode(`--${boundary}--`);
-  const hdrSep = enc.encode('\r\n\r\n');
-  const crlf = enc.encode('\r\n');
-
-  function indexOfSeq(haystack: Uint8Array, needle: Uint8Array, from = 0): number {
-    outer: for (let i = from; i <= haystack.length - needle.length; i++) {
-      for (let j = 0; j < needle.length; j++) {
-        if (haystack[i + j] !== needle[j]) continue outer;
-      }
-      return i;
+export function parseMultipartRanges(buffer: ArrayBuffer): Part[] {
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder();
+  const parts: Part[] = [];
+  let offset = 0;
+  while (true) {
+    // part headers end with \r\n\r\n
+    let headerEnd = offset;
+    while (
+      headerEnd + 3 < bytes.length &&
+      (bytes[headerEnd] !== 13 ||
+        bytes[headerEnd + 1] !== 10 ||
+        bytes[headerEnd + 2] !== 13 ||
+        bytes[headerEnd + 3] !== 10)
+    ) {
+      headerEnd++;
     }
-    return -1;
+    const match = decoder
+      .decode(bytes.subarray(offset, headerEnd))
+      .match(/content-range:\s*bytes (\d+)-(\d+)\//i);
+    if (!match) break; // closing boundary
+    const start = Number(match[1]);
+    const end = Number(match[2]) + 1;
+    offset = headerEnd + 4;
+    if (offset + end - start > bytes.length) break; // truncated
+    parts.push({start, end, offset, buffer});
+    offset += end - start;
   }
-
-  const parts: MultipartPart[] = [];
-  let pos = indexOfSeq(u8, dashBoundary, 0);
-  if (pos === -1) {
-    throw new Error('Boundary not found in multipart body');
-  }
-
-  while (pos !== -1) {
-    const isFinal = indexOfSeq(u8, dashBoundaryEnd, pos) === pos;
-    pos += dashBoundary.length;
-    if (isFinal) break;
-
-    // consume optional CRLF
-    if (u8[pos] === crlf[0] && u8[pos + 1] === crlf[1]) pos += 2;
-
-    const headerEnd = indexOfSeq(u8, hdrSep, pos);
-    if (headerEnd === -1) {
-      throw new Error('Missing header terminator in multipart');
-    }
-    const headerText = dec.decode(u8.subarray(pos, headerEnd));
-    pos = headerEnd + hdrSep.length;
-
-    const contentRangeMatch = /content-range:\s*bytes\s+(\d+)-(\d+)\/(\d+|\*)/i.exec(headerText);
-    if (!contentRangeMatch) {
-      throw new Error(`Missing Content-Range in part headers:\n${headerText}`);
-    }
-    const start = Number(contentRangeMatch[1]);
-    const endInclusive = Number(contentRangeMatch[2]);
-
-    const next = indexOfSeq(u8, dashBoundary, pos);
-    if (next === -1) {
-      throw new Error('Next boundary not found in multipart');
-    }
-
-    // trim trailing CRLF before boundary
-    let bodyEnd = next;
-    if (u8[bodyEnd - 2] === 13 && u8[bodyEnd - 1] === 10) bodyEnd -= 2;
-
-    const payload = u8.subarray(pos, bodyEnd);
-    parts.push({start, end: endInclusive + 1, payload}); // end exclusive
-    pos = next;
-  }
-
   return parts;
 }
 
 /**
- * Enhanced AsyncBuffer wrapper that adds:
- * - Multi-range prefetch via multipart/byteranges HTTP requests
- * - Cache-backed slice() for repeated reads
- * - Automatic fallback when server doesn't support multipart responses
- * - Opportunistic coalescing for cache misses
- *
- * @param file - The base AsyncBuffer to enhance
- * @param options - Configuration options
- * @returns Enhanced AsyncBuffer with prefetch capability
+ * Indices of the row groups whose min/max statistics for column contain at
+ * least one of values.
+ * ponytail: O(row groups × values), fine for the ~50 row groups of a state's
+ * block points; sort values and binary search if it shows up in a profile.
  */
-export function enhanceAsyncBufferWithRangeGroups(
-  file: AsyncBuffer,
-  options: EnhanceAsyncBufferOptions
-): EnhancedAsyncBuffer {
-  const {url, fetchInit = {}, maxPartsPerRequest = 24, maxGap = 64 * 1024} = options;
-
-  if (!url) {
-    throw new Error('enhanceAsyncBufferWithRangeGroups requires url option');
-  }
-
-  const originalSlice = file.slice.bind(file);
-
-  // ---- cache ----
-  const cache: CacheEntry[] = [];
-
-  const cacheGet = (start: number, end: number): Uint8Array | null => {
-    for (const entry of cache) {
-      if (start >= entry.start && end <= entry.end) {
-        return entry.u8.subarray(start - entry.start, end - entry.start);
-      }
-    }
-    return null;
-  };
-
-  const cachePut = (start: number, end: number, u8: Uint8Array): void => {
-    if (end <= start) return;
-    cache.push({start, end, u8});
-    cache.sort((a, b) => a.start - b.start);
-  };
-
-  // ---- normalize/merge user ranges ----
-  function normalizeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
-    const out: Array<[number, number]> = [];
-    for (const [sRaw, eRaw] of ranges || []) {
-      const s = Math.max(0, sRaw | 0);
-      const e = Math.min(file.byteLength, eRaw | 0);
-      if (e > s) out.push([s, e]);
-    }
-    out.sort((a, b) => a[0] - b[0]);
-
-    // merge overlaps/adjacent
-    const merged: Array<[number, number]> = [];
-    for (const r of out) {
-      const last = merged[merged.length - 1];
-      if (!last || r[0] > last[1]) {
-        merged.push(r);
-      } else {
-        last[1] = Math.max(last[1], r[1]);
-      }
-    }
-    return merged;
-  }
-
-  // ---- multi-range fetch + cache seed ----
-  async function fetchMultiRangesAndCache(ranges: Array<[number, number]>): Promise<void> {
-    const norm = normalizeRanges(ranges);
-
-    for (let i = 0; i < norm.length; i += maxPartsPerRequest) {
-      const batch = norm.slice(i, i + maxPartsPerRequest);
-      const rangeHeader = batch.map(([s, e]) => `${s}-${e - 1}`).join(',');
-
-      const res = await fetch(url, {
-        ...fetchInit,
-        headers: {
-          ...((fetchInit.headers as Record<string, string>) || {}),
-          Range: `bytes=${rangeHeader}`,
-        },
-      });
-
-      const ab = await res.arrayBuffer();
-      const ct = res.headers.get('content-type') || '';
-
-      if (res.status === 206 && /^multipart\/byteranges/i.test(ct)) {
-        // Server returned multipart response with all requested ranges
-        const parts = parseMultipartByteRanges(ab, ct);
-        for (const p of parts) {
-          cachePut(p.start, p.end, new Uint8Array(p.payload));
-        }
-      } else if (res.status === 206) {
-        // Server returned a single range even though we asked for multiple.
-        // Fall back: fetch each one individually using the underlying slice.
-        await Promise.all(
-          batch.map(async ([s, e]) => {
-            const buf = await Promise.resolve(originalSlice(s, e));
-            cachePut(s, e, new Uint8Array(buf));
-          })
-        );
-      } else if (res.status === 200) {
-        // Server ignored Range and returned whole file
-        cachePut(0, file.byteLength, new Uint8Array(ab));
-      } else {
-        throw new Error(`Unexpected response status ${res.status}`);
-      }
-    }
-  }
-
-  // ---- opportunistic coalescing for misses (single-range via originalSlice) ----
-  let pending: PendingRequest[] = [];
-  let scheduled = false;
-
-  async function flushMisses(): Promise<void> {
-    scheduled = false;
-    const reqs = pending;
-    pending = [];
-
-    reqs.sort((a, b) => a.start - b.start);
-    const merged: MergedPendingGroup[] = [];
-
-    for (const r of reqs) {
-      const last = merged[merged.length - 1];
-      if (!last || r.start > last.end + maxGap) {
-        merged.push({start: r.start, end: r.end, parts: [r]});
-      } else {
-        last.end = Math.max(last.end, r.end);
-        last.parts.push(r);
-      }
-    }
-
-    await Promise.all(
-      merged.map(async m => {
-        const ab = await Promise.resolve(originalSlice(m.start, m.end));
-        const u8 = new Uint8Array(ab);
-        cachePut(m.start, m.end, u8);
-        for (const p of m.parts) {
-          const sub = u8.subarray(p.start - m.start, p.end - m.start);
-          p.resolve(sub.buffer.slice(sub.byteOffset, sub.byteOffset + sub.byteLength));
-        }
-      })
-    );
-  }
-
-  // ---- create enhanced buffer ----
-  const enhancedFile = file as EnhancedAsyncBuffer;
-
-  enhancedFile.prefetch = async (rangeGroups: Array<[number, number]>): Promise<void> => {
-    await fetchMultiRangesAndCache(rangeGroups);
-  };
-
-  enhancedFile.slice = (
-    start: number,
-    end: number = file.byteLength
-  ): ArrayBuffer | Promise<ArrayBuffer> => {
-    start = Math.max(0, start | 0);
-    end = Math.min(file.byteLength, end | 0);
-    if (end <= start) return new ArrayBuffer(0);
-
-    const hit = cacheGet(start, end);
-    if (hit) {
-      return hit.buffer.slice(hit.byteOffset, hit.byteOffset + hit.byteLength);
-    }
-
-    // miss: queue for coalesced single-range via originalSlice
-    return new Promise<ArrayBuffer>((resolve, reject) => {
-      pending.push({start, end, resolve, reject});
-      if (!scheduled) {
-        scheduled = true;
-        setTimeout(() => {
-          flushMisses().catch(e => {
-            const leftovers = pending;
-            pending = [];
-            leftovers.forEach(r => r.reject(e));
-          });
-        }, 0);
-      }
-    });
-  };
-
-  enhancedFile._originalSlice = originalSlice;
-  enhancedFile._rangeCache = cache;
-
-  return enhancedFile;
-}
-
-/**
- * Calculate byte ranges for row groups from parquet metadata.
- * This enables prefetching the exact byte ranges needed before reading.
- *
- * @param metadata - Parquet file metadata
- * @param rowGroupIndices - Array of row group indices to get byte ranges for
- * @param columnIndices - Optional array of column indices to limit byte ranges (all columns if not provided)
- * @returns Array of [start, end] byte ranges covering the requested row groups
- */
-export function getByteRangesForRowGroups(
-  metadata: {
-    row_groups: Array<{
-      columns: Array<{
-        meta_data?: {
-          dictionary_page_offset?: bigint;
-          data_page_offset?: bigint;
-          total_compressed_size?: bigint;
-        };
-      }>;
-    }>;
-  },
-  rowGroupIndices: number[],
-  columnIndices?: number[]
-): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-
-  for (const rgIndex of rowGroupIndices) {
-    const rowGroup = metadata.row_groups[rgIndex];
-    if (!rowGroup) continue;
-
-    const columns = columnIndices
-      ? columnIndices.map(i => rowGroup.columns[i]).filter(Boolean)
-      : rowGroup.columns;
-
-    for (const col of columns) {
-      const meta = col.meta_data;
-      if (!meta) continue;
-
-      // Use dictionary_page_offset if available, otherwise data_page_offset
-      const startOffset = meta.dictionary_page_offset ?? meta.data_page_offset;
-      if (startOffset === undefined) continue;
-
-      const start = Number(startOffset);
-      const size = Number(meta.total_compressed_size ?? 0);
-      if (size > 0) {
-        ranges.push([start, start + size]);
-      }
-    }
-  }
-
-  return ranges;
+export function rowGroupsContaining(
+  metadata: FileMetaData,
+  column: string,
+  values: string[]
+): number[] {
+  const columnIndex =
+    metadata.row_groups[0]?.columns.findIndex(c => c.meta_data?.path_in_schema.includes(column)) ??
+    -1;
+  if (columnIndex === -1) throw new Error(`No ${column} column found`);
+  const rowGroups: number[] = [];
+  metadata.row_groups.forEach((rowGroup, i) => {
+    const {min, max} = rowGroup.columns[columnIndex].meta_data?.statistics ?? {};
+    if (min === undefined || max === undefined) throw new Error('No statistics found');
+    if (values.some(value => min <= value && value <= max)) rowGroups.push(i);
+  });
+  return rowGroups;
 }
 
 /**
