@@ -122,7 +122,6 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 | `CommunityAssignments` | Plain table: geo_id → community_id mapping (same departition as Assignments) |
 | `DistrictUnions` | Per-zone cached geometry + demographic stats; `zone` and `geometry` nullable for the unassigned-totals row |
 | `GerryDBTable` | Reference to loaded geospatial data layers |
-| `ParentChildEdges` | Shatter topology: parent-child geometry nesting (LIST-partitioned on `districtr_map`) |
 
 ### Key API Patterns
 
@@ -134,7 +133,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 ### Database Design
 
 - Schema isolation: `public` for maps/references, `document` schema for document-specific tables, `comments` for submissions and district notes. The Wagtail CMS owns the `admin` schema through Django migrations.
-- `document.assignments` and `document.community_assignments` are **plain tables** (LIST partitioning on `document_id` was removed — per-document `CREATE TABLE … PARTITION OF` took ACCESS EXCLUSIVE locks globally, causing lock convoys under concurrent load). `ParentChildEdges` remains LIST-partitioned on `districtr_map`.
+- `document.assignments` and `document.community_assignments` are **plain tables**; the schema has no partitioned tables.
 - `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
 - `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
 - `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.
@@ -154,7 +153,7 @@ Alembic with 60+ versions. UDF handling stores previous definitions under `sql/v
 1. **Input**: GeoPackage files (from GerryDB or external sources)
 2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
 3. **Tabular data**: GeoPackage → DuckDB → Parquet
-4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as both a pickle (legacy) and a compact `.npz` array format
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as a compact `.npz` array file
 5. **Upload**: Artifacts pushed to S3
 6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics) directly from S3/CloudFront; backend loads graph files into a `DualLevelGraph` (numpy/scipy-backed, mmap-shareable across workers) for contiguity checks and other graph-touching metrics, cached locally
 
@@ -164,8 +163,8 @@ Alembic with 60+ versions. UDF handling stores previous definitions under `sql/v
 - `tileset merge-gerrydb-tilesets` - Combine parent+child for shatterable maps
 - `tabular build-parquet` / `batch-build-parquet` - Parquet generation for demographic data
 - `transforms aggregate` - Aggregate block-level data to higher geographies
-- `transforms create-graph` - Build a dual-level graph pkl from two GeoPackage files
-- `transforms batch-create-graphs` - Batch build graph pkls from a config file
+- `transforms create-graph` - Build a dual-level graph npz from two GeoPackage files
+- `transforms batch-create-graphs` - Batch build graph npz files from a config file
 
 ## Infrastructure
 

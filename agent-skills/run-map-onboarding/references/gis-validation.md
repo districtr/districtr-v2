@@ -64,7 +64,7 @@ print(f'{len(overlaps) - len(gdf)} overlapping pairs (approx)')
 
 ## Parent/child nesting for shatter and graph edges
 
-Both `create-parent-child-edges` (backend, live DB spatial join) and `_annotate_graph_with_parents_from_gpkg` (pipelines, GeoPackage spatial join — built explicitly to replace the DB query without a live DB, per its own docstring) use the same method: representative point of the child geometry tested against parent polygons. A child unit whose representative point falls outside every parent polygon (a real possibility for oddly-shaped units, not just bad data) produces a silently missing edge rather than an error. If parent/child nesting is close but not exact (common when parent and child layers come from different vintages of the same source), check coverage before relying on either spatial join:
+`_annotate_graph_with_parents_from_gpkg` (pipelines, GeoPackage spatial join) derives parent/child edges by testing the representative point of each child geometry against parent polygons. A child unit whose representative point falls outside every parent polygon (a real possibility for oddly-shaped units, not just bad data) produces a silently missing edge rather than an error. If parent/child nesting is close but not exact (common when parent and child layers come from different vintages of the same source), check coverage before relying on the spatial join:
 
 ```sh
 python3 -c "

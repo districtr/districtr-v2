@@ -31,7 +31,6 @@ from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
 )
 
 
@@ -490,9 +489,6 @@ def simple_parent_child_geos_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
-    )
     session.commit()
     return inserted_districtr_map
 
@@ -513,9 +509,6 @@ def simple_shatterable_fixed_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
-    )
     session.commit()
     return inserted_districtr_map
 
@@ -532,24 +525,6 @@ def simple_child_geos_nonshatterable_districtr_map_fixture(
         num_districts=2,
         parent_layer="simple_child_geos",
     )
-
-
-@pytest.fixture
-def simple_shatterable_districtr_map_no_edges_yet(
-    session: Session, gerrydb_simple_geos_view
-):
-    inserted_districtr_map = create_districtr_map(
-        session,
-        name="Simple shatterable layer",
-        districtr_map_slug="simple_geos",
-        gerrydb_table_name="simple_geos",
-        num_districts=3,
-        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
-        parent_layer="simple_parent_geos",
-        child_layer="simple_child_geos",
-    )
-    session.commit()
-    return inserted_districtr_map
 
 
 @pytest.fixture(name="ks_ellis_county_vtd")
@@ -809,17 +784,15 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Graph fixture generation — pkl files are pre-built and committed to
+# Graph fixture generation — npz files are pre-built and committed to
 # fixtures/graph/. The code below is kept as documentation so future
-# developers can regenerate them if needed.
+# developers can regenerate them if needed. It builds networkx graphs and
+# writes them with the pipeline's own writer, so run it from the pipelines
+# environment (networkx and graph_to_npz_arrays live there, not in the
+# backend): import Graph and number_connected_components from networkx,
+# numpy as np, and graph_to_npz_arrays from transforms.graph.
 #
-# To regenerate, uncomment the code, add the required imports at the top
-# of the file (pickle, Graph from networkx, number_connected_components),
-# and run:
-#   pytest backend/tests/conftest.py --collect-only   # loads the module
-# or execute the functions directly in a Python session.
-#
-# For ks_ellis_geos.pkl, a live DB connection with the ks_ellis_county_vtd
+# For ks_ellis_geos.npz, a live DB connection with the ks_ellis_county_vtd
 # gerrydb table loaded is required (see ks_ellis_county_vtd_gerrydb fixture).
 # ---------------------------------------------------------------------------
 #
@@ -906,23 +879,25 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 #     _build_combined_graph_inline(G)
 #     return G
 #
-# # To write the grid pkls:
+# # To write the grid npz files:
 # # for name, fn in [(GRID_COMBINED_NAME, _build_grid_combined_graph),
 # #                  (PARENT_GRID_NAME, _build_grid_parent_graph),
 # #                  (BLOCK_GRID_NAME, _build_grid_block_graph),
 # #                  ("simple_geos", _build_simple_geos_combined_graph)]:
-# #     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "wb") as f:
-# #         pickle.dump(fn(), f)
+# #     np.savez_compressed(
+# #         FIXTURES_PATH / "graph" / f"{name}.npz", **graph_to_npz_arrays(fn())
+# #     )
 #
-# # For ks_ellis_geos.pkl (requires DB + ks_ellis_county_vtd_gerrydb fixture):
+# # For ks_ellis_geos.npz (requires DB + ks_ellis_county_vtd_gerrydb fixture):
 # # rows = session.execute(text("""
 # #     SELECT a.path, b.path FROM gerrydb.ks_ellis_county_vtd a
 # #     JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
 # #     WHERE ST_Touches(a.geometry, b.geometry)
 # # """)).fetchall()
 # # G = Graph([(r[0], r[1]) for r in rows])
-# # with open(FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl", "wb") as f:
-# #     pickle.dump(G, f)
+# # np.savez_compressed(
+# #     FIXTURES_PATH / "graph" / "ks_ellis_geos.npz", **graph_to_npz_arrays(G)
+# # )
 
 
 @pytest.fixture(autouse=True)
@@ -941,7 +916,7 @@ def mock_grid_graph_file_fixture(monkeypatch):
     """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
 
     def _get_file(gerrydb_name: str) -> str:
-        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")
+        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.npz")
 
     monkeypatch.setattr(eval_graph_module, "get_gerrydb_graph_file", _get_file)
     _get_graph_cached.cache_clear()
