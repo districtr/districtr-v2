@@ -27,6 +27,9 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   const setAvailableColumnSets = useDemographyStore(state => state.setAvailableColumnSets);
   const setNotification = useMapStore(state => state.setNotification);
   useClearMap(mapDocument?.document_id);
+  const isPublicView = Boolean(
+    mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id
+  );
 
   const publicDistrictsQuery = useQuery({
     // updated_at busts the cache on save: edit -> save -> display would otherwise
@@ -35,7 +38,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     // exactly when the plan changes.
     queryKey: publicDistrictsQueryKey(mapDocument),
     queryFn: () => getPublicDistricts(mapDocument),
-    enabled: Boolean(mapDocument?.access === ACCESS_STATES.READ && mapDocument?.public_id),
+    enabled: isPublicView,
     // Public views are effectively read-only embeds; a 5-minute stale window drops
     // the duplicate-refetch-on-every-mount problem for multi-tab / multi-embed
     // pages without hiding genuinely new data for long. Retry is disabled because
@@ -45,7 +48,9 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
   });
 
   useEffect(() => {
-    if (publicDistrictsQuery.isError) {
+    // While disabled (edit doc still active mid-navigation), isError is a cached
+    // failure from an earlier visit, not this load's.
+    if (isPublicView && publicDistrictsQuery.isError) {
       // publicSourceLoaded never flips on failure, so clear the overlay here.
       setViewTransition(null);
       setNotification({
@@ -55,6 +60,7 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
       });
     }
   }, [
+    isPublicView,
     publicDistrictsQuery.isError,
     publicDistrictsQuery.error,
     setNotification,

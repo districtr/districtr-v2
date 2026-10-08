@@ -3,7 +3,7 @@ import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
+import {evaluationQueryKey, getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
@@ -20,7 +20,7 @@ export const EvalPanel: React.FC = () => {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['evaluation', publicId],
+    queryKey: evaluationQueryKey(publicId),
     queryFn: async () => {
       if (!publicId) return null;
       const result = await getEvaluation(String(publicId));
