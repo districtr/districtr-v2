@@ -104,6 +104,13 @@ const getActivePopulationAssignments = (): PopulationAssignments => {
 /**
  * Class to organize queries on current demographic data
  */
+/**
+ * Key for a demography load: the shattered parents whose blocks it includes, plus the
+ * document. demographyStore keys each load with it, and isLoadedFor compares against it.
+ */
+export const demographyDataHash = (brokenIds: Iterable<string>, documentId?: string) =>
+  `${Array.from(brokenIds).join(',')}|${documentId}`;
+
 class DemographyService {
   /**
    * Arquero main data table.
@@ -178,6 +185,28 @@ class DemographyService {
   colorScale?: AnyD3Scale;
 
   /**
+   * Assigned ids with no demography row, recorded when a fresh load still fails the
+   * population join. That's bad saved data: the panel shows an error instead of bars
+   * and the assignment check reports them. Cleared by any successful calculation.
+   */
+  unmatchedPaths: string[] = [];
+  private lastMissingPaths: string[] = [];
+
+  /** Drops repaired ids from unmatchedPaths (they were flagged against the old table). */
+  clearUnmatched(ids: string[]): void {
+    const repaired = new Set(ids);
+    this.unmatchedPaths = this.unmatchedPaths.filter(id => !repaired.has(id));
+  }
+
+  /**
+   * Whether the loaded table (and so unmatchedPaths) is for these shattered parents on
+   * this document. After a shatter or heal it isn't until the reload lands.
+   */
+  isLoadedFor(brokenIds: Iterable<string>, documentId: string): boolean {
+    return this.hash === demographyDataHash(brokenIds, documentId);
+  }
+
+  /**
    * Cache of `getFiltered()` results keyed by county/VTD id, so repeatedly
    * re-entering the same county under the brush (e.g. dragging back and
    * forth across a border) doesn't re-scan `table`. Invalidated wherever
@@ -208,7 +237,17 @@ class DemographyService {
       zoneAssignments: getActivePopulationAssignments(),
       coalitionGroups,
     });
-    if (!popsOk) return;
+    if (!popsOk) {
+      // A failed join on a fresh load is bad saved data (updateData's request-id guard
+      // drops stale loads), so record the unmatched ids for the panel and the check.
+      // Summary stats only read the table, so finish them; a repair then only needs
+      // updatePopulations.
+      this.unmatchedPaths = this.lastMissingPaths;
+      this.updateSummaryStats();
+      this.hash = hash;
+      useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
+      return;
+    }
     this.updateSummaryStats();
     this.hash = hash;
   }
@@ -288,6 +327,7 @@ class DemographyService {
     this.hash = '';
     this.colorScale = undefined;
     this.zoneStats = {};
+    this.unmatchedPaths = [];
     this.filteredCache.clear();
   }
 
@@ -428,6 +468,8 @@ class DemographyService {
       )
     );
     if (missingPopulations.size) {
+      // Deduped: community assignments repeat a geoid once per community it's in.
+      this.lastMissingPaths = Array.from(new Set(missingPopulations.array('path') as string[]));
       return {
         ok: false,
       };
@@ -907,6 +949,7 @@ class DemographyService {
   ) {
     const populations = this.calculatePopulations(zoneAssignments, coalitionGroups);
     if (populations.ok) {
+      this.unmatchedPaths = [];
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
       return true;
     } else {
