@@ -6,10 +6,11 @@ import logging
 import re
 import msgpack
 from enum import Enum
+from time import monotonic, sleep
 from uuid import uuid4
 from typing import Callable, NewType
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy import text, update
 from sqlalchemy import bindparam, Text
 from sqlalchemy.types import UUID
@@ -528,6 +529,11 @@ def _json_build_object_sql(pairs: list[str]) -> str:
     return f"({joined})::json"
 
 
+# Wait budget matches the ALB idle timeout: past it the client is gone.
+STATS_LOCK_POLL_SECONDS = 1.0
+STATS_LOCK_WAIT_SECONDS = 120.0
+
+
 def update_or_select_district_stats(
     session: Session,
     document_id: str,
@@ -616,15 +622,24 @@ def update_or_select_district_stats(
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = _json_build_object_sql(json_pairs)
 
-        # Serialize concurrent cache rebuilds at the document level: a loser
-        # blocks here instead of computing an expensive spatial union it will
-        # lose to ON CONFLICT. After acquiring the lock, re-check the cache —
-        # the winner may have already warmed it.
+        # One rebuild per document; losers poll rather than block, since a
+        # blocked waiter holds a pooled connection and trips the 15s
+        # lock_timeout (core/db.py). Once locked, re-check the cache — the
+        # winner may have warmed it.
         if missing_zones and doc_row.public_id is not None:
-            session.execute(
-                text("SELECT pg_advisory_xact_lock(:key)"),
+            deadline = monotonic() + STATS_LOCK_WAIT_SECONDS
+            while not session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:key)"),
                 {"key": doc_row.public_id},
-            )
+            ).scalar_one():
+                # Free the connection while sleeping (no caller has pending writes).
+                session.rollback()
+                sleep(STATS_LOCK_POLL_SECONDS)
+                if monotonic() >= deadline:
+                    raise HTTPException(
+                        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                        detail="District stats are still being computed; retry shortly",
+                    )
             post_lock_rows = (
                 session.execute(
                     text(

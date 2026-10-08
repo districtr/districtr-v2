@@ -3,7 +3,7 @@ import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
+import {evaluationQueryKey, getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
@@ -20,7 +20,7 @@ export const EvalPanel: React.FC = () => {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['evaluation', publicId],
+    queryKey: evaluationQueryKey(publicId),
     queryFn: async () => {
       if (!publicId) return null;
       const result = await getEvaluation(String(publicId));
@@ -33,7 +33,7 @@ export const EvalPanel: React.FC = () => {
   // Signal the view-transition overlay, which holds the "Preparing evaluation"
   // preloader until metricsLoaded is true (see useViewTransition). Reset on mount,
   // mark loaded once the query settles. Without this the overlay hangs for the full
-  // 15s safety timeout on every eval navigation.
+  // safety timeout on every eval navigation.
   useEffect(() => {
     setLoadingState('metricsLoaded', false);
   }, [setLoadingState]);
