@@ -1,4 +1,4 @@
-import {useRef} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {PUBLIC_SOURCE_ID} from '@/app/constants/map/layerIds';
 
@@ -21,7 +21,7 @@ export function useDistrictHover() {
     setHoveredZones(ids);
   };
 
-  const onDistrictLeave = () => {
+  const onDistrictLeave = useCallback(() => {
     const map = getMapRef();
     if (map) {
       prevRef.current.forEach(id =>
@@ -30,7 +30,12 @@ export function useDistrictHover() {
     }
     prevRef.current = [];
     setHoveredZones([]);
-  };
+  }, [getMapRef, setHoveredZones]);
+
+  // The calling component can unmount while a trigger is still hovered or
+  // focused (no leave/blur event fires for an element removed from the DOM),
+  // so clear the highlight and the store on unmount as well.
+  useEffect(() => onDistrictLeave, [onDistrictLeave]);
 
   return {onDistrictEnter, onDistrictLeave};
 }

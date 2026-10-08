@@ -6,6 +6,7 @@ import {DistrictLabel} from './DistrictLabel';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+import {hoverHandlers} from './HoverTrigger';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
@@ -281,10 +282,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                         <Table.Row
                           key={zone}
                           tabIndex={0}
-                          onMouseEnter={() => onDistrictEnter([zone])}
-                          onMouseLeave={onDistrictLeave}
-                          onFocus={() => onDistrictEnter([zone])}
-                          onBlur={onDistrictLeave}
+                          {...hoverHandlers(() => onDistrictEnter([zone]), onDistrictLeave)}
                           onClick={() => zoomToDistrict(Number(zone))}
                           style={{cursor: 'pointer'}}
                         >

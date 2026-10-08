@@ -4,13 +4,13 @@ import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {formatElectionKey, selectFtvElections} from '@/app/utils/elections';
+import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
-import {HOVER_BTN_STYLE} from './hoverTriggerStyle';
+import {HOVER_BTN_STYLE, HoverTrigger, hoverHandlers} from './HoverTrigger';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 
 interface PartisanSectionProps {
@@ -39,6 +39,10 @@ const METRIC_CUTOFF = {
 } as const;
 
 const MAX_ALPHA = 0.6;
+
+// Slack for threshold comparisons so a share sitting exactly on a cutoff
+// isn't flipped by floating-point rounding.
+const FLOAT_TOLERANCE = 1e-9;
 
 // Highlights a Disproportionality cell in either table above/below while the "4 recent
 // statewide elections" trigger is hovered, so the reader can see exactly which rows the
@@ -82,17 +86,13 @@ const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
 function sortElections(keys: string[]): string[] {
   return keys
-    .filter(k => k.split('_')[0] in LEVEL_ORDER) // Only show statewide elections
+    .map(parseElectionKey)
+    .filter(e => e.type in LEVEL_ORDER) // Only show statewide elections
     .sort((a, b) => {
-      const aParts = a.split('_'),
-        bParts = b.split('_');
-      const aYear = Number(aParts[aParts.length - 1]);
-      const bYear = Number(bParts[bParts.length - 1]);
-      if (bYear !== aYear) return bYear - aYear; // descending year
-      const aLevel = LEVEL_ORDER[aParts[0]] ?? 99;
-      const bLevel = LEVEL_ORDER[bParts[0]] ?? 99;
-      return aLevel - bLevel; // pres < sen < gov
-    });
+      if (b.year !== a.year) return b.year - a.year; // descending year
+      return (LEVEL_ORDER[a.type] ?? 99) - (LEVEL_ORDER[b.type] ?? 99); // pres < sen < gov
+    })
+    .map(e => e.key);
 }
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
@@ -128,7 +128,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     ftvElections.every(key => evaluation.disproportionality?.[key] !== undefined);
   const ftvPassingKeys = ftvHasCompleteData
     ? new Set(
-        ftvElections.filter(key => Math.abs(evaluation.disproportionality![key]) <= ftvThreshold!)
+        ftvElections.filter(
+          key => Math.abs(evaluation.disproportionality![key]) <= ftvThreshold! + FLOAT_TOLERANCE
+        )
       )
     : null;
   const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
@@ -164,7 +166,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftvVerdict = (key: string): 'pass' | 'dem' | 'rep' | null => {
     const disprop = evaluation.disproportionality?.[key];
     if (disprop === undefined || ftvThreshold === null) return null;
-    if (Math.abs(disprop) <= ftvThreshold) return 'pass';
+    if (Math.abs(disprop) <= ftvThreshold + FLOAT_TOLERANCE) return 'pass';
     return disprop > 0 ? 'dem' : 'rep';
   };
 
@@ -190,7 +192,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const nElectionsAnalyzed = competitiveness?.n_elections ?? 0;
   const competitiveBandFraction = Number(competitiveBand) / 100;
   const nCompetitiveContests = contestDemVoteShares.filter(
-    s => Math.abs(s - 0.5) <= competitiveBandFraction
+    s => Math.abs(s - 0.5) <= competitiveBandFraction + FLOAT_TOLERANCE
   ).length;
 
   return (
@@ -367,6 +369,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
 
           {n > 0 && (
             <>
+              <Heading size="3" align="center" mb="2" mt="4">
+                Freedom-To-Vote Test
+              </Heading>
               {ftvPassCount === null && (
                 <Text size="2" mb="3" as="p">
                   Not enough recent Presidential and Senate election data is available to score this
@@ -378,30 +383,22 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   <Text size="2" mb="2" as="p">
                     This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
                     {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
-                    <button
-                      type="button"
-                      style={HOVER_BTN_STYLE}
-                      onMouseEnter={() => setFtvHover(true)}
-                      onMouseLeave={() => setFtvHover(false)}
-                      onFocus={() => setFtvHover(true)}
-                      onBlur={() => setFtvHover(false)}
+                    <HoverTrigger
+                      onEnter={() => setFtvHover(true)}
+                      onLeave={() => setFtvHover(false)}
                     >
                       the last two Senate races and the last two Presidential races
-                    </button>{' '}
+                    </HoverTrigger>{' '}
                     as our test contests (
                     {ftvElections.map((key, i) => (
                       <Fragment key={key}>
                         {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
-                        <button
-                          type="button"
-                          style={HOVER_BTN_STYLE}
-                          onMouseEnter={() => setHoveredFtvKey(key)}
-                          onMouseLeave={() => setHoveredFtvKey(null)}
-                          onFocus={() => setHoveredFtvKey(key)}
-                          onBlur={() => setHoveredFtvKey(null)}
+                        <HoverTrigger
+                          onEnter={() => setHoveredFtvKey(key)}
+                          onLeave={() => setHoveredFtvKey(null)}
                         >
                           {formatElectionKey(key)}
-                        </button>
+                        </HoverTrigger>
                       </Fragment>
                     ))}
                     ). We check if the seat share would have been proportional to the vote share in
@@ -414,16 +411,12 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           <Table.ColumnHeaderCell justify="center" />
                           {ftvElections.map(key => (
                             <Table.ColumnHeaderCell key={key} justify="center">
-                              <button
-                                type="button"
-                                style={HOVER_BTN_STYLE}
-                                onMouseEnter={() => setHoveredFtvKey(key)}
-                                onMouseLeave={() => setHoveredFtvKey(null)}
-                                onFocus={() => setHoveredFtvKey(key)}
-                                onBlur={() => setHoveredFtvKey(null)}
+                              <HoverTrigger
+                                onEnter={() => setHoveredFtvKey(key)}
+                                onLeave={() => setHoveredFtvKey(null)}
                               >
                                 {formatElectionKey(key)}
-                              </button>
+                              </HoverTrigger>
                             </Table.ColumnHeaderCell>
                           ))}
                         </Table.Row>
@@ -499,16 +492,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   </div>
                   <Text size="2" mb="3" as="p">
                     This is close enough{' '}
-                    <button
-                      type="button"
-                      style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}
-                      onMouseEnter={() => setFtvPassHover(true)}
-                      onMouseLeave={() => setFtvPassHover(false)}
-                      onFocus={() => setFtvPassHover(true)}
-                      onBlur={() => setFtvPassHover(false)}
+                    <HoverTrigger
+                      bold
+                      onEnter={() => setFtvPassHover(true)}
+                      onLeave={() => setFtvPassHover(false)}
                     >
                       {ftvPassCount} out of 4 times
-                    </button>
+                    </HoverTrigger>
                     , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
                     needed to pass.)
                   </Text>
@@ -723,10 +713,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Table.Row
                       tabIndex={0}
                       style={{cursor: 'default'}}
-                      onMouseEnter={() => onDistrictEnter(swingDistricts)}
-                      onMouseLeave={onDistrictLeave}
-                      onFocus={() => onDistrictEnter(swingDistricts)}
-                      onBlur={onDistrictLeave}
+                      {...hoverHandlers(() => onDistrictEnter(swingDistricts), onDistrictLeave)}
                     >
                       <Table.Cell justify="center">
                         <Text size="2">Swing districts</Text>
@@ -740,10 +727,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Table.Row
                       tabIndex={0}
                       style={{cursor: 'default'}}
-                      onMouseEnter={() => onDistrictEnter(demSweepDistricts)}
-                      onMouseLeave={onDistrictLeave}
-                      onFocus={() => onDistrictEnter(demSweepDistricts)}
-                      onBlur={onDistrictLeave}
+                      {...hoverHandlers(() => onDistrictEnter(demSweepDistricts), onDistrictLeave)}
                     >
                       <Table.Cell justify="center">
                         <Text size="2">Dem Sweep districts</Text>
@@ -757,10 +741,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Table.Row
                       tabIndex={0}
                       style={{cursor: 'default'}}
-                      onMouseEnter={() => onDistrictEnter(repSweepDistricts)}
-                      onMouseLeave={onDistrictLeave}
-                      onFocus={() => onDistrictEnter(repSweepDistricts)}
-                      onBlur={onDistrictLeave}
+                      {...hoverHandlers(() => onDistrictEnter(repSweepDistricts), onDistrictLeave)}
                     >
                       <Table.Cell justify="center">
                         <Text size="2">Repub sweep districts</Text>

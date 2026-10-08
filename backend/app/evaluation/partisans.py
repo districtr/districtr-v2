@@ -284,6 +284,7 @@ def competitive_metrics(context: DocumentEvaluationContext) -> CompetitiveMetric
         dem_sweep_districts=[cast(DistrictId, z) for z in zones[dem_sweep]],
         rep_sweep_districts=[cast(DistrictId, z) for z in zones[rep_sweep]],
         swing_districts=[cast(DistrictId, z) for z in zones[swing]],
+        # Sorted so the cached payload is stable and a client can range-search it.
         contest_dem_vote_shares=sorted(contest_shares),
         n_districts=n_districts,
         n_elections=n_elections,

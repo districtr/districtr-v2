@@ -5,11 +5,26 @@ const TYPE_LABELS: Record<string, string> = {
   ag: 'AG',
 };
 
-export function formatElectionKey(key: string): string {
+export interface ElectionKey {
+  /** The raw key, kept so callers can index the evaluation maps with it. */
+  key: string;
+  /** Office prefix, e.g. "pres", "sen", "gov", "ag". */
+  type: string;
+  /** Full four-digit year. */
+  year: number;
+}
+
+// Election keys look like "pres_24" or "sen_22": the office prefix, then a
+// two-digit year as the last segment. Every place that needs either part
+// goes through here so the format is encoded once.
+export function parseElectionKey(key: string): ElectionKey {
   const parts = key.split('_');
-  const year = `20${parts[parts.length - 1]}`;
-  const type = TYPE_LABELS[parts[0]] ?? parts[0].toUpperCase();
-  return `${year} ${type}`;
+  return {key, type: parts[0], year: 2000 + Number(parts[parts.length - 1])};
+}
+
+export function formatElectionKey(key: string): string {
+  const {type, year} = parseElectionKey(key);
+  return `${year} ${TYPE_LABELS[type] ?? type.toUpperCase()}`;
 }
 
 // The Freedom to Vote Act (S.2747) proportionality test evaluates the 2 most
@@ -18,11 +33,13 @@ export function formatElectionKey(key: string): string {
 export function selectFtvElections(
   seatsKeys: string[]
 ): {pres: [string, string]; sen: [string, string]} | null {
-  const topTwoByYear = (prefix: string) =>
-    seatsKeys
-      .filter(k => k.startsWith(`${prefix}_`))
-      .sort((a, b) => Number(b.split('_')[1]) - Number(a.split('_')[1]))
-      .slice(0, 2);
+  const parsed = seatsKeys.map(parseElectionKey);
+  const topTwoByYear = (type: string) =>
+    parsed
+      .filter(e => e.type === type)
+      .sort((a, b) => b.year - a.year)
+      .slice(0, 2)
+      .map(e => e.key);
   const pres = topTwoByYear('pres');
   const sen = topTwoByYear('sen');
   if (pres.length < 2 || sen.length < 2) return null;
