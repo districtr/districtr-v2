@@ -4,7 +4,9 @@ Two requests that both see a cold cache must not both run compute_metrics:
 the per-document advisory lock in update_or_select_document_evaluation
 serializes them, and the loser polls the cache (holding no DB connection
 while it sleeps) until it returns the winner's committed row. Pre-fix, the
-loser 500'd with a UniqueViolation on evaluation_pkey.
+loser 500'd with a UniqueViolation on evaluation_pkey. Later, the lock was
+transaction-scoped, so the compute's own mid-way commits released it early
+and the loser recomputed.
 
 Uses real commits on independent connections (advisory locks are
 connection-scoped), so it manages its own rows instead of the
@@ -82,6 +84,11 @@ def test_concurrent_cold_evaluations_compute_once(
 
     def fake_compute(background_tasks, session, document_id):
         compute_calls.append(document_id)
+        # The real compute commits mid-way (district stats, county data) and
+        # may roll back (stats rebuild-lock polling); neither may release the
+        # lock and let the loser recompute.
+        session.commit()
+        session.rollback()
         compute_entered.set()
         assert release_compute.wait(timeout=10), "test never released the compute"
         return MetricsEnvelope(
@@ -135,3 +142,12 @@ def test_concurrent_cold_evaluations_compute_once(
             select(Evaluation).where(Evaluation.document_id == committed_document_id)
         ).all()
         assert len(rows) == 1
+        # A leaked session-level lock would stall every later cold eval of
+        # this document for the full poll timeout.
+        assert not session.execute(
+            text(
+                "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' "
+                "AND database = (SELECT oid FROM pg_database "
+                "WHERE datname = current_database())"
+            )
+        ).scalar_one(), "evaluation lock leaked"
