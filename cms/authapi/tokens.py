@@ -21,8 +21,10 @@ from authapi.jwks import current_kid
 class KidTokenBackend(TokenBackend):
     def encode(self, payload: dict[str, Any]) -> str:
         jwt_payload = payload.copy()
+        # setdefault, not assignment: a purpose token (mint_extract_token)
+        # names its own audience so the FastAPI backend rejects it.
         if self.audience is not None:
-            jwt_payload["aud"] = self.audience
+            jwt_payload.setdefault("aud", self.audience)
         if self.issuer is not None:
             jwt_payload["iss"] = self.issuer
 
