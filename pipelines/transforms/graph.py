@@ -1,14 +1,12 @@
-"""Graph building pipeline - produces dual-level pkl graphs without DB access.
+"""Graph building pipeline - produces dual-level npz graphs without DB access.
 
 Derives parent-child relationships from GeoPackage spatial joins.
 """
 
 import logging
 import os
-import pickle
 import re
 import sqlite3
-from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -99,22 +97,15 @@ def graph_to_npz_arrays(G: Graph) -> dict:
     }
 
 
-class GraphFileFormat(str, Enum):
-    pkl = "Pickle"
-    npz = "NPZ"
+def npz_path(prefix: str | Path) -> Path:
+    return Path(f"{prefix}.npz")
 
-    def format_filepath(self, filepath: str | Path) -> Path:
-        return Path(f"{filepath}.{self.name}")
 
-    def write_graph(self, G: Graph, filepath: str | Path) -> Path:
-        out_path = self.format_filepath(filepath)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        if self is GraphFileFormat.npz:
-            np.savez_compressed(out_path, **graph_to_npz_arrays(G))
-        else:
-            with open(out_path, "wb") as f:
-                pickle.dump(obj=G, file=f)
-        return out_path
+def write_npz(G: Graph, prefix: str | Path) -> Path:
+    out_path = npz_path(prefix)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_path, **graph_to_npz_arrays(G))
+    return out_path
 
 
 def graph_from_gpkg(
@@ -281,43 +272,29 @@ def build_combined_graph_from_gpkg(
     return G
 
 
-# Dual-write during the pkl -> npz migration so a backend running either
-# format finds its file; drop pkl here once all deployments read npz.
-DEFAULT_GRAPH_FORMATS: tuple[GraphFileFormat, ...] = (
-    GraphFileFormat.pkl,
-    GraphFileFormat.npz,
-)
-
-
 def write_graph(
     G: Graph,
     gerrydb_name: str,
     out_path: str | Path | None = None,
     upload_to_s3: bool = False,
-    graph_file_formats: tuple[GraphFileFormat, ...] = DEFAULT_GRAPH_FORMATS,
-) -> list[Path]:
-    """Write graph files to OUT_SCRATCH/graphs/ and optionally upload to S3."""
+) -> Path:
+    """Write the graph npz to OUT_SCRATCH/graphs/ and optionally upload to S3."""
     graph_prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
 
     if out_path:
         graph_prefix = Path(out_path)
 
-    paths: list[Path] = []
-    for graph_file_format in graph_file_formats:
-        path = graph_file_format.write_graph(G=G, filepath=graph_prefix)
-        LOGGER.info("Graph written to %s", path)
-        paths.append(path)
+    path = write_npz(G, graph_prefix)
+    LOGGER.info("Graph written to %s", path)
 
-        if upload_to_s3:
-            s3 = settings.get_s3_client()
-            assert s3, "S3 client is not available"
-            s3_key = (
-                f"{_S3_GRAPH_PREFIX}/{graph_file_format.format_filepath(gerrydb_name)}"
-            )
-            s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
-            LOGGER.info("Uploaded to s3://%s/%s", settings.S3_BUCKET, s3_key)
+    if upload_to_s3:
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        s3_key = f"{_S3_GRAPH_PREFIX}/{npz_path(gerrydb_name)}"
+        s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
+        LOGGER.info("Uploaded to s3://%s/%s", settings.S3_BUCKET, s3_key)
 
-    return paths
+    return path
 
 
 class GraphConfig(BaseModel):
@@ -335,7 +312,7 @@ class GraphConfig(BaseModel):
 
 
 class GraphBatch(Config):
-    """Batch config for building and uploading graph pkl files."""
+    """Batch config for building and uploading graph npz files."""
 
     graphs: dict[str, GraphConfig]
 
@@ -347,9 +324,7 @@ class GraphBatch(Config):
     ) -> None:
         for gerrydb_name, cfg in self.graphs.items():
             prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
-            if not replace and all(
-                fmt.format_filepath(prefix).exists() for fmt in DEFAULT_GRAPH_FORMATS
-            ):
+            if not replace and npz_path(prefix).exists():
                 LOGGER.info("Graph %s already exists, skipping", gerrydb_name)
                 continue
             parent = (
@@ -375,13 +350,12 @@ class GraphBatch(Config):
         assert s3, "S3 client is not available"
         for gerrydb_name in self.graphs:
             prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
-            for fmt in DEFAULT_GRAPH_FORMATS:
-                path = fmt.format_filepath(prefix)
-                s3_key = f"{_S3_GRAPH_PREFIX}/{path.name}"
-                s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
-                LOGGER.info(
-                    "Uploaded %s to s3://%s/%s",
-                    gerrydb_name,
-                    settings.S3_BUCKET,
-                    s3_key,
-                )
+            path = npz_path(prefix)
+            s3_key = f"{_S3_GRAPH_PREFIX}/{path.name}"
+            s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
+            LOGGER.info(
+                "Uploaded %s to s3://%s/%s",
+                gerrydb_name,
+                settings.S3_BUCKET,
+                s3_key,
+            )
