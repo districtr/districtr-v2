@@ -1,4 +1,4 @@
-import StreamRenderer from '@/app/components/RichTextRenderer/StreamRenderer';
+import StreamRenderer from '@/app/components/Cms/StreamRenderer';
 import {getCMSPreview} from '@/app/utils/api/cmsContent';
 import {Box, Flex, Heading, Text} from '@radix-ui/themes';
 

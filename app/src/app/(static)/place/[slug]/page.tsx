@@ -1,5 +1,5 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
-import StreamRenderer from '@/app/components/RichTextRenderer/StreamRenderer';
+import StreamRenderer from '@/app/components/Cms/StreamRenderer';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {PlaceMapGrid} from '@/app/components/Static/Interactions/PlaceMapGrid';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';

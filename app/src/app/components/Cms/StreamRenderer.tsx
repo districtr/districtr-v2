@@ -1,36 +1,28 @@
 import React from 'react';
 import parse from 'html-react-parser';
-import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
-import BoilerplateNodeRenderer from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
+import BoilerplateNodeRenderer from './blocks/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../Static/ContentHeader';
 import {SubmissionForm} from '../Forms/SubmissionForm';
-import {PlanGallery} from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
-import {MapCreateButtons} from '../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
-import {CommentGallery} from '../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
+import {PlanGallery} from './blocks/PlanGallery/PlanGallery';
+import {MapCreateButtons} from './blocks/MapCreateButtons/MapCreateButtons';
+import {CommentGallery} from './blocks/CommentGallery/CommentGallery';
 import {CMSBodyBlock} from '@/app/utils/api/cmsContent';
 
 interface StreamRendererProps {
   body: CMSBodyBlock[];
   className?: string;
-  disabled?: boolean;
 }
 
 /**
  * Renders a Wagtail StreamField body (`[{type, value, id}]`) from the CMS
- * content API. HTML blocks go through the same html-react-parser pipeline as
- * the legacy TipTap renderer; custom blocks map to the same React components.
+ * content API. `rich_text` blocks are plain prose HTML; every custom block
+ * maps to its React component.
  */
-const StreamRenderer: React.FC<StreamRendererProps> = ({
-  body,
-  disabled = false,
-  className = '',
-}) => {
-  const parseOptions = {replace: domNodeReplacers(disabled)};
-
+const StreamRenderer: React.FC<StreamRendererProps> = ({body, className = ''}) => {
   const renderBlock = (block: CMSBodyBlock) => {
     switch (block.type) {
       case 'rich_text':
-        return <React.Fragment key={block.id}>{parse(block.value, parseOptions)}</React.Fragment>;
+        return <React.Fragment key={block.id}>{parse(block.value)}</React.Fragment>;
       case 'boilerplate':
         return (
           <BoilerplateNodeRenderer
@@ -46,7 +38,7 @@ const StreamRenderer: React.FC<StreamRendererProps> = ({
       case 'comment_gallery':
         return <CommentGallery key={block.id} {...block.value} />;
       case 'form':
-        return <SubmissionForm key={block.id} disabled={disabled} {...block.value} />;
+        return <SubmissionForm key={block.id} {...block.value} />;
       case 'map_create_buttons':
         return <MapCreateButtons key={block.id} {...block.value} />;
       default:

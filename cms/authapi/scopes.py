@@ -8,37 +8,19 @@ via SecurityScopes on a space-delimited `scope` claim.
 
 # Mirrors backend/app/core/security.py::TokenScope
 CREATE_DISTRICTR_MAPS = "create:districtr_maps"
-READ_DISTRICTR_MAPS = "read:districtr_maps"
-UPDATE_DISTRICTR_MAPS = "update:districtr_maps"
-DELETE_DISTRICTR_MAPS = "delete:districtr_maps"
 
 CREATE_CONTENT = "create:content"
-READ_CONTENT = "read:content"
-READ_ALL_CONTENT = "read:read-all"
-UPDATE_CONTENT = "update:content"
 UPDATE_ALL_CONTENT = "update:update-all"
-PUBLISH_CONTENT = "update:publish"
-DELETE_CONTENT = "delete:content"
-DELETE_ALL_CONTENT = "delete:delete-all"
 
 REVIEW_CONTENT = "create:content_review"
-# Explicit bypass of per-reviewer tag scoping. Only admins/superusers get it;
-# see the PARTNER_SCOPES note below.
+# Explicit bypass of per-team scoping (the `teams` claim). Only
+# admins/superusers get it; see the PARTNER_SCOPES note below.
 REVIEW_ALL_CONTENT = "review:review-all"
 
 ALL_SCOPES = [
     CREATE_DISTRICTR_MAPS,
-    READ_DISTRICTR_MAPS,
-    UPDATE_DISTRICTR_MAPS,
-    DELETE_DISTRICTR_MAPS,
     CREATE_CONTENT,
-    READ_CONTENT,
-    READ_ALL_CONTENT,
-    UPDATE_CONTENT,
     UPDATE_ALL_CONTENT,
-    PUBLISH_CONTENT,
-    DELETE_CONTENT,
-    DELETE_ALL_CONTENT,
     REVIEW_CONTENT,
     REVIEW_ALL_CONTENT,
 ]

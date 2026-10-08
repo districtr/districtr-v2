@@ -125,7 +125,6 @@ from fiona.transform import transform
 from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks
 from ._sanitize import (
-    CommentDict,
     _load_existing_community_metadata,
     _validate_community_save_payload,
 )
@@ -748,15 +747,6 @@ def _sync_update_assignments(
         "document.community_assignments" if is_community_map else "document.assignments"
     )
     assignment_column = "community_id" if is_community_map else "zone"
-    comment_dicts: list[CommentDict] | None = (
-        [
-            CommentDict(comment_id=c.comment_id, zone=c.zone, text=c.text)
-            for c in data.comments
-        ]
-        if data.comments is not None
-        else None
-    )
-
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments: document_id={document_id}, "
@@ -775,7 +765,7 @@ def _sync_update_assignments(
         if VERBOSE_LOGGING:
             logger.info(
                 f"Community save validation for document {document_id}: "
-                f"incoming_comments={comment_dicts}"
+                f"incoming_comments={data.comments}"
             )
         validated_community_metadata = _validate_community_save_payload(
             metadata=data.metadata,
