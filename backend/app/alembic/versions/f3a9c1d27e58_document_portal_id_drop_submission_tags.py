@@ -3,11 +3,17 @@
 A map belongs to at most one portal. This records that on the document
 (stamped at creation for maps started from a portal page, on the clone for
 form and finalize submissions) and drops the free-form tags array on
-submissions, which was the only other membership mechanism and had already
-been ruled out for gallery visibility.
+submissions, which had already been ruled out for gallery visibility.
+
+Legacy galleries also matched maps on document.map_metadata.tags, stamped by
+production's CreateButton. Nothing backfills those into portal membership:
+the cutover runbook converts each tag-filtered plan gallery into curated ids.
 
 The backfill takes each map's earliest submission's portal. Production has no
 map in two portals, so the choice never applies there.
+
+Downgrade recreates submissions.tags empty ('{}', its old default). The
+original tags are gone with the column; nothing here can restore them.
 
 Revision ID: f3a9c1d27e58
 Revises: e4a7c318b9d2
@@ -74,7 +80,6 @@ def downgrade() -> None:
         ),
         schema="comments",
     )
-    op.execute("UPDATE comments.submissions SET tags = ARRAY[portal_id]")
     op.create_index(
         "idx_submissions_tags",
         "submissions",

@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
+import {hoverHandlers} from './HoverTrigger';
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.VTD]:
@@ -314,10 +315,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                         <Table.Row
                           key={geoid}
                           tabIndex={0}
-                          onMouseEnter={() => setHoveredCountyGeoid(geoid)}
-                          onMouseLeave={() => setHoveredCountyGeoid(null)}
-                          onFocus={() => setHoveredCountyGeoid(geoid)}
-                          onBlur={() => setHoveredCountyGeoid(null)}
+                          {...hoverHandlers(
+                            () => setHoveredCountyGeoid(geoid),
+                            () => setHoveredCountyGeoid(null)
+                          )}
                           style={{cursor: 'default'}}
                         >
                           <Table.Cell justify="center">

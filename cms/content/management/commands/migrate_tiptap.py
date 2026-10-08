@@ -2,7 +2,7 @@
 One-shot (but idempotent) migration of the legacy TipTap CMS content
 (cms.tags_content / cms.places_content, read via raw SQL — the tables are
 Alembic-owned and have no Django models) into Wagtail pages
-(content.TagPage / content.PlacePage).
+(content.PortalPage / content.PlacePage).
 
 Mapping:
 - one legacy (slug, language) row -> one page in that locale;
@@ -39,7 +39,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from wagtail.models import Locale
 
-from content.models import PlacePage, PlacesIndexPage, TagPage, TagsIndexPage
+from content.models import PlacePage, PlacesIndexPage, PortalPage, PortalsIndexPage
 from content.provision import ensure_index
 from content.tiptap import (
     extract_prosemirror_text,
@@ -52,8 +52,8 @@ CONTENT_TYPES = {
     "tags": {
         "table": "cms.tags_content",
         "map_column": "districtr_map_slug",
-        "page_model": TagPage,
-        "index_model": TagsIndexPage,
+        "page_model": PortalPage,
+        "index_model": PortalsIndexPage,
         "index_title": "Tags",
         "index_slug": "tags",
     },
@@ -97,7 +97,7 @@ def _normalize_raw(value):
 class Command(BaseCommand):
     help = (
         "Migrate legacy TipTap content (cms.tags_content/cms.places_content) "
-        "into Wagtail TagPage/PlacePage trees."
+        "into Wagtail PortalPage/PlacePage trees."
     )
 
     def add_arguments(self, parser):

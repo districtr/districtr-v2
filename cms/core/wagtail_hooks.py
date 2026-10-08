@@ -142,7 +142,10 @@ def add_districtr_shortcuts_panel(request, panels):
     panels.insert(0, DistrictrShortcutsPanel(request))
 
 
-@hooks.register("construct_main_menu")
+# order=100 on both trims: hooks fire in registration order, and core is
+# registered before wagtail.admin, whose own hooks add these items. Without
+# it the trim ran on a list the item wasn't in yet.
+@hooks.register("construct_main_menu", order=100)
 def trim_main_menu(request, menu_items):
     # Reports (locked pages, workflows, site history …) is admin housekeeping;
     # partners and super partners never need it. For admins it reads better
@@ -163,7 +166,7 @@ def trim_main_menu(request, menu_items):
                 item.label = "Admin analytics"
 
 
-@hooks.register("construct_homepage_summary_items")
+@hooks.register("construct_homepage_summary_items", order=100)
 def trim_homepage_summary(request, summary_items):
     # The stock "n Pages" item links into the explorer the sidebar hides.
     if not _is_admin(request.user):
