@@ -9,8 +9,11 @@ joined this table were dropped in 2ecf1bdc582b. The table was write-only
 Dropping the LIST-partitioned parent table drops its per-map partitions
 with it (~29 in production at time of writing; row counts are child-unit
 edge counts per map, low millions total). DROP TABLE takes ACCESS
-EXCLUSIVE on the parent and every partition, but with zero readers and
-writers only at onboarding time, there is nothing to conflict with.
+EXCLUSIVE on the parent and every partition, and — through the foreign
+key — on districtrmap, which nearly every map and document request
+reads. A lock_timeout makes the drop fail fast rather than queue those
+requests behind it; a failed migration leaves the old image running, so
+the deploy can simply be re-run.
 
 Revision ID: bf8c58301816
 Revises: f1c6a3d85b20
@@ -33,6 +36,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    op.execute("SET LOCAL lock_timeout = '5s'")
     # Dropping the partitioned parent drops all attached per-map partitions.
     op.drop_table("parentchildedges")
 
@@ -66,13 +70,14 @@ def downgrade() -> None:
             ["districtr_map"], ["districtrmap.uuid"], ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("districtr_map", "parent_path", "child_path"),
-        sa.UniqueConstraint(
-            "districtr_map",
-            "parent_path",
-            "child_path",
-            name="districtr_map_parent_child_edge_unique",
-        ),
         postgresql_partition_by="LIST (districtr_map)",
+    )
+    # Added separately: declared inside create_table, Postgres folds a unique
+    # constraint on the primary key's columns into the primary key.
+    op.create_unique_constraint(
+        "districtr_map_parent_child_edge_unique",
+        "parentchildedges",
+        ["districtr_map", "parent_path", "child_path"],
     )
     op.create_index(
         "idx_parentchildedges_child_path_districtr_map",
