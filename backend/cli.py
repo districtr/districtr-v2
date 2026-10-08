@@ -351,7 +351,10 @@ def update_districtr_map(
     if bounds and len(bounds) == 4:
         _bounds = bounds
 
-    result = _update_districtrmap(
+    # map_type is omitted rather than passed as None: DistrictrMapUpdate.map_type
+    # is non-optional (default "default"), unlike every other field here, so an
+    # explicit None fails pydantic validation instead of falling back to unset.
+    update_kwargs: dict[str, Any] = dict(
         session=session,
         districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
@@ -362,13 +365,16 @@ def update_districtr_map(
         num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
-        map_type=map_type,
         comment=comment,
         parent_geo_unit_type=parent_geo_unit_type,
         child_geo_unit_type=child_geo_unit_type,
         data_source_name=data_source_name,
         bounds=_bounds,
     )
+    if map_type is not None:
+        update_kwargs["map_type"] = map_type
+
+    result = _update_districtrmap(**update_kwargs)
     logger.info(f"Districtr map updated successfully {result}")
 
 
@@ -892,61 +898,52 @@ def update_overlay(
         logger.error(f"Overlay with ID {overlay_id} not found")
         return
 
-    # Build update query dynamically based on provided parameters
-    update_fields = []
-    params = {"overlay_id": str(overlay_uuid)}
+    # Build update values dynamically based on provided parameters
+    updates: dict[Any, Any] = {}
 
     if name is not None:
-        update_fields.append("name = :name")
-        params["name"] = name
+        updates[col(Overlay.name)] = name
 
     if description is not None:
-        update_fields.append("description = :description")
-        params["description"] = description
+        updates[col(Overlay.description)] = description
 
     if data_type is not None:
-        update_fields.append("data_type = :data_type")
-        params["data_type"] = data_type
+        updates[col(Overlay.data_type)] = data_type
 
     if layer_type is not None:
-        update_fields.append("layer_type = :layer_type")
-        params["layer_type"] = layer_type
+        updates[col(Overlay.layer_type)] = layer_type
 
     if source is not None:
-        update_fields.append("source = :source")
-        params["source"] = source
+        updates[col(Overlay.source)] = source
 
     if source_layer is not None:
-        update_fields.append("source_layer = :source_layer")
-        params["source_layer"] = source_layer
+        updates[col(Overlay.source_layer)] = source_layer
 
     if custom_style is not None:
         try:
             parsed_style = json.loads(custom_style)
-            update_fields.append("custom_style = :custom_style")
-            params["custom_style"] = json.dumps(parsed_style)
+            updates[col(Overlay.custom_style)] = json.dumps(parsed_style)
         except json.JSONDecodeError:
             logger.error("Invalid JSON for custom-style")
             return
 
     if id_property is not None:
-        update_fields.append("id_property = :id_property")
-        params["id_property"] = id_property
+        updates[col(Overlay.id_property)] = id_property
 
-    if not update_fields:
+    if not updates:
         logger.warning("No fields to update. Provide at least one field to update.")
         return
 
-    params["updated_at"] = datetime.now(timezone.utc)
+    updates[col(Overlay.updated_at)] = datetime.now(timezone.utc)
 
     update_stmt = (
         update(Overlay)
-        .where(Overlay.overlay_id == params["overlay_id"])
-        .values({k: v for k, v in params.items() if k != "overlay_id"})
-        .returning(Overlay.overlay_id)
+        .where(col(Overlay.overlay_id) == str(overlay_uuid))
+        .values(updates)
+        .returning(col(Overlay.overlay_id))
     )
 
-    result = session.execute(update_stmt, params)
+    result = session.execute(update_stmt)
     updated = result.scalar()
 
     if updated:
