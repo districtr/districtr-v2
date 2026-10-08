@@ -1,6 +1,6 @@
 """Sync and copy of district notes (see models.py for what they are)."""
 
-from fastapi import BackgroundTasks, HTTPException, status
+from fastapi import HTTPException, status
 from sqlmodel import Session, col, select
 from sqlalchemy import delete, update
 
@@ -10,7 +10,6 @@ from app.district_notes.models import (
     MAX_NOTE_LENGTH,
     DistrictNote,
 )
-from app.district_notes.tasks import moderate_note_by_id
 from app.models import DistrictrMap, Document, DocumentCommentCreate
 
 
@@ -40,7 +39,6 @@ def sync_district_notes(
     document_id: str,
     notes: list[DocumentCommentCreate],
     session: Session,
-    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     """Full replace-by-diff sync of a document's zone notes.
 
@@ -49,8 +47,8 @@ def sync_district_notes(
     and existing rows not in the payload are deleted. The zone check keeps a
     stray id (a client-side placeholder that happens to parse as a real row id)
     from silently relabelling another zone's note. Notes are truncated to the
-    map's length limit and capped per zone. Moderation is scheduled only for
-    text that changed; the client resends every note on every save. Document
+    map's length limit and capped per zone. Notes are not moderated: they're
+    the author's own annotations, not public submissions. Document
     existence is enforced upstream (the assignments endpoint 404s first) and
     by the FK.
     """
@@ -93,8 +91,7 @@ def sync_district_notes(
     for n, text in normalized:
         row = existing.get(n.comment_id) if n.comment_id is not None else None
         if row is not None and row.zone == n.zone:
-            changed = row.note != text
-            if changed:
+            if row.note != text:
                 session.execute(
                     update(DistrictNote)
                     .where(col(DistrictNote.id) == row.id)
@@ -102,14 +99,11 @@ def sync_district_notes(
                 )
             note_id = row.id
         else:
-            changed = True
             new_note = DistrictNote(document_id=document_id, zone=n.zone, note=text)
             session.add(new_note)
             session.flush()
             note_id = new_note.id
         kept_ids.add(note_id)
-        if background_tasks and changed:
-            background_tasks.add_task(moderate_note_by_id, note_id, text)
 
     to_delete = set(existing) - kept_ids
     if to_delete:
@@ -122,13 +116,7 @@ def duplicate_district_notes(
     to_document_id: str,
     session: Session,
 ) -> int:
-    """Copy a document's zone notes to another document (map duplication).
-
-    The moderation verdict is carried over: create_document only requires a
-    session token, so resetting nsfw on copy would let anyone launder a
-    moderated note into public view by copying the map and never saving
-    (copies still re-moderate on their next save).
-    """
+    """Copy a document's zone notes to another document (map duplication)."""
     source = session.exec(
         select(DistrictNote).where(col(DistrictNote.document_id) == from_document_id)
     ).all()
@@ -138,8 +126,6 @@ def duplicate_district_notes(
                 document_id=to_document_id,
                 zone=note.zone,
                 note=note.note,
-                nsfw=note.nsfw,
-                moderation_score=note.moderation_score,
             )
         )
     return len(source)

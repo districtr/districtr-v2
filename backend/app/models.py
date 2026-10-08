@@ -123,6 +123,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     comment_length_limit: int | None = Field(nullable=True)
     # Maximum number of comments per document
     comment_count_limit: int | None = Field(nullable=True)
+    # Descriptive metadata for module pickers (CMS) and listings.
+    description: str | None = Field(nullable=True)
+    state_abbr: str | None = Field(nullable=True)
+    state_name: str | None = Field(nullable=True)
+    # Free text, e.g. "Congressional", "State House", "State Senate", "Custom"
+    boundary_type: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -160,6 +166,10 @@ class DistrictrMapUpdate(BaseModel):
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
+    description: str | None = None
+    state_abbr: str | None = None
+    state_name: str | None = None
+    boundary_type: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -292,8 +302,8 @@ class Document(TimeStampMixin, SQLModel, table=True):
     # one portal: stamped at creation for maps started from a portal page and
     # on the clone for form/finalize submissions; other portals borrow a map by
     # listing its id. The FK to comments.form_configs (ON UPDATE CASCADE, ON
-    # DELETE SET NULL) lives in the migration only: FormConfig imports this
-    # module, so declaring it here would be circular.
+    # DELETE SET NULL) is appended in app/submissions/models.py: FormConfig
+    # imports this module, so declaring it here would be circular.
     portal_id: str | None = Field(
         default=None,
         sa_column=Column(String(255), nullable=True, index=True),
@@ -361,7 +371,6 @@ class DocumentCommentPublic(BaseModel):
     comment_id: str
     zone: int | None = None
     text: str
-    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

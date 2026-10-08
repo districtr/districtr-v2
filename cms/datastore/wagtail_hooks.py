@@ -29,7 +29,9 @@ from django import forms
 from django.db import ProgrammingError, connection, transaction
 from django.forms.models import inlineformset_factory
 from django.shortcuts import redirect
+from django.templatetags.static import static
 from django.urls import path, reverse
+from django.utils.html import format_html
 from wagtail import hooks
 from wagtail.admin import messages
 from wagtail.admin.forms.models import WagtailAdminModelForm
@@ -69,7 +71,9 @@ from datastore.models import (
     FormConfig,
     FormFieldCustom,
     Overlay,
+    custom_field_key,
 )
+from datastore.widgets import OverlayPickerWidget
 from datastore.views import (
     DATASTORE_ADMIN_PERMISSION,
     OVERLAY_ADMIN_PERMISSION,
@@ -85,6 +89,22 @@ def register_icons(icons):
     return icons + ["datastore/icons/database.svg"]
 
 
+# Global so the table pickers (datastore/widgets.py) work wherever they
+# render: forms, InlinePanels, and StreamField blocks alike.
+@hooks.register("insert_global_admin_css")
+def table_picker_css():
+    return format_html(
+        '<link rel="stylesheet" href="{}">', static("datastore/table_picker.css")
+    )
+
+
+@hooks.register("insert_global_admin_js")
+def table_picker_js():
+    return format_html(
+        '<script src="{}"></script>', static("datastore/table_picker.js")
+    )
+
+
 class _MapScoped(TeamScopedGetObjectMixin):
     """404 out-of-scope Districtr maps on the object views that fetch straight
     from the model (inspect/history/usage) — the index get_queryset filter
@@ -93,8 +113,24 @@ class _MapScoped(TeamScopedGetObjectMixin):
     team_filter_field = DISTRICTRMAP_TEAM_FIELD
 
 
+# What a partner (view-only, team-scoped) sees of a module: what it is, not
+# how it's built. Editors keep the full inspect view.
+PARTNER_INSPECT_FIELDS = [
+    "name",
+    "description",
+    "state_name",
+    "boundary_type",
+    "num_districts",
+    "data_source_name",
+    "districtr_map_slug",
+]
+
+
 class TeamScopedMapInspectView(_MapScoped, InspectView):
-    pass
+    def get_fields(self):
+        if self.request.user.has_perm("datastore.change_districtrmap"):
+            return super().get_fields()
+        return PARTNER_INSPECT_FIELDS
 
 
 class TeamScopedMapHistoryView(_MapScoped, HistoryView):
@@ -107,29 +143,49 @@ class TeamScopedMapUsageView(_MapScoped, UsageView):
 
 def _name_ordered_formfield(db_field, **kwargs):
     """Order the link-table FK dropdowns by target name (the mirrors have no
-    Meta.ordering); overlays additionally by layer type, so the line/text
-    overlays of one data source sit adjacent."""
+    Meta.ordering)."""
     formfield = db_field.formfield(**kwargs)
     if hasattr(formfield, "queryset"):
-        if db_field.related_model is Overlay:
-            formfield.queryset = formfield.queryset.order_by("name", "layer_type")
-        else:
-            formfield.queryset = formfield.queryset.order_by("name")
+        formfield.queryset = formfield.queryset.order_by("name")
     return formfield
 
 
-# The three link tables managed from the DistrictrMap edit page. The mirrors
+class DistrictrMapForm(WagtailAdminModelForm):
+    """Map form with the attached overlays as one filterable picker; save()
+    syncs the DistrictrMapOverlays links to the picked set."""
+
+    overlays = forms.ModelMultipleChoiceField(
+        queryset=Overlay.objects.order_by("name", "layer_type"),
+        required=False,
+        label="Attached overlays",
+        help_text="Overlays available on this map.",
+        widget=OverlayPickerWidget(multiple=True),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["overlays"] = list(
+                self.instance.overlay_links.values_list("overlay_id", flat=True)
+            )
+
+    def save(self, commit=True):
+        instance = super().save(commit)
+        if commit:
+            picked = {overlay.pk for overlay in self.cleaned_data["overlays"]}
+            links = DistrictrMapOverlays.objects.filter(districtr_map=instance)
+            links.exclude(overlay_id__in=picked).delete()
+            existing = set(links.values_list("overlay_id", flat=True))
+            DistrictrMapOverlays.objects.bulk_create(
+                DistrictrMapOverlays(districtr_map=instance, overlay_id=pk)
+                for pk in picked - existing
+            )
+        return instance
+
+
+# The other link tables managed from the DistrictrMap edit page. The mirrors
 # are managed=False plain models, so these are plain Django inline formsets
 # (no ParentalKey/InlinePanel); one blank extra row per save adds one link.
-OverlayLinkFormSet = inlineformset_factory(
-    DistrictrMap,
-    DistrictrMapOverlays,
-    fk_name="districtr_map",
-    fields=["overlay"],
-    extra=1,
-    can_delete=True,
-    formfield_callback=_name_ordered_formfield,
-)
 GroupLinkFormSet = inlineformset_factory(
     DistrictrMap,
     DistrictrMapsToGroups,
@@ -165,9 +221,6 @@ class DistrictrMapEditView(EditView):
 
     def get_link_formsets(self, data=None):
         formsets = {
-            "overlays_formset": OverlayLinkFormSet(
-                data, instance=self.object, prefix="overlay_links"
-            ),
             "groups_formset": GroupLinkFormSet(
                 data, instance=self.object, prefix="group_links"
             ),
@@ -215,15 +268,32 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
     model = DistrictrMap
     icon = "globe"
     menu_label = "Edit map modules"
+
+    @cached_property
+    def menu_item_class(self):
+        base = SnippetViewSet.menu_item_class.func(self)
+
+        class MapModulesMenuItem(base):
+            def render_component(self, request):
+                component = super().render_component(request)
+                # Partners can only browse their teams' modules.
+                if not request.user.has_perm("datastore.change_districtrmap"):
+                    component.label = "My map modules"
+                return component
+
+        return MapModulesMenuItem
+
     list_display = [
         "name",
         "districtr_map_slug",
+        "state_abbr",
+        "boundary_type",
         "num_districts",
         "map_type",
         "visible",
     ]
-    list_filter = ["visible", "map_type"]
-    search_fields = ["name", "districtr_map_slug"]
+    list_filter = ["visible", "map_type", "boundary_type", "state_abbr"]
+    search_fields = ["name", "districtr_map_slug", "description", "state_name"]
     list_per_page = 50
     inspect_view_enabled = True
     inspect_view_class = TeamScopedMapInspectView
@@ -244,11 +314,15 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                 [
                     FieldPanel("uuid", read_only=True),
                     FieldPanel("name"),
-                    # Referenced by string from document.document, tag pages,
+                    # Referenced by string from document.document, portal pages,
                     # team grants and the /map/<slug> route; nothing coordinates
                     # a rename. Set once by the compose tool.
                     FieldPanel("districtr_map_slug", read_only=True),
                     FieldPanel("map_type"),
+                    FieldPanel("description"),
+                    FieldPanel("state_abbr"),
+                    FieldPanel("state_name"),
+                    FieldPanel("boundary_type"),
                     FieldPanel("data_source_name"),
                     FieldPanel("statefps"),
                 ],
@@ -287,7 +361,9 @@ class DistrictrMapViewSet(TeamScopedViewSetMixin, SnippetViewSet):
                 ],
                 heading="Moderation",
             ),
-        ]
+            FieldPanel("overlays"),
+        ],
+        base_form_class=DistrictrMapForm,
     )
 
 
@@ -505,7 +581,7 @@ class FormConfigAdminForm(WagtailAdminModelForm):
 
     def clean_portal_id(self):
         portal_id = self.cleaned_data["portal_id"]
-        # portal_id is the join key to the TagPage AND the backend FK target
+        # portal_id is the join key to the PortalPage AND the backend FK target
         # (ON UPDATE CASCADE drags comments.submissions.portal_id along), so
         # renames silently re-home submissions and detach the live page.
         # Only unscoped admins may set or change it, and only to a real portal
@@ -522,9 +598,9 @@ class FormConfigAdminForm(WagtailAdminModelForm):
             )
         from wagtail.models import Locale
 
-        from content.models import TagPage
+        from content.models import PortalPage
 
-        if not TagPage.objects.filter(
+        if not PortalPage.objects.filter(
             locale=Locale.get_default(), slug=portal_id
         ).exists():
             raise forms.ValidationError(
@@ -626,10 +702,13 @@ class CustomFieldInlineFormSet(forms.BaseInlineFormSet):
                 continue
             instance = form.instance
             if not instance.key:
-                from django.utils.text import slugify as dj_slugify
-
-                slug = dj_slugify(form.cleaned_data.get("label", "")).replace("-", "_")
-                instance.key = f"custom_{slug}"[:64]
+                key = custom_field_key(form.cleaned_data.get("label", ""))
+                if key is None:
+                    form.add_error(
+                        "label", "The label must contain letters or numbers."
+                    )
+                    continue
+                instance.key = key
             if instance.key in seen:
                 form.add_error(
                     "label",
@@ -703,9 +782,10 @@ class FormConfigViewSet(SnippetViewSet):
         [
             FieldPanel(
                 "portal_id",
-                help_text="Must equal the portal page's slug — the wizard "
-                "sets this; admins only, and only when renaming the page "
-                "slug too (the rename cascades to existing submissions).",
+                help_text="Attaches this form to an existing portal page, by "
+                "that page's slug. It does not rename the portal: to rename, "
+                "change the page's slug and publish, and this form and its "
+                "submissions move with it. Admins only.",
             ),
             FieldPanel("name"),
             FieldPanel("collection_mode"),

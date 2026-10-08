@@ -122,7 +122,7 @@ def _assign_composed_map_to_teams(user, slug, timeout_seconds=10):
     module would otherwise be invisible to its own creator until an admin
     assigns it. Returns the team names on success, "" when the user is
     unscoped (nothing to do), or None when the module did not appear in time.
-    # ponytail: short in-request poll; move to a background assign if compose
+    # A short in-request poll. Move to a background assign if compose
     # ever becomes slow.
     """
     from authapi.models import TeamDistrictrMap
