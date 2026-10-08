@@ -66,7 +66,6 @@ class _StubCompactnessContext(DocumentEvaluationContext):
 # ── Grid integration tests (real DB + disk-backed graphs) ─────────────────────
 #
 # Fixtures defined in conftest.py:
-#   grid_graph_files           — session-scoped, writes pkl files once
 #   mock_grid_graph_file       — monkeypatches get_gerrydb_graph_file + flushes LRU cache
 #   grid_shatterable_districtr_map
 #   grid_nonshatterable_child_districtr_map

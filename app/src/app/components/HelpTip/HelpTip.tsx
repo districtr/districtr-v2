@@ -93,10 +93,30 @@ export const HelpTipVideoDialog: React.FC<{
  * cancelled from outside, so it would otherwise fire stale opens after the pointer
  * has already left (help popping open with no pointer event left to ever close
  * it). CLOSING stays Radix's: its closeDelay grace period lets the cursor travel
- * from the trigger into the card, and only actually leaving both — not clicking —
- * closes the card, so a click that does real work (selecting a tool, opening a
- * dropdown item) doesn't fight the hover that got the user there.
+ * from the trigger into the card, and it deliberately keeps the card open while
+ * text inside it is selected (`hasSelectionRef` in Radix's own source) so
+ * selecting/copying the hover text doesn't get interrupted mid-drag.
+ *
+ * That selection guard has no built-in expiry, though — once text has been
+ * selected, Radix's own hover-leave close won't fire again until a fresh
+ * pointerdown inside the content, which can leave the card open indefinitely
+ * after a copy. `onPointerDownOutside` below is the escape hatch: any outside
+ * click dismisses the card, except a click back on the trigger itself (which
+ * would otherwise register as "outside" the portaled content and immediately
+ * close the card that same click just reopened).
  */
+/** Calls every ref with the same node, so cloning an element for `ref` doesn't
+ * clobber a ref the caller already put on it (same purpose as Radix's own
+ * `composeRefs`, used internally by `Slot`). */
+function mergeRefs<T>(...refs: (React.Ref<T> | null | undefined)[]): React.RefCallback<T> {
+  return node => {
+    refs.forEach(ref => {
+      if (typeof ref === 'function') ref(node);
+      else if (ref) (ref as React.MutableRefObject<T | null>).current = node;
+    });
+  };
+}
+
 export const HelpTip: React.FC<{
   tip: HelpTipKey;
   /** Custom hover trigger — wraps this element instead of rendering the default info
@@ -124,6 +144,9 @@ export const HelpTip: React.FC<{
   const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const openTimerRef = useRef<number | undefined>(undefined);
+  // Identifies a click back on the trigger itself in onPointerDownOutside below,
+  // so that case can be exempted from the outside-click dismiss path.
+  const triggerRef = useRef<HTMLElement | null>(null);
   // Where along the trigger's own edge the pointer actually is, in pixels from
   // that edge's start — read directly into `alignOffset` below so the card
   // anchors near the cursor instead of always at the trigger's start corner.
@@ -171,12 +194,20 @@ export const HelpTip: React.FC<{
   // and a wrapper (even `display: contents`, which has no box) becomes the measured
   // node instead, anchoring the card at a zero-size rect at the document origin.
   type TriggerProps = {
+    ref?: React.Ref<HTMLElement>;
     onPointerEnter?: (e: React.PointerEvent) => void;
     onPointerMove?: (e: React.PointerEvent) => void;
     onPointerLeave?: (e: React.PointerEvent) => void;
   };
+  // `cloneElement`'s `ref` in its config replaces the child's own ref outright
+  // (it isn't merged like other props) — read the child's original ref first
+  // so mergeRefs can preserve it instead of silently dropping it.
+  const childRef = children
+    ? (children as unknown as {ref?: React.Ref<HTMLElement>}).ref
+    : undefined;
   const trigger = children ? (
     React.cloneElement(children as React.ReactElement<TriggerProps>, {
+      ref: mergeRefs(triggerRef, childRef),
       onPointerEnter: (event: React.PointerEvent) => {
         handlePointerEnter(event);
         (children as React.ReactElement<TriggerProps>).props.onPointerEnter?.(event);
@@ -199,6 +230,7 @@ export const HelpTip: React.FC<{
     // line it sits in. A fixed 16px flex box matches size="1" Text's line-height
     // exactly, so it can never make its row taller than the text beside it.
     <span
+      ref={triggerRef as React.Ref<HTMLSpanElement>}
       role="button"
       tabIndex={0}
       aria-label={entry.title}
@@ -235,13 +267,17 @@ export const HelpTip: React.FC<{
           avoidCollisions={!side}
           // Radix's own DismissableLayer, wrapping Content, dismisses on any
           // pointerdown outside Content's DOM by default — and the trigger is a
-          // separate portaled element, so clicking it counts as "outside" and
-          // closes the card that same click just reopened. Opening/closing here is
-          // fully owned by our own pointerenter/pointerleave timers — a click
-          // should never dismiss help on its own, only the pointer actually
-          // leaving both the trigger and the card does — so this default adds an
-          // unwanted second dismissal path on top of that.
-          onPointerDownOutside={event => event.preventDefault()}
+          // separate portaled element, so clicking it counts as "outside" too.
+          // Exempt only that case (which would otherwise immediately re-close
+          // the card the same click just reopened); let every other outside
+          // click through as the manual escape hatch out of the "open forever
+          // after a text selection" state described in the doc comment above.
+          onPointerDownOutside={event => {
+            const target = event.detail.originalEvent.target as Node | null;
+            if (target && triggerRef.current?.contains(target)) {
+              event.preventDefault();
+            }
+          }}
         >
           <Flex direction="column" gapY="2">
             {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut

@@ -24,6 +24,12 @@ with the tables.
 Downgrade recreates the tables (final shape as of 0db008690d60 + da39a3ee5e6b)
 empty; restore rows from the dump if they're needed.
 
+The drop ships with the code switch, so pre-cutover backend tasks fail on
+any read of these tables (every document load) until they drain, and an
+image-tag rollback past this revision doesn't work: the old code needs the
+tables back. Rolling back the cutover means restoring the pre-deploy RDS
+snapshot.
+
 Revision ID: d8f1b52c96e3
 Revises: c7e2a94d81f5
 Create Date: 2026-08-25

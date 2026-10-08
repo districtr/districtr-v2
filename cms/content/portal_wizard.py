@@ -1,12 +1,12 @@
 """The portal creation wizard: answer a few questions, get a portal.
 
-Creating a portal by hand takes four disconnected steps (add a TagPage under
-the Tags index, remember the body blocks, create a matching FormConfig row,
+Creating a portal by hand takes four disconnected steps (add a PortalPage under
+the Portals index, remember the body blocks, create a matching FormConfig row,
 get the slugs to agree). The wizard does all of it in one transaction from a
 short, paginated questionnaire: title, URL, how maps are collected, which map
 modules to offer, and the submission form's fields (including unlimited
 custom questions). The templated page body is generated from those answers —
-a draft TagPage in the page editor for staff review before publishing.
+a draft PortalPage in the page editor for staff review before publishing.
 Pages keep review; submissions don't.
 
 Gated by PORTAL_EDITOR_GROUPS (portals/views.py); team-scoped members
@@ -32,11 +32,13 @@ from authapi.teams import (
     user_is_unscoped_admin,
 )
 from content.forms import _map_choices
+from datastore.widgets import MapModulePickerWidget
 from datastore.models import (
     SUBMISSION_FIELD_CHOICES,
     DistrictrMap,
     FormConfig,
     FormFieldCustom,
+    custom_field_key,
 )
 
 DEFAULT_FIELDS = [
@@ -61,7 +63,10 @@ MAP_COLLECTION_CHOICES = [
         "optional short form.",
     ),
     ("form", "Users must complete a form on the portal."),
-    ("internal", "Do not publish maps. Only collect an admin gallery I can see."),
+    (
+        "internal",
+        "Collect maps without a public gallery. I can add one to the page later.",
+    ),
 ]
 # Modes where mapmaking is the point: the portal must offer map modules.
 MAP_COLLECTING_MODES = {"prompt", "auto_public", "internal"}
@@ -75,7 +80,7 @@ INTRO_PLACEHOLDER = (
 )
 
 
-def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
+def _starter_body(mode: str, *, title: str, views: list[dict]):
     """The templated StreamField body, generated from the answers.
 
     Map modules render as a create-buttons card grid (there is no
@@ -101,17 +106,24 @@ def _starter_body(mode: str, *, title: str, slug: str, views: list[dict]):
             _section("Make a submission"),
             {"type": "form", "value": {"allowListModules": []}},
         ]
-    # tags=[slug]: the block attribute is the portal slug list, so with no
-    # curated ids these galleries list this portal's submissions automatically.
+    # The slug is never stored: submissions galleries and the comment gallery get
+    # the portal id when serving (content/api.py), so a rename can't strand
+    # them. Auto-collected portals publish maps while they're still being
+    # drawn, so they get an in-progress gallery too.
     if mode in ("prompt", "auto_public"):
         body += [
             _section("Map gallery"),
-            {"type": "plan_gallery", "value": {"ids": [], "tags": [slug]}},
+            {"type": "plan_gallery", "value": {"status": "ready_to_share"}},
         ]
-    elif mode == "form":
+    if mode == "auto_public":
+        body += [
+            _section("Maps in progress"),
+            {"type": "plan_gallery", "value": {"status": "in_progress"}},
+        ]
+    if mode == "form":
         body += [
             _section("Submissions"),
-            {"type": "comment_gallery", "value": {"ids": [], "tags": [slug]}},
+            {"type": "comment_gallery", "value": {"ids": [], "tags": []}},
         ]
     return body
 
@@ -148,11 +160,11 @@ class PortalWizardForm(forms.Form):
         "this portal?",
     )
     map_modules = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
+        widget=MapModulePickerWidget(multiple=True, ordered=True),
         required=False,
         label="Draw-a-map links",
-        help_text="Each one you tick becomes a 'Draw a map' card on the "
-        "portal page. Pick at least one when the portal collects maps; "
+        help_text="Each one you pick becomes a 'Draw a map' card on the "
+        "portal page, in this order. Pick at least one when the portal collects maps; "
         "optional for written testimony, where people can draw a map and "
         "link it in the form.",
     )
@@ -210,13 +222,17 @@ class PortalWizardForm(forms.Form):
             return cleaned
         cleaned["slug"] = slug
 
-        parent = _tags_index()
+        parent = _portals_index()
         if parent is None:
             raise forms.ValidationError(
-                "The Tags index page is missing — run content provisioning first."
+                "The Portals index page is missing — run content provisioning first."
             )
         cleaned["parent"] = parent
-        if parent.get_children().filter(slug=slug).exists():
+        # Any locale: a translated portal can still carry a slug its source was
+        # renamed away from, and claiming that slug would hijack its identity.
+        from content.models import PortalPage
+
+        if PortalPage.objects.filter(slug=slug).exists():
             self.add_error("slug", f"A portal at '{slug}' already exists.")
         if FormConfig.objects.filter(portal_id=slug).exists():
             self.add_error("slug", f"A form config for portal '{slug}' already exists.")
@@ -256,17 +272,18 @@ class PortalWizardForm(forms.Form):
         return cleaned
 
 
-def _tags_index():
-    from content.models import TagsIndexPage
+def _portals_index():
+    from content.models import PortalsIndexPage
 
-    return TagsIndexPage.objects.filter(locale=Locale.get_default()).first()
+    return PortalsIndexPage.objects.filter(locale=Locale.get_default()).first()
 
 
 def _question_rows(question_formset):
     """Validated (key, label, field_type, required) rows from the formset.
 
-    Key derivation mirrors CustomFieldInlineFormSet: 'custom_' + slugified
-    label. Duplicate or empty-slug labels get a formset-level error HERE —
+    Keys come from datastore.models.custom_field_key, shared with the
+    snippet's question formset. Duplicate or empty-slug labels get a
+    formset-level error HERE —
     letting them reach the DB's UNIQUE/CHECK constraints would surface as a
     misleading 'portal was just created' message (or a 500).
     """
@@ -276,14 +293,13 @@ def _question_rows(question_formset):
         label = (question.get("label") or "").strip()
         if not label:
             continue
-        slug_part = slugify(label).replace("-", "_")
-        if not slug_part:
+        key = custom_field_key(label)
+        if key is None:
             question_formset._non_form_errors = question_formset.non_form_errors()
             question_formset._non_form_errors.append(
                 f"Question label '{label}' must contain letters or numbers."
             )
             continue
-        key = f"custom_{slug_part}"[:64]
         if key in seen:
             question_formset._non_form_errors = question_formset.non_form_errors()
             question_formset._non_form_errors.append(
@@ -317,7 +333,7 @@ def portal_wizard(request):
         )
 
     if request.method == "POST" and form.is_valid() and question_formset.is_valid():
-        from content.models import TagPage
+        from content.models import PortalPage
 
         data = form.cleaned_data
         slug = data["slug"]
@@ -329,7 +345,7 @@ def portal_wizard(request):
         if question_formset.non_form_errors():
             return _render()
         # Display names, not choice labels ("Name (slug)") — labels would
-        # leak into the page's visible card text. Order follows the choices.
+        # leak into the page's visible card text. Order is the picked order.
         names = dict(
             DistrictrMap.objects.filter(
                 districtr_map_slug__in=data["map_modules"]
@@ -339,19 +355,20 @@ def portal_wizard(request):
             {"name": names.get(map_slug) or map_slug, "districtr_map_slug": map_slug}
             for map_slug in data["map_modules"]
         ]
-        body = _starter_body(
-            data["collection_mode"], title=data["title"], slug=slug, views=views
-        )
+        body = _starter_body(data["collection_mode"], title=data["title"], views=views)
         try:
             with transaction.atomic():
                 # districtr_map_slug (the single-map field) is deliberately
                 # left blank: portals often offer several modules, so the
                 # create-buttons block is the module surface now.
-                page = TagPage(
+                page = PortalPage(
                     title=data["title"],
                     slug=slug,
                     body=json.dumps(body),
                     live=False,
+                    # Wagtail's own create view sets this; add_child doesn't.
+                    # Owners with add permission can edit their page.
+                    owner=request.user,
                 )
                 data["parent"].add_child(instance=page)
                 page.save_revision(user=request.user)
