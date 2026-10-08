@@ -143,8 +143,8 @@ def _annotate_graph_with_parents_from_gpkg(
 ) -> None:
     """Attach parent node attributes to block nodes via GeoPackage spatial join.
 
-    Replaces the parentchildedges DB query in the backend. Uses representative_point
-    + within predicate, matching the PostGIS ST_PointOnSurface/ST_Contains procedure.
+    Uses representative_point + within predicate, matching the PostGIS
+    ST_PointOnSurface/ST_Contains procedure.
     Layer names default to the gpkg filename stem (GerryDB convention).
     Mutates G in place.
     """

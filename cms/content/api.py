@@ -17,7 +17,7 @@ Response shape (consumed by app/src/app/utils/api/cms.ts successors):
         "updated_at": ...
       },
       "available_languages": ["en", ...],
-      "type": "tags" | "places"
+      "type": "portals" | "places" | "static"
     }
 
 `body` is the StreamField API representation: block values are plain JSON
@@ -28,11 +28,14 @@ list -> plain list, rich_text -> HTML string).
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from content.models import PlacePage, PreviewSnapshot, StaticPage, TagPage
+from content.models import PlacePage, PreviewSnapshot, StaticPage, PortalPage
 from core.api import _json, pagination
 
 CONTENT_TYPE_PAGES = {
-    "tags": TagPage,
+    "portals": PortalPage,
+    # Old name, kept so a frontend deployed before this CMS release keeps
+    # loading portal pages. Drop once both sides are on "portals".
+    "tags": PortalPage,
     "places": PlacePage,
     "static": StaticPage,
 }
@@ -49,9 +52,32 @@ def _language_sort_key(code):
     return (_LANGUAGE_ORDER.get(code, len(_LANGUAGE_ORDER)), code)
 
 
+def _resolve_plan_galleries(body_data, portal_slug=None):
+    """Give each gallery what the frontend's PlanGallery fetches: a curated
+    gallery keeps its ids; a submissions gallery (plan_gallery) gets
+    portalId + draftStatus. The slug is injected here, never stored,
+    so a rename can't strand the gallery. Off a portal page (where the
+    forms reject submissions galleries) it serves no portal and the frontend
+    renders nothing."""
+    for block in body_data:
+        value = block.get("value")
+        if block.get("type") == "curated_gallery":
+            value["portalId"], value["draftStatus"] = None, None
+        elif block.get("type") == "plan_gallery":
+            status = value.pop("status", None)
+            value["ids"] = None
+            value["portalId"] = portal_slug
+            value["draftStatus"] = (
+                status
+                if status in ("ready_to_share", "in_progress")
+                else "ready_to_share"
+            )
+    return body_data
+
+
 def _inject_portal_id(body_data, portal_slug):
-    """A portal page's comment gallery lists ITS portal's submissions. Without
-    this, an empty editor `tags` field would list every portal's submissions."""
+    """A portal page's comment galleries list ITS portal's entries (injected
+    when serving, like the plan galleries' "this portal" source)."""
     for block in body_data:
         if block.get("type") == "comment_gallery":
             block["value"]["portalId"] = portal_slug
@@ -62,8 +88,8 @@ def _inject_form_config(body_data, portal_slug):
     """Attach the portal's FormConfig (which fields the form shows, camelCase
     per the constants/cms.ts contract) to every form block.
 
-    Translations share their source page's slug, so the default-locale slug
-    IS this page's slug — one lookup covers every locale. Tolerates a missing
+    ``portal_slug`` is the page's portal_id (the default-locale slug), so every
+    locale serves the same form. Tolerates a missing
     mirror table the same way districtr_map_slug_choices does (test
     databases); a portal with no config serves ``fields: null`` and the
     frontend renders no form.
@@ -120,9 +146,15 @@ def _inject_form_config(body_data, portal_slug):
 def _serialize_page(page, content_type):
     body = page.body
     body_data = body.stream_block.get_api_representation(body)
-    if content_type == "tags":
-        body_data = _inject_portal_id(body_data, page.slug)
-        body_data = _inject_form_config(body_data, page.slug)
+    is_portal = CONTENT_TYPE_PAGES.get(content_type) is PortalPage
+    # Translations resolve to their default-locale portal, not their own
+    # slug (PortalPage.portal_id).
+    body_data = _resolve_plan_galleries(
+        body_data, page.portal_id if is_portal else None
+    )
+    if is_portal:
+        body_data = _inject_portal_id(body_data, page.portal_id)
+        body_data = _inject_form_config(body_data, page.portal_id)
     content = {
         "title": page.title,
         "subtitle": page.subtitle,
@@ -131,7 +163,7 @@ def _serialize_page(page, content_type):
         "body": body_data,
         "updated_at": (page.last_published_at and page.last_published_at.isoformat()),
     }
-    if content_type == "tags":
+    if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
         content["districtr_map_slug"] = page.districtr_map_slug or None
     elif content_type == "places":
         content["districtr_map_slugs"] = page.districtr_map_slugs or None
@@ -230,7 +262,7 @@ def content_list(request, content_type):
         }
         # Map associations, used e.g. by the homepage PlaceMap to count
         # modules per place without fetching each page.
-        if content_type == "tags":
+        if CONTENT_TYPE_PAGES.get(content_type) is PortalPage:
             item["districtr_map_slug"] = page.districtr_map_slug or None
         elif content_type == "places":
             item["districtr_map_slugs"] = page.districtr_map_slugs or None

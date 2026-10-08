@@ -6,9 +6,8 @@ submissions. They used to share comments.comment + comments.document_comment
 with written testimony; that coupling is what made the comment tables hard to
 replace. This table is theirs alone.
 
-Moderation is automatic-only (tasks.py): a background task scores the text and
-sets `nsfw`; the public read path shows a placeholder for nsfw notes while edit
-access always sees the real text. There is no human review surface.
+Notes are not moderated; moderation applies to portal submissions only
+(app/submissions/moderation.py).
 
 Models only: alembic/env.py imports this module to build target_metadata, so
 it must not construct settings or an engine as a side effect.
@@ -18,14 +17,12 @@ from sqlmodel import (
     CheckConstraint,
     Column,
     Field,
-    Float,
     ForeignKey,
     Index,
     Integer,
     MetaData,
     String,
 )
-from sqlalchemy import Boolean
 
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import SQLModel, TimeStampMixin
@@ -64,12 +61,3 @@ class DistrictNote(TimeStampMixin, SQLModel, table=True):
     )
     zone: int = Field(sa_column=Column(Integer, nullable=False))
     note: str = Field(sa_column=Column(String(MAX_NOTE_LENGTH), nullable=False))
-    nsfw: bool = Field(
-        default=False,
-        sa_column=Column(
-            Boolean, nullable=False, default=False, server_default="false"
-        ),
-    )
-    moderation_score: float = Field(
-        sa_column=Column(Float, nullable=True, default=None)
-    )

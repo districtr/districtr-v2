@@ -20,6 +20,7 @@ import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {RepairAssignmentsModal} from '../RepairAssignmentsModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
@@ -159,6 +160,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
+      <RepairAssignmentsModal />
       <ZoneDescriptionModal />
     </div>
   );

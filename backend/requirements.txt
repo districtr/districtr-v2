@@ -6,7 +6,6 @@ annotated-types==0.6.0
 anyio==4.3.0
     # via
     #   httpx
-    #   openai
     #   starlette
     #   watchfiles
 attrs==25.3.0
@@ -30,8 +29,6 @@ cffi==1.16.0
     # via cryptography
 cfgv==3.4.0
     # via pre-commit
-chardet==7.4.3
-    # via pysrt
 charset-normalizer==3.4.7
     # via requests
 click==8.1.7
@@ -53,8 +50,6 @@ cycler==0.12.1
     # via matplotlib
 distlib==0.3.9
     # via virtualenv
-distro==1.9.0
-    # via openai
 dnspython==2.6.1
     # via email-validator
 duckdb==0.10.1
@@ -78,7 +73,6 @@ h11==0.14.0
 httpcore==1.0.5
     # via httpx
 httpx==0.27.0
-    # via openai
 hypothesis==6.152.4
 identify==2.6.8
     # via pre-commit
@@ -89,16 +83,12 @@ idna==3.6
     #   requests
 iniconfig==2.0.0
     # via pytest
-jiter==0.14.0
-    # via openai
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
 kiwisolver==1.5.0
     # via matplotlib
-lingua-language-detector==2.1.1
-    # via safetext
 mako==1.3.2
     # via alembic
 markupsafe==2.1.5
@@ -119,7 +109,6 @@ numpy==1.26.4
     #   pyogrio
     #   scipy
     #   shapely
-openai==1.93.0
 packaging==24.0
     # via
     #   geoalchemy2
@@ -148,7 +137,6 @@ pydantic==2.6.4
     # via
     #   fastapi
     #   fastapi-utils
-    #   openai
     #   pydantic-geojson
     #   pydantic-settings
     #   sqlmodel
@@ -163,8 +151,6 @@ pyparsing==3.3.2
     # via matplotlib
 pyproj==3.7.2
     # via geopandas
-pysrt==1.1.2
-    # via safetext
 pytest==8.3.4
     # via pytest-cov
 pytest-cov==5.0.0
@@ -174,19 +160,15 @@ python-dateutil==2.9.0.post0
     #   matplotlib
     #   pandas
 python-dotenv==1.0.1
-    # via
-    #   pydantic-settings
-    #   safetext
+    # via pydantic-settings
 python-multipart==0.0.20
 pytz==2024.1
     # via pandas
 pyyaml==6.0.1
     # via pre-commit
 requests==2.33.1
-    # via safetext
 s3transfer==0.10.2
     # via boto3
-safetext==0.3.2
 scipy==1.17.1
 sentry-sdk==2.10.0
 shapely==2.1.2
@@ -197,7 +179,6 @@ sniffio==1.3.1
     # via
     #   anyio
     #   httpx
-    #   openai
 sortedcontainers==2.4.0
     # via hypothesis
 sqlalchemy==2.0.29
@@ -209,13 +190,10 @@ sqlmodel==0.0.16
 starlette==0.41.2
     # via fastapi
 text-unidecode==1.3
-tqdm==4.67.3
-    # via openai
 typing-extensions==4.11.0
     # via
     #   alembic
     #   fastapi
-    #   openai
     #   psycopg
     #   pydantic
     #   pydantic-core

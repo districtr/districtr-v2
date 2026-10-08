@@ -16,6 +16,7 @@ re-checks everything.
 """
 
 import logging
+import re
 import time
 from urllib.parse import urlparse
 
@@ -51,67 +52,55 @@ SUBMISSION_ACTIONS = {"nsfw", "hidden"}
 # not re-hit the (potentially expensive) evaluation endpoint.
 _METRICS_CACHE: dict[int, tuple[float, dict]] = {}
 _METRICS_CACHE_TTL = 60
-# Per-(portal, user) membership sets so a 100-row metrics page doesn't issue
-# 100 admin-list calls; same TTL as the metrics rows.
-_MEMBERSHIP_CACHE: dict[tuple[str, int], tuple[float, set]] = {}
+# Per-(portal, user, map) membership answers so re-rendering a metrics page
+# doesn't re-ask the backend; same TTL as the metrics rows.
+_MEMBERSHIP_CACHE: dict[tuple[str, int, int], tuple[float, bool]] = {}
 
 
 def _prune(cache: dict, ttl: float) -> None:
     """Drop expired entries on insert — the caches are per-process dicts and
     would otherwise grow for the worker's lifetime."""
     now = time.monotonic()
-    for key in [k for k, (ts, _) in cache.items() if now - ts >= ttl]:
+    for key in [k for k, (ts, _) in list(cache.items()) if now - ts >= ttl]:
         cache.pop(key, None)
 
 
-def _portal_member_ids(user, slug: str) -> set:
-    """public_ids of this portal's SUBMITTED map-bearing submissions.
+def _is_portal_member(user, slug: str, public_id: int) -> bool:
+    """Whether the map is one of this portal's SUBMITTED submissions.
 
     status=submitted matters twice: it keeps the guard aligned with the
     rows the metrics page renders, and it keeps draft submissions' LIVE,
     pre-consent maps out of reach of a hand-edited row URL.
     """
-    key = (slug, user.pk)
+    key = (slug, user.pk, public_id)
     cached = _MEMBERSHIP_CACHE.get(key)
     if cached and time.monotonic() - cached[0] < _METRICS_CACHE_TTL:
         return cached[1]
-    # Page through every member (the endpoint caps limit at 100) so rows on
-    # later metrics pages pass the guard too.
-    # ponytail: one call per 100 submitted maps per cache miss; add a
-    # map_public_id filter to /api/submissions/admin if portals grow to
-    # thousands of maps.
-    ids, offset = set(), 0
-    while True:
-        batch = services.list_submissions(
+    member = bool(
+        services.list_submissions(
             user,
             portal_id=slug,
             status="submitted",
-            has_map="true",
-            offset=offset,
-            limit=100,
+            map_public_id=public_id,
+            limit=1,
         )
-        ids.update(e.get("map_public_id") for e in batch)
-        if len(batch) < 100:
-            break
-        offset += 100
+    )
     _prune(_MEMBERSHIP_CACHE, _METRICS_CACHE_TTL)
-    _MEMBERSHIP_CACHE[key] = (time.monotonic(), ids)
-    return ids
+    _MEMBERSHIP_CACHE[key] = (time.monotonic(), member)
+    return member
 
 
 def accessible_portals(user):
-    """TagPages whose submissions the user administers: all portals for
+    """PortalPages whose submissions the user administers: all portals for
     admins/superusers; for everyone else, the portals whose
     FormConfig.admin_teams intersects their team slugs — the same rule the
     backend enforces via the JWT teams claim. A team-less non-admin gets
-    NOTHING (fail closed, matching the backend's teams: [] -> 403): this
-    list also gates add_to_portal_gallery, a pure CMS write the backend
-    never re-checks."""
+    NOTHING (fail closed, matching the backend's teams: [] -> 403)."""
     from wagtail.models import Locale
 
-    from content.models import TagPage
+    from content.models import PortalPage
 
-    portals = TagPage.objects.filter(locale=Locale.get_default()).order_by("title")
+    portals = PortalPage.objects.filter(locale=Locale.get_default()).order_by("title")
     if not user_is_unscoped_admin(user):
         portals = portals.filter(slug__in=list(portal_slugs_for_user(user)))
     return portals
@@ -340,10 +329,10 @@ def portal_metrics_row(request, slug, public_id: int):
         return denied
 
     try:
-        member_ids = _portal_member_ids(request.user, slug)
+        member = _is_portal_member(request.user, slug, public_id)
     except (BackendAPIError, RequestException) as exc:
         return JsonResponse({"error": str(exc)}, status=502)
-    if public_id not in member_ids:
+    if not member:
         raise Http404
 
     cached = _METRICS_CACHE.get(public_id)
@@ -400,21 +389,24 @@ def _next_url(request):
     return reverse("portals_index")
 
 
+# A map link's path: /map/<id> or /coi/<id>, optionally /edit or /eval.
+_MAP_PATH = re.compile(r"/(?:map|coi)/([0-9]+)(?:/(?:edit|eval))?/?", re.ASCII)
+
+
 def parse_public_id(ref: str) -> int | None:
     """The public ID in a bare ID or a pasted map link, else None.
 
     Python twin of the frontend's parseMapRef (app/src/app/utils/map/
-    editUrl.ts), minus the UUID branch — admin/add takes a public ID. Only
-    the URL PATH is read: an edit link's private_edit_id query can contain
-    digits, and a UUID-only link carries no public ID at all.
+    editUrl.ts), minus the UUID branches — admin/add takes a public ID.
+    Only map-shaped paths count, so a legacy /plan/<n> link or a Wagtail
+    /admin/pages/<n>/edit/ URL can't resolve to an unrelated map. ASCII
+    digits only ('²'.isdigit() is true).
     """
     ref = (ref or "").strip()
-    if ref.isdigit():
+    if re.fullmatch(r"[0-9]+", ref):
         return int(ref)
-    segments = [s for s in urlparse(ref).path.split("/") if s]
-    while segments and segments[-1] in ("edit", "eval"):
-        segments.pop()
-    return int(segments[-1]) if segments and segments[-1].isdigit() else None
+    match = _MAP_PATH.fullmatch(urlparse(ref).path)
+    return int(match.group(1)) if match else None
 
 
 @group_required(PORTAL_EDITOR_GROUPS)
@@ -486,72 +478,4 @@ def submission_action(request):
         }[(action, value)]
         messages.success(request, f"Submission #{submission_id} {described}.")
 
-    return redirect(_next_url(request))
-
-
-def _default_gallery_block(public_id):
-    """A fresh plan_gallery block for a portal that has none yet, matching
-    PlanGalleryBlock's schema/defaults (content/blocks.py)."""
-    return {
-        "type": "plan_gallery",
-        "value": {
-            "ids": [public_id],
-            "tags": [],
-            "title": "Community submissions",
-            "description": "",
-            "paginate": True,
-            "showListView": True,
-            "showThumbnails": True,
-            "showTitles": True,
-            "showDescriptions": True,
-            "showUpdatedAt": True,
-            "showTags": True,
-            "showModule": True,
-            "limit": 12,
-        },
-    }
-
-
-@group_required(PORTAL_EDITOR_GROUPS)
-def add_to_portal_gallery(request):
-    """Append a submitted plan to the portal page's own CURATED gallery block.
-
-    Optional curation, not review: the gallery lives IN the portal page (the
-    plan_gallery block's ids), so this mutates the page's latest revision as
-    a draft — publishing still goes through the page's normal approval
-    workflow (pages keep review; submissions don't).
-    """
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-    try:
-        portal_slug = request.POST["portal"]
-        public_id = int(request.POST["public_id"])
-    except (KeyError, ValueError):
-        return HttpResponseBadRequest("Invalid gallery submission")
-
-    portal, denied = _get_portal_or_denied(request, portal_slug)
-    if denied:
-        return denied
-
-    page = portal.get_latest_revision_as_object()
-    body_data = page.body.get_prep_value()
-    gallery_blocks = [b for b in body_data if b.get("type") == "plan_gallery"]
-    if gallery_blocks:
-        ids = list(gallery_blocks[0]["value"].get("ids") or [])
-        if public_id in ids:
-            messages.warning(
-                request,
-                f"Plan {public_id} is already in this portal's curated gallery.",
-            )
-            return redirect(_next_url(request))
-        gallery_blocks[0]["value"]["ids"] = [*ids, public_id]
-    else:
-        body_data.append(_default_gallery_block(public_id))
-    page.body = page.body.stream_block.to_python(body_data)
-    page.save_revision(user=request.user)
-    messages.success(
-        request,
-        f"Plan {public_id} added to the portal page's curated gallery as a "
-        "draft — publish the page to make it public.",
-    )
     return redirect(_next_url(request))
