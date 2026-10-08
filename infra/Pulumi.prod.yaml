@@ -24,6 +24,10 @@ config:
   districtr-infra:s3BucketName:
     secure: v1:MS8AzWKQiTmtjfkB:oz6SV4+k43qsx7zvx/cdwVO4Be+fhIJd1wMaghY7OLAHbWwTV3gzHrTg
   districtr-infra:cdnUrl: https://tilesets1.cdn.districtr.org
+  # The live DB runs single-AZ. Left at the prod default (true), every
+  # `pulumi up` re-requested Multi-AZ, which applyImmediately=false parks
+  # until the maintenance window, so each deploy waited ~80s on RDS.
+  districtr-infra:dbMultiAz: false
   districtr-infra:cmsDomain: cms.districtr.org
   # Tokens minted before the AWS cutover carry the Fly audience; keep it as
   # the `aud` until cutover, then remove to default to https://{apiDomain}/.

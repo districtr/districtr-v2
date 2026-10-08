@@ -1,7 +1,10 @@
 name: Test backend
 
 on:
+  # Feature branches run via pull_request; a push trigger there would run
+  # each suite twice.
   push:
+    branches: [dev, main]
     paths: &paths
       - "backend/**"
       - ".github/workflows/test-backend.yml"
@@ -9,6 +12,12 @@ on:
   # the branch tip.
   pull_request:
     paths: *paths
+
+# One group per PR, so a new commit cancels its stale run; one per SHA on
+# dev/main, so a queued post-merge run is never cancelled by the next push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   container-job:
@@ -45,8 +54,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt --no-cache-dir
+          pip install uv==0.12.23
+          uv pip install --system -r requirements.txt
         working-directory: backend
 
       - name: Run migrations
@@ -72,7 +81,7 @@ jobs:
           AUTH_ALGORITHMS: RS256
 
       - name: Run tests
-        run: pytest -v --cov=.
+        run: pytest -v
         working-directory: backend
         env:
           DOMAIN: postgres

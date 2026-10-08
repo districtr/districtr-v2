@@ -9,7 +9,7 @@ Decide what needs verifying from the situation, then run those commands directly
 
 - **pre-commit** (~6s) and **frontend ts** (2–3s): cheap enough to run whenever they could catch anything — after any frontend edit, at any checkpoint.
 - **Frontend build** (~78s): at any checkpoint whose diff touches `app/`. No CI covers the build outside previews/deploys, so the local run is the only gate there is.
-- **Backend pytest** (~96s full suite): **exactly two cases, otherwise skip.** (1) You expect a failure and are fixing it — verify with just that test or file, not the suite. (2) The checkpoint is one CI never sees (handing unpushed work to the orchestrator, a pre-merge check) — a full run is permitted. Never before an operation that triggers the backend-test CI (`test-backend.yml` runs the suite on every push touching `backend/**`, any branch), and not before a handoff you expect green.
+- **Backend pytest** (~96s full suite): **exactly two cases, otherwise skip.** (1) You expect a failure and are fixing it — verify with just that test or file, not the suite. (2) The checkpoint is one CI never sees (handing unpushed work to the orchestrator, a pre-merge check) — a full run is permitted. Never before an operation that triggers the backend-test CI (`test-backend.yml` runs the suite on PRs and on dev/main pushes touching `backend/**`; a branch pushed without a PR gets no CI run), and not before a handoff you expect green.
 
 Report which gates you skipped and why.
 
