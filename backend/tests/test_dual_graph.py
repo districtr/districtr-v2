@@ -61,14 +61,22 @@ def test_num_children_of_matches_children_of(dg):
     assert dg.num_children_of("not_a_node") == 0
 
 
+def _blocks(*ns: int) -> set[str]:
+    """simple_geos block geo_ids by trailing digit."""
+    return {f"00001000000000{n}" for n in ns}
+
+
 def test_simple_geos_structure():
     """Known shape of simple_geos: 3 VTDs over 6 blocks."""
     dg = from_npz(_fixture_path("simple_geos"))
-    blocks = {f"00001000000000{i}" for i in range(1, 7)}
+    blocks = _blocks(*range(1, 7))
     vtds = {"vtd:000010000001", "vtd:000010000002", "vtd:000010000003"}
     assert set(dg._node_ids.tolist()) == blocks | vtds
     assert set(dg.parents_of(sorted(blocks))) <= vtds
     assert sum(dg.num_children_of(v) for v in vtds) == len(blocks)
+    assert dg.children_of("vtd:000010000001") == _blocks(1, 5)
+    assert dg.children_of("vtd:000010000002") == _blocks(2, 3, 4)
+    assert dg.children_of("vtd:000010000003") == _blocks(6)
 
 
 # -- fixture graphs: connectivity -------------------------------------------

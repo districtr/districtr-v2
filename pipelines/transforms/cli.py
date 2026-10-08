@@ -181,8 +181,8 @@ def create_graph(
         parent_layer_name=parent_layer_name,
         graph_edge_layer=graph_edge_layer,
     )
-    paths = write_graph(G, gerrydb_name, out_path=out_path, upload_to_s3=upload)
-    logger.info("Done. Graph written to %s", ", ".join(str(p) for p in paths))
+    path = write_graph(G, gerrydb_name, out_path=out_path, upload_to_s3=upload)
+    logger.info("Done. Graph written to %s", path)
 
 
 @transforms.command("batch-create-graphs")

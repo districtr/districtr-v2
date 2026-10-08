@@ -51,8 +51,9 @@ class DualLevelGraph:
             node_ids: sorted (np.sort order) 1-D unicode array of geo_ids.
             edges: (E, 2) int32 array of node indices (undirected, one row per edge).
             parent_of: (N,) int32 array of indices into node_ids, -1 = no parent.
-                Every referenced parent must itself be a node — callers
-                (``from_npz``, via the pipeline writer) enforce this at construction.
+                Every referenced parent must itself be a node — the pipeline
+                writer (``graph_to_npz_arrays``) enforces this; it is not
+                rechecked at load.
             weighted_edges: {(parent_a, parent_b): block-edge count} or None for
                 non-shatterable graphs.
             non_contiguous_parents: parent ids whose blocks are disconnected.

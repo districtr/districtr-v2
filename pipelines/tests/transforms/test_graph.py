@@ -318,7 +318,7 @@ def test_build_combined_graph_from_gpkg_non_contiguous(non_contiguous_gpkgs):
 def test_npz_write_read_round_trip(tmp_path):
     import numpy as np
 
-    from transforms.graph import GraphFileFormat
+    from transforms.graph import write_npz
 
     G = Graph([("b1", "b2"), ("b2", "b3"), ("b3", "p2")])
     G.nodes["b1"]["parent"] = "p1"
@@ -329,7 +329,7 @@ def test_npz_write_read_round_trip(tmp_path):
     G.graph["weighted_edges"] = {("p1", "p2"): 1}
     G.graph["non_contiguous_parents"] = {"p1"}
 
-    out = GraphFileFormat.npz.write_graph(G, tmp_path / "g")
+    out = write_npz(G, tmp_path / "g")
     assert out == tmp_path / "g.npz"
 
     # Read raw (backend-independent) and verify the format-1 schema
@@ -361,22 +361,30 @@ def test_npz_write_read_round_trip(tmp_path):
 def test_npz_plain_graph_has_no_attr_flags(tmp_path):
     import numpy as np
 
-    from transforms.graph import GraphFileFormat
+    from transforms.graph import write_npz
 
     G = Graph([("a", "b")])
-    out = GraphFileFormat.npz.write_graph(G, tmp_path / "plain")
+    out = write_npz(G, tmp_path / "plain")
     with np.load(out, allow_pickle=False) as d:
         assert not bool(d["has_weighted_edges"])
         assert not bool(d["has_non_contiguous_parents"])
         assert (d["parent_of"] == -1).all()
 
 
-def test_write_graph_writes_npz_only(tmp_path, monkeypatch):
+def test_npz_rejects_parent_not_in_nodes():
+    from transforms.graph import graph_to_npz_arrays
+
+    G = Graph([("b1", "b2")])
+    G.nodes["b1"]["parent"] = "p"
+    with pytest.raises(ValueError):
+        graph_to_npz_arrays(G)
+
+
+def test_write_graph_writes_npz(tmp_path, monkeypatch):
     from transforms import graph as graph_module
 
     monkeypatch.setattr(graph_module.settings, "OUT_SCRATCH", str(tmp_path))
     G = Graph([("a", "b")])
-    paths = graph_module.write_graph(G, "npztest")
-    assert [p.suffix for p in paths] == [".npz"]
-    for p in paths:
-        assert p.exists()
+    path = graph_module.write_graph(G, "npztest")
+    assert path == tmp_path / "graphs" / "npztest.npz"
+    assert path.exists()
