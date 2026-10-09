@@ -1,28 +1,15 @@
-import networkx as nx
 import pytest
 
 from app.assignments.assignments import _detect_outlier_labels, _heal_or_fill
-from app.evaluation.graph_loader import from_networkx
+from tests.graph_helpers import make_graph
+
+TWO_PARENTS = {"c1": "A", "c2": "A", "c3": "B", "c4": "B", "c5": "B"}
 
 
 @pytest.fixture
-def two_parent_nx_graph():
+def two_parent_graph():
     """Minimal dual-level graph: parent A (c1, c2), parent B (c3, c4, c5)."""
-    G = nx.Graph()
-    G.add_nodes_from(["c1", "c2", "c3", "c4", "c5"])
-    G.nodes["c1"]["parent"] = "A"
-    G.nodes["c2"]["parent"] = "A"
-    G.nodes["c3"]["parent"] = "B"
-    G.nodes["c4"]["parent"] = "B"
-    G.nodes["c5"]["parent"] = "B"
-    G.add_node("A", children={"c1", "c2"})
-    G.add_node("B", children={"c3", "c4", "c5"})
-    return G
-
-
-@pytest.fixture
-def two_parent_graph(two_parent_nx_graph):
-    return from_networkx(two_parent_nx_graph)
+    return make_graph(parents=TWO_PARENTS)
 
 
 # --- heal behaviour ---
@@ -77,10 +64,9 @@ def test_fill_does_not_overwrite_assigned(two_parent_graph):
     assert result == {"c1": 1, "c2": None, "c3": 1, "c4": 2, "c5": 2}
 
 
-def test_no_child_nodes_unaffected(two_parent_nx_graph):
-    # Nodes without a "parent" key pass through unchanged
-    two_parent_nx_graph.add_node("standalone")
-    G = from_networkx(two_parent_nx_graph)
+def test_no_child_nodes_unaffected():
+    # Nodes without a parent pass through unchanged
+    G = make_graph(nodes=["standalone"], parents=TWO_PARENTS)
     result = _heal_or_fill({"standalone": 3}, G)
     assert result == {"standalone": 3}
 

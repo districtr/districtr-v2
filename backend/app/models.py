@@ -123,6 +123,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     comment_length_limit: int | None = Field(nullable=True)
     # Maximum number of comments per document
     comment_count_limit: int | None = Field(nullable=True)
+    # Descriptive metadata for module pickers (CMS) and listings.
+    description: str | None = Field(nullable=True)
+    state_abbr: str | None = Field(nullable=True)
+    state_name: str | None = Field(nullable=True)
+    # Free text, e.g. "Congressional", "State House", "State Senate", "Custom"
+    boundary_type: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -160,45 +166,16 @@ class DistrictrMapUpdate(BaseModel):
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
+    description: str | None = None
+    state_abbr: str | None = None
+    state_name: str | None = None
+    boundary_type: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
-
-
-class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    # The last partitioned table in this schema: document.assignments and
-    # document.community_assignments were departitioned (PR #625, lock convoy), and a
-    # drop of this table was tried and reverted pending the PR #721 graph work — see
-    # docs/decisions.md before changing anything partition-adjacent here.
-    __table_args__ = (
-        UniqueConstraint(
-            "districtr_map",
-            "parent_path",
-            "child_path",
-            name="districtr_map_parent_child_edge_unique",
-        ),
-        Index(
-            "idx_parentchildedges_child_path_districtr_map",
-            "child_path",
-            "districtr_map",
-        ),
-        {"postgresql_partition_by": "LIST (districtr_map)"},
-    )
-    __tablename__ = "parentchildedges"
-
-    districtr_map: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            nullable=False,
-            primary_key=True,
-        )
-    )
-    parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-    child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
 class DocumentMetadata(BaseModel):
@@ -292,8 +269,8 @@ class Document(TimeStampMixin, SQLModel, table=True):
     # one portal: stamped at creation for maps started from a portal page and
     # on the clone for form/finalize submissions; other portals borrow a map by
     # listing its id. The FK to comments.form_configs (ON UPDATE CASCADE, ON
-    # DELETE SET NULL) lives in the migration only: FormConfig imports this
-    # module, so declaring it here would be circular.
+    # DELETE SET NULL) is appended in app/submissions/models.py: FormConfig
+    # imports this module, so declaring it here would be circular.
     portal_id: str | None = Field(
         default=None,
         sa_column=Column(String(255), nullable=True, index=True),
@@ -361,7 +338,6 @@ class DocumentCommentPublic(BaseModel):
     comment_id: str
     zone: int | None = None
     text: str
-    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

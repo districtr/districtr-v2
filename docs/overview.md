@@ -16,7 +16,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   └── src/
 │       └── app/                 # Next.js app router root
 │           ├── (interactive)/   # Route group: map viewer/editor pages
-│           │   └── map/         #   /map, /map/[map_id], /map/edit/*
+│           │   └── map/         #   /map, /map/[public_id], /map/edit
 │           ├── (static)/        # Route group: static content pages
 │           │   └── ...          #   /about, /guide, /places, /contact; CMS pages
 │           ├── components/      # React components
@@ -47,6 +47,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   ├── authapi/                 # Users, teams, roles; JWT minting + JWKS
 │   ├── content/                 # Pages and the public /api/content/ API
 │   ├── datastore/               # Unmanaged mirrors of backend tables
+│   ├── moderation/              # Site settings
 │   └── portals/                 # Per-portal hub: form, gallery, takedown
 ├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
 ├── docker-compose.yml           # Orchestration
@@ -103,7 +104,7 @@ Pages are Wagtail pages in `cms/`: partners edit, and publishing goes through an
 
 Public testimony is a *submission* (`backend/app/submissions/`): each portal has a form config choosing fields from a shared registry, and answers are stored one row per field. Submissions are public on arrival — there is no review queue. A deterministic word-list check (`submissions/blocklist.sha256`, hashed phrases, no external service) sets `nsfw`, which the frontend blurs with an opt-in reveal; portal admins see everything and can blur, unblur, hide or restore entries from the CMS Portals hub. A map belongs to at most one portal (`document.portal_id`), and each portal's collection mode decides whether maps join its gallery by form, by prompt, or automatically.
 
-District notes (`backend/app/district_notes/`, table `comments.district_notes`) are the author's notes on individual districts, separate from submissions. A save replaces a document's notes as a set. Notes are not moderated.
+District notes (`backend/app/district_notes/`, table `comments.district_notes`) are the author's notes on individual districts, separate from submissions. A save replaces a document's notes as a set. Notes are not moderated. The cutover runbook and open items are in [`WAGTAIL-CUTOVER-FOLLOWUPS.md`](WAGTAIL-CUTOVER-FOLLOWUPS.md).
 
 ## Dev environment
 

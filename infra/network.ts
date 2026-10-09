@@ -4,7 +4,7 @@ import {config} from "./config";
 
 // All workloads run in public subnets with strict security groups instead of
 // private subnets + NAT: the tasks need broad outbound access (S3, Auth0,
-// OpenAI, Sentry) either way, inbound is only possible from the ALB security
+// Sentry) either way, inbound is only possible from the ALB security
 // group, and skipping NAT saves ~$32+/mo per environment. RDS never gets a
 // public IP; operators reach it via ECS Exec into a backend task.
 
@@ -56,7 +56,7 @@ export function createNetwork() {
       })
   );
 
-  // Free gateway endpoint: graph pickles and thumbnails move between the
+  // Free gateway endpoint: graph npz files and thumbnails move between the
   // backend and S3 without touching the public internet.
   new aws.ec2.VpcEndpoint(`${name}-s3-endpoint`, {
     vpcId: vpc.id,

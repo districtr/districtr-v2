@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
+import {Button, Callout, Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
 import React, {useMemo, useState} from 'react';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import {useChartStore} from '@store/chartStore';
@@ -15,7 +15,9 @@ import {
   getChartHeight,
 } from './PopulationChart/PopulationChart';
 import {DistrictMeters} from './DistrictMeters';
-import {Pencil1Icon} from '@radix-ui/react-icons';
+import {ExclamationTriangleIcon, Pencil1Icon} from '@radix-ui/react-icons';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {openRepair, useCurrentRepairIssues} from '@/app/components/RepairAssignmentsModal';
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
@@ -56,6 +58,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const repairIssues = useCurrentRepairIssues();
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
@@ -111,6 +114,38 @@ export const PopulationPanel = () => {
           Loading population data...
         </Text>
       </Flex>
+    );
+  }
+  // Re-read on every render: useZonePopulations re-renders on the chart hash,
+  // which demographyService bumps when this changes.
+  const unmatchedPaths = demographyService.unmatchedPaths;
+  if (unmatchedPaths.length && repairIssues) {
+    // The sidebar's RepairAssignmentsCallout is the one alert and the way into the fix.
+    return (
+      <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
+        Population totals will show once you fix this map&apos;s assignments.
+      </Text>
+    );
+  }
+  if (unmatchedPaths.length) {
+    // No fix on hand: a view-only map, or an editor's check that's still running.
+    const canRepair = access === ACCESS_STATES.EDIT;
+    return (
+      <Callout.Root color="red" size="1" role="alert" mt="2">
+        <Callout.Icon>
+          <ExclamationTriangleIcon />
+        </Callout.Icon>
+        <Callout.Text>
+          Something went wrong with this map&apos;s assignments, so population totals can&apos;t be
+          shown.
+          {canRepair ? '' : ' Please report this map to the Districtr team.'}
+        </Callout.Text>
+        {canRepair && (
+          <Button size="1" color="red" variant="soft" onClick={() => openRepair(false)}>
+            Review and fix
+          </Button>
+        )}
+      </Callout.Root>
     );
   }
   return (

@@ -1402,47 +1402,27 @@ def test_new_document_from_block_assignments_unknown_geoids_skipped(
 def test_document_list(
     client, session: Session, document_id_total_vap, document_id_all_stats
 ):
-    response = client.get("/api/documents/list")
+    public_ids = [
+        _public_id_of(client, document_id_all_stats),
+        _public_id_of(client, document_id_total_vap),
+    ]
+    curated = "&".join(f"ids={i}" for i in public_ids)
+
+    # A curated lookup returns exactly the maps named, in that order...
+    response = client.get(f"/api/documents/list?{curated}")
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) > 0
-    assert data[0].get("public_id")
-    # use that ID later
-    public_id = data[0].get("public_id")
+    assert [d["public_id"] for d in response.json()] == public_ids
+    # ...and pages through them.
+    page = client.get(f"/api/documents/list?{curated}&offset=1&limit=1").json()
+    assert [d["public_id"] for d in page] == public_ids[1:]
 
-    # limit 1
-    response = client.get("/api/documents/list?limit=1")
-    assert response.status_code == 200
-    data = response.json()
-    document_1 = data[0]
-    assert len(data) == 1
-
-    # offset 1
-    response = client.get("/api/documents/list?offset=1&limit=1")
-    assert response.status_code == 200
-    data = response.json()
-    document_2 = data[0]
-    assert len(data) == 1
-    # assert not equal previous data
-    assert document_1.get("public_id") != document_2.get("public_id")
-
-    # filter on tags "test"
-    # update metadata to add tag "test"
-    metadata_payload = {
-        "name": "Test Map",
-        "tags": ["test", "map"],
-        "description": "This is a test metadata entry",
-        "event_id": "1234",
-        "draft_status": "ready_to_share",
-    }
-
+    # Submit the map to a portal: a portal gallery lists its finished
+    # submissions (the frozen clone).
     response = client.put(
-        f"/api/document/{document_id_total_vap}/metadata", json=metadata_payload
+        f"/api/document/{document_id_total_vap}/metadata",
+        json={"name": "Test Map", "tags": ["test"], "draft_status": "ready_to_share"},
     )
     assert response.status_code == 200
-
-    # submit the map to a portal with tag "test" (the submission's frozen
-    # clone is what the tag gallery lists)
     from app.submissions.models import FormConfig
 
     session.add(
@@ -1464,20 +1444,23 @@ def test_document_list(
         },
     )
     assert response.status_code == 201, response.json()
-    # Gallery membership is the map's portal (see get_document_list).
-    response = client.get("/api/documents/list?portal_ids=test-portal")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) > 0
-    assert "test" in data[0].get("map_metadata").get("tags")
-
-    # filter on IDs
-    # Use a real public_id from the data to ensure this works in all environments
-    response = client.get(f"/api/documents/list?ids={public_id}")
-    assert response.status_code == 200
-    data = response.json()
+    data = client.get("/api/documents/list?portal_id=test-portal").json()
     assert len(data) == 1
-    assert data[0].get("public_id") == public_id
+    assert "test" in data[0]["map_metadata"]["tags"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",  # no unfiltered listing
+        "ids=1&portal_id=p",  # one mode at a time
+        "&".join(f"ids={i}" for i in range(1, 52)),  # curated caps at 50
+        "portal_id=p&include_hidden=true",  # hidden maps never list by portal
+        "portal_id=p&draft_status=scratch",  # scratch maps are never listed
+    ],
+)
+def test_document_list_rejects_unbounded_queries(client, query):
+    assert client.get(f"/api/documents/list?{query}").status_code == 422
 
 
 def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
@@ -1491,7 +1474,7 @@ def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
         json={"tags": ["workshop"], "draft_status": "in_progress"},
     )
     assert response.status_code == 200
-    response = client.get("/api/documents/list?portal_ids=workshop")
+    response = client.get("/api/documents/list?portal_id=workshop")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -1511,31 +1494,6 @@ def test_document_list_metadata_tags_are_not_a_gallery_mechanism(
 
 def _public_id_of(client, document_id):
     return client.get(f"/api/document/{document_id}").json()["public_id"]
-
-
-def test_document_list_draft_status_filter(client, document_id_total_vap):
-    # The explicit draft_status filter narrows any listing by the map's own
-    # metadata status.
-    public_id = _public_id_of(client, document_id_total_vap)
-    response = client.put(
-        f"/api/document/{document_id_total_vap}/metadata",
-        json={"draft_status": "in_progress"},
-    )
-    assert response.status_code == 200
-    assert (
-        client.get(
-            f"/api/documents/list?ids={public_id}&draft_status=ready_to_share"
-        ).json()
-        == []
-    )
-    assert (
-        len(
-            client.get(
-                f"/api/documents/list?ids={public_id}&draft_status=in_progress"
-            ).json()
-        )
-        == 1
-    )
 
 
 def test_get_district_unions(client, document_id_total_vap):

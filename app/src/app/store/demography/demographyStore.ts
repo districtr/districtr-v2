@@ -7,7 +7,7 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyService} from '@/app/utils/demography/demographyService';
+import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
@@ -22,6 +22,7 @@ import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary'
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
+import {checkAssignments} from '@/app/utils/map/assignmentIntegrity';
 
 // Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
 // switch to planning regions as county-equivalents, but districtr's own block
@@ -59,7 +60,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = demographyDataHash(getActiveBrokenIds(), mapDocument?.document_id);
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -194,11 +195,13 @@ export var useDemographyStore = create(
       const {setNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
-      const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
+      const dataHash = demographyDataHash(brokenIds, mapDocument.document_id);
 
+      // Bump before the early return, so a load still in flight for an abandoned
+      // shatter state (shatter, then undo before it lands) is dropped.
+      const requestId = ++updateDataRequestId;
       if (currDataHash === dataHash) return;
 
-      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
@@ -242,14 +245,23 @@ export var useDemographyStore = create(
             mapDocument.map_type === MAP_TYPES.COMMUNITY
               ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
               : useAssignmentsStore.getState().zoneAssignments.size > 0;
+          // statefps is null for maps without it in the DB.
           const isConnecticut =
-            mapDocument.statefps.length === 1 && mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
+            mapDocument.statefps?.length === 1 &&
+            mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
           const paintByCounty =
             !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
           useMapControlsStore.getState().setMapOptions({paintByCounty});
           if (paintByCounty) {
             useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
           }
+        }
+        // Demography and assignments are both current here, so this is the load-time
+        // integrity check (and a cheap re-check on each shatter's re-hash).
+        if (mapDocument.access === ACCESS_STATES.EDIT) {
+          checkAssignments('load').catch(error =>
+            console.error('Assignment check failed to run', error)
+          );
         }
       }
 
