@@ -15,6 +15,8 @@ import {useAssignmentsStore} from '@store/assignmentsStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {demographyService} from '@utils/demography/demographyService';
+import {getTopology} from '@utils/topology/state';
+import {lonOfMercX, latOfMercY} from '@utils/topology/decode';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -78,6 +80,20 @@ if (enabled) {
     },
     demographyService,
     getMapRef: getMap,
+    /** Topology prototype: lon/lat label point of a loaded unit, or null. */
+    labelOf(path: string): [number, number] | null {
+      const topo = getTopology();
+      const unit = topo?.unitByPath.get(path);
+      if (!topo || unit === undefined) return null;
+      const chunk =
+        unit < topo.P
+          ? topo.parents
+          : [...topo.chunks.values()].find(c => c.children.paths[unit - c.children.firstUnit])
+              ?.children;
+      if (!chunk) return null;
+      const k = unit - chunk.firstUnit;
+      return [lonOfMercX(chunk.label[2 * k]), latOfMercY(chunk.label[2 * k + 1])];
+    },
     ids: {
       source: BLOCK_SOURCE_ID,
       parentHover: BLOCK_HOVER_LAYER_ID,
