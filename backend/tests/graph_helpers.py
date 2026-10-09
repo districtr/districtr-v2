@@ -15,7 +15,9 @@ def make_graph(
     non_contiguous_parents: set[str] | None = None,
 ) -> DualLevelGraph:
     """Every id named in ``edges``, ``nodes``, or ``parents`` (keys and
-    values) becomes a node; ``parents`` maps child id -> parent id."""
+    values) becomes a node; ``parents`` maps child id -> parent id.
+    ``weighted_edges`` and ``non_contiguous_parents`` name parents by id and
+    are translated to the constructor's index arrays."""
     edges = list(edges)
     parents = parents or {}
     ids = set(nodes) | set(parents) | set(parents.values())
@@ -36,6 +38,17 @@ def make_graph(
         node_ids=node_ids,
         edges=edge_arr,
         parent_of=parent_of,
-        weighted_edges=weighted_edges,
-        non_contiguous_parents=non_contiguous_parents,
+        weighted_edges=(
+            np.asarray(
+                [(idx[a], idx[b], w) for (a, b), w in weighted_edges.items()],
+                dtype=np.int32,
+            ).reshape(-1, 3)
+            if weighted_edges is not None
+            else None
+        ),
+        non_contiguous_parents=(
+            np.asarray([idx[p] for p in non_contiguous_parents], dtype=np.int32)
+            if non_contiguous_parents is not None
+            else None
+        ),
     )
