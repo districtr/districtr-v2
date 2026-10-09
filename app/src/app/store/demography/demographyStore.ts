@@ -269,6 +269,9 @@ export var useDemographyStore = create(
         availableColumnSets: getAvailableColumnSets(demographyService.availableColumns),
         dataHash,
       });
+      performance.mark('districtr:demography-ready', {
+        detail: {broken: brokenIds.length, rows: demographyService.table?.numRows() ?? null},
+      });
     },
   }))
 );
