@@ -4,7 +4,7 @@ Date: 2025-03-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted. Amended by [0052](0052-mmap-shared-graphs.md); PR #771 retired pickles.
 
 ## Context
 
@@ -20,4 +20,4 @@ Store adjacency graphs as compressed pickles (or GMLs) on S3, load them into the
 
 ## Consequences
 
-Contiguity checks run in-process against a cached graph, achieving roughly 1–1.5s on a cache miss and under 500ms on a cache hit. This established graph-in-process as the standing pattern for contiguity and related computation, later generalized into the LRU-cached graph store (ADR 0035) and the pipeline-built hybrid graph (ADR 0039).
+Contiguity checks run in-process against a cached graph, achieving roughly 1–1.5s on a cache miss and under 500ms on a cache hit. This established graph-in-process as the standing pattern for contiguity and related computation, later generalized into the LRU-cached graph store ([0035](0035-graph-lru-cache.md)) and the pipeline-built hybrid graph ([0039](0039-pipeline-built-hybrid-graph.md)). Graphs now load as `.npz` through the mmap disk cache of [0052](0052-mmap-shared-graphs.md); PR #771 removed the pickle format.

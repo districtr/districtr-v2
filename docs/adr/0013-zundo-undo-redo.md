@@ -4,7 +4,7 @@ Date: 2025-01-03 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -16,4 +16,4 @@ Use Zundo, an undo/redo middleware for Zustand, as the undo/redo mechanism, with
 
 ## Consequences
 
-Undo/redo is implemented as a small addition on top of the existing Zustand store rather than a bespoke history system. Later refinement of undo/redo semantics (per-gesture snapshotting, sync interaction) builds on this Zundo foundation — see ADR 0048.
+Undo/redo is implemented as a small addition on top of the existing Zustand store rather than a bespoke history system. Later refinement of undo/redo semantics (per-gesture snapshotting, sync interaction) builds on this Zundo foundation — see [0048](0048-undo-redo-per-gesture.md).

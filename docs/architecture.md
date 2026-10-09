@@ -172,7 +172,7 @@ Alembic with 50+ versions. UDF handling stores previous definitions under `sql/v
 
 **Stack**: Django 5.2, Wagtail 7, SimpleJWT
 
-A separate service that owns pages, users and teams, portals and submission moderation, and map-module and overlay admin ([ADR 0054](adr/0054-wagtail-cms-service.md)). Apps: `authapi` (identity, roles, token minting), `content` (pages and the public content API), `datastore` (unmanaged mirrors of backend tables), `moderation` (site settings), `portals` (the per-portal hub).
+A separate service that owns pages, users and teams, portals and submission moderation, and map-module and overlay admin ([ADR 0054](adr/0054-wagtail-cms-service.md)). Apps: `core` (shared base), `authapi` (identity, roles, token minting), `content` (pages and the public content API), `datastore` (unmanaged mirrors of backend tables), `moderation` (site settings), `portals` (the per-portal hub).
 
 - **One database, split ownership** ([ADR 0056](adr/0056-cms-schema-ownership.md)): Django owns the `admin` schema and runs its own migrations; Alembic owns everything else and excludes `admin`. Backend tables the CMS edits are mirrored as `managed=False` models, checked in CI by `check_mirror_drift`.
 - **Single-row edits use the ORM; operations call FastAPI** (GeoPackage import, map-module compose, thumbnails, submission moderation) with a CMS-minted token.

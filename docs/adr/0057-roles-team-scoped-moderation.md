@@ -4,7 +4,7 @@ Date: 2026-09-23 (PR #712; roles #714; current team form #746/#747, 2026-09-25; 
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -15,10 +15,10 @@ Under Auth0 every admin token carried the same flat scopes ([0021](0021-auth0-sc
 Roles are three Django groups (`authapi/migrations/0002_provision_roles.py`):
 
 - `admin` — all page and datastore permissions; tokens carry every scope, including `review:review-all`.
-- `partner` — may add pages (edits its own, publishes through the approval workflow of [0054](0054-wagtail-cms-service.md)); tokens carry only `create:content_review`.
+- `partner` — may add pages under the Portals and Places index pages (`authapi/migrations/0004_scope_partner_add_page.py`, PR #772) and edit those in its teams' scope, with nothing outside it even on its own pages (`TeamScopedPagePermissionTester`), publishing through the approval workflow of [0054](0054-wagtail-cms-service.md); tokens carry only `create:content_review`.
 - `super_partner` — partner plus add/change/view on map modules and overlays. GeoPackage import stays admin-only.
 
-`GROUP_SCOPES` (`cms/authapi/scopes.py`) maps groups to scopes. The tenant is the `Team` (`authapi`: `Team`, `TeamMembership`, `TeamDistrictrMap`). Every minted token carries `roles`, and every non-admin token carries `teams` — the user's team slugs, `[]` for a team-less user. The backend's `require_portal_admin` (`backend/app/submissions/main.py`) allows moderating a portal only if `teams` shares a slug with that portal's `form_configs.admin_teams`, or the token has `review:review-all`. An absent claim fails closed, and `read:read-all` deliberately does not widen moderation reach. CMS moderation views call the backend with a per-user token so this check lives in one place.
+`GROUP_SCOPES` (`cms/authapi/scopes.py`) maps groups to scopes. The tenant is the `Team` (`authapi`: `Team`, `TeamMembership`, `TeamDistrictrMap`). Every user token carries `roles`, and every non-admin token carries `teams` — the user's team slugs, `[]` for a team-less user. The backend's `require_portal_admin` (`backend/app/submissions/main.py`) allows moderating a portal only if `teams` shares a slug with that portal's `form_configs.admin_teams`, or the token has `review:review-all`. An absent claim fails closed, and `read:read-all` deliberately does not widen moderation reach. CMS moderation views call the backend with a per-user token so this check lives in one place.
 
 ## Alternatives considered
 
@@ -26,4 +26,4 @@ Roles are three Django groups (`authapi/migrations/0002_provision_roles.py`):
 
 ## Consequences
 
-Team slugs are part of the auth contract: renaming one orphans the `admin_teams` grants that reference it, and only help text warns (PR #747). Only admins can create a portal's form config. The contract is pinned from both sides (`test_teams_claim_round_trips`, `test_teams_claim_absent_by_default`; `TeamsClaimTests` in the CMS).
+Team slugs are part of the auth contract: renaming one orphans the `admin_teams` grants that reference it, and only help text warns (PR #747). Only admins create or copy a config outside the portal wizard; partners get one by creating the page and its config together in the wizard, and `admin_teams` must include one of their own teams. The contract is pinned from both sides (`test_teams_claim_round_trips`, `test_teams_claim_absent_by_default`; `TeamsClaimTests` in the CMS).

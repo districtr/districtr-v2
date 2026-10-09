@@ -4,7 +4,7 @@ Date: 2025-08-06 (PR #415; chain #234 → #393 → #415; routing hardened #636; 
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,8 +12,8 @@ Save/share began with frozen share tokens and a checkout/locking system (PR #234
 
 ## Decision
 
-The document UUID itself is the edit capability: possession grants edit rights, so it is treated as a secret. A sequential `public_id` (PR #415) serves every non-edit surface: `map/{public_id}` for read-only public maps, `map/edit/{document_id}` for editing, `map/{public_id}?pw=true` for password-gated share links (unlocking redirects to the edit id). The UUID is never leaked to frozen clients and, since PR #636 reworked routing, never shown in user-facing routes at all; the URL-visible "edit link" (`private_edit_id`) is a reversible base64url shortening of the UUID, not a separate credential.
+The document UUID itself is the edit capability: possession grants edit rights, so it is treated as a secret. A sequential `public_id` (PR #415) serves every non-edit surface: `map/{public_id}` for read-only public maps, `map/edit/{document_id}` for editing (at PR #415; since PR #636 the edit route is `map/{public_id}/edit?private_edit_id=…`, `utils/map/editUrl.ts`, with the bare UUID path only as a fallback for documents without a public id), `map/{public_id}?pw=true` for password-gated share links (unlocking redirects to the edit id). The UUID is never leaked to frozen clients and, since PR #636 reworked routing, never shown in user-facing routes at all; the URL-visible "edit link" (`private_edit_id`) is a reversible base64url shortening of the UUID, not a separate credential.
 
 ## Consequences
 
-Access control is capability-possession plus the `get_document`/`get_protected_document` dependency split — no per-share token table to manage. Anything that prints, logs, or serializes a document UUID is a security decision. Thumbnails generate from the edit id but publish under the public id (PR #415).
+Access control is capability-possession plus the `get_document`/`get_protected_document` dependency split. A document shared with a password still keeps a row in `document.map_document_token` holding the password hash, which the password-gated link is checked against. Anything that prints, logs, or serializes a document UUID is a security decision. Thumbnails generate from the edit id but publish under the public id (PR #415).

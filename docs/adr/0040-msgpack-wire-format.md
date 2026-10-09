@@ -4,7 +4,7 @@ Date: 2026-06-10 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -16,4 +16,4 @@ Use msgpack, not JSON, as the wire format for assignment-heavy endpoints: `GET /
 
 ## Consequences
 
-Assignment payloads drop both the JSON serialization/validation overhead and the per-row key repetition. Clients holding a stale bundle from before this cutover cannot decode the new wire format — this motivated the version-skew detection mechanism (ADR 0042) added the next day.
+Assignment payloads drop both the JSON serialization/validation overhead and the per-row key repetition. Clients holding a stale bundle from before this cutover cannot decode the new wire format — this motivated the version-skew detection mechanism ([0042](0042-version-skew-detection.md)) added the next day.

@@ -4,11 +4,11 @@ Date: 2024-12-23 (PR #210; anchor found by code archaeology — the PR body does
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
-Rendering district numbers and outlines on the map requires dissolving rendered features by district assignment — expensive work that would block the main thread if run there (PR #210). Later, partial reads of long-format parquet tabular data needed the same treatment (PR #334; see also ADR 0020).
+Rendering district numbers and outlines on the map requires dissolving rendered features by district assignment — expensive work that would block the main thread if run there (PR #210). Later, partial reads of long-format parquet tabular data needed the same treatment (PR #334; see also [0020](0020-parquet-demographics.md)).
 
 ## Decision
 

@@ -4,11 +4,11 @@ Date: 2025-03-08 (recorded retrospectively 2026-09-08; codified 2026-04-21)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
-Earlier backend work (from PR #283 onward) relied on Postgres UDFs for some query and geometry logic. Enforcement against writing new UDFs began informally at that point and continued through later performance work (PR #550), which replaced UDF-backed logic such as `get_unassigned_bboxes` with in-process computation. The policy was written down formally in PR #505's expert-guide sweep, which added explicit SQLAlchemy-first guidance, a no-new-UDF default, exception criteria, and legacy-UDF handling/migration direction to the repo's agentic-engineering documentation.
+Earlier backend work relied on Postgres UDFs for some query and geometry logic (`shatter_parent` in PR #84, `create_districtr_map` in PR #183). PR #283 began removing them (the summary-stat functions), and enforcement against writing new UDFs began informally at that point and continued through later performance work (PR #550), which replaced UDF-backed logic such as `get_unassigned_bboxes` with in-process computation. The policy was written down formally in PR #505's expert-guide sweep, which added explicit SQLAlchemy-first guidance, a no-new-UDF default, exception criteria, and legacy-UDF handling/migration direction to the repo's agentic-engineering documentation.
 
 ## Decision
 

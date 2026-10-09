@@ -4,7 +4,7 @@ Date: 2026-06-10 (PR #550; browser counterpart #470; extended by #568, #578; rec
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 

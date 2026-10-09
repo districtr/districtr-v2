@@ -4,7 +4,7 @@ Date: 2024-10-16 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted. Amended by [0052](0052-mmap-shared-graphs.md).
 
 ## Context
 
@@ -12,8 +12,8 @@ Districtr needed to let users paint at a coarse geography (e.g. VTD) while occas
 
 ## Decision
 
-Model shattering as two geography levels: a coarse, paintable parent layer (`DistrictrMap`) and a fine child layer, linked by a `ParentChildEdges` table that records the intersection between a gerrydb parent view and its child view. On shatter, child rows are fully populated for the shattered parent; assignments join through `ParentChildEdges` so a page reload can reconstruct which parents are shattered.
+Model shattering as two geography levels: a coarse, paintable parent layer and a fine child layer (the `parent_layer` and `child_layer` foreign keys on `DistrictrMap`), linked by a `ParentChildEdges` table that records the intersection between a gerrydb parent view and its child view. On shatter, child rows are fully populated for the shattered parent; assignments join through `ParentChildEdges` so a page reload can reconstruct which parents are shattered.
 
 ## Consequences
 
-Editing above and below the base geography works through the same relational model, with parent/child linkage as explicit table data rather than ad hoc client logic. This mechanism was later superseded by graph-served children (see the pipeline-built hybrid graph, ADR 0039) — the `ParentChildEdges` table and full child-row population described here belong to that earlier design and are not the current mechanism.
+Editing above and below the base geography works through the same relational model, with parent/child linkage as explicit table data rather than ad hoc client logic. The two-level model and full child-row population survive (`_heal_or_fill` still inserts a shattered parent's missing siblings). What changed is the source of the parent-to-child lookup: PR #721 moved every reader onto the pipeline-built graph ([0039](0039-pipeline-built-hybrid-graph.md), [0052](0052-mmap-shared-graphs.md)), and PR #770 then dropped the `ParentChildEdges` table.

@@ -4,7 +4,7 @@ Date: 2026-04-24 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,7 +12,7 @@ String literal unions (`'brush'`, `'TOTPOP'`, `'default' | 'local' | 'community'
 
 ## Decision
 
-Centralize all multi-use string-literal constants and their derived types in `app/src/app/constants/`, organized into three domain subfolders: `map/` (MapLibre/map-rendering concerns — tools, map types/modes/routes, rendering states, geography, zone layers), `document/` (document lifecycle — draft status, access levels, temporal constants), and `demography/` (summary-statistics display — column sets, display mode, summary types).
+Centralize all multi-use string-literal constants and their derived types in `app/src/app/constants/`, organized into domain subfolders: `map/` (MapLibre/map-rendering concerns — tools, map types/modes/routes, rendering states, geography, zone layers), `document/` (document lifecycle — draft status, access levels, temporal constants), `demography/` (summary-statistics display — column sets, display mode, summary types), and the pre-existing `meta/`. The rationale here is PR #527's devlog ADR block ([discussion #537](https://github.com/districtr/districtr-v2/discussions/537)).
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Single source of truth; type errors now catch typos at every call site. Domain s
 
 ## Revisit when
 
-A fourth domain emerges that does not fit `map/`, `document/`, or `demography/`; or backend schemas start defining values that overlap with these unions (consider codegen at that point).
+A new domain emerges that does not fit `map/`, `document/`, `demography/`, or `meta/`; or backend schemas start defining values that overlap with these unions (consider codegen at that point).

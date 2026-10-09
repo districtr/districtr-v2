@@ -4,7 +4,7 @@ Date: 2024-10-28 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,7 +12,7 @@ JS code styling was initially informal (PR #156 added an Airbnb-derived Prettier
 
 ## Decision
 
-Enforce Prettier via pre-commit as a formatting gate. Keep ESLint available and working (PR #728 replaced the broken config with a flat `eslint.config.js` built on `eslint-config-next/core-web-vitals`) but deliberately outside any gate (pre-commit or CI) — a team decision made 2026-08-24 when fixing the tool.
+Enforce Prettier via pre-commit as a formatting gate. Keep ESLint available and working (PR #728 replaced the broken config with a flat `eslint.config.js` built on `eslint-config-next/core-web-vitals`) but deliberately outside any gate (pre-commit or CI).
 
 ## Consequences
 

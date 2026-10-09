@@ -1,10 +1,10 @@
-# 55. The CMS issues every JWT; the backend verifies any JWKS-published token by scope
+# 55. The CMS issues every RS256 access token the backend accepts; the backend verifies any JWKS-published token by scope
 
 Date: 2026-09-23 (PRs #711, #714, #718; recorded retrospectively 2026-09-28)
 
 ## Status
 
-Accepted. Supersedes [0021](0021-auth0-scopes.md).
+Accepted. Supersedes [0021](0021-auth0-scopes.md). Amends [0049](0049-waf-session-tokens.md).
 
 ## Context
 
@@ -12,10 +12,10 @@ Admin and CMS surfaces authenticated with Auth0-issued JWTs carrying scopes ([00
 
 ## Decision
 
-The CMS is the only token issuer. It signs RS256 JWTs (SimpleJWT, `cms/config/settings/base.py`) with a `kid` header set to the key's RFC 7638 thumbprint, and publishes its public keys at `/.well-known/jwks.json`; during rotation `JWT_NEXT_VERIFYING_KEY` is served alongside the active key. There are no login or refresh endpoints and no refresh tokens. Humans sign in to the Wagtail admin with Django sessions, and the CMS mints short-lived access tokens in-process only when it calls the backend:
+The CMS issues every RS256 access token the backend accepts (the backend still mints its own HS256 session and share tokens, [0049](0049-waf-session-tokens.md)). It signs RS256 JWTs (SimpleJWT, `cms/config/settings/base.py`) with a `kid` header set to the key's RFC 7638 thumbprint, and publishes its public keys at `/.well-known/jwks.json`; during rotation `JWT_NEXT_VERIFYING_KEY` is served alongside the active key. There are no login or refresh endpoints and no refresh tokens. Humans sign in to the Wagtail admin with Django sessions, and the CMS mints short-lived access tokens in-process only when it calls the backend:
 
 - `mint_user_access_token(user)` — 5 minutes, carrying the user's scopes and claims ([0057](0057-roles-team-scoped-moderation.md)), for calls made on a user's behalf.
-- `mint_service_token(name, scopes)` — 15 minutes, subject `service:<name>`, for data-admin operations.
+- `mint_service_token(name, scopes)` — 15 minutes, subject `service:<name>`, for data-admin operations; `manage.py issue_service_token` mints one for scripts outside the CMS's own calls.
 
 The backend verifier (`backend/app/core/security.py::VerifyToken`, PyJWT's `PyJWKClient`) knows no provider: it resolves the key by `kid` from `AUTH_JWKS_URL`, checks signature, `AUTH_AUDIENCE`, `AUTH_ISSUER`, and expiry, and requires every scope an endpoint declares (`Security(auth.verify, scopes=[...])`) in the space-separated `scope` claim. Machine tokens get no scope bypass.
 

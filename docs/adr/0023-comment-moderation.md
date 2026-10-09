@@ -4,7 +4,7 @@ Date: 2025-09-02 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Superseded by [0059](0059-submissions-form-configs.md) and [0060](0060-submissions-public-on-arrival.md)
+Superseded by [0059](0059-submissions-form-configs.md) and [0060](0060-submissions-public-on-arrival.md).
 
 ## Context
 
@@ -12,7 +12,7 @@ The public comments module (PR #431) let anyone submit comments, commenters, and
 
 ## Decision
 
-Moderate comments, commenters, and tags using OpenAI's moderation API, with a fallback to a local lexicon-based package (safetext) if the API call fails. Store moderation scores and review state on each row rather than a separate moderation table. Rejected content is masked, not omitted, and a background task runs moderation on submission with a review endpoint to override the machine-assigned score.
+Moderate comments, commenters, and tags using OpenAI's moderation API, with a fallback to a local lexicon-based package (safetext) if the API call fails. Store moderation scores and review state on each row rather than a separate moderation table. Rejected content is filtered out of public reads (`stmt.where(comment_ok)`; masking came later, in PR #489, and only for district comments), and a background task runs moderation on submission with a review endpoint to override the machine-assigned score.
 
 ## Alternatives considered
 

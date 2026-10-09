@@ -4,7 +4,7 @@ Date: 2026-05-06 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -16,4 +16,4 @@ Cache the loaded dual graph in an LRU of bounded size, evicting least-recently-u
 
 ## Consequences
 
-API server memory usage is bounded by cache size rather than growing unboundedly with the number of distinct states touched. The cap is a tuning knob traded against S3 reload latency on eviction; PR #623 documents 15 as the current measured-appropriate value for observed traffic. See ADR 0052 (mmap-shared graphs) for the later change to what is held per cache slot, distinct from how many slots this ADR governs.
+API server memory usage is bounded by cache size rather than growing unboundedly with the number of distinct states touched. The cap is a tuning knob traded against S3 reload latency on eviction; PR #623 documents 15 as the current measured-appropriate value for observed traffic. See [0052](0052-mmap-shared-graphs.md) (mmap-shared graphs) for the later change to what is held per cache slot, distinct from how many slots this ADR governs.

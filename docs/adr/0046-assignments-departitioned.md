@@ -4,7 +4,7 @@ Date: 2026-07-16 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 

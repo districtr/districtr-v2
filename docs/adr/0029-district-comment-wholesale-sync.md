@@ -4,7 +4,7 @@ Date: 2026-02-23 (PR #489; semantics found at code level, not stated in the PR b
 
 ## Status
 
-Accepted. Amended by [0058](0058-district-notes-table.md)
+Accepted. Amended by [0058](0058-district-notes-table.md).
 
 ## Context
 
@@ -12,7 +12,7 @@ District-level comments (PR #489) let users add and view comments per district f
 
 ## Decision
 
-Syncing a district's comments replaces the full set for that district wholesale rather than merging individual comment changes.
+Syncing district comments replaces the document's full set of district comments wholesale rather than merging individual comment changes.
 
 ## Consequences
 

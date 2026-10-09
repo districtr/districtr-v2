@@ -4,7 +4,7 @@ Date: 2026-05-13 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,7 +12,7 @@ Eguia's fairness score requires a "state ideal" — the proportional population 
 
 ## Decision
 
-Store computed state ideals in a process-level singleton (`StateIdealCache`), keyed by GerryDB table name, populated lazily on first request and retained for the server lifetime.
+Store computed state ideals in a process-level singleton (`IdealsForEguia`, today `COUNTY_CONTEXT.ideals_for_eguia` in `backend/app/evaluation/context.py`), keyed by GerryDB table name, populated lazily on first request and retained for the server lifetime.
 
 ## Alternatives considered
 
@@ -21,4 +21,4 @@ Store computed state ideals in a process-level singleton (`StateIdealCache`), ke
 
 ## Consequences
 
-Eguia score requests avoid repeated state-wide aggregation after the first request for a given GerryDB table. Being process-local memory, a server restart flushes the cache and values recompute on next request; keying by GerryDB table name (rather than state FIPS) is shared with ADR 0037's `county_demographics` cache — see that record for why table name was chosen as the key.
+Eguia score requests avoid repeated state-wide aggregation after the first request for a given GerryDB table. Being process-local memory, a server restart flushes the cache and values recompute on next request; keying by GerryDB table name (rather than state FIPS) is shared with [0037](0037-county-demographics-cache.md)'s `county_demographics` cache — see that record for why table name was chosen as the key.

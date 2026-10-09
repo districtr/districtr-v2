@@ -4,7 +4,7 @@ Date: 2026-05-13 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -20,7 +20,7 @@ On the key choice — gerrydb table name over state FIPS: state FIPS was the ini
 
 - State FIPS key. Ruled out — most maps don't store it, doesn't survive GerryDB version bumps, and fails for multi-state regions.
 - Recompute from GerryDB on every request. Ruled out — the `GROUP BY` over thousands of VTD/block rows is too slow for a synchronous API endpoint.
-- In-memory cache, analogous to `StateIdealCache` (ADR 0036). Rejected — county demographics are larger (one JSONB blob per county per state), and the in-memory approach doesn't survive restarts or scale across workers.
+- In-memory cache, analogous to the state-ideal singleton ([0036](0036-eguia-state-ideal-cache.md)). Rejected — county demographics are larger (one JSONB blob per county per state), and the in-memory approach doesn't survive restarts or scale across workers.
 - PostgreSQL materialized view over GerryDB. Cleaner in principle, but requires tight schema coupling to the GerryDB tables and a manual `REFRESH` trigger; the application-level cache gives the same result with less infrastructure dependency.
 
 ## Consequences

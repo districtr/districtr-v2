@@ -4,11 +4,11 @@ Date: 2026-07-30 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
-Captcha protection on public writes originated as reCAPTCHA v2 on the comment form (PR #432) and was extended to reCAPTCHA v3 for silent session minting (ADR 0049, PR #619).
+Captcha protection on public writes originated as reCAPTCHA v2 on the comment form (PR #432) and was extended to reCAPTCHA v3 for silent session minting ([0049](0049-waf-session-tokens.md), PR #619).
 
 ## Decision
 

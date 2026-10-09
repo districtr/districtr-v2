@@ -4,7 +4,7 @@ Date: 2026-09-23 (PRs #710, #713, #714; FormConfig mirror #747; recorded retrosp
 
 ## Status
 
-Accepted
+Accepted. Amends [0010](0010-districtrmap-soft-delete.md).
 
 ## Context
 

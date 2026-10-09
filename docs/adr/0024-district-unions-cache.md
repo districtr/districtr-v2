@@ -4,7 +4,7 @@ Date: 2025-09-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,7 +12,7 @@ Generating thumbnails and, eventually, public views needed unioned district geom
 
 ## Decision
 
-Add a `district_unions` table in the document schema that stores precomputed unioned `MultiPolygon` geometry per district plus a JSONB `demographic_data` column, generated when a document marked "ready to share" is unlocked. `update_or_select_district_unions` fetches an existing row or triggers regeneration if missing or outdated. Demographic aggregation dynamically discovers numeric columns on the associated gerrydb table via `information_schema` and aggregates with `SUM()`, joined on the `path` field between district assignments and demographic tables.
+Add a `district_unions` table in the document schema that stores precomputed unioned `MultiPolygon` geometry per district plus a JSONB `demographic_data` column, generated when a document marked "ready to share" is unlocked. `update_or_select_district_stats` fetches an existing row or triggers regeneration if missing or outdated. Demographic aggregation dynamically discovers numeric columns on the associated gerrydb table via `information_schema` and aggregates with `SUM()`, joined on the `path` field between district assignments and demographic tables.
 
 ## Alternatives considered
 
@@ -21,4 +21,4 @@ Add a `district_unions` table in the document schema that stores precomputed uni
 
 ## Consequences
 
-Thumbnail generation runs against already-unioned geometry instead of recomputing unions per request. This became the standing per-district cache — later given per-district dirty tracking and CDN offload for `/stats` (ADR 0047) and cross-referenced by public-view serving (ADR 0032).
+Thumbnail generation runs against already-unioned geometry instead of recomputing unions per request. This became the standing per-district cache — later given per-district dirty tracking and CDN offload for `/stats` ([0047](0047-stats-cdn-offload.md)) and cross-referenced by public-view serving ([0032](0032-public-views-stats-artifact.md)).

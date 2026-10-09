@@ -1,10 +1,10 @@
-# 27. num_districts moves from static per-module to mutable per-plan
+# 27. num_districts: a per-plan override of the module value
 
 Date: 2026-02-03 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -12,7 +12,7 @@ The number of districts in a plan was locked to the map module, fixed once a pla
 
 ## Decision
 
-Move `num_districts` from the map module to the document schema, so it is mutable per plan, with frontend controls to change it.
+Add a nullable `num_districts` to the document that overrides the map module's value when set, with frontend controls to change it on maps that allow it (`districtrmap.num_districts_modifiable`).
 
 ## Consequences
 

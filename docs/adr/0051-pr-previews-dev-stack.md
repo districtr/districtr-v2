@@ -4,11 +4,11 @@ Date: 2026-08-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
-PR previews had gone through several iterations. Per-PR apps were first added on Fly (PR #116), forking a database and deploying separate `api`/`app` instances per PR, then torn down again (PR #496: "We no longer need deploy previews, but do need a dev preview!"). Label-driven Fly previews were reintroduced (PR #574): a `Preview: FE` label deployed a frontend pointed at the shared dev backend, and `Preview: Fullstack` deployed frontend plus a backend with Postgres forked from dev, both named by PR number and torn down on close or label removal. By the time of PR #649, dev and prod already ran on AWS (ECS Fargate behind an ALB, Pulumi-provisioned) — PR previews were the one piece still deploying to Fly.
+PR previews had gone through several iterations. Per-PR apps were first added on Fly (PR #116), forking a database and deploying separate `api`/`app` instances per PR, then torn down again (PR #496: "We not [sic] longer need deploy previews, but do need a dev preview!"). Label-driven Fly previews were reintroduced (PR #574): a `Preview: FE` label deployed a frontend pointed at the shared dev backend, and `Preview: Fullstack` deployed frontend plus a backend with Postgres forked from dev, both named by PR number and torn down on close or label removal. By the time of PR #649, dev and prod already ran on AWS (ECS Fargate behind an ALB, Pulumi-provisioned) — PR previews were the one piece still deploying to Fly.
 
 ## Decision
 
@@ -16,4 +16,4 @@ Move PR previews onto the same AWS stack as dev and prod, piggybacking on the de
 
 ## Consequences
 
-PR previews run on the same infrastructure model as dev and prod, so there is no longer a separate Fly deployment path to maintain in parallel with the AWS platform (ADR 0043). Because preview workflows execute a PR's own code, they run under a purpose-scoped IAM role rather than the deploy role used for trusted merges to dev/main.
+PR previews run on the same infrastructure model as dev and prod, so there is no longer a separate Fly deployment path to maintain in parallel with the AWS platform ([0043](0043-aws-platform.md)). Because preview workflows execute a PR's own code, they run under a purpose-scoped IAM role rather than the deploy role used for trusted merges to dev/main.

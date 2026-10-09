@@ -4,7 +4,7 @@ Date: 2026-06-10 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -16,4 +16,4 @@ Replace the separate parent- and child-level graphs with a single combined hybri
 
 ## Consequences
 
-Graph structure is simpler to store, test, and compute against, and graph generation has no runtime dependency on the database. This is the graph format the LRU cache (ADR 0035) loads and the later mmap-shared representation (ADR 0052) replaces internally. The earlier parent/child edge model used for shattering (ADR 0006) is superseded here for graph-served children.
+Graph structure is simpler to store, test, and compute against, and graph generation has no runtime dependency on the database. This is the graph format the LRU cache ([0035](0035-graph-lru-cache.md)) loads and the later mmap-shared representation ([0052](0052-mmap-shared-graphs.md)) replaces internally. The shatter path kept joining `parentchildedges_*` to expand parents after this PR; PR #721 moved every reader onto this graph ([0052](0052-mmap-shared-graphs.md)), and PR #770 dropped the table ([0006](0006-shatter-parent-child-model.md)).

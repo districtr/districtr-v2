@@ -4,7 +4,7 @@ Date: 2024-07-24 – 2024-09-11 (PRs #5, #27, #83; recorded retrospectively 2026
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 

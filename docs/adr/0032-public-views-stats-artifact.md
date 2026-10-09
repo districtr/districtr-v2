@@ -4,7 +4,7 @@ Date: 2026-04-12 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -16,4 +16,4 @@ Public views turn off editing features and load from `GET /api/document/{id}/sta
 
 ## Consequences
 
-Public/read-only traffic no longer drives the same database and client load as editing. This is distinct from where the stats artifact is served from — see ADR 0047, which moved `/stats` itself onto CDN/S3 with per-district cache eviction; ADR 0032 is what a public view reads, ADR 0047 is where it comes from.
+Public/read-only traffic no longer drives the same database and client load as editing. This is distinct from where the stats artifact is served from — see [0047](0047-stats-cdn-offload.md), which moved `/stats` itself onto CDN/S3 with per-district cache eviction; [0032](0032-public-views-stats-artifact.md) is what a public view reads, [0047](0047-stats-cdn-offload.md) is where it comes from.

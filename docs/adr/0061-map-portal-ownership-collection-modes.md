@@ -4,7 +4,7 @@ Date: 2026-09-25 (PRs #748, #752, #753; single ownership #754, 2026-09-28; recor
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -18,7 +18,7 @@ A user who drew a map for a portal had to copy its link into the portal's form. 
 
 - `form` — the user submits the portal's form explicitly.
 - `prompt` — the editor offers to join the gallery (`SubmitToPortalModal`) once the map is ready to share; the frontend re-checks the server's config, and pending drafts are kept in localStorage.
-- `auto_public` and `internal` — no form. `auto_finalize_draft_submissions` flips the draft to submitted when the map reaches in-progress or ready-to-share, and back to draft if the author regresses the status, because the author never filled a consent form. The hook runs inside the metadata save of [0025](0025-save-sync-model.md). `internal` portals are left out of every public listing.
+- `auto_public` and `internal` — no form. `auto_finalize_draft_submissions` flips the draft to submitted when the map reaches in-progress or ready-to-share, and back to draft if the author regresses the status, because the author never filled a consent form. The hook runs inside the metadata save of [0025](0025-save-sync-model.md). `internal` portals start with no gallery; their maps list in the portal's own gallery or curated galleries once the owner adds one (PR #772), and site-wide galleries leave them out.
 
 The CMS Portals hub (`cms/portals/`) is the admin's entry point per portal, and its wizard (`cms/content/portal_wizard.py`) creates the portal page, form config, and custom questions in one transaction.
 

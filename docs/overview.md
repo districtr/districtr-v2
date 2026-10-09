@@ -2,7 +2,7 @@
 
 A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in the [ADRs](adr/README.md).
 
-Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and comment on them. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and admin), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
+Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and admin), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
 
 ## Repository layout
 
@@ -101,9 +101,9 @@ Protected routes enforce scopes through `VerifyToken.verify` (`backend/app/core/
 
 Pages are Wagtail pages in `cms/`: partners edit, and publishing goes through an admin approval workflow. The public site renders them from the CMS's `/api/content/` JSON API with `StreamRenderer`. Backend tables the CMS edits (map modules, overlays, form configs) are `managed=False` mirrors in `cms/datastore/models.py`; Alembic stays the owner of their DDL, and Django owns only the `admin` schema.
 
-Public testimony is a *submission* (`backend/app/submissions/`): each portal has a form config choosing fields from a shared registry, and answers are stored one row per field. Submissions are public on arrival — there is no review queue. Text is scored (OpenAI moderation or a local fallback), and a high score sets `nsfw`, which the frontend blurs; portal admins can blur or hide entries from the CMS Portals hub. A map belongs to at most one portal (`document.portal_id`), and each portal's collection mode decides whether maps join its gallery by form, by prompt, or automatically.
+Public testimony is a *submission* (`backend/app/submissions/`): each portal has a form config choosing fields from a shared registry, and answers are stored one row per field. Submissions are public on arrival — there is no review queue. A deterministic word-list check (`submissions/blocklist.sha256`, hashed phrases, no external service) sets `nsfw`, which the frontend blurs with an opt-in reveal; portal admins see everything and can blur, unblur, hide or restore entries from the CMS Portals hub. A map belongs to at most one portal (`document.portal_id`), and each portal's collection mode decides whether maps join its gallery by form, by prompt, or automatically.
 
-District notes (`backend/app/district_notes/`, table `comments.district_notes`) are the author's notes on individual districts, separate from submissions. A save replaces a document's notes as a set. Flagged notes show a placeholder to public readers and the real text to editors.
+District notes (`backend/app/district_notes/`, table `comments.district_notes`) are the author's notes on individual districts, separate from submissions. A save replaces a document's notes as a set. Notes are not moderated.
 
 ## Dev environment
 

@@ -4,7 +4,7 @@ Date: 2025-03-08 (PR #283; anchor found by code archaeology — the PR body does
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 

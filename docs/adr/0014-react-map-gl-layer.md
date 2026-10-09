@@ -4,7 +4,7 @@ Date: 2025-02-24 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted
+Accepted.
 
 ## Context
 
@@ -20,4 +20,4 @@ Refactor the map integration onto react-map-gl, giving layer mount/unmount a com
 
 ## Consequences
 
-Layer components can rely on React's mount/unmount lifecycle instead of manual imperative setup/teardown. This became the standard integration layer for later map rendering work, including the split into per-scope layer components (ADR 0028).
+Layer components can rely on React's mount/unmount lifecycle instead of manual imperative setup/teardown. This became the standard integration layer for later map rendering work, including the split into per-scope layer components ([0028](0028-map-layer-separation.md)).
