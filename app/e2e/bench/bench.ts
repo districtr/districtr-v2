@@ -41,7 +41,8 @@
  */
 import {chromium, type Browser, type CDPSession, type Page, type Request} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
-import {mkdirSync, writeFileSync} from 'node:fs';
+import {mkdirSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -250,11 +251,11 @@ class RequestLog {
       let bytes = 0;
       let status = 0;
       if (!failed) {
-        const sizes = await req.sizes().catch(() => null);
+        const sizes = await withTimeout(req.sizes(), 5000, null).catch(() => null);
         // HEAD: sizes() reports Content-Length as the body size; only headers crossed the wire.
         const body = req.method() === 'HEAD' ? 0 : Math.max(0, sizes?.responseBodySize ?? 0);
         bytes = body + Math.max(0, sizes?.responseHeadersSize ?? 0);
-        status = (await req.response().catch(() => null))?.status() ?? 0;
+        status = (await withTimeout(req.response(), 5000, null).catch(() => null))?.status() ?? 0;
       }
       const start = t.startTime > 0 ? t.startTime : (this.started.get(req) ?? doneAt);
       this.reqs.push({
@@ -275,12 +276,43 @@ class RequestLog {
     return this.inflight > 0;
   }
   async flush() {
-    await Promise.all([...this.pending]);
+    await withTimeout(Promise.all([...this.pending]), 15_000, []);
   }
 }
 
 // ---------- helpers ----------
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const withTimeout = <T, F>(p: Promise<T>, ms: number, fallback: F): Promise<T | F> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    p.finally(() => clearTimeout(timer)),
+    new Promise<F>(r => (timer = setTimeout(() => r(fallback), ms))),
+  ]);
+};
+let runStartedAt = Date.now();
+/** Progress line on stderr, so a stalled run shows where it stopped. */
+const step = (what: string) =>
+  process.stderr.write(`    ${((Date.now() - runStartedAt) / 1000).toFixed(1)}s ${what}\n`);
+/** PID of the current run's browser process, so a hung run can be killed. */
+let browserPid: number | null = null;
+/** Playwright's temp profile dirs; a killed browser leaves its dir behind. */
+const profileDirs = () =>
+  new Set(readdirSync(tmpdir()).filter(f => f.startsWith('playwright_chromiumdev_profile-')));
+let runProfileDirs: string[] = [];
+// Under Bun, browser.close() sometimes never resolves (Chrome has exited); the
+// close is then given up on after a few seconds and the process killed.
+const killBrowser = () => {
+  if (browserPid !== null) {
+    try {
+      process.kill(browserPid, 'SIGKILL');
+    } catch {
+      // already gone
+    }
+  }
+  browserPid = null;
+  for (const d of runProfileDirs) rmSync(join(tmpdir(), d), {recursive: true, force: true});
+  runProfileDirs = [];
+};
 const mulberry32 = (seed: number) => () => {
   seed |= 0;
   seed = (seed + 0x6d2b79f5) | 0;
@@ -408,7 +440,23 @@ async function settle(page: Page, log: RequestLog, maxMs: number) {
 
 // ---------- one run ----------
 async function runOnce(args: Args, publicId: number, uuid: string, network: string, run: number) {
-  const browser = await chromium.launch({channel: 'chrome', headless: !args.headed});
+  runStartedAt = Date.now();
+  step('launch');
+  const dirsBefore = profileDirs();
+  const browser = await chromium.launch({
+    channel: 'chrome',
+    headless: !args.headed,
+    timeout: 60_000,
+  });
+  {
+    const cdp = await browser.newBrowserCDPSession();
+    const {processInfo} = (await cdp.send('SystemInfo.getProcessInfo')) as {
+      processInfo: Array<{type: string; id: number}>;
+    };
+    await cdp.detach();
+    browserPid = processInfo.find(p => p.type === 'browser')?.id ?? null;
+    runProfileDirs = [...profileDirs()].filter(d => !dirsBefore.has(d));
+  }
   const result: Record<string, unknown> = {
     publicId,
     variant: args.variant,
@@ -474,10 +522,12 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     // ---- load ----
     const url = `${args.base}/map/${publicId}/edit?private_edit_id=${uuid}`;
     const wall0 = Date.now();
+    step('goto');
     await page.goto(url, {waitUntil: 'commit', timeout: args.timeoutMs});
     const timeOrigin = await page.evaluate(() => performance.timeOrigin);
     const rel = (epochMs: number) => epochMs - timeOrigin;
 
+    step('wait ingested');
     const ingested = await waitFor(
       'assignments-ingested',
       async () =>
@@ -491,6 +541,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
         children: s.shatterIds.children.size as number,
       };
     });
+    step('wait demography');
     const demo = await waitFor(
       `demography-ready broken=${expected.brokenParents}`,
       async () =>
@@ -514,6 +565,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
         30_000
       ).catch(() => null);
     }
+    step('settle');
     const settled = await settle(page, log, 30_000);
     await log.flush();
     const loadMarks = await getMarks(page);
@@ -567,6 +619,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
           map?.queryRenderedFeatures(undefined, {layers: [b.ids.childHover]})?.length ?? null,
       };
     });
+    step('process stats');
     const proc = await processStats(browser);
     result.load = {
       expected,
@@ -609,6 +662,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
       m + rand() * Math.max(1, view.w - 2 * m),
       m + rand() * Math.max(1, view.h - 2 * m),
     ]);
+    step('brush');
     const brush = await page.evaluate(
       ({pts, size}) => {
         const b = (window as BenchWindow).__districtrBench!;
@@ -639,6 +693,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
 
     // ---- shatter ----
     if (args.shatter) {
+      step('shatter');
       const target = await page.evaluate(() => {
         const b = (window as BenchWindow).__districtrBench!;
         const map = b.getMapRef();
@@ -731,11 +786,27 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     }));
   } catch (e) {
     result.error = String(e);
+    step(`error: ${String(e).slice(0, 200)}`);
   } finally {
-    await browser.close();
+    step('close');
+    if ((await withTimeout(browser.close(), 5_000, 'timeout')) === 'timeout') {
+      step('close timed out; killed');
+      killBrowser();
+    }
+    browserPid = null;
+    runProfileDirs = [];
   }
   return result;
 }
+
+/** runOnce with a hard deadline; a hung run is recorded as an error and its browser killed. */
+const runGuarded = async (...a: Parameters<typeof runOnce>): Promise<Record<string, unknown>> => {
+  const deadline = a[0].timeoutMs + 240_000;
+  const r = await withTimeout(runOnce(...a), deadline, null);
+  if (r) return r;
+  killBrowser();
+  return {publicId: a[1], variant: a[0].variant, network: a[3], run: a[4], error: 'watchdog'};
+};
 
 // ---------- summary ----------
 type Row = Record<string, unknown>;
@@ -809,14 +880,14 @@ const main = async () => {
     const uuid = documentUuid(publicId);
     for (const network of args.networks) {
       for (let w = 1; w <= args.warmup; w++) {
-        const r = await runOnce(args, publicId, uuid, network, 0);
+        const r = await runGuarded(args, publicId, uuid, network, 0);
         console.log(
           `[${publicId} ${args.variant} ${network} warmup${w}] ${r.error ? `ERROR ${r.error}` : 'ok'} (discarded)`
         );
       }
       for (let run = 1; run <= args.runs; run++) {
         const t = Date.now();
-        const r = await runOnce(args, publicId, uuid, network, run);
+        const r = await runGuarded(args, publicId, uuid, network, run);
         rows.push(r);
         const name = [
           stamp,
@@ -852,4 +923,14 @@ const main = async () => {
   printSummary(rows);
 };
 
-if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) main();
+// Exit explicitly: a browser.close() abandoned above keeps Bun's event loop alive.
+if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
+  main().then(
+    () => process.exit(0),
+    e => {
+      console.error(e);
+      killBrowser();
+      process.exit(1);
+    }
+  );
+}
