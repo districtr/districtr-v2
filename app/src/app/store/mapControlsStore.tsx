@@ -12,6 +12,8 @@ import {DistrictrMapOptions} from './types';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {TOPOLOGY_VARIANT} from '@utils/topology/flag';
+import {getFeaturesInBrushTopology} from '@utils/topology/select';
 import {ACCESS_STATES} from '@constants/document/state';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
@@ -84,6 +86,13 @@ export interface MapControlsStore {
 
 const initialMapMode: MapControlsStore['mapMode'] = MAP_MODES.DISTRICTS;
 
+// ponytail: the topology prototype swaps the default brush here, the one setter every
+// caller goes through; getFeaturesInBrushTopology falls back to getFeaturesInBbox itself.
+const withTopologyBrush = (paintFunction: PaintEventHandler) =>
+  TOPOLOGY_VARIANT && paintFunction === getFeaturesInBbox
+    ? getFeaturesInBrushTopology
+    : paintFunction;
+
 export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   center: [-98.5795, 39.8283],
   zoom: 3,
@@ -152,8 +161,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
     },
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),
-    paintFunction: getFeaturesInBbox,
-    setPaintFunction: paintFunction => set({paintFunction}),
+    paintFunction: withTopologyBrush(getFeaturesInBbox),
+    setPaintFunction: paintFunction => set({paintFunction: withTopologyBrush(paintFunction)}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
     hoveredCountyGeoid: null,

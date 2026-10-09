@@ -25,6 +25,8 @@ import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
+import {TOPOLOGY_VARIANT} from '@utils/topology/flag';
+import {TopologyBoundaryLayer} from './PolygonLayers/TopologyBoundaryLayer';
 
 export const MainMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -97,6 +99,7 @@ export const MainMap: React.FC = () => {
               />
             )}
           </BlockSource>
+          {TOPOLOGY_VARIANT && <TopologyBoundaryLayer />}
           <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
           <PointSource>
             <PointSelectionLayer />

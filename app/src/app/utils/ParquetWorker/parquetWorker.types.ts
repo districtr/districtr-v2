@@ -2,6 +2,8 @@ import {DocumentObject} from '../api/apiHandlers/types';
 import {AsyncBuffer, FileMetaData} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {EnhancedAsyncBuffer} from './parquetWorkerUtils';
+import type {TopologyBase, TopologyState} from './topology';
+import type {ShatterChunk} from '../topology/types';
 
 export type MetaInfo = {
   metadata: FileMetaData;
@@ -39,6 +41,8 @@ export type ParquetFileType = 'tabular' | 'points';
 export type ParquetWorkerClass = {
   _metaCache: Record<string, MetaInfo>;
   _idRgCache: Record<string, [number, number]>;
+  /** Topology prototype state by base URL (prototypes/topology-parquet/README.md). */
+  _topology: Record<string, TopologyState>;
 
   /**
    * Get the metadata for a given parquet file. Creates an enhanced buffer with
@@ -184,4 +188,28 @@ export type ParquetWorkerClass = {
     source: string,
     filterIds?: Set<string>
   ) => GeoJSON.FeatureCollection<GeoJSON.Point>;
+
+  /**
+   * Topology prototype: fetches parents.parquet and arcs_exterior_blob.parquet in full, decodes
+   * them (typed arrays are transferred). Starts the children / interior footer reads.
+   * @param base - Directory URL of the map's topology files.
+   */
+  loadTopologyBase: (base: string) => Promise<TopologyBase>;
+
+  /**
+   * Topology prototype: children and interior arcs of the given parent idxs, by row-range reads
+   * of children.parquet and arcs_interior.parquet. Requires loadTopologyBase(base).
+   */
+  loadTopologyChunks: (base: string, parents: number[]) => Promise<ShatterChunk[]>;
+
+  /**
+   * Topology prototype: demography for unshattered parents plus the children of `brokenIds`
+   * (loaded via loadTopologyChunks), shaped like getDemography's.
+   */
+  getTopologyDemography: (
+    base: string,
+    brokenIds: string[],
+    parentLayer: string,
+    childLayer: string | null
+  ) => {columns: AllTabularColumns[number][]; results: ColumnarTableData};
 };

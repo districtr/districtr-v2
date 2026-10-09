@@ -1,4 +1,4 @@
-import {expose} from 'comlink';
+import {expose, transfer} from 'comlink';
 import {
   ColumnarTableData,
   DemographyParquetData,
@@ -20,10 +20,12 @@ import {
   EnhancedAsyncBuffer,
   mergeByteRanges,
 } from './parquetWorkerUtils';
+import {buffersOf, buildDemography, fetchWhole, loadBase, loadChunks, TopologyIO} from './topology';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
   _idRgCache: {},
+  _topology: {},
 
   async getMetaData(url, enablePrefetch = true) {
     if (this._metaCache[url]) {
@@ -347,6 +349,22 @@ const ParquetWorker: ParquetWorkerClass = {
     }
     const parquetData = await this.getRowRange<PointParquetData>(url, idRange, columns);
     return this.generateGeojsonFromPointData(parquetData, layer, source, filterIds);
+  },
+
+  async loadTopologyBase(base) {
+    const io: TopologyIO = {whole: fetchWhole, ranged: url => this.getMetaData(url)};
+    const {state, result} = await loadBase(io, base);
+    this._topology[base] = state;
+    return transfer(result, buffersOf(result.parents, result.exterior));
+  },
+
+  async loadTopologyChunks(base, parents) {
+    const chunks = await loadChunks(this._topology[base], parents);
+    return transfer(chunks, buffersOf(...chunks.flatMap(c => [c.children, c.interior])));
+  },
+
+  getTopologyDemography(base, brokenIds, parentLayer, childLayer) {
+    return buildDemography(this._topology[base], brokenIds, parentLayer, childLayer);
   },
 };
 
