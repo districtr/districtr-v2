@@ -8,7 +8,7 @@ Accepted.
 
 ## Context
 
-The first sync era paired frequent autosaves with a checkout/locking system, and produced persistent bugs around tab switching, lost work, and status checking; PR #464's own assessment was that the event frequency suited a WebSocket architecture the platform didn't have, while multi-user editing was at best an edge case. Local persistence had its own churn: an IndexedDB read-cache (PR #267) was removed once DB indexing made it unnecessary (PR #287), and localStorage plan persistence (PR #127) had a projected ~66-plan capacity ceiling (PR #267). Request races had been attacked once before at the request level: PR #232 (2024-12-31) added abort controllers that cancelled superseded assignment and population requests, a longer debounce, and a hash to skip duplicate updates; PRs #268 and #283 removed both abort controllers within ten weeks, and only the hash survives (`dataUpdateHash` in the chart store). Single-flight sync removes the race by never having two requests in flight.
+The first sync era paired frequent autosaves with a checkout/locking system, and produced persistent bugs around tab switching, lost work, and status checking; PR #464's own assessment was that the event frequency suited a WebSocket architecture the platform didn't have, while multi-user editing was at best an edge case. Local persistence had its own churn: an IndexedDB read-cache (PR #267) was removed once DB indexing made it unnecessary (PR #287), and the localStorage route PR #267 rejected had a projected ~66-plan ceiling. Request races had been attacked once before at the request level: PR #232 (2024-12-31) added abort controllers that cancelled superseded assignment and population requests, a longer debounce, and a hash to skip duplicate updates; PRs #268 and #283 removed both abort controllers within ten weeks, and only the hash survives (`dataUpdateHash` in the chart store). Single-flight sync removes the race by never having two requests in flight.
 
 ## Decision
 
@@ -17,7 +17,7 @@ Three durable pieces, arrived at across the chain:
 - **IndexedDB continuously autosaves the local draft** (PR #468 migrated persistence from localStorage; the local copy is always current).
 - **Server sync is automated at safety points, not continuous**: PR #464 removed continuous server autosave in favor of an explicit save; PR #601 then automated that same explicit save path at tab-hide, window unfocus, and 30 seconds of inactivity — single-flight, so simultaneous triggers cannot race a stale `last_updated_at`. Close-time saves are best-effort; an interrupted final save remains pending locally.
 - **Local-edit detection is derived, not flagged**: comparing `updated_at` (server clock) with `clientLastUpdated` (browser clock) — two timestamps stored for other reasons — so dirtiness cannot fall out of sync with reality.
-- **`overlays` and `statefps` are server-owned**: never locally editable, and even a local-wins merge layers them in from the server, because local values of fields no UI edits are never information.
+- **`overlays` and `statefps` are server-owned**: never locally editable, and even a local-wins merge layers them in from the server, because no UI edits them locally, so the local copy's values are never information.
 
 ## Consequences
 

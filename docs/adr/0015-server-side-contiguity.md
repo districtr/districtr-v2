@@ -4,7 +4,7 @@ Date: 2025-03-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted. Amended by [0052](0052-mmap-shared-graphs.md); PR #771 retired pickles.
+Accepted. Amended by [0052](0052-mmap-shared-graphs.md).
 
 ## Context
 

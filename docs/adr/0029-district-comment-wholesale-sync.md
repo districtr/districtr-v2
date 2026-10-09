@@ -8,7 +8,7 @@ Accepted. Amended by [0058](0058-district-notes-table.md).
 
 ## Context
 
-District-level comments (PR #489) let users add and view comments per district from the map or the population panel, without moderation. Syncing edits made to a district's comments needed a defined update semantics.
+District-level comments (PR #489) let users add and view comments per district from the map or the population panel. They arrived moderated like public testimony: automatic scoring, a "Comment removed due to moderation." mask for public readers, and an admin review screen, all of which PR #776 later removed ([0062](0062-deterministic-moderation-submissions-only.md)). Syncing edits made to a district's comments needed a defined update semantics.
 
 ## Decision
 

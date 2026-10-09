@@ -44,6 +44,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │       ├── models.py            # SQLModel/SQLAlchemy models
 │       └── main.py              # FastAPI entrypoint
 ├── cms/                         # Wagtail CMS (Django): pages, users, moderation, map admin
+│   ├── core/                    # Shared base
 │   ├── authapi/                 # Users, teams, roles; JWT minting + JWKS
 │   ├── content/                 # Pages and the public /api/content/ API
 │   ├── datastore/               # Unmanaged mirrors of backend tables

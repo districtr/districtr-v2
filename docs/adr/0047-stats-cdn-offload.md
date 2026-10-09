@@ -4,15 +4,15 @@ Date: 2026-07-17 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted.
+Accepted. Amends [0024](0024-district-unions-cache.md).
 
 ## Context
 
-A follow-up stress-test run (run3) still showed 92% → 42% failure rate after prior fixes. Remaining causes: RDS CPU saturation from `/stats` recomputing on every viewer request, a cold-cache unique-violation race under concurrent load, and correctness gaps in the `district_unions` cache lifecycle — the whole document's cache was evicted on any change, and reset left the cache and CDN permanently stale (PR #551, migration `a30db9686b7c`).
+A follow-up stress-test run (run3) still failed 42% of requests, down from 92% before the prior fixes. Remaining causes: RDS CPU saturation from `/stats` recomputing on every viewer request, a cold-cache unique-violation race under concurrent load, and correctness gaps in the `district_unions` cache lifecycle — the whole document's cache was evicted on any change, and reset left the cache and CDN permanently stale (PR #551, migration `a30db9686b7c`).
 
 ## Decision
 
-Redirect public `/stats` reads to S3 when fresh (`stats_published_at ≥ assignments_updated_at`, tracked via two new timestamp columns on `document.document`), with a background task publishing on first viewer miss. `PUT /assignments` and `POST /api/create_document` enqueue publishing as a background task so the CDN is warm before the first viewer arrives post-save. Move `district_unions` eviction to per-district (dirty-tracking) granularity — only districts whose membership changed on save are recomputed and evicted, rather than the whole document's cache — with the unassigned row recomputed only when a district it touches is rebuilt.
+Redirect public `/stats` reads to S3 when fresh (`stats_published_at ≥ assignments_updated_at`, tracked via two new timestamp columns on `document.document`), with a background task publishing on first viewer miss. `PUT /assignments` and `POST /api/create_document` enqueue publishing as a background task so the CDN is warm before the first viewer arrives post-save. Move `district_unions` eviction to per-zone (dirty-tracking) granularity — only districts whose membership changed on save are recomputed and evicted, rather than the whole document's cache — with the unassigned row recomputed only when a district it touches is rebuilt.
 
 ## Consequences
 

@@ -16,4 +16,4 @@ District notes move to `comments.district_notes` (migration `b3d9f47a25c1`): `do
 
 ## Consequences
 
-The replace-the-set semantics of [0029](0029-district-comment-wholesale-sync.md) survive, now per document and with stable row ids. Its "without moderation" premise was broken by this record and restored by [0062](0062-deterministic-moderation-submissions-only.md); no review screen for notes exists, because nothing flags them.
+The replace-the-set semantics of [0029](0029-district-comment-wholesale-sync.md) survive, now per document and with stable row ids. [0062](0062-deterministic-moderation-submissions-only.md) later removed moderation from notes; no review screen for notes exists, because nothing flags them.

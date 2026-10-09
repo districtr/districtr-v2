@@ -45,7 +45,7 @@ What follows, including what a later change would have to undo.
 | [0011](0011-web-workers-comlink.md) | Heavy geometry/tabular work in Web Workers via Comlink | 2024-12-23 | Accepted |
 | [0013](0013-zundo-undo-redo.md) | Zundo for undo/redo | 2025-01-03 | Accepted |
 | [0014](0014-react-map-gl-layer.md) | react-map-gl as the MapLibre integration layer | 2025-02-24 | Accepted |
-| [0015](0015-server-side-contiguity.md) | Server-side contiguity via pickled graphs cached in the API process | 2025-03-05 | Accepted. Amended by 0052; PR #771 retired pickles |
+| [0015](0015-server-side-contiguity.md) | Server-side contiguity via pickled graphs cached in the API process | 2025-03-05 | Accepted. Amended by 0052 |
 | [0016](0016-central-store-subscriptions.md) | Cross-store side effects in central subscription modules | 2025-03-08 | Accepted |
 | [0017](0017-sqlalchemy-first-no-udfs.md) | SQLAlchemy-first / no-new-UDFs policy | 2025-03-08 | Accepted |
 | [0018](0018-districtrmap-slug.md) | DistrictrMap slug decoupled from GerryDB table name | 2025-03-17 | Accepted |
@@ -53,7 +53,7 @@ What follows, including what a later change would have to undo.
 | [0021](0021-auth0-scopes.md) | Auth0 JWT with scopes for admin/CMS surfaces | 2025-05-05 | Superseded by 0055 |
 | [0022](0022-share-model-public-ids.md) | Share model: the document UUID is the edit capability; public ids for everything else | 2025-08-06 | Accepted |
 | [0023](0023-comment-moderation.md) | Comment moderation: OpenAI moderation API with local-lexicon fallback | 2025-09-02 | Superseded by 0059 and 0060 |
-| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted |
+| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted. Amended by 0047 |
 | [0025](0025-save-sync-model.md) | Save/sync model: IndexedDB drafts, automated server sync, derived dirtiness | 2025-12-19 | Accepted |
 | [0026](0026-bun-runtime.md) | Bun as frontend runtime | 2025-12-19 | Accepted |
 | [0027](0027-per-plan-num-districts.md) | num_districts: a per-plan override of the module value | 2026-02-03 | Accepted |
@@ -76,13 +76,13 @@ What follows, including what a later change would have to undo.
 | [0044](0044-graph-integrity-check.md) | Daily S3 graph comprehensiveness check with SNS alerting | 2026-07-06 | Accepted |
 | [0045](0045-concurrency-ceilings.md) | Concurrency ceilings sized from stress-test evidence | 2026-07-15 | Accepted. Amended by 0052 |
 | [0046](0046-assignments-departitioned.md) | Assignments tables departitioned | 2026-07-16 | Accepted |
-| [0047](0047-stats-cdn-offload.md) | /stats offloaded to S3/CDN with staleness timestamps | 2026-07-17 | Accepted |
+| [0047](0047-stats-cdn-offload.md) | /stats offloaded to S3/CDN with staleness timestamps | 2026-07-17 | Accepted. Amends 0024 |
 | [0048](0048-undo-redo-per-gesture.md) | Undo/redo per gesture, not time-throttled | 2026-07-21 | Accepted |
 | [0049](0049-waf-session-tokens.md) | Edge protection: WAF plus stateless session tokens | 2026-07-22 | Accepted. Amended by 0055 |
 | [0050](0050-turnstile-captcha.md) | Turnstile for public writes, two widgets with per-widget secrets | 2026-07-30 | Accepted |
 | [0051](0051-pr-previews-dev-stack.md) | Ephemeral PR previews as label-driven clones on the dev stack | 2026-08-05 | Accepted |
-| [0052](0052-mmap-shared-graphs.md) | Graphs memory-mapped and shared across workers | 2026-08-28 | Accepted |
-| [0053](0053-fastapi-handler-dispatch.md) | FastAPI handler dispatch: `def` vs `async def` | 2026-09-04 | Accepted |
+| [0052](0052-mmap-shared-graphs.md) | Graphs memory-mapped and shared across workers | 2026-08-28 | Accepted. Amends 0006, 0015, 0043 and 0045 |
+| [0053](0053-fastapi-handler-dispatch.md) | FastAPI handler dispatch: `def` vs `async def` | 2026-09-08 | Accepted |
 | [0054](0054-wagtail-cms-service.md) | The Districtr CMS: a separate Wagtail service for content, users, and data admin | 2026-09-23 | Accepted |
 | [0055](0055-cms-identity-provider.md) | The CMS issues every RS256 access token the backend accepts; the backend verifies any JWKS-published token by scope | 2026-09-23 | Accepted. Supersedes 0021. Amends 0049 |
 | [0056](0056-cms-schema-ownership.md) | One database, split schema ownership: Django owns `admin`, Alembic owns the rest | 2026-09-23 | Accepted. Amends 0010 |

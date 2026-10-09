@@ -1,6 +1,6 @@
 # 38. Backend reliability policy: DB timeouts, slow-request logging, self-owned background sessions
 
-Date: 2026-05-28 (recorded retrospectively 2026-09-08)
+Date: 2026-05-28 (PR #543; temp tables and background sessions PR #545, 2026-06-01; recorded retrospectively 2026-09-08)
 
 ## Status
 
@@ -12,8 +12,8 @@ The API server occasionally had long-hanging requests that blocked other request
 
 ## Decision
 
-Add statement/lock timeouts to backend DB requests and log long-running requests for diagnosis. Create per-request temp tables with `ON COMMIT DROP` so they drop when their transaction ends, covering both commit and error paths. Background tasks must own their own DB session rather than reuse the request-scoped session that gets closed at request teardown.
+Add statement/lock timeouts to backend DB requests, an `idle_in_transaction_session_timeout` of 60 s as a backstop against leaked connections (PR #545), and log long-running requests for diagnosis. Create per-request temp tables with `ON COMMIT DROP` so they drop when their transaction ends, covering both commit and error paths. Background tasks must own their own DB session rather than reuse the request-scoped session that gets closed at request teardown.
 
 ## Consequences
 
-Hanging requests are now bounded and visible in logs rather than able to starve the connection pool indefinitely. Temp-table catalog bloat from long-lived sessions is eliminated at the source. The self-owning-session pattern for background tasks (already used correctly by `moderate_comment_by_id`) became the standard for all background work touching the database.
+Hanging requests are now bounded and visible in logs rather than able to starve the connection pool indefinitely. Temp-table catalog bloat from long-lived sessions is eliminated at the source. The self-owning-session pattern for background tasks (today `update_or_select_district_stats`'s owned session in `backend/app/utils.py`) became the standard for all background work touching the database.

@@ -1,6 +1,6 @@
 # 50. Turnstile for public writes, two widgets with per-widget secrets
 
-Date: 2026-07-30 (recorded retrospectively 2026-09-08)
+Date: 2026-07-30 (PR #663; recorded retrospectively 2026-09-08)
 
 ## Status
 

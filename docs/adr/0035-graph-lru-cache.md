@@ -12,7 +12,7 @@ The API server's memory usage kept growing to about 7GB because `_get_graph()` c
 
 ## Decision
 
-Cache the loaded dual graph in an LRU of bounded size, evicting least-recently-used graphs instead of retaining every graph ever loaded. Expose a debug endpoint (`/_debug/cache`) showing cache hit/miss stats and memory usage. The cap was raised from 10 to 15 after stress-test evidence (PR #623) showed 10 was too tight for observed working-set size.
+Cache the loaded dual graph in an LRU of bounded size, evicting least-recently-used graphs instead of retaining every graph ever loaded. Expose a debug endpoint (`/_debug/cache`) showing cache hit/miss stats and memory usage. The cap was raised from 10 to 15 (`_GRAPH_CACHE_MAX_SIZE` in `backend/app/evaluation/graph_loader.py`) after stress-test evidence (PR #623) showed 10 was too tight for observed working-set size.
 
 ## Consequences
 

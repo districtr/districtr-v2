@@ -12,7 +12,7 @@ After the msgpack cutover for `PUT /api/assignments` ([0040](0040-msgpack-wire-f
 
 ## Decision
 
-Stamp each frontend build with the deploying commit SHA (`NEXT_PUBLIC_BUILD_TAG`), inlined into the client bundle at build time. A `GET /api/version` route reports the running server's build tag (`no-store`, disabled entirely — returns `{version: null}` — in local dev). A `<VersionCheck />` component compares the bundle's inlined tag against this endpoint on mount, on tab visibility, on window focus, and every 5 minutes, and shows a non-dismissible reload dialog on mismatch.
+Stamp each frontend build with the deploying commit SHA (`NEXT_PUBLIC_BUILD_TAG`), inlined into the client bundle at build time. A `GET /api/version` route (a Next.js route handler in the frontend, `app/src/app/api/version/route.ts`, unlike the backend's `/api/...` paths) reports the running server's build tag (`no-store`, disabled entirely — returns `{version: null}` — in local dev). A `<VersionCheck />` component compares the bundle's inlined tag against this endpoint on mount, on tab visibility, on window focus, and every 5 minutes, and shows a non-dismissible reload dialog on mismatch.
 
 ## Consequences
 

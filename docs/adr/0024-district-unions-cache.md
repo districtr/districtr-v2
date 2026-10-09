@@ -4,15 +4,15 @@ Date: 2025-09-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted.
+Accepted. Amended by [0047](0047-stats-cdn-offload.md).
 
 ## Context
 
-Generating thumbnails and, eventually, public views needed unioned district geometries and demographic aggregates, but computing these on demand from raw assignments was expensive and would need to run repeatedly for every consumer (PR #446).
+Thumbnails and, eventually, public views needed unioned district geometries and demographic aggregates, but computing these on demand from raw assignments was expensive and would need to run repeatedly for every consumer (PR #446). At PR #446 the cache was generated when a document marked "ready to share" was unlocked.
 
 ## Decision
 
-Add a `district_unions` table in the document schema that stores precomputed unioned `MultiPolygon` geometry per district plus a JSONB `demographic_data` column, generated when a document marked "ready to share" is unlocked. `update_or_select_district_stats` fetches an existing row or triggers regeneration if missing or outdated. Demographic aggregation dynamically discovers numeric columns on the associated gerrydb table via `information_schema` and aggregates with `SUM()`, joined on the `path` field between district assignments and demographic tables.
+Add a `district_unions` table in the document schema that stores precomputed unioned `MultiPolygon` geometry per district plus a JSONB `demographic_data` column, filled lazily: `update_or_select_district_stats` (`backend/app/utils.py`) fetches existing rows and rebuilds only missing or stale districts, and is called from the stats endpoint, exports, and evaluation. Thumbnails read `document.district_unions` directly and fall back to an inline `ST_Collect` when it is empty. Demographic aggregation dynamically discovers numeric columns on the associated gerrydb table via `information_schema` and aggregates with `SUM()`, joined on the `path` field between district assignments and demographic tables.
 
 ## Alternatives considered
 

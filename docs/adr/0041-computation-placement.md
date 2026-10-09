@@ -8,7 +8,7 @@ Accepted.
 
 ## Context
 
-Several request paths ran heavy PostGIS work per request when the caller needed only topology or already held the inputs. The worst case: `GET /document/{id}/unassigned` ran `ST_Union(ST_Envelope(...))` + `ST_Transform` across every unassigned geometry to answer "which units cluster together."
+Several request paths ran heavy PostGIS work per request when the caller needed only topology or already held the inputs. The worst case: `GET /api/document/{id}/unassigned` ran `ST_Union(ST_Envelope(...))` + `ST_Transform` across every unassigned geometry to answer "which units cluster together."
 
 ## Decision
 

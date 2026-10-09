@@ -4,7 +4,7 @@ Date: 2026-08-28 (recorded retrospectively 2026-09-08; detail expanded 2026-09-2
 
 ## Status
 
-Accepted.
+Accepted. Amends [0006](0006-shatter-parent-child-model.md), [0015](0015-server-side-contiguity.md), [0043](0043-aws-platform.md) and [0045](0045-concurrency-ceilings.md).
 
 ## Context
 

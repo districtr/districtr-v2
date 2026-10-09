@@ -12,7 +12,7 @@ Why the system is shaped the way it is has been recorded twice before, and neith
 
 ## Decision
 
-Architectural decisions are recorded as Architecture Decision Records: one file per decision under `docs/adr/`, in the format described by Michael Nygard — Date, Status, Context, Decision, Consequences, plus Alternatives considered and Revisit when where the evidence supports them. Files are numbered in decision order (`NNNN-slug.md`), dated by the earliest PR evidencing the decision, and PR-anchored so every claim can be re-verified. A decision that reverses an earlier one gets a new ADR and marks the old one Superseded rather than rewriting it. The retrospective reconstruction recorded the decisions standing at adoption; an earlier attempt that had already been reversed by then appears in its successor's Context rather than as its own record.
+Architectural decisions are recorded as Architecture Decision Records: one file per decision under `docs/adr/`, in the format described by Michael Nygard — Date, Status, Context, Decision, Consequences, plus Alternatives considered and Revisit when where the evidence supports them. Files are numbered in order of recording (`NNNN-slug.md`; 0002–0053 were reconstructed in rough date order), dated by the earliest PR evidencing the decision, and PR-anchored so every claim can be re-verified. A decision that reverses an earlier one gets a new ADR and marks the old one Superseded rather than rewriting it. The retrospective reconstruction recorded the decisions standing at adoption; an earlier attempt that had already been reversed by then appears in its successor's Context rather than as its own record.
 
 ## Consequences
 

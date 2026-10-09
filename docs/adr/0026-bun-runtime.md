@@ -16,4 +16,4 @@ Swap the frontend runtime to Bun for better performance in both dev and producti
 
 ## Consequences
 
-Frontend dev server startup and build times improve. The Next.js upgrade in the same PR required fixing subtle downstream changes (e.g. React's `findDomNode` deprecation).
+Frontend dev server startup and build times improve. The Next.js upgrade in the same PR required fixing subtle downstream changes (e.g. React's `findDOMNode` deprecation).

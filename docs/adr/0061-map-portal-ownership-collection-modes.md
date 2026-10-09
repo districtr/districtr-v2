@@ -12,7 +12,7 @@ A user who drew a map for a portal had to copy its link into the portal's form. 
 
 ## Decision
 
-**Ownership.** `document.portal_id` (migration `f3a9c1d27e58`; foreign key to `form_configs`, `ON UPDATE CASCADE`, `ON DELETE SET NULL`) records the one portal a map was created for. Creating a map from a portal page stamps it and opens a draft submission; if the portal has no form config, the map is created as an ordinary map. Other portals may still list a map by its id, but adding a map that another portal owns returns 409 with "Make a copy of it to add it here." The free-form submission tags are dropped, as the only other membership mechanism, which had already been ruled out for gallery visibility.
+**Ownership.** `document.portal_id` (migration `f3a9c1d27e58`; foreign key to `form_configs`, `ON UPDATE CASCADE`, `ON DELETE SET NULL`) records the one portal a map was created for. Membership and moderation authority share this one key, so no map is listed where its reviewers cannot take it down. Creating a map from a portal page stamps it and opens a draft submission; if the portal has no form config, the map is created as an ordinary map. Other portals may still list a map by its id, but adding a map that another portal owns returns 409 with "Make a copy of it to add it here." The free-form submission tags are dropped, as the only other membership mechanism, which had already been ruled out for gallery visibility.
 
 **Collection modes.** `form_configs.collection_mode` is one of `internal`, `auto_public`, `prompt` (the default), or `form` (`CHECK` in migration `e4a7c318b9d2`):
 

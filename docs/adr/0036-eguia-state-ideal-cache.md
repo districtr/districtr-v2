@@ -8,11 +8,11 @@ Accepted.
 
 ## Context
 
-Eguia's fairness score requires a "state ideal" — the proportional population each district should represent — which demands aggregating county-level demographics for the entire state. This query is expensive, and the result changes only when underlying census data changes, not per-plan-submission (PR #538).
+Eguia's fairness score compares a plan's seat outcomes against a "state ideal": each party's population-weighted share of counties carried per election, that is, the seat share that would emerge if districts were drawn at county granularity. Computing it demands aggregating county-level election results and population for the entire state. This query is expensive, and the result changes only when underlying census data changes, not per-plan-submission (PR #538).
 
 ## Decision
 
-Store computed state ideals in a process-level singleton (`IdealsForEguia`, today `COUNTY_CONTEXT.ideals_for_eguia` in `backend/app/evaluation/context.py`), keyed by GerryDB table name, populated lazily on first request and retained for the server lifetime.
+Store computed state ideals in a process-level singleton (`IdealsForEguia`, today the `ideals_for_eguia` method on the `COUNTY_CONTEXT` singleton in `backend/app/evaluation/context.py`), keyed by GerryDB table name, populated lazily on first request and retained for the server lifetime.
 
 ## Alternatives considered
 

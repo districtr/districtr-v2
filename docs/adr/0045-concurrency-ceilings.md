@@ -8,7 +8,7 @@ Accepted. Amended by [0052](0052-mmap-shared-graphs.md).
 
 ## Context
 
-A production stress-test harness (PR #607) simulated realistic viewer/eval/editor traffic against `api.beta.districtr.org`. Its first full run (`run1`, 12,750 simulated users, 2026-07-15) failed 94% of requests while compute sat idle (ECS CPU 15%, RDS 17%) (PR #623). The failures PR #623 traced went to configuration, not hardware (PR #625 found a further cause a day later: skewed test traffic and the lock convoy of [0046](0046-assignments-departitioned.md)): ECS autoscaling only watched CPU, which an I/O-bound workload never raises; each task's DB pool defaulted to SQLAlchemy's 15 connections, which was run1's hard concurrency wall; and the anyio threadpool capped sync routes at 40.
+A production stress-test harness (PR #607) simulated realistic viewer/eval/editor traffic against `api.beta.districtr.org`. Its first full run (`run1`, 12,750 simulated users, 2026-07-15) failed 94% of requests (PR #625 reports the same run as roughly 93%) while compute sat idle (ECS CPU 15%, RDS 17%) (PR #623). The failures PR #623 traced went to configuration, not hardware (PR #625 found a further cause a day later: skewed test traffic and the lock convoy of [0046](0046-assignments-departitioned.md)): ECS autoscaling only watched CPU, which an I/O-bound workload never raises; each task's DB pool defaulted to SQLAlchemy's 15 connections, which was run1's hard concurrency wall; and the anyio threadpool capped sync routes at 40.
 
 ## Decision
 

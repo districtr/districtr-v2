@@ -12,7 +12,7 @@ A single `MapComponent(isDemographicMap?)` pattern and a monolithic `Map.tsx` ha
 
 ## Decision
 
-Split map rendering by source/layer type into focused components (`MapContainer` as the shell, `MainMap` and `DemographicMap` as mode shells), organized into single-idea folders (`GeoSources/`, `PolygonLayers/`, `PointLayers/`). Make draw order explicit and deterministic via named anchors (`MapLayerAnchors`, `MAP_LAYER_ANCHOR_IDS` in `constants/map/layerIds.ts`) and an explicit polygon-order contract (`DEFAULT_BLOCK_LAYER_ORDER` in `constants/map/layerRenderConfig.ts`).
+Split map rendering by source/layer type into focused components (`MapContainer` as the shell, `MainMap` and `DemographicMap` as mode shells), organized into single-idea folders (`GeoSources/`, `PolygonLayers/`, `PointLayers/`). Make draw order explicit and deterministic via named anchors (the `MapLayerAnchors` component and the `MAP_LAYER_ANCHOR_IDS` constant in `constants/map/layerIds.ts`) and an explicit polygon-order contract (`DEFAULT_BLOCK_LAYER_ORDER` in `constants/map/layerRenderConfig.ts`).
 
 ## Consequences
 
