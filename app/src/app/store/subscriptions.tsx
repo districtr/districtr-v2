@@ -10,6 +10,7 @@ import {shallowCompareArray} from '../utils/arrays';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
+import {ensureShattered} from '../utils/topology/state';
 
 export const initSubs = (readOnly = false) => {
   const demogInitSub = useDemographyStore.subscribe(
@@ -70,6 +71,9 @@ export const initSubs = (readOnly = false) => {
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
+      // Topology prototype: updateData skips unchanged hashes (e.g. undo before a shatter's
+      // chunks land), so drive the topology's shattered set here; the newest call wins.
+      ensureShattered(mapDocument, curr);
       useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
     }
   );
@@ -80,6 +84,9 @@ export const initSubs = (readOnly = false) => {
       if (!curr || prev === curr) return;
       const mapDocument = useMapStore.getState().mapDocument;
       if (!mapDocument) return;
+      // Topology prototype: updateData skips unchanged hashes (e.g. undo before a shatter's
+      // chunks land), so drive the topology's shattered set here; the newest call wins.
+      ensureShattered(mapDocument, curr);
       useDemographyStore.getState().updateData(mapDocument, Array.from(curr));
     }
   );
