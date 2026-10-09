@@ -282,8 +282,10 @@ class DualLevelGraph:
         one that hands back a new set. Signature is deliberately ``set[str]``,
         not ``Iterable[str]``: a broader type would force an O(len(geo_ids))
         copy just to call this. Real-world non-contiguous parents are
-        vanishingly rare (as of writing, only Maine has any, 5 out of ~48k
-        nodes), so the match-finding step below iterates
+        vanishingly rare (as of writing, among the v2 state maps only Maine
+        has any, 5 out of ~48k nodes; legacy v1 maps have more, up to ~700
+        in a ~285k-node graph, but the v2 maps should be used instead), so
+        the match-finding step below iterates
         ``_non_contiguous_parents`` and tests each parent's geo_id against
         the caller's set — O(len(_non_contiguous_parents)), NEVER
         O(len(geo_ids)), independent of how large the zone being expanded is.
@@ -360,11 +362,12 @@ class DualLevelGraph:
         individually-assigned units are seen from both sides; halve that
         sub-total to avoid double-counting.
 
-        Step 1's flat scan over the ``_weighted_edges`` rows costs
-        low-single-digit ms on real state-scale data — negligible outside a
-        hot path, so it is not backed by a second (parent-indexed) CSR
-        index. Zones come from ``parent_idx_to_zone``, the same index-space
-        translation Step 2 uses, so both passes stay in index space.
+        Step 1 is a vectorized numpy mask over the ``_weighted_edges`` rows,
+        reading each endpoint's zone from per-node arrays — no Python object
+        is created per row. Measured on real state-scale data (PA v1, 25.5k
+        parent boundaries): ~1ms/call, setup included. Both passes share one
+        index-space translation of the parent ids: Step 1 reads it as
+        arrays, Step 2 as the ``parent_idx_to_zone`` dict.
 
         The caller's split is trusted as-is, not re-derived against the
         graph's own parent-unit membership: a geo_id can only reach
@@ -407,30 +410,37 @@ class DualLevelGraph:
             }
 
         parent_ids = list(parent_unit_to_zone)
+        num_nodes = len(self._node_ids)
+        # Zone of each whole-assigned parent, per node index (has_parent_zone
+        # marks which entries are set): Step 1 reads these as arrays, Step 2
+        # as the parent_idx_to_zone dict.
+        has_parent_zone = np.zeros(num_nodes, dtype=bool)
+        parent_zone = np.zeros(num_nodes, dtype=np.int64)
         parent_idx_to_zone: dict[int, int] = {}
-        if parent_ids and len(self._node_ids):
-            parr = np.asarray(parent_ids, dtype=str)
-            ppos = np.minimum(
-                np.searchsorted(self._node_ids, parr), len(self._node_ids) - 1
+        if parent_ids and num_nodes:
+            parent_id_array = np.asarray(parent_ids, dtype=str)
+            candidate_idx = np.minimum(
+                np.searchsorted(self._node_ids, parent_id_array), num_nodes - 1
             )
-            pknown = self._node_ids[ppos] == parr
-            pidxs = np.where(pknown, ppos, -1)
-            parent_idx_to_zone = {
-                int(idx): parent_unit_to_zone[pid]
-                for pid, idx in zip(parent_ids, pidxs.tolist())
-                if idx >= 0
-            }
+            in_graph = self._node_ids[candidate_idx] == parent_id_array
+            assigned_parent_idx = candidate_idx[in_graph]
+            assigned_parent_zone = np.fromiter(
+                parent_unit_to_zone.values(), np.int64, len(parent_ids)
+            )[in_graph]
+            has_parent_zone[assigned_parent_idx] = True
+            parent_zone[assigned_parent_idx] = assigned_parent_zone
+            parent_idx_to_zone = dict(
+                zip(assigned_parent_idx.tolist(), assigned_parent_zone.tolist())
+            )
 
-        cut_count = 0
-        if len(self._weighted_edges):
-            # .tolist() copies this small array out of the mmap once per
-            # call — plain-int iteration, none of memmap's per-element read
-            # overhead (see the .view(np.ndarray) note below).
-            for a, b, weight in self._weighted_edges.tolist():
-                zone_a = parent_idx_to_zone.get(a)
-                zone_b = parent_idx_to_zone.get(b)
-                if zone_a is not None and zone_b is not None and zone_a != zone_b:
-                    cut_count += weight
+        weighted_edges = self._weighted_edges.view(np.ndarray)
+        parent_a, parent_b = weighted_edges[:, 0], weighted_edges[:, 1]
+        crosses_zones = (
+            has_parent_zone[parent_a]
+            & has_parent_zone[parent_b]
+            & (parent_zone[parent_a] != parent_zone[parent_b])
+        )
+        cut_count = int(weighted_edges[crosses_zones, 2].sum())
 
         if not unit_idx_to_zone:
             return cut_count
