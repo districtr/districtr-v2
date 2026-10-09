@@ -3,17 +3,20 @@ import {describe, expect, test} from 'bun:test';
 import {MercatorCoordinate} from 'maplibre-gl';
 import {decodeArcs, latOfMercY, lonOfMercX, mercX, mercY} from './decode';
 
+/** Binary `xy` as the pipeline writes it: little-endian int32 x0, y0, dx1, dy1, ... */
+const blob = (xs: number[], ys: number[]) => {
+  const view = new DataView(new ArrayBuffer(8 * xs.length));
+  xs.forEach((x, i) => {
+    view.setInt32(8 * i, x, true);
+    view.setInt32(8 * i + 4, ys[i], true);
+  });
+  return new Uint8Array(view.buffer);
+};
+
 describe('decodeArcs', () => {
   // Two arcs, lon/lat x 1e6, first vertex absolute and the rest deltas.
   const columns = {
-    xs: [
-      [-97_811_170, -594, 600],
-      [10, 5],
-    ],
-    ys: [
-      [30_103_777, -1_236, 1_000],
-      [-20, 0],
-    ],
+    xy: [blob([-97_811_170, -594, 600], [30_103_777, -1_236, 1_000]), blob([10, 5], [-20, 0])],
     xmin: [-97_811_764, 10],
     ymin: [30_102_541, -20],
     xmax: [-97_811_164, 15],
@@ -51,24 +54,10 @@ describe('decodeArcs', () => {
   test('interior chunks use the owning parent on both sides', () => {
     const interior = decodeArcs(columns, 1, 2, 100, 9);
     expect(interior.firstArc).toBe(100);
+    expect(Array.from(interior.offsets)).toEqual([0, 2]);
     expect(Array.from(interior.aParent)).toEqual([9]);
     expect(Array.from(interior.bParent)).toEqual([9]);
     expect(Array.from(interior.aChild)).toEqual([7]);
-  });
-
-  test('binary xy decodes like the lists', () => {
-    const blob = (xs: number[], ys: number[]) => {
-      const view = new DataView(new ArrayBuffer(8 * xs.length));
-      xs.forEach((x, i) => {
-        view.setInt32(8 * i, x, true);
-        view.setInt32(8 * i + 4, ys[i], true);
-      });
-      return new Uint8Array(view.buffer);
-    };
-    const {xs, ys, ...rest} = columns;
-    const fromBlob = decodeArcs({...rest, xy: xs.map((x, k) => blob(x, ys[k]))}, 0, 2, 0);
-    expect(fromBlob.coords).toEqual(arcs.coords);
-    expect(fromBlob.offsets).toEqual(arcs.offsets);
   });
 
   test('inverse projection round-trips', () => {

@@ -2,7 +2,7 @@ import {DocumentObject} from '../api/apiHandlers/types';
 import {AsyncBuffer, FileMetaData} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {EnhancedAsyncBuffer} from './parquetWorkerUtils';
-import type {TopologyBase, TopologyState} from './topology';
+import type {ChildGroup, TopologyBase, TopologyState} from './topology';
 import type {ShatterChunk} from '../topology/types';
 
 export type MetaInfo = {
@@ -189,22 +189,31 @@ export type ParquetWorkerClass = {
     filterIds?: Set<string>
   ) => GeoJSON.FeatureCollection<GeoJSON.Point>;
 
-  /**
-   * Topology prototype: fetches parents.parquet and arcs_exterior_blob.parquet in full, decodes
-   * them (typed arrays are transferred). Starts the children / interior footer reads.
-   * @param base - Directory URL of the map's topology files.
-   */
-  loadTopologyBase: (base: string) => Promise<TopologyBase>;
+  /** Topology prototype (prototypes/topology-parquet/README.md): fetches and decodes parents.parquet; resolves P. */
+  loadTopologyParents: (base: string) => Promise<number>;
 
   /**
-   * Topology prototype: children and interior arcs of the given parent idxs, by row-range reads
-   * of children.parquet and arcs_interior.parquet. Requires loadTopologyBase(base).
+   * Topology prototype: one column group ('demography' or 'labels') of the children of
+   * `parentPaths`, by row-range reads of children.parquet. Kept in the worker.
+   */
+  loadTopologyChildren: (base: string, parentPaths: string[], group: ChildGroup) => Promise<void>;
+
+  /**
+   * Topology prototype: fetches arcs_exterior_blob.parquet; resolves it with the parents
+   * (typed arrays transferred, so once per base).
+   */
+  loadTopologyArcs: (base: string) => Promise<TopologyBase>;
+
+  /**
+   * Topology prototype: children rings and interior arcs of the given parent idxs, by
+   * row-range reads of children.parquet and arcs_interior_blob.parquet. Requires
+   * loadTopologyArcs(base).
    */
   loadTopologyChunks: (base: string, parents: number[]) => Promise<ShatterChunk[]>;
 
   /**
    * Topology prototype: demography for unshattered parents plus the children of `brokenIds`
-   * (loaded via loadTopologyChunks), shaped like getDemography's.
+   * (their 'demography' group loaded), shaped like getDemography's.
    */
   getTopologyDemography: (
     base: string,
@@ -212,4 +221,15 @@ export type ParquetWorkerClass = {
     parentLayer: string,
     childLayer: string | null
   ) => {columns: AllTabularColumns[number][]; results: ColumnarTableData};
+
+  /**
+   * Topology prototype: label points shaped like getPointData's, for every parent or (with
+   * `parentPaths`) the children of those parents (their 'labels' group loaded).
+   */
+  getTopologyPoints: (
+    base: string,
+    layer: string,
+    source: string,
+    parentPaths?: string[]
+  ) => GeoJSON.FeatureCollection<GeoJSON.Point>;
 };

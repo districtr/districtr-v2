@@ -20,7 +20,23 @@ import {
   EnhancedAsyncBuffer,
   mergeByteRanges,
 } from './parquetWorkerUtils';
-import {buffersOf, buildDemography, fetchWhole, loadBase, loadChunks, TopologyIO} from './topology';
+import {
+  buffersOf,
+  buildDemography,
+  buildPoints,
+  fetchWhole,
+  loadArcs,
+  loadChildren,
+  loadChunks,
+  loadParents,
+  parentIdxs,
+  TopologyIO,
+} from './topology';
+
+const topologyIO: TopologyIO = {
+  whole: fetchWhole,
+  ranged: url => ParquetWorker.getMetaData(url),
+};
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
@@ -351,10 +367,18 @@ const ParquetWorker: ParquetWorkerClass = {
     return this.generateGeojsonFromPointData(parquetData, layer, source, filterIds);
   },
 
-  async loadTopologyBase(base) {
-    const io: TopologyIO = {whole: fetchWhole, ranged: url => this.getMetaData(url)};
-    const {state, result} = await loadBase(io, base);
-    this._topology[base] = state;
+  async loadTopologyParents(base) {
+    this._topology[base] = await loadParents(topologyIO, base);
+    return this._topology[base].P;
+  },
+
+  async loadTopologyChildren(base, parentPaths, group) {
+    const state = this._topology[base];
+    await loadChildren(state, parentIdxs(state, parentPaths), group);
+  },
+
+  async loadTopologyArcs(base) {
+    const result = await loadArcs(this._topology[base]);
     return transfer(result, buffersOf(result.parents, result.exterior));
   },
 
@@ -365,6 +389,11 @@ const ParquetWorker: ParquetWorkerClass = {
 
   getTopologyDemography(base, brokenIds, parentLayer, childLayer) {
     return buildDemography(this._topology[base], brokenIds, parentLayer, childLayer);
+  },
+
+  getTopologyPoints(base, layer, source, parentPaths) {
+    const state = this._topology[base];
+    return buildPoints(state, layer, source, parentPaths && parentIdxs(state, parentPaths));
   },
 };
 

@@ -3,8 +3,9 @@
     python pipelines/topology/check.py OUT_DIR PARENT_GPKG CHILD_GPKG [--county 48453]
         [--tabular tx_districtr_view_v2.parquet] [--simplified]
 
-OUT_DIR is one variant directory (.../full/NAME). With --simplified, geometry is checked
-for validity and area drift instead of exact equality. Exits non-zero if a check fails.
+OUT_DIR is one variant directory (.../full/NAME). Arcs are read from the *_blob files.
+With --simplified (also for coarse),
+geometry is checked for validity and area drift instead of exact equality. Exits non-zero if a check fails.
 """
 
 import argparse
@@ -31,23 +32,6 @@ def check(name, ok, detail=""):
         FAILED.append(name)
 
 
-def flat(col):
-    """list<int32> column -> (values, offsets)."""
-    arr = col.combine_chunks()
-    return arr.values.to_numpy(), arr.offsets.to_numpy().astype(np.int64)
-
-
-def decode_arcs(t):
-    xs, off = flat(t["xs"])
-    ys, _ = flat(t["ys"])
-    xy = np.stack([xs, ys], 1).astype(np.int64)
-    arc = np.repeat(np.arange(len(off) - 1), np.diff(off))
-    xy = np.cumsum(xy, 0)
-    start = xy[off[:-1] - 1] if len(off) > 1 else xy[:0]
-    base = np.where((off[:-1] > 0)[:, None], start, 0)
-    return xy - base[arc], off
-
-
 def decode_blob(t):
     col = t["xy"].combine_chunks()
     _, ob, db = col.buffers()
@@ -72,7 +56,8 @@ def unit_refs(t):
 
 
 def rebuild(refs, ring_off, unit_ring_off, xy, off):
-    """Assemble rings from arc refs; returns (MultiPolygon array, ring vertex counts)."""
+    """Assemble rings from arc refs -> (MultiPolygons, joined, first ring CCW per unit,
+    CCW rings per unit, ring vertex counts)."""
     arc = np.where(refs >= 0, refs, ~refs)
     rev = refs < 0
     n = np.diff(off)[arc]
@@ -102,7 +87,8 @@ def rebuild(refs, ring_off, unit_ring_off, xy, off):
     ccw = np.bincount(ring_id[:-1], weights=cross, minlength=len(r_off) - 1) > 0
     poly_start = np.flatnonzero(ccw)
     unit_of_ring = np.repeat(np.arange(len(unit_ring_off) - 1), np.diff(unit_ring_off))
-    starts_ok = ccw[unit_ring_off[:-1]].all()
+    n_poly = np.bincount(unit_of_ring[ccw], minlength=len(unit_ring_off) - 1)
+    starts_ok = ccw[unit_ring_off[:-1]]
     geoms = shapely.from_ragged_array(
         shapely.GeometryType.MULTIPOLYGON,
         coords.astype(np.float64),
@@ -114,7 +100,7 @@ def rebuild(refs, ring_off, unit_ring_off, xy, off):
             ),
         ),
     )
-    return geoms, joined.all() and starts_ok, np.diff(r_off)
+    return geoms, joined.all(), starts_ok, n_poly, np.diff(r_off)
 
 
 def quantized_multi(geoms):
@@ -182,30 +168,58 @@ def main():
     ap.add_argument("--tabular")
     ap.add_argument("--simplified", action="store_true")
     args = ap.parse_args()
-    rd = lambda f: pq.read_table(os.path.join(args.out_dir, f"{f}.parquet"))  # noqa: E731
+    path = lambda f: os.path.join(args.out_dir, f"{f}.parquet")  # noqa: E731
+    rd = lambda f: pq.read_table(path(f))  # noqa: E731
     parents, children = rd("parents"), rd("children")
-    ext, inn, blob = rd("arcs_exterior"), rd("arcs_interior"), rd("arcs_exterior_blob")
+    ext, inn = rd("arcs_exterior_blob"), rd("arcs_interior_blob")
     P, C, E, NI = len(parents), len(children), len(ext), len(inn)
     print(f"parents {P}, children {C}, exterior arcs {E}, interior arcs {NI}")
 
-    exy, eoff = decode_arcs(ext)
-    ixy, ioff = decode_arcs(inn)
-    bxy, boff = decode_blob(blob)
-    check("blob == xs/ys", np.array_equal(bxy, exy) and np.array_equal(boff, eoff))
-    for c in ["a_parent", "b_parent", "a_child", "b_child", "length_m"]:
-        assert ext[c].equals(blob[c])
+    exy, eoff = decode_blob(ext)
+    ixy, ioff = decode_blob(inn)
+    demog_names = [c for c in children.column_names[2:] if c != "area_m2"][:-3]
+    expect = {
+        "parents": ["path", *demog_names, "area_m2", "label_x", "label_y", "rings"]
+        + [
+            "child_row_start",
+            "child_row_count",
+            "interior_row_start",
+            "interior_row_count",
+        ],
+        "children": [
+            "path",
+            "parent_idx",
+            *demog_names,
+            "area_m2",
+            "label_x",
+            "label_y",
+        ]
+        + ["rings"],
+        "arcs_exterior_blob": [
+            "xy",
+            "a_parent",
+            "b_parent",
+            "a_child",
+            "b_child",
+            "length_m",
+        ],
+        "arcs_interior_blob": ["parent_idx", "xy", "a_child", "b_child", "length_m"],
+    }
+    tabs = {"parents": parents, "children": children}
+    tabs.update({"arcs_exterior_blob": ext, "arcs_interior_blob": inn})
+    check(
+        "compact schema (no bbox columns, float32 area_m2/length_m, 42 demography)",
+        all(tabs[f].column_names == cols for f, cols in expect.items())
+        and len(demog_names) == 42
+        and all(
+            str(t.schema.field(c).type) == "float"
+            for t, c in [(parents, "area_m2"), (children, "area_m2")]
+            + [(ext, "length_m"), (inn, "length_m")]
+        ),
+    )
     xy = np.concatenate([exy, ixy])
     off = np.concatenate([eoff, eoff[-1] + ioff[1:]])
     print(f"arc vertices: exterior {len(exy)}, interior {len(ixy)}, total {len(xy)}")
-    lo = np.minimum.reduceat(xy, off[:-1])
-    hi = np.maximum.reduceat(xy, off[:-1])
-    box = np.concatenate(
-        [
-            np.stack([t[c].to_numpy() for c in ["xmin", "ymin", "xmax", "ymax"]], 1)
-            for t in (ext, inn)
-        ]
-    )
-    check("arc bbox matches coords", np.array_equal(np.concatenate([lo, hi], 1), box))
 
     # row ranges
     cp = children["parent_idx"].to_numpy()
@@ -276,8 +290,14 @@ def main():
         ("children", c_refs, c_roff, c_uoff, csrc),
         ("parents", p_refs, p_roff, p_uoff, psrc),
     ]:
-        geoms, joined, ring_nv = rebuild(refs, roff, uoff, xy, off)
-        check(f"{name}: arcs chain into closed rings, first ring CCW", joined)
+        geoms, joined, first_ccw, n_poly, ring_nv = rebuild(refs, roff, uoff, xy, off)
+        check(f"{name}: arcs chain into closed rings", joined)
+        n_src = shapely.get_num_geometries(src.geometry.to_numpy())
+        check(
+            f"{name}: ring orientation (first ring CCW, CCW rings == source polygons)",
+            first_ccw.all() and np.array_equal(n_poly, n_src),
+            f"({(~first_ccw).sum()} first rings CW, {(n_poly != n_src).sum()} units)",
+        )
         check(
             f"{name}: rings have >= 4 vertices",
             ring_nv.min() >= 4,
@@ -345,7 +365,7 @@ def main():
     )
     check(
         "sum(children area_m2) == parent area_m2",
-        rel.max() < 1e-9,
+        rel.max() < 1e-6,  # float32
         f"(max rel {rel.max():.1e})",
     )
     demog = [c for c in children.column_names if c in psrc.columns]
@@ -413,13 +433,7 @@ def main():
             f"({len(cs)} children)",
         )
 
-    for f in [
-        "parents",
-        "children",
-        "arcs_exterior",
-        "arcs_exterior_blob",
-        "arcs_interior",
-    ]:
+    for f in sorted(x[:-8] for x in os.listdir(args.out_dir) if x.endswith(".parquet")):
         md = pq.ParquetFile(os.path.join(args.out_dir, f"{f}.parquet")).metadata
         print(
             f"  {f}: {os.path.getsize(os.path.join(args.out_dir, f + '.parquet')):,} B, {md.num_rows} rows, {md.num_row_groups} RGs, footer {md.serialized_size:,} B"

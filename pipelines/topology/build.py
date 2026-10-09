@@ -8,8 +8,9 @@ Parent (VTD) rings are expressed with the same arcs by looking up their segments
 
     python pipelines/topology/build.py PARENT_GPKG CHILD_GPKG OUT_ROOT NAME [--county 48453]
 
-writes OUT_ROOT/{full,simplified}/NAME/{parents,children,arcs_exterior,arcs_exterior_blob,
-arcs_interior}.parquet.
+writes OUT_ROOT/{full,simplified,coarse}/NAME/{parents,children,arcs_exterior_blob,
+arcs_interior_blob}.parquet. Arc coordinates are one `xy` binary per arc: little-endian int32
+[x0, y0, dx1, dy1, ...] at 1e-6 degrees. No bbox columns: the client derives them.
 """
 
 import argparse
@@ -30,7 +31,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 SCALE = 1_000_000  # int32 lon/lat at 1e-6 degrees
 GEOD = Geod(ellps="WGS84")
-SIMPLIFY_TOLERANCE = 20  # grid units = 2e-5 degrees, about one z12 tile unit
+# Douglas-Peucker tolerance per variant, in grid units (20 = 2e-5 deg ~ one z12 tile unit)
+VARIANTS = {"full": None, "simplified": 20, "coarse": 100}
 # children / arcs_interior row groups hold whole parents, about this many rows each. The
 # client range-reads a few hundred shattered parents and hyparquet reads whole column chunks,
 # so smaller RGs cut over-read but grow the footer (~2.8 KB/RG children, ~0.5 KB/RG
@@ -239,9 +241,18 @@ def arc_lengths(xy, off):
     return np.bincount(arc[keep], weights=d[keep], minlength=len(off) - 1)
 
 
-def simplify(xy, off, tol, ring_arcs, ring_off):
+def arc_shoelace(xy, off, origin):
+    """Per-arc shoelace sums (exact int64 about a shared origin); a ring's doubled signed
+    area is the sum over its refs, negated for reversed refs."""
+    rel = xy - origin
+    t = rel[:-1, 0] * rel[1:, 1] - rel[1:, 0] * rel[:-1, 1]
+    t[off[1:-1] - 1] = 0  # pairs that straddle two arcs
+    return np.add.reduceat(np.append(t, 0), off[:-1])
+
+
+def simplify(xy, off, tol, ring_refs, ring_off):
     """Douglas-Peucker each arc with endpoints fixed. Arcs of rings that would drop below
-    4 vertices (closed ring) keep full resolution."""
+    4 vertices or flip orientation keep full resolution."""
     # ponytail: arcs are simplified independently, so neighbouring arcs can cross (33 of
     # 668,757 TX blocks are invalid at 2e-5). Fine for drawing; needs a topology-aware
     # simplifier if the client ever does point-in-polygon on simplified rings.
@@ -253,11 +264,19 @@ def simplify(xy, off, tol, ring_arcs, ring_off):
     )
     sxy = sxy.astype(np.int64)
     full_n, simp_n = np.diff(off), np.diff(soff)
+    ring_arcs = np.where(ring_refs >= 0, ring_refs, ~ring_refs)
+    sign = np.where(ring_refs >= 0, 1, -1)
+    origin = (xy.min(0) + xy.max(0)) // 2
+    full_s, simp_s = arc_shoelace(xy, off, origin), arc_shoelace(sxy, soff, origin)
+    want = np.sign(np.add.reduceat(sign * full_s[ring_arcs], ring_off[:-1]))
     keep = simp_n < 2
     while True:
         n = np.where(keep, full_n, simp_n)
+        s = np.where(keep, full_s, simp_s)
         ring_nv = np.add.reduceat(n[ring_arcs] - 1, ring_off[:-1]) + 1
-        bad = ring_arcs[np.repeat(ring_nv < 4, np.diff(ring_off))]
+        area = np.add.reduceat(sign * s[ring_arcs], ring_off[:-1])
+        bad_ring = (ring_nv < 4) | (np.sign(area) != want)
+        bad = ring_arcs[np.repeat(bad_ring, np.diff(ring_off))]
         if keep[bad].all():
             break
         keep[bad] = True
@@ -284,34 +303,18 @@ def nested_refs(unit_order, unit_ring_off, ref_off, refs):
     return pa.ListArray.from_arrays(pa.array(offsets(nring).astype(np.int32)), inner)
 
 
-def arc_columns(order, xy, off, blob):
+def arc_blobs(order, xy, off):
+    """`xy` binary column: per arc, LE int32 [x0, y0, dx1, dy1, ...]."""
     n = np.diff(off)[order]
     v = xy[ranges(off[:-1][order], n)]
     o = offsets(n)
     d = v.copy()
     d[1:] -= v[:-1]
     d[o[:-1]] = v[o[:-1]]
-    d = d.astype(np.int32)
-    lo, hi = np.minimum.reduceat(v, o[:-1]), np.maximum.reduceat(v, o[:-1])
-    if blob:
-        buf = pa.py_buffer(d.astype("<i4").tobytes())
-        xy_col = pa.Array.from_buffers(
-            pa.binary(), len(n), [None, pa.py_buffer((o * 8).astype(np.int32)), buf]
-        )
-        coords = {"xy": xy_col}
-    else:
-        o32 = pa.array(o.astype(np.int32))
-        coords = {
-            "xs": pa.ListArray.from_arrays(o32, d[:, 0]),
-            "ys": pa.ListArray.from_arrays(o32, d[:, 1]),
-        }
-    bbox = {
-        "xmin": lo[:, 0].astype(np.int32),
-        "ymin": lo[:, 1].astype(np.int32),
-        "xmax": hi[:, 0].astype(np.int32),
-        "ymax": hi[:, 1].astype(np.int32),
-    }
-    return coords, bbox
+    buf = pa.py_buffer(d.astype("<i4").tobytes())
+    return pa.Array.from_buffers(
+        pa.binary(), len(n), [None, pa.py_buffer((o * 8).astype(np.int32)), buf]
+    )
 
 
 def parent_bounds(counts):
@@ -393,7 +396,6 @@ def build(parent_gpkg, child_gpkg, out_root, name, county=None):
 
     # ordering: parents Hilbert by bbox center, children/interior arcs grouped by parent
     p_lo, p_hi = unit_bbox(p_xy, p_ring_off, p_unit_ring_off)
-    c_lo, c_hi = unit_bbox(c_xy, c_ring_off, c_unit_ring_off)
     p_order = np.argsort(hilbert(*((p_lo + p_hi) // 2).T), kind="stable")
     p_new = np.empty(P, np.int64)
     p_new[p_order] = np.arange(P)
@@ -441,22 +443,13 @@ def build(parent_gpkg, child_gpkg, out_root, name, county=None):
         xy = np.rint(shapely.get_coordinates(points[order]) * SCALE).astype(np.int32)
         return {"label_x": xy[:, 0], "label_y": xy[:, 1]}
 
-    def bbox(lo, hi, order):
-        return {
-            "xmin": lo[order, 0].astype(np.int32),
-            "ymin": lo[order, 1].astype(np.int32),
-            "xmax": hi[order, 0].astype(np.int32),
-            "ymax": hi[order, 1].astype(np.int32),
-        }
-
     pd_cols, cd_cols = demography(p_demog), demography(c_demog)
     parents = pa.table(
         {
             "path": pa.array(p_paths[p_order].astype(str)),
             **{k: v[p_order] for k, v in pd_cols.items()},
-            "area_m2": p_area[p_order],
+            "area_m2": p_area[p_order].astype(np.float32),
             **label(p_label, p_order),
-            **bbox(p_lo, p_hi, p_order),
             "rings": nested_refs(p_order, p_unit_ring_off, p_ref_off, p_refs),
             "child_row_start": c_start.astype(np.int32),
             "child_row_count": c_count.astype(np.int32),
@@ -469,61 +462,54 @@ def build(parent_gpkg, child_gpkg, out_root, name, county=None):
             "path": pa.array(c_paths[c_order].astype(str)),
             "parent_idx": p_new[c_parent[c_order]].astype(np.int32),
             **{k: v[c_order] for k, v in cd_cols.items()},
-            "area_m2": c_area[c_order],
+            "area_m2": c_area[c_order].astype(np.float32),
             **label(c_label, c_order),
-            **bbox(c_lo, c_hi, c_order),
             "rings": nested_refs(c_order, c_unit_ring_off, c_ref_off, c_refs),
         }
     )
 
-    # ring -> arc table (in old arc ids) for the simplifier's degeneracy guard
+    # all rings as refs in old arc ids, for the simplifier's ring guard
     ring_arcs = np.concatenate([c_refs, p_refs])
-    ring_arcs = np.where(ring_arcs >= 0, ring_arcs, ~ring_arcs)
     old_of_new = np.empty(na, np.int64)
     old_of_new[arc_new] = np.arange(na)
-    ring_arcs = old_of_new[ring_arcs]
+    ring_arcs = np.where(
+        ring_arcs >= 0,
+        old_of_new[np.maximum(ring_arcs, 0)],
+        ~old_of_new[~np.minimum(ring_arcs, -1)],
+    )
     ring_arcs_off = np.concatenate([c_ref_off, c_ref_off[-1] + p_ref_off[1:]])
 
-    for variant in ["full", "simplified"]:
+    for variant, tol in VARIANTS.items():
         out = os.path.join(out_root, variant, name)
         os.makedirs(out, exist_ok=True)
-        if variant == "full":
+        if tol is None:
             vxy_, voff = arc_xy, arc_off
         else:
-            for tol in [10, 20, 100]:
-                _, o, kept = simplify(arc_xy, arc_off, tol, ring_arcs, ring_arcs_off)
-                logger.info(
-                    f"Simplified at {tol / SCALE:g} deg :: {o[-1]} vertices, {kept} arcs kept full"
-                )
-            vxy_, voff, _ = simplify(
-                arc_xy, arc_off, SIMPLIFY_TOLERANCE, ring_arcs, ring_arcs_off
+            vxy_, voff, kept = simplify(arc_xy, arc_off, tol, ring_arcs, ring_arcs_off)
+            logger.info(
+                f"{variant}: DP at {tol / SCALE:g} deg :: {voff[-1]} vertices "
+                f"(exterior {np.diff(voff)[ext_order].sum()}), {kept} arcs kept full"
             )
-        sides_ext = {
+        exterior = {
+            "xy": arc_blobs(ext_order, vxy_, voff),
             "a_parent": a_par[ext_order].astype(np.int32),
             "b_parent": b_par[ext_order].astype(np.int32),
             "a_child": a_new[ext_order].astype(np.int32),
             "b_child": b_new[ext_order].astype(np.int32),
-            "length_m": arc_len[ext_order],
+            "length_m": arc_len[ext_order].astype(np.float32),
         }
-        for blob, fname in [(False, "arcs_exterior"), (True, "arcs_exterior_blob")]:
-            coords, abox = arc_columns(ext_order, vxy_, voff, blob)
-            write(
-                pa.table({**coords, **sides_ext, **abox}),
-                os.path.join(out, f"{fname}.parquet"),
-            )
-        coords, abox = arc_columns(int_order, vxy_, voff, False)
-        interior = pa.table(
-            {
-                "parent_idx": a_par[int_order].astype(np.int32),
-                **coords,
-                "a_child": a_new[int_order].astype(np.int32),
-                "b_child": b_new[int_order].astype(np.int32),
-                "length_m": arc_len[int_order],
-                **abox,
-            }
-        )
+        interior = {
+            "parent_idx": a_par[int_order].astype(np.int32),
+            "xy": arc_blobs(int_order, vxy_, voff),
+            "a_child": a_new[int_order].astype(np.int32),
+            "b_child": b_new[int_order].astype(np.int32),
+            "length_m": arc_len[int_order].astype(np.float32),
+        }
+        write(pa.table(exterior), os.path.join(out, "arcs_exterior_blob.parquet"))
         write(
-            interior, os.path.join(out, "arcs_interior.parquet"), parent_bounds(i_count)
+            pa.table(interior),
+            os.path.join(out, "arcs_interior_blob.parquet"),
+            parent_bounds(i_count),
         )
         if variant == "full":
             write(parents, os.path.join(out, "parents.parquet"))

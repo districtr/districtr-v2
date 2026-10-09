@@ -3,20 +3,25 @@ import ParquetWorker from '../../ParquetWorker';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {AllTabularColumns} from '../summaryStats';
 import {TOPOLOGY_VARIANT} from '../../topology/flag';
-import {ensureShattered, topologyBaseFor} from '../../topology/state';
+import {ensureDemography} from '../../topology/state';
 
-/** Topology prototype path; null means use the tabular parquet. */
+/**
+ * Topology prototype path: parents plus the broken parents' children demography columns, never
+ * waiting on arcs (store/subscriptions drives the shattered set). Null means use the tabular
+ * parquet.
+ */
 const getTopologyDemography = async (mapDocument: DocumentObject, brokenIds: string[]) => {
   try {
-    const topo = await ensureShattered(mapDocument, brokenIds);
-    const base = topologyBaseFor(mapDocument);
-    if (!topo || !base || !ParquetWorker) return null;
-    return await ParquetWorker.getTopologyDemography(
+    const base = await ensureDemography(mapDocument, brokenIds);
+    if (!base || !ParquetWorker) return null;
+    const data = await ParquetWorker.getTopologyDemography(
       base,
       brokenIds,
       mapDocument.parent_layer,
       mapDocument.child_layer
     );
+    performance.mark('districtr:topology-demography', {detail: {shattered: brokenIds.length}});
+    return data;
   } catch (error) {
     console.error('Topology demography failed; using the tabular parquet', error);
     return null;

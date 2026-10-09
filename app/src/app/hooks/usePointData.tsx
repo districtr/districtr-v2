@@ -11,16 +11,15 @@ import {useQuery} from '@tanstack/react-query';
 import GeometryWorker from '../utils/GeometryWorker';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {TOPOLOGY_VARIANT} from '../utils/topology/flag';
-import {ensureChunks, ensureTopology} from '../utils/topology/state';
-import {latOfMercY, lonOfMercX} from '../utils/topology/decode';
-import type {UnitChunk} from '../utils/topology/types';
+import {ensureBase, ensureLabels} from '../utils/topology/state';
+import ParquetWorker from '../utils/ParquetWorker';
 
 /** Latest updateData call per [parent, child]; only the topology path drops stale ones. */
 const requestIds = [0, 0];
 
 /**
  * Topology prototype: label points as the points parquet's GeoJSON (parents, or the exposed
- * children). Null means no topology for this map.
+ * children), from parents.parquet and children.parquet only. Null means no topology.
  */
 const getTopologyPoints = async (
   mapDocument: DocumentObject | null,
@@ -28,40 +27,22 @@ const getTopologyPoints = async (
   isChild: boolean,
   exposedChildIds: Set<string>
 ) => {
-  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-  const add = (chunk: UnitChunk, k: number) =>
-    features.push({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [lonOfMercX(chunk.label[2 * k]), latOfMercY(chunk.label[2 * k + 1])],
-      },
-      properties: {
-        path: chunk.paths[k],
-        total_pop_20: chunk.totalPop[k],
-        __source: BLOCK_SOURCE_ID,
-        __sourceLayer: layer,
-      },
-    });
   if (!isChild) {
-    const topo = await ensureTopology(mapDocument);
-    if (!topo) return null;
-    for (let k = 0; k < topo.P; k++) add(topo.parents, k);
-  } else {
-    const parentIds =
-      useMapControlsStore.getState().mapMode === MAP_MODES.COI
-        ? useCoiAssignmentsStore.getState().shatterIds.parents
-        : useAssignmentsStore.getState().shatterIds.parents;
-    const loaded = await ensureChunks(mapDocument, parentIds);
-    if (!loaded) return null;
-    loaded.parents.forEach(p => {
-      const {children} = loaded.topo.chunks.get(p)!;
-      for (let k = 0; k < children.paths.length; k++) {
-        if (exposedChildIds.has(children.paths[k])) add(children, k);
-      }
-    });
+    const base = await ensureBase(mapDocument);
+    return base && ParquetWorker
+      ? ParquetWorker.getTopologyPoints(base, layer, BLOCK_SOURCE_ID)
+      : null;
   }
-  return {type: 'FeatureCollection', features} as GeoJSON.FeatureCollection<GeoJSON.Point>;
+  const parentIds = Array.from(
+    useMapControlsStore.getState().mapMode === MAP_MODES.COI
+      ? useCoiAssignmentsStore.getState().shatterIds.parents
+      : useAssignmentsStore.getState().shatterIds.parents
+  );
+  const base = await ensureLabels(mapDocument, parentIds);
+  if (!base || !ParquetWorker) return null;
+  const points = await ParquetWorker.getTopologyPoints(base, layer, BLOCK_SOURCE_ID, parentIds);
+  points.features = points.features.filter(f => exposedChildIds.has(f.properties!.path));
+  return points;
 };
 
 const updateData = async (
