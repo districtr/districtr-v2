@@ -1,8 +1,8 @@
 # Districtr v2 — project overview
 
-A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in [`decisions.md`](decisions.md).
+A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in the [ADRs](adr/README.md).
 
-Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and JWT issuer), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
+Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and admin), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
 
 ## Repository layout
 
@@ -18,7 +18,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │           ├── (interactive)/   # Route group: map viewer/editor pages
 │           │   └── map/         #   /map, /map/[public_id], /map/edit
 │           ├── (static)/        # Route group: static content pages
-│           │   └── ...          #   /about, /guide, /places, /contact, etc.
+│           │   └── ...          #   /about, /guide, /places, /contact; CMS pages
 │           ├── components/      # React components
 │           ├── constants/       # Constants and configuration
 │           ├── hooks/           # Custom hooks
@@ -29,20 +29,27 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   ├── cli.py                   # Management CLI (imports, map creation, edges)
 │   ├── requirements.txt
 │   └── app/
+│       ├── admin_ops/           # GeoPackage import + map-module compose over HTTP
 │       ├── alembic/             # Alembic DB migrations
 │       ├── assignments/         # Zone assignments management
-│       ├── cms/                 # Site settings (under-construction flag)
-│       ├── district_notes/      # Per-zone map notes
-│       ├── submissions/         # Portal submissions + moderation API
+│       ├── cms/                 # Site settings (under-construction toggle)
 │       ├── contiguity/          # Geographic spatial contiguity
 │       ├── core/                # DB, config, security, dependencies
+│       ├── district_notes/      # Per-district notes on a map
 │       ├── exports/             # Export data functions
 │       ├── save_share/          # Save/share and password-protected access
 │       ├── sql/                 # Legacy UDF SQL files (do not expand)
+│       ├── submissions/         # Portal form configs, submissions, moderation
 │       ├── thumbnails/          # Map thumbnail generation
 │       ├── models.py            # SQLModel/SQLAlchemy models
 │       └── main.py              # FastAPI entrypoint
-├── cms/                         # Wagtail CMS: admin UI, content API, JWT issuer
+├── cms/                         # Wagtail CMS (Django): pages, users, moderation, map admin
+│   ├── core/                    # Shared base
+│   ├── authapi/                 # Users, teams, roles; JWT minting + JWKS
+│   ├── content/                 # Pages and the public /api/content/ API
+│   ├── datastore/               # Unmanaged mirrors of backend tables
+│   ├── moderation/              # Site settings
+│   └── portals/                 # Per-portal hub: form, gallery, takedown
 ├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
 ├── docker-compose.yml           # Orchestration
 └── .env.example                 # Root env flags (LOAD_DATA, etc.)
@@ -90,11 +97,15 @@ A `Document` row (`backend/app/models.py`) carries plan metadata; assignments li
 
 ## Auth and sharing
 
-Protected routes enforce scopes through `VerifyToken.verify` (`backend/app/core/security.py`) against RS256 JWTs issued by the Wagtail CMS. The CMS maps groups to scopes in `cms/authapi/scopes.py`, mirrored by the backend's `TokenScope`. The two lists have no compile-time link, so a scope added to one side alone silently does nothing. The frontend holds no user credentials. Editors sign in to the Wagtail admin, which mints a short-lived token for each backend call. Share links mint a row in `document.map_document_token` (optionally with a bcrypt password); the returned JWT names *which* share record it refers to, not the document — the grant is looked up server-side when the link is used. Password-protected edit access is the one deliberate point where proving the password hands over the protected document. Share and session tokens are HMAC JWTs signed with the same key, separated only by `aud`/`exp` claims (`require_session`'s `require: ["exp", "aud"]` is the entire separation). Captcha (Cloudflare Turnstile) is verified server-side, with separate secrets per widget.
+Protected routes enforce scopes through `VerifyToken.verify` (`backend/app/core/security.py`) against JWTs the Wagtail CMS mints and publishes keys for at `/.well-known/jwks.json`; the public site has no sign-in, and the Wagtail admin is the only signed-in surface. The CMS's group→scope mapping is `cms/authapi/scopes.py` (`GROUP_SCOPES`), mirrored by the backend's `TokenScope` — the two lists have no compile-time link, so a scope added to one side alone silently does nothing. Portal moderation is further limited by the token's `teams` claim, which fails closed when absent. Share links mint a row in `document.map_document_token` (optionally with a bcrypt password); the returned JWT names *which* share record it refers to, not the document — the grant is looked up server-side when the link is used. Password-protected edit access is the one deliberate point where proving the password hands over the protected document. Share and session tokens are HMAC JWTs signed with the same key, separated only by `aud`/`exp` claims (`require_session`'s `require: ["exp", "aud"]` is the entire separation). Captcha (Cloudflare Turnstile) is verified server-side, with separate secrets per widget.
 
-## CMS and submissions
+## CMS, submissions, and district notes
 
-Content pages (portals, places, static pages) are Wagtail pages in `cms/content/`, served to the frontend by the content API at `/api/content/` and rendered by `components/RichTextRenderer/StreamRenderer.tsx`. Partner page edits go through Wagtail's "Admin approval" workflow. Portal submissions live in `backend/app/submissions/`. Moderation is automatic and applies to portal submissions only. A deterministic word-list check (`submissions/blocklist.sha256`, hashed phrases, no external service) sets `nsfw`, and the frontend blurs those entries with an opt-in reveal. Portal admins see everything and can blur, unblur, hide or restore entries in the Portals hub (`cms/portals/`). District notes (zone-scoped, `backend/app/district_notes/`) are not moderated and sync by wholesale replacement. An incoming batch replaces that zone's notes. That is a UX decision, not a merge. The cutover runbook and open items are in [`WAGTAIL-CUTOVER-FOLLOWUPS.md`](WAGTAIL-CUTOVER-FOLLOWUPS.md).
+Pages are Wagtail pages in `cms/`: partners edit, and publishing goes through an admin approval workflow. The public site renders them from the CMS's `/api/content/` JSON API with `StreamRenderer`. Backend tables the CMS edits (map modules, overlays, form configs) are `managed=False` mirrors in `cms/datastore/models.py`; Alembic stays the owner of their DDL, and Django owns only the `admin` schema.
+
+Public testimony is a *submission* (`backend/app/submissions/`): each portal has a form config choosing fields from a shared registry, and answers are stored one row per field. Submissions are public on arrival — there is no review queue. A deterministic word-list check (`submissions/blocklist.sha256`, hashed phrases, no external service) sets `nsfw`, which the frontend blurs with an opt-in reveal; portal admins see everything and can blur, unblur, hide or restore entries from the CMS Portals hub. A map belongs to at most one portal (`document.portal_id`), and each portal's collection mode decides whether maps join its gallery by form, by prompt, or automatically.
+
+District notes (`backend/app/district_notes/`, table `comments.district_notes`) are the author's notes on individual districts, separate from submissions. A save replaces a document's notes as a set. Notes are not moderated. The cutover runbook and open items are in [`WAGTAIL-CUTOVER-FOLLOWUPS.md`](WAGTAIL-CUTOVER-FOLLOWUPS.md).
 
 ## Dev environment
 
