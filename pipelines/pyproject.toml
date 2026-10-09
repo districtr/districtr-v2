@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 dependencies = []
 
 [tool.setuptools]
-packages = ["core", "tilesets", "tabular", "transforms"]
+packages = ["core", "tilesets", "tabular", "transforms", "ensembles"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"]

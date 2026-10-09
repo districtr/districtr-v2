@@ -72,3 +72,56 @@ Commands:
   tabular  Tabular analysis commands.
   tileset  Tileset commands.
 ```
+
+## Ensembles
+
+`ensembles` generates ReCom ensembles for a map module: a set of computer-drawn
+plans the evaluation panel uses as a reference distribution for partisan
+metrics. The chain itself runs in [rustrecom](https://github.com/mggg/frcw.rs)
+(the Rust ReCom implementation behind Cannon, Duchin, Randall & Rule 2025);
+this package builds its input graph, drives it, and packs its output.
+
+Build rustrecom once (needs a Rust toolchain, `rustup.rs`):
+
+```sh
+git clone https://github.com/mggg/frcw.rs && cd frcw.rs
+git checkout f551e02fe6abe2b661e8229f6e57cf2ac585b541
+RUSTFLAGS="-C target-cpu=native" cargo build --release --bin rustrecom
+export RUSTRECOM_BIN=$PWD/target/release/rustrecom
+```
+
+Then, for a module whose VTD and block GeoPackages are in `data/gerrydb/` and
+whose seed is a block-level plan CSV (`GEOID20,District`):
+
+```sh
+python cli.py ensembles build-graph \
+    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
+    --block-gpkg ../data/gerrydb/co_districtr_block_view_v2.gpkg \
+    --seed-csv CO-block-assignments.csv \
+    -o ../data/ensembles/co_congressional_districts_v2/graph.json
+python cli.py ensembles run \
+    --graph-json ../data/ensembles/co_congressional_districts_v2/graph.json \
+    --module-slug co_congressional_districts_v2 \
+    --n-steps 100000 --rng-seed 20261008 \
+    -o ../data/ensembles/co_congressional_districts_v2
+```
+
+`build-graph` takes adjacency from the GeoPackage's GerryDB edge layer, attaches
+integer population and election tallies plus the county of every VTD, and
+derives the seed by giving each VTD the district holding most of its
+population. Where that leaves a district in pieces, the seed is repaired
+(bridging VTD flipped in, tiny fragments handed to a neighbour) and the moves
+are logged in `graph.seed.json`.
+
+`run` executes every preset in `ensembles/presets.py` (ReCom-B and county-aware
+ReCom-B; population tolerance 1%) and writes per preset:
+
+- `<preset>.npz` — `assignments` (plans × VTDs, uint8 district index),
+  `node_ids`, `populations` and `sum_<column>` (plans × districts), `cut_edges`
+- `<preset>.json` — manifest: module, preset, chain parameters as rustrecom
+  echoed them, seed source and repairs, plan counts
+- `<preset>.config.json` — the rustrecom config that was run
+
+Each step of a non-reversible rustrecom chain is an accepted proposal, so
+`--n-steps` is the number of stored plans. A 100,000-step run on Colorado's
+3,158 VTDs takes about 35 seconds and packs to roughly 30 MB.
