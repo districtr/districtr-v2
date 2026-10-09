@@ -74,7 +74,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         if self.log_requests:
-            sys.stderr.write("%s %s\n" % (self.log_date_time_string(), fmt % args))
+            extra = " ".join(
+                "%s=%s" % (h, self.headers.get(h))
+                for h in ("Range", "If-Range", "If-None-Match", "If-Modified-Since")
+                if self.headers and self.headers.get(h)
+            )
+            sys.stderr.write("%s %s %s\n" % (self.log_date_time_string(), fmt % args, extra))
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")

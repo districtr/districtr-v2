@@ -4,8 +4,16 @@
  * work, memory, brush (selection) latency and shatter latency.
  *
  *   e2e/bench/stack.sh servers && e2e/bench/stack.sh build && e2e/bench/stack.sh start
- *   bun e2e/bench/bench.ts --docs 280,199 --runs 5 --network none,throttled [--variant full]
- *   bun e2e/bench/summarize.ts <results dir or json files...>
+ *   node e2e/bench/bench.ts --docs 280,199 --runs 5 --network none,throttled [--variant full]
+ *   node e2e/bench/bench.ts --summarize <results dir or json files...> [--filter substr]
+ *
+ * Run it with Node (>= 23, which runs .ts directly). Bun runs it too, but with
+ * Playwright under Bun, browser.close() sometimes never resolves and Chrome
+ * occasionally exits mid-run (~15% of runs here), so the numbers come from Node.
+ *
+ * A run that fails (e.g. the page never reaches demography-ready) is saved as
+ * …_failedN.json with the page state, pending requests and a screenshot, and is
+ * retried; the summary's `fail` column counts them.
  *
  * Document UUIDs (edit capabilities) are never written to disk: they come from
  * BENCH_DOC_<public_id> env vars or a query against the local postgres_db container,
@@ -41,7 +49,7 @@
  */
 import {chromium, type Browser, type CDPSession, type Page, type Request} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
-import {mkdirSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
+import {mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -86,10 +94,11 @@ const parseArgs = (argv: string[]): Args => {
   const has = (name: string) => argv.includes(`--${name}`);
   if (has('help')) {
     console.log(
-      'bun e2e/bench/bench.ts [--docs 280,199] [--runs 5] [--warmup 1] [--variant none|full|simplified]\n' +
+      'node e2e/bench/bench.ts [--docs 280,199] [--runs 5] [--warmup 1] [--variant none|full|simplified]\n' +
         '  [--network none,throttled] [--cpu 1] [--base http://localhost:3200]\n' +
         '  [--api http://localhost:8010] [--out <dir>] [--headed] [--brush-n 200]\n' +
-        '  [--brush-size 50] [--no-shatter] [--timeout 180000] [--dpr 1] [--tag label]'
+        '  [--brush-size 50] [--no-shatter] [--timeout 180000] [--dpr 1] [--tag label]\n' +
+        'node e2e/bench/bench.ts --summarize <dir or files...> [--filter substr]'
     );
     process.exit(0);
   }
@@ -231,6 +240,7 @@ class RequestLog {
   lastActivity = Date.now();
   constructor(page: Page) {
     page.on('request', req => {
+      this.open.add(req);
       this.inflight++;
       this.lastActivity = Date.now();
       this.started.set(req, Date.now());
@@ -243,6 +253,7 @@ class RequestLog {
     });
   }
   private track(req: Request, failed?: string) {
+    this.open.delete(req);
     this.inflight = Math.max(0, this.inflight - 1);
     this.lastActivity = Date.now();
     const doneAt = Date.now();
@@ -274,6 +285,10 @@ class RequestLog {
   }
   get busy() {
     return this.inflight > 0;
+  }
+  private open = new Set<Request>();
+  pendingUrls() {
+    return [...this.open].map(r => `${r.method()} ${r.url()}`);
   }
   async flush() {
     await withTimeout(Promise.all([...this.pending]), 15_000, []);
@@ -332,6 +347,25 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+const browserAlive = () => {
+  if (browserPid === null) return true;
+  try {
+    process.kill(browserPid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+/** A dead browser can leave Playwright calls pending forever under Bun: bound each poll. */
+const guard = async <T>(p: Promise<T>, what: string): Promise<T> => {
+  const TIMEOUT = Symbol('timeout');
+  const v = await withTimeout(p, 20_000, TIMEOUT);
+  if (v === TIMEOUT) {
+    throw new Error(browserAlive() ? `page call timed out (${what})` : `browser died (${what})`);
+  }
+  return v as T;
+};
+
 async function waitFor<T>(
   what: string,
   fn: () => Promise<T | null | undefined | false>,
@@ -340,7 +374,7 @@ async function waitFor<T>(
 ): Promise<T> {
   const t0 = Date.now();
   for (;;) {
-    const v = await fn();
+    const v = await guard(fn(), what);
     if (v) return v as T;
     if (Date.now() - t0 > timeoutMs) throw new Error(`timeout waiting for ${what}`);
     await sleep(intervalMs);
@@ -366,7 +400,7 @@ const getIdle = (page: Page): Promise<{idle: number[]; loaded: boolean; now: num
 async function idleAfter(page: Page, t: number, timeoutMs: number) {
   const t0 = Date.now();
   for (;;) {
-    const s = await getIdle(page);
+    const s = await guard(getIdle(page), 'idle');
     const hit = s.idle.find(x => x >= t);
     if (hit !== undefined) return {t: hit, source: 'idle-event'};
     // No render was triggered after t: accept "already idle" once the map has stayed
@@ -427,11 +461,14 @@ async function settle(page: Page, log: RequestLog, maxMs: number) {
   // Quiet = no request in flight or finished for 1.5 s and no long task in the last 1 s.
   const t0 = Date.now();
   for (;;) {
-    const lastLong = await page.evaluate(() => {
-      const lt = (window as BenchWindow).__benchLongTasks ?? [];
-      const last = lt[lt.length - 1];
-      return {sinceLong: last ? performance.now() - (last[0] + last[1]) : 1e9};
-    });
+    const lastLong = await guard(
+      page.evaluate(() => {
+        const lt = (window as BenchWindow).__benchLongTasks ?? [];
+        const last = lt[lt.length - 1];
+        return {sinceLong: last ? performance.now() - (last[0] + last[1]) : 1e9};
+      }),
+      'settle'
+    );
     if (!log.busy && Date.now() - log.lastActivity > 1500 && lastLong.sinceLong > 1000) return true;
     if (Date.now() - t0 > maxMs) return false;
     await sleep(200);
@@ -443,10 +480,19 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
   runStartedAt = Date.now();
   step('launch');
   const dirsBefore = profileDirs();
+  const browserLog: string[] = [];
   const browser = await chromium.launch({
     channel: 'chrome',
     headless: !args.headed,
     timeout: 60_000,
+    // Keep Chrome's own output so a browser that dies mid-run can be diagnosed.
+    logger: {
+      isEnabled: name => name === 'browser',
+      log: (_name, _sev, message) => {
+        browserLog.push(String(message).slice(0, 300));
+        if (browserLog.length > 40) browserLog.shift();
+      },
+    },
   });
   {
     const cdp = await browser.newBrowserCDPSession();
@@ -467,6 +513,20 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     startedAt: new Date().toISOString(),
     browser: browser.version(),
   };
+  // Hoisted so a failed run can still dump what it saw.
+  let pageRef: Page | undefined;
+  let logRef: RequestLog | undefined;
+  const consoleErrors: Record<string, number> = {};
+  let timeOrigin = 0;
+  const rel = (epochMs: number) => epochMs - timeOrigin;
+  const dumpRequests = () =>
+    (logRef?.reqs ?? []).map(r => ({
+      ...r,
+      start: rel(r.start),
+      end: rel(r.end),
+      cat: category(r.url, args.api),
+      url: r.url.replace(/private_edit_id=[^&]+/, 'private_edit_id=REDACTED').replace(uuid, 'UUID'),
+    }));
   try {
     const context = await browser.newContext({
       viewport: {width: 1400, height: 900},
@@ -500,6 +560,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
       {origin, variant: args.variant}
     );
     const page = await context.newPage();
+    pageRef = page;
     const cdp: CDPSession = await context.newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Performance.enable');
@@ -509,7 +570,6 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     });
     if (network === 'throttled') await cdp.send('Network.emulateNetworkConditions', THROTTLED);
     if (args.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', {rate: args.cpu});
-    const consoleErrors: Record<string, number> = {};
     const noteError = (text: string) => {
       const k = text.split('\n')[0].slice(0, 200);
       consoleErrors[k] = (consoleErrors[k] ?? 0) + 1;
@@ -517,6 +577,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     page.on('console', m => m.type() === 'error' && noteError(m.text()));
     page.on('pageerror', e => noteError(`pageerror: ${e.message}`));
     const log = new RequestLog(page);
+    logRef = log;
     await fetch(`${args.api}/__bench/blocked/reset`).catch(() => null);
 
     // ---- load ----
@@ -524,8 +585,7 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
     const wall0 = Date.now();
     step('goto');
     await page.goto(url, {waitUntil: 'commit', timeout: args.timeoutMs});
-    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
-    const rel = (epochMs: number) => epochMs - timeOrigin;
+    timeOrigin = await page.evaluate(() => performance.timeOrigin);
 
     step('wait ingested');
     const ingested = await waitFor(
@@ -777,16 +837,52 @@ async function runOnce(args: Args, publicId: number, uuid: string, network: stri
       .catch(() => null);
     result.blockedWrites = blocked;
     result.consoleErrors = consoleErrors;
-    result.requests = log.reqs.map(r => ({
-      ...r,
-      start: rel(r.start),
-      end: rel(r.end),
-      cat: category(r.url, args.api),
-      url: r.url.replace(/private_edit_id=[^&]+/, 'private_edit_id=REDACTED').replace(uuid, 'UUID'),
-    }));
+    result.requests = dumpRequests();
   } catch (e) {
     result.error = String(e);
+    result.browserLog = browserLog;
     step(`error: ${String(e).slice(0, 200)}`);
+    // What the page looked like when it stalled (best effort).
+    result.consoleErrors = consoleErrors;
+    result.requests = dumpRequests();
+    result.pending = logRef?.pendingUrls().map(u => u.replace(uuid, 'UUID'));
+    const page = pageRef;
+    if (page && browserAlive()) {
+      result.failureState = await withTimeout(
+        page
+          .evaluate(() => {
+            const b = (window as BenchWindow).__districtrBench;
+            const m = b?.stores.map.getState();
+            const map = b?.getMapRef();
+            return {
+              now: performance.now(),
+              marks: performance
+                .getEntriesByType('mark')
+                .filter(x => x.name.startsWith('districtr:'))
+                .map(x => ({name: x.name, t: x.startTime, detail: (x as PerformanceMark).detail})),
+              appLoadingState: m?.appLoadingState,
+              mapRenderingState: m?.mapRenderingState,
+              loadingStates: m?.loadingStates,
+              mapLock: m?.mapLock,
+              notification: m?.notification?.message,
+              demographyHash: b?.stores.demography.getState().dataHash?.slice(-60),
+              mapLoaded: map?.loaded(),
+              styleLoaded: map?.isStyleLoaded(),
+              idle: b?.idle.length,
+              broken: b?.stores.assignments.getState().shatterIds?.parents?.size,
+              text: document.body.innerText.slice(0, 500),
+            };
+          })
+          .catch(err => ({evaluateError: String(err)})),
+        10_000,
+        {evaluateError: 'timeout'}
+      );
+      await withTimeout(
+        page.screenshot({path: join(args.out, `failure_${publicId}_${network}_${Date.now()}.png`)}),
+        10_000,
+        null
+      ).catch(() => null);
+    }
   } finally {
     step('close');
     if ((await withTimeout(browser.close(), 5_000, 'timeout')) === 'timeout') {
@@ -844,7 +940,7 @@ export const printSummary = (rows: Row[]) => {
     const k = `${r.publicId} ${r.variant} ${r.network}${Number(r.cpu) > 1 ? ` cpu${r.cpu}` : ''}`;
     groups.set(k, [...(groups.get(k) ?? []), r]);
   }
-  const header = ['group', 'n', 'stat', ...COLUMNS.map(c => c[0])];
+  const header = ['group', 'n', 'fail', 'stat', ...COLUMNS.map(c => c[0])];
   const lines: string[][] = [header];
   for (const [k, rs] of groups) {
     const ok = rs.filter(r => !r.error);
@@ -855,6 +951,7 @@ export const printSummary = (rows: Row[]) => {
       lines.push([
         k,
         String(ok.length),
+        String(rs.length - ok.length),
         stat,
         ...COLUMNS.map(([, path, fmt]) => {
           const v = f(ok.map(r => pick(r, path)));
@@ -871,7 +968,28 @@ export const printSummary = (rows: Row[]) => {
 };
 
 // ---------- main ----------
+/** --summarize: re-print the table from saved per-run JSON files or directories. */
+const summarizeFiles = (argv: string[]) => {
+  const fi = argv.indexOf('--filter');
+  const filter = fi >= 0 ? argv[fi + 1] : '';
+  const inputs = argv.filter((a, i) => a !== '--summarize' && a !== '--filter' && i !== fi + 1);
+  const files = inputs.flatMap(p =>
+    statSync(p).isDirectory()
+      ? readdirSync(p)
+          .filter(f => /_run\d+(_failed\d+)?\.json$/.test(f))
+          .map(f => join(p, f))
+      : [p]
+  );
+  printSummary(
+    files
+      .filter(f => !filter || f.includes(filter))
+      .sort()
+      .map(f => JSON.parse(readFileSync(f, 'utf8')) as Row)
+  );
+};
+
 const main = async () => {
+  if (process.argv.includes('--summarize')) return summarizeFiles(process.argv.slice(2));
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(args.out, {recursive: true});
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -885,10 +1003,11 @@ const main = async () => {
           `[${publicId} ${args.variant} ${network} warmup${w}] ${r.error ? `ERROR ${r.error}` : 'ok'} (discarded)`
         );
       }
-      for (let run = 1; run <= args.runs; run++) {
+      // Collect `runs` successful runs; a failed attempt is saved (…_failedN.json) and retried.
+      let run = 1;
+      for (let attempt = 1; run <= args.runs && attempt <= args.runs + 3; attempt++) {
         const t = Date.now();
         const r = await runGuarded(args, publicId, uuid, network, run);
-        rows.push(r);
         const name = [
           stamp,
           publicId,
@@ -897,13 +1016,16 @@ const main = async () => {
           args.cpu > 1 ? `cpu${args.cpu}` : '',
           args.tag,
           `run${run}`,
+          r.error ? `failed${attempt}` : '',
         ]
           .filter(Boolean)
           .join('_');
         writeFileSync(join(args.out, `${name}.json`), JSON.stringify(r, null, 1));
+        rows.push(r);
+        if (!r.error) run++;
         const load = r.load as Record<string, number> | undefined;
         console.log(
-          `[${publicId} ${args.variant} ${network} run${run}] ` +
+          `[${publicId} ${args.variant} ${network} run${r.error ? `${run} attempt ${attempt}` : run - 1}] ` +
             (r.error
               ? `ERROR ${r.error}`
               : `demog ${(load!.tDemographyReady / 1000).toFixed(2)}s idle ${(load!.tMapIdle / 1000).toFixed(2)}s loaded ${(load!.tLoaded / 1000).toFixed(2)}s`) +
