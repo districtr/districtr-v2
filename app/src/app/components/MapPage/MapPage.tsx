@@ -31,6 +31,8 @@ import {MAP_MODES} from '@constants/map/mode';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {BASEMAP_IDS} from '@constants/map/layerStyle';
+// Side effect: window.__districtrBench when localStorage.districtr_bench === '1'.
+import '@/app/utils/bench/benchHook';
 
 interface MapPageProps {
   isEditing: boolean;
