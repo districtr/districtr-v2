@@ -524,6 +524,7 @@ def simple_child_geos_nonshatterable_districtr_map_fixture(
         gerrydb_table_name="simple_child_geos",
         num_districts=2,
         parent_layer="simple_child_geos",
+        statefps=["20"],
     )
 
 

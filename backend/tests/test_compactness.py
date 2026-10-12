@@ -226,13 +226,14 @@ def test_cut_edges_shatterable_mixed_grid(
 
 # ── Polsby-Popper ─────────────────────────────────────────────────────────────
 #
-# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas)
+# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas;
+# statefps ["20"] → UTM zone 14N)
 # Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
 #
-# Reference values computed independently with gerrychain + geopandas:
-#   gdf.dissolve(by="zone").to_crs("EPSG:5070") → polsby_popper(partition)
-#   Zone 1: 0.6243085572
-#   Zone 2: 0.5454707812
+# Reference values computed independently with geopandas:
+#   gdf.dissolve(by="zone").to_crs("EPSG:32614") → 4π·area / length²
+#   Zone 1: 0.6260921685
+#   Zone 2: 0.5475570014
 
 
 def test_polsby_popper(
@@ -265,8 +266,8 @@ def test_polsby_popper(
     )
     scores = polsby_popper(ctx)
 
-    assert scores[1] == pytest.approx(0.6243085572, abs=1e-6)
-    assert scores[2] == pytest.approx(0.5454707812, abs=1e-6)
+    assert scores[1] == pytest.approx(0.6260921685, abs=1e-6)
+    assert scores[2] == pytest.approx(0.5475570014, abs=1e-6)
 
 
 # ── Reock ─────────────────────────────────────────────────────────────────────
@@ -275,9 +276,9 @@ def test_polsby_popper(
 # Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
 #
 # Reference values computed independently with shapely.minimum_bounding_radius
-# on gdf.dissolve(by="zone").to_crs("EPSG:5070") (float64 throughout):
-#   Zone 1: 0.5186788438
-#   Zone 2: 0.4736862803
+# on gdf.dissolve(by="zone").to_crs("EPSG:32614") (float64 throughout):
+#   Zone 1: 0.5230335097
+#   Zone 2: 0.4753643213
 # Note: gerrytools._reock gives slightly different values (~7e-5 error) because
 # cv2.minEnclosingCircle requires float32 input, losing ~4 digits of precision.
 
@@ -312,5 +313,5 @@ def test_reock(
     )
     scores = reock(ctx)
 
-    assert scores[1] == pytest.approx(0.5186788438, abs=1e-6)
-    assert scores[2] == pytest.approx(0.4736862803, abs=1e-6)
+    assert scores[1] == pytest.approx(0.5230335097, abs=1e-6)
+    assert scores[2] == pytest.approx(0.4753643213, abs=1e-6)
