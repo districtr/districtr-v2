@@ -4,6 +4,7 @@ import {InfoCircledIcon} from '@radix-ui/react-icons';
 import {Checkbox, Text as RadixText} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {MapPill} from './MapPill';
@@ -28,6 +29,13 @@ export const BlockModePill = () => {
   const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
   const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
   const exitBlockView = useMapStore(state => state.exitBlockView);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  // Super Draw re-arms Break on exit so the next unit is one click away
+  // (Escape again disarms it, below).
+  const exit = () => {
+    exitBlockView();
+    if (superDraw) setActiveTool(ACTIVE_TOOLS.SHATTER);
+  };
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;
 
@@ -67,8 +75,8 @@ export const BlockModePill = () => {
     return (
       <MapPill
         testId="block-mode-pill"
-        onEscape={exitBlockView}
-        action={{label: 'Exit block view (Esc)', onClick: exitBlockView}}
+        onEscape={exit}
+        action={{label: 'Exit block view (Esc)', onClick: exit}}
         extra={
           <RadixText as="label" size="2" className="flex items-center gap-1 cursor-pointer">
             <Checkbox
