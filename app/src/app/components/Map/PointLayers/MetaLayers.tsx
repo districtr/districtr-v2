@@ -12,12 +12,16 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import React, {useLayoutEffect, useMemo, useState} from 'react';
+import React, {useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
 import {FilterSpecification} from 'maplibre-gl';
+
+const POPULATION_TEXT_LAYER_IDS = ['POPULATION_TEXT_PARENT', 'POPULATION_TEXT_CHILD'];
+// ponytail: badge radius + stroke at max zoom; over-hides a few px when zoomed out.
+const ZONE_BADGE_HALF_SIZE_PX = 21;
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -82,7 +86,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
 
   return (
     <Layer
-      id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
+      id={POPULATION_TEXT_LAYER_IDS[child ? 1 : 0]}
       type="symbol"
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
       beforeId={MAP_LAYER_ANCHOR_IDS.reference}
@@ -114,6 +118,8 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
         'text-halo-color': '#fff',
         // Scales with the larger text so the numbers stay legible over color.
         'text-halo-width': 2.5,
+        // Set by ZoneNumbersLayer for labels a district badge would sit on.
+        'text-opacity': ['case', ['boolean', ['feature-state', 'underZoneLabel'], false], 0, 1],
       }}
     />
   );
@@ -144,9 +150,47 @@ const ZoneNumbersLayer = () => {
   const zonesWithDescriptions = useMemo(() => {
     return getZonesWithDescriptions();
   }, [getZonesWithDescriptions, zoneDescriptions]);
+  const lastLabelData = useRef('');
+  const hiddenPopulationLabels = useRef(new Map<string, {source: string; id: string}>());
+
+  // Population labels yield to district badges. MapLibre collision can't express
+  // this (badges must always show; population labels overlap each other from z12),
+  // so hide the ones under a badge via feature-state.
+  const hidePopulationLabelsUnder = (badges: GeoJSON.Feature<GeoJSON.Point>[]) => {
+    const map = useMapStore.getState().getMapRef();
+    if (!map) return;
+    const layers = POPULATION_TEXT_LAYER_IDS.filter(id => map.getLayer(id));
+    const next = new Map<string, {source: string; id: string}>();
+    if (layers.length) {
+      const r = ZONE_BADGE_HALF_SIZE_PX;
+      badges.forEach(badge => {
+        const {x, y} = map.project(badge.geometry.coordinates as [number, number]);
+        map
+          .queryRenderedFeatures(
+            [
+              [x - r, y - r],
+              [x + r, y + r],
+            ],
+            {layers}
+          )
+          .forEach(f => next.set(`${f.source}|${f.id}`, {source: f.source, id: String(f.id)}));
+      });
+    }
+    // Diff, so an unchanged set triggers no repaint (and no idle -> update loop).
+    hiddenPopulationLabels.current.forEach((target, key) => {
+      if (!next.has(key)) map.removeFeatureState(target, 'underZoneLabel');
+    });
+    next.forEach((target, key) => {
+      if (!hiddenPopulationLabels.current.has(key)) {
+        map.setFeatureState(target, {underZoneLabel: true});
+      }
+    });
+    hiddenPopulationLabels.current = next;
+  };
 
   const addZoneMetaLayers = async () => {
-    const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
+    const {showZoneNumbers, showPaintedDistricts, showBlockPopulationNumbers} =
+      useMapControlsStore.getState().mapOptions;
     const map = useMapStore.getState().getMapRef();
     if (!map) return;
     const currentView = map.getBounds();
@@ -176,18 +220,29 @@ const ZoneNumbersLayer = () => {
             hasComments: zonesWithDescriptionSet.has(feature.properties?.zone),
           },
         }));
-        setZoneNumberData({
-          ...geoms.centroids,
-          features: enrichedFeatures,
-        });
+        // Skip unchanged data: a fresh object re-renders the map, whose idle
+        // event would schedule another identical update.
+        const key = JSON.stringify(enrichedFeatures);
+        if (key !== lastLabelData.current) {
+          lastLabelData.current = key;
+          setZoneNumberData({
+            ...geoms.centroids,
+            features: enrichedFeatures,
+          });
+        }
+        const badgesShown =
+          showPaintedDistricts && !(showBlockPopulationNumbers && mapState.focusFeatures.length);
+        hidePopulationLabelsUnder(badgesShown ? enrichedFeatures : []);
       }
     } else {
+      lastLabelData.current = '';
       setZoneNumberData(EMPTY_FT_COLLECTION);
+      hidePopulationLabelsUnder([]);
     }
   };
 
   const handleUpdate = useMemo(
-    () => throttle(addZoneMetaLayers, 250, {leading: true, trailing: true}),
+    () => throttle(addZoneMetaLayers, 100, {leading: true, trailing: true}),
     [mapDocumentId]
   );
 
@@ -213,23 +268,22 @@ const ZoneNumbersLayer = () => {
           map.addImage('lock', image.data);
         }
       });
-      map.on('moveend', handleUpdate);
-      map.on('zoomend', handleUpdate);
-      map.on('resize', handleUpdate);
+      // 'move' also fires for zooms and resizes; 'idle' catches late tile loads.
+      map.on('move', handleUpdate);
       map.on('idle', handleUpdate);
     }
     return () => {
       handleUpdate.cancel();
       if (map) {
-        map.off('moveend', handleUpdate);
-        map.off('zoomend', handleUpdate);
-        map.off('resize', handleUpdate);
+        map.off('move', handleUpdate);
         map.off('idle', handleUpdate);
       }
     };
   }, [getMapRef, handleUpdate]);
 
   useEffect(() => {
+    lastLabelData.current = '';
+    hiddenPopulationLabels.current.clear();
     setZoneNumberData(EMPTY_FT_COLLECTION);
   }, [mapDocumentId]);
 

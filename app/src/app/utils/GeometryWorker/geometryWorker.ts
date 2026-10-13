@@ -2,13 +2,16 @@ import {expose} from 'comlink';
 import centerOfMass from '@turf/center-of-mass';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import {LngLatBoundsLike} from 'maplibre-gl';
-import nearestPoint from '@turf/nearest-point';
 import polylabel from 'polylabel';
 import {EMPTY_FT_COLLECTION} from '../../constants/map/layerStyle';
 import {getMsgpack} from '../api/msgpack';
 
-const POINT_LIMIT = 256;
+const MAX_ZONE_SAMPLES = 512;
 const MIN_POPULATION = 300;
+// Fraction of the view, per side, a kept label may drift into before it is re-placed.
+const STICKY_INSET = 0.1;
+
+type PointIndex = NonNullable<GeometryWorkerClass['pointIndex']>;
 
 /**
  * Find the visual center (pole of inaccessibility) of a polygon.
@@ -63,6 +66,7 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   maxParentZoom: 0,
   previousCentroids: {},
+  previousSpan: 0,
   setPointData(pointData: GeoJSON.FeatureCollection<GeoJSON.Point>) {
     this.pointData = pointData;
   },
@@ -93,6 +97,7 @@ const GeometryWorker: GeometryWorkerClass = {
     };
   },
   updateZones(entries) {
+    this.previousCentroids = {};
     this.zoneAssignments = entries.reduce(
       (acc, [id, zone]) => {
         acc[id] = zone as number;
@@ -138,6 +143,7 @@ const GeometryWorker: GeometryWorkerClass = {
     this.childPointData = EMPTY_FT_COLLECTION;
   },
   resetZones() {
+    this.previousCentroids = {};
     this.zoneAssignments = {};
   },
   getCentroidBoilerplate(bounds) {
@@ -170,77 +176,107 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
-  async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
-    const pointData = this.pointData;
-    const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
-    if (!activeZones.length || !pointData?.features?.length) {
-      return {
-        centroids,
-        dissolved,
+  getPointIndex() {
+    const {pointData, childPointData, zoneAssignments} = this;
+    let index = this.pointIndex;
+    if (!index || index.parent !== pointData || index.child !== childPointData) {
+      // Shattered parents are never zoned; their blocks carry the zone, so index both.
+      const features = [...pointData.features, ...childPointData.features];
+      const n = features.length;
+      const built: PointIndex = {
+        parent: pointData,
+        child: childPointData,
+        ids: new Array(n),
+        x: new Float64Array(n),
+        y: new Float64Array(n),
+        pop: new Float64Array(n),
+        zones: new Int32Array(n),
       };
+      features.forEach((f, i) => {
+        built.ids[i] = f.properties?.path;
+        built.x[i] = f.geometry.coordinates[0];
+        built.y[i] = f.geometry.coordinates[1];
+        built.pop[i] = f.properties?.total_pop_20 ?? 0;
+      });
+      index = this.pointIndex = built;
     }
+    if (index.zoneSource !== zoneAssignments) {
+      for (let i = 0; i < index.ids.length; i++) {
+        index.zones[i] = zoneAssignments[index.ids[i]] ?? -1;
+      }
+      index.zoneSource = zoneAssignments;
+    }
+    return index;
+  },
+  async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
+    const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
+    const {x, y, pop, zones} = this.getPointIndex();
     const [minLon, minLat, maxLon, maxLat] = bounds;
+    const active = new Set(activeZones);
 
-    // Group points by zone and filter by bounds
-    const zonePoints: Record<number, GeoJSON.Feature<GeoJSON.Point>[]> = {};
-    const coords: Record<number, {lng: number[]; lat: number[]}> = {};
-
-    pointData.features.forEach(point => {
-      const id = point.properties?.path;
-      if (!id) return;
-      const zone = this.zoneAssignments[id];
-      if (zone === null || zone === undefined || !activeZones.includes(zone)) return;
-      // Limit 64 points per zone
-      if (zonePoints[zone]?.length >= POINT_LIMIT) return;
-      const [lng, lat] = point.geometry.coordinates;
-      // Filter points within bounds
-      if (lng < minLon || lng > maxLon || lat < minLat || lat > maxLat) return;
-      if (point.properties?.total_pop_20 < MIN_POPULATION && zonePoints[zone]?.length > 0) return;
-
-      if (!zonePoints[zone]) {
-        zonePoints[zone] = [];
-        coords[zone] = {lng: [], lat: []};
+    // In-view points per zone; low-population points only as a last resort.
+    const populated = new Map<number, number[]>();
+    const fallback = new Map<number, number>();
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] < minLon || x[i] > maxLon || y[i] < minLat || y[i] > maxLat) continue;
+      const zone = zones[i];
+      if (!active.has(zone)) continue;
+      if (pop[i] >= MIN_POPULATION) {
+        const list = populated.get(zone);
+        list ? list.push(i) : populated.set(zone, [i]);
+      } else if (!fallback.has(zone)) {
+        fallback.set(zone, i);
       }
-      zonePoints[zone].push(point);
-      coords[zone].lng.push(lng);
-      coords[zone].lat.push(lat);
-    });
+    }
 
-    // For each zone, create bbox around points and find nearest point to center
-    Object.entries(zonePoints).forEach(([zoneStr, points]) => {
-      if (!points.length) return;
-      const zone = +zoneStr;
+    // Panning or zooming in keeps a label where it is while it stays clear of the
+    // view edge, so labels ride along with the map instead of hopping each update.
+    const span = maxLon - minLon;
+    const keepPrevious = span <= this.previousSpan * 1.01;
+    const insetX = span * STICKY_INSET;
+    const insetY = (maxLat - minLat) * STICKY_INSET;
+    const median = (values: number[]) => Float64Array.from(values).sort()[values.length >> 1];
 
-      // Create a FeatureCollection from the zone's points
-      const zonePointCollection: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-        type: 'FeatureCollection',
-        features: points,
-      };
-      const medianLat = coords[zone].lat.sort((a, b) => a - b)[
-        Math.floor(coords[zone].lat.length / 2)
-      ];
-      const medianLng = coords[zone].lng.sort((a, b) => a - b)[
-        Math.floor(coords[zone].lng.length / 2)
-      ];
-      const targetPoint: GeoJSON.Feature<GeoJSON.Point> = {
+    new Set([...populated.keys(), ...fallback.keys()]).forEach(zone => {
+      const previous = this.previousCentroids[zone];
+      if (keepPrevious && previous) {
+        const [px, py] = previous.geometry.coordinates;
+        if (
+          px > minLon + insetX &&
+          px < maxLon - insetX &&
+          py > minLat + insetY &&
+          py < maxLat - insetY
+        ) {
+          centroids.features.push(previous);
+          return;
+        }
+      }
+      const candidates = populated.get(zone) ?? [fallback.get(zone)!];
+      // Even stride, not first-N: data order is geoid order, which clusters by county.
+      const step = Math.ceil(candidates.length / MAX_ZONE_SAMPLES);
+      const sample = step > 1 ? candidates.filter((_, k) => k % step === 0) : candidates;
+      const mx = median(sample.map(i => x[i]));
+      const my = median(sample.map(i => y[i]));
+      let best = sample[0];
+      let bestDistance = Infinity;
+      sample.forEach(i => {
+        const d = (x[i] - mx) ** 2 + (y[i] - my) ** 2;
+        if (d < bestDistance) {
+          bestDistance = d;
+          best = i;
+        }
+      });
+      centroids.features.push({
         type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [medianLng, medianLat],
-        },
-        properties: {},
-      };
-      const nearest = nearestPoint(targetPoint, zonePointCollection);
-
-      if (nearest) {
-        centroids.features.push({
-          type: 'Feature',
-          properties: {zone},
-          geometry: nearest.geometry,
-        } as GeoJSON.Feature<GeoJSON.Point>);
-      }
+        properties: {zone},
+        geometry: {type: 'Point', coordinates: [x[best], y[best]]},
+      });
     });
 
+    this.previousCentroids = Object.fromEntries(
+      centroids.features.map(f => [f.properties!.zone, f])
+    );
+    this.previousSpan = span;
     return {
       centroids,
       dissolved,
@@ -404,3 +440,4 @@ const GeometryWorker: GeometryWorkerClass = {
 };
 
 expose(GeometryWorker);
+export default GeometryWorker;
