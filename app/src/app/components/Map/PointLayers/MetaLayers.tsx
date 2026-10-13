@@ -1,5 +1,6 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
 import {
+  CANONICAL_LAYER_IDS,
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
   ZONE_LABEL_SOURCE_ID,
@@ -18,10 +19,6 @@ import {Source, Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
 import {FilterSpecification} from 'maplibre-gl';
-
-const POPULATION_TEXT_LAYER_IDS = ['POPULATION_TEXT_PARENT', 'POPULATION_TEXT_CHILD'];
-// ponytail: badge radius + stroke at max zoom; over-hides a few px when zoomed out.
-const ZONE_BADGE_HALF_SIZE_PX = 21;
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -86,7 +83,7 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
 
   return (
     <Layer
-      id={POPULATION_TEXT_LAYER_IDS[child ? 1 : 0]}
+      id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
       type="symbol"
       source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
       beforeId={MAP_LAYER_ANCHOR_IDS.reference}
@@ -111,15 +108,15 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
         'text-offset': [0, 0],
         // padding
         'text-padding': 0,
-        'text-allow-overlap': ['step', ['zoom'], false, 12, true],
+        // From z12 labels may overlap each other ('cooperative') but still yield to
+        // 'never' symbols placed before them, i.e. the district badge collider.
+        'text-overlap': ['step', ['zoom'], 'never', 12, 'cooperative'],
       }}
       paint={{
         'text-color': '#000',
         'text-halo-color': '#fff',
         // Scales with the larger text so the numbers stay legible over color.
         'text-halo-width': 2.5,
-        // Set by ZoneNumbersLayer for labels a district badge would sit on.
-        'text-opacity': ['case', ['boolean', ['feature-state', 'underZoneLabel'], false], 0, 1],
       }}
     />
   );
@@ -151,46 +148,8 @@ const ZoneNumbersLayer = () => {
     return getZonesWithDescriptions();
   }, [getZonesWithDescriptions, zoneDescriptions]);
   const lastLabelData = useRef('');
-  const hiddenPopulationLabels = useRef(new Map<string, {source: string; id: string}>());
-
-  // Population labels yield to district badges. MapLibre collision can't express
-  // this (badges must always show; population labels overlap each other from z12),
-  // so hide the ones under a badge via feature-state.
-  const hidePopulationLabelsUnder = (badges: GeoJSON.Feature<GeoJSON.Point>[]) => {
-    const map = useMapStore.getState().getMapRef();
-    if (!map) return;
-    const layers = POPULATION_TEXT_LAYER_IDS.filter(id => map.getLayer(id));
-    const next = new Map<string, {source: string; id: string}>();
-    if (layers.length) {
-      const r = ZONE_BADGE_HALF_SIZE_PX;
-      badges.forEach(badge => {
-        const {x, y} = map.project(badge.geometry.coordinates as [number, number]);
-        map
-          .queryRenderedFeatures(
-            [
-              [x - r, y - r],
-              [x + r, y + r],
-            ],
-            {layers}
-          )
-          .forEach(f => next.set(`${f.source}|${f.id}`, {source: f.source, id: String(f.id)}));
-      });
-    }
-    // Diff, so an unchanged set triggers no repaint (and no idle -> update loop).
-    hiddenPopulationLabels.current.forEach((target, key) => {
-      if (!next.has(key)) map.removeFeatureState(target, 'underZoneLabel');
-    });
-    next.forEach((target, key) => {
-      if (!hiddenPopulationLabels.current.has(key)) {
-        map.setFeatureState(target, {underZoneLabel: true});
-      }
-    });
-    hiddenPopulationLabels.current = next;
-  };
-
   const addZoneMetaLayers = async () => {
-    const {showZoneNumbers, showPaintedDistricts, showBlockPopulationNumbers} =
-      useMapControlsStore.getState().mapOptions;
+    const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const map = useMapStore.getState().getMapRef();
     // No label work mid-motion: a re-place forces MapLibre to re-place every
     // symbol. The 'idle' after the motion picks it up.
@@ -232,14 +191,10 @@ const ZoneNumbersLayer = () => {
             features: enrichedFeatures,
           });
         }
-        const badgesShown =
-          showPaintedDistricts && !(showBlockPopulationNumbers && mapState.focusFeatures.length);
-        hidePopulationLabelsUnder(badgesShown ? enrichedFeatures : []);
       }
     } else {
       lastLabelData.current = '';
       setZoneNumberData(EMPTY_FT_COLLECTION);
-      hidePopulationLabelsUnder([]);
     }
   };
 
@@ -283,7 +238,6 @@ const ZoneNumbersLayer = () => {
 
   useEffect(() => {
     lastLabelData.current = '';
-    hiddenPopulationLabels.current.clear();
     setZoneNumberData(EMPTY_FT_COLLECTION);
   }, [mapDocumentId]);
 
@@ -381,6 +335,25 @@ const ZoneNumbersLayer = () => {
           visibility: shouldHide ? 'none' : 'visible',
         }}
         filter={['==', ['get', 'hasComments'], true]}
+      />
+      {/* Invisible, badge-sized collision box. Placed first (topmost) with 'never',
+          so population labels ('never' / 'cooperative') yield to it; the visible
+          badge layers below stay 'always' so crowded districts all keep a number. */}
+      <Layer
+        id={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
+        type="symbol"
+        source={ZONE_LABEL_SOURCE_ID}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': ['to-string', ['get', 'zone']],
+          'text-font': ['Barlow Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
+          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
+          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
+          'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
+          'text-overlap': 'never',
+        }}
+        paint={{'text-opacity': 0}}
       />
     </Source>
   );
