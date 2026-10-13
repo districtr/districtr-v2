@@ -152,7 +152,7 @@ const ZoneNumbersLayer = () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const map = useMapStore.getState().getMapRef();
     // No label work mid-motion: a re-place forces MapLibre to re-place every
-    // symbol. The 'idle' after the motion picks it up.
+    // symbol. The 'moveend' after the motion picks it up.
     if (!map || map.isMoving()) return;
     const currentView = map.getBounds();
     const bounds = [
@@ -225,12 +225,15 @@ const ZoneNumbersLayer = () => {
           map.addImage('lock', image.data);
         }
       });
-      // 'idle' follows every pan, zoom and resize once tiles have loaded.
+      // 'moveend' covers pans, zooms and resizes without waiting on tiles; 'idle' is
+      // a backstop (e.g. point data landing after load) and a no-op when unchanged.
+      map.on('moveend', handleUpdate);
       map.on('idle', handleUpdate);
     }
     return () => {
       handleUpdate.cancel();
       if (map) {
+        map.off('moveend', handleUpdate);
         map.off('idle', handleUpdate);
       }
     };
