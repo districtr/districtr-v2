@@ -522,27 +522,6 @@ export const DotLab: React.FC = () => {
           </select>
         </section>
 
-        <section className="flex flex-wrap gap-1">
-          {cats.map(c => {
-            const off = disabled.includes(c.label);
-            return (
-              <button
-                key={c.label}
-                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${off ? 'opacity-40' : ''}`}
-                onClick={() =>
-                  setDisabled(d => (off ? d.filter(x => x !== c.label) : [...d, c.label]))
-                }
-              >
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{background: c.hex}}
-                />
-                {c.label}
-              </button>
-            );
-          })}
-        </section>
-
         <section className="flex flex-col gap-2">
           {families.map(([family, modes]) => (
             <div key={family}>
@@ -609,9 +588,32 @@ export const DotLab: React.FC = () => {
             ))}
           </div>
         )}
-        <div className="pointer-events-none absolute bottom-8 left-2 rounded bg-white/85 px-2 py-1 text-xs shadow">
-          {mode.legend?.(params, frameInfo.ppd) ??
-            (params.ref ? `Full tone ≈ ${params.ref.toLocaleString()} people/km²` : mode.name)}
+        {/* On-map legend: group swatches double as toggles */}
+        <div className="absolute bottom-8 left-2 flex max-w-[calc(100%-1rem)] flex-col gap-1 rounded bg-white/90 px-2 py-1.5 text-xs shadow">
+          <div className="flex flex-wrap gap-1">
+            {cats.map(c => {
+              const off = disabled.includes(c.label);
+              return (
+                <button
+                  key={c.label}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${off ? 'opacity-40' : ''}`}
+                  onClick={() =>
+                    setDisabled(d => (off ? d.filter(x => x !== c.label) : [...d, c.label]))
+                  }
+                >
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{background: c.hex}}
+                  />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-gray-700">
+            {mode.legend?.(params, frameInfo.ppd) ??
+              (params.ref ? `Full tone ≈ ${params.ref.toLocaleString()} people/km²` : mode.name)}
+          </div>
         </div>
       </div>
     </div>
