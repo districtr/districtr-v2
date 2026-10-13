@@ -12,9 +12,13 @@ import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {HOVER_BTN_STYLE, HoverTrigger, hoverHandlers} from './HoverTrigger';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+import type {EnsembleReference} from '@/app/hooks/useEnsembleReference';
+import {formatShare} from '@utils/ensembleStats';
+import {EnsembleTip} from './EnsembleTip';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
+  ensemble: EnsembleReference;
 }
 
 const DEM = '#2563eb';
@@ -95,7 +99,7 @@ function sortElections(keys: string[]): string[] {
     .map(e => e.key);
 }
 
-export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
+export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation, ensemble}) => {
   const [pov, setPov] = useState<Pov>('dem');
   const [ftvHover, setFtvHover] = useState(false);
   const [ftvPassHover, setFtvPassHover] = useState(false);
@@ -191,6 +195,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const nDistrictsTotal = competitiveness?.n_districts ?? 0;
   const nElectionsAnalyzed = competitiveness?.n_elections ?? 0;
   const competitiveBandFraction = Number(competitiveBand) / 100;
+  // The ensemble counted competitive contests at a 3-point margin; at any other
+  // band the two numbers measure different things, so the comparison is withheld.
+  const bandMatchesEnsemble = competitiveBand === '3';
   const nCompetitiveContests = contestDemVoteShares.filter(
     s => Math.abs(s - 0.5) <= competitiveBandFraction + FLOAT_TOLERANCE
   ).length;
@@ -322,11 +329,19 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             </Text>
                           </Table.Cell>
                           <Table.Cell justify="center">
-                            <Text size="2">
-                              {partySeatCount != null && seatTotal
-                                ? `${partySeatCount}/${seatTotal}`
-                                : '—'}
-                            </Text>
+                            <EnsembleTip
+                              ensemble={ensemble}
+                              metric={{kind: 'election', metric: 'seats', election: key}}
+                              value={seats?.dem}
+                              format={NUMBER_FORMATS.STRING}
+                              complementOf={pov === 'rep' ? (seatTotal ?? undefined) : undefined}
+                            >
+                              <Text size="2">
+                                {partySeatCount != null && seatTotal
+                                  ? `${partySeatCount}/${seatTotal}`
+                                  : '—'}
+                              </Text>
+                            </EnsembleTip>
                           </Table.Cell>
                           <Table.Cell
                             justify="center"
@@ -352,11 +367,23 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
-                            <Text size="2">
-                              {disp !== null && numDistricts !== null
-                                ? dispLabel(rawDisp!, numDistricts)
-                                : '—'}
-                            </Text>
+                            <EnsembleTip
+                              ensemble={ensemble}
+                              metric={{
+                                kind: 'election',
+                                metric: 'disproportionality',
+                                election: key,
+                              }}
+                              value={rawDisp}
+                              format={NUMBER_FORMATS.SIGNED_PCT}
+                              negate={pov === 'rep'}
+                            >
+                              <Text size="2">
+                                {disp !== null && numDistricts !== null
+                                  ? dispLabel(rawDisp!, numDistricts)
+                                  : '—'}
+                              </Text>
+                            </EnsembleTip>
                           </Table.Cell>
                         </Table.Row>
                       );
@@ -502,6 +529,13 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
                     needed to pass.)
                   </Text>
+                  {ensemble.active && ensemble.preset && ensemble.summary?.ftv && (
+                    <Text size="2" mb="3" as="p">
+                      Among {ensemble.preset.n_plans.toLocaleString()} randomly drawn{' '}
+                      {ensemble.preset.label} plans,{' '}
+                      {formatShare(ensemble.summary.ftv.share_passing)} pass this test.
+                    </Text>
+                  )}
                 </>
               )}
 
@@ -573,12 +607,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             ...ftvCellHighlight(isFtvHighlighted(key)),
                           }}
                         >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.disproportionality?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
+                          <EnsembleTip
+                            ensemble={ensemble}
+                            metric={{kind: 'election', metric: 'disproportionality', election: key}}
+                            value={evaluation.disproportionality?.[key]}
+                            format={NUMBER_FORMATS.SIGNED_PCT}
+                            negate={pov === 'rep'}
+                          >
+                            <Text size="2">
+                              {formatNumber(
+                                povSign(evaluation.disproportionality?.[key]),
+                                NUMBER_FORMATS.SIGNED_PCT
+                              )}
+                            </Text>
+                          </EnsembleTip>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
@@ -593,12 +635,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             ),
                           }}
                         >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.efficiency_gap?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
+                          <EnsembleTip
+                            ensemble={ensemble}
+                            metric={{kind: 'election', metric: 'efficiency_gap', election: key}}
+                            value={evaluation.efficiency_gap?.[key]}
+                            format={NUMBER_FORMATS.SIGNED_PCT}
+                            negate={pov === 'rep'}
+                          >
+                            <Text size="2">
+                              {formatNumber(
+                                povSign(evaluation.efficiency_gap?.[key]),
+                                NUMBER_FORMATS.SIGNED_PCT
+                              )}
+                            </Text>
+                          </EnsembleTip>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
@@ -613,12 +663,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             ),
                           }}
                         >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.mean_median?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
+                          <EnsembleTip
+                            ensemble={ensemble}
+                            metric={{kind: 'election', metric: 'mean_median', election: key}}
+                            value={evaluation.mean_median?.[key]}
+                            format={NUMBER_FORMATS.SIGNED_PCT}
+                            negate={pov === 'rep'}
+                          >
+                            <Text size="2">
+                              {formatNumber(
+                                povSign(evaluation.mean_median?.[key]),
+                                NUMBER_FORMATS.SIGNED_PCT
+                              )}
+                            </Text>
+                          </EnsembleTip>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
@@ -633,12 +691,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             ),
                           }}
                         >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.partisan_bias?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
+                          <EnsembleTip
+                            ensemble={ensemble}
+                            metric={{kind: 'election', metric: 'partisan_bias', election: key}}
+                            value={evaluation.partisan_bias?.[key]}
+                            format={NUMBER_FORMATS.SIGNED_PCT}
+                            negate={pov === 'rep'}
+                          >
+                            <Text size="2">
+                              {formatNumber(
+                                povSign(evaluation.partisan_bias?.[key]),
+                                NUMBER_FORMATS.SIGNED_PCT
+                              )}
+                            </Text>
+                          </EnsembleTip>
                         </Table.Cell>
                         <Table.Cell
                           justify="center"
@@ -647,12 +713,20 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             color: scaledTextColor(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
                           }}
                         >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.eguia?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
+                          <EnsembleTip
+                            ensemble={ensemble}
+                            metric={{kind: 'election', metric: 'eguia', election: key}}
+                            value={evaluation.eguia?.[key]}
+                            format={NUMBER_FORMATS.SIGNED_PCT}
+                            negate={pov === 'rep'}
+                          >
+                            <Text size="2">
+                              {formatNumber(
+                                povSign(evaluation.eguia?.[key]),
+                                NUMBER_FORMATS.SIGNED_PCT
+                              )}
+                            </Text>
+                          </EnsembleTip>
                         </Table.Cell>
                       </Table.Row>
                     ))}
@@ -705,9 +779,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Competitive contests</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {nCompetitiveContests} / {contestDemVoteShares.length}
-                        </Text>
+                        <EnsembleTip
+                          ensemble={ensemble}
+                          metric={{kind: 'plan', metric: 'n_competitive_contests'}}
+                          value={bandMatchesEnsemble ? nCompetitiveContests : null}
+                          format={NUMBER_FORMATS.STRING}
+                        >
+                          <Text size="2" weight="bold">
+                            {nCompetitiveContests} / {contestDemVoteShares.length}
+                          </Text>
+                        </EnsembleTip>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row
@@ -719,9 +800,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Swing districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {swingDistricts.length} / {nDistrictsTotal}
-                        </Text>
+                        <EnsembleTip
+                          ensemble={ensemble}
+                          metric={{kind: 'plan', metric: 'n_swing_districts'}}
+                          value={swingDistricts.length}
+                          format={NUMBER_FORMATS.STRING}
+                        >
+                          <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                            {swingDistricts.length} / {nDistrictsTotal}
+                          </Text>
+                        </EnsembleTip>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row
@@ -733,9 +821,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Dem Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {demSweepDistricts.length} / {nDistrictsTotal}
-                        </Text>
+                        <EnsembleTip
+                          ensemble={ensemble}
+                          metric={{kind: 'plan', metric: 'n_dem_districts'}}
+                          value={demSweepDistricts.length}
+                          format={NUMBER_FORMATS.STRING}
+                        >
+                          <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                            {demSweepDistricts.length} / {nDistrictsTotal}
+                          </Text>
+                        </EnsembleTip>
                       </Table.Cell>
                     </Table.Row>
                     <Table.Row
@@ -747,9 +842,16 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Repub sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {repSweepDistricts.length} / {nDistrictsTotal}
-                        </Text>
+                        <EnsembleTip
+                          ensemble={ensemble}
+                          metric={{kind: 'plan', metric: 'n_rep_districts'}}
+                          value={repSweepDistricts.length}
+                          format={NUMBER_FORMATS.STRING}
+                        >
+                          <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                            {repSweepDistricts.length} / {nDistrictsTotal}
+                          </Text>
+                        </EnsembleTip>
                       </Table.Cell>
                     </Table.Row>
                   </Table.Body>

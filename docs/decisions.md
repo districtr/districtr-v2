@@ -2,6 +2,46 @@
 
 Why the system is shaped the way it is, in reverse-chronological order. Each entry is PR-anchored so its claims can be re-verified. Companion to [`overview.md`](overview.md) (the what); this file is the why.
 
+## Ensemble plans as the evaluation panel's reference frame (2026-10-13)
+
+The evaluation panel reported a plan's metrics with nothing to read them
+against: a 4% efficiency gap is unremarkable or extreme depending on what the
+map's geography allows, and the panel said nothing about which. Each metric
+cell now carries the median of an ensemble of computer-drawn plans for the same
+module and the share of that ensemble the plan exceeds.
+
+- **The chain is rustrecom, not GerryChain.** `pipelines/ensembles` drives
+  [frcw.rs](https://github.com/mggg/frcw.rs), the authors' Rust ReCom, at
+  roughly 35 seconds for 100,000 accepted plans where the Python implementation
+  takes hours. Two presets per module, ReCom-B and its county-aware variant,
+  named for the Cannon, Duchin, Randall & Rule (2025) taxonomy. Each step of a
+  non-reversible chain is an accepted plan, so there is no burn-in and no
+  thinning.
+- **Metrics come from gerrytools, not from the backend's formulas.** Scoring
+  100,000 plans needs its compiled engine (about 1 ms per plan), and gerrytools
+  2.0.1 pins newer pandas and geopandas than the rest of the pipelines, so the
+  ensembles commands run from `requirements-ensembles.txt` in their own venv.
+  The consequence is that two implementations of each metric exist: the
+  ensemble's values and the plan's own values are computed by different code,
+  and a formula change on one side has to be mirrored on the other.
+- **Serving is a static package, so no backend endpoint exists.** Per module
+  and preset, `ensembles/<module_slug>/` on the public bucket holds bucket
+  counts, a 201-point quantile table, 100 example plans and their thumbnails.
+  The browser computes the median and the plan's percentile from the quantile
+  table; the plan's own values still come from the evaluation endpoint. The
+  package is immutable per generation run and carries no environment segment,
+  so one copy serves every deployment.
+- **Adding a column to a module needs no new chain.** Assignments are stored,
+  so new elections are tallied by re-scoring the stored plans.
+- **The comparison is withheld rather than approximated.** A plan with
+  unassigned units, or with a district count differing from the ensemble's, is
+  measuring something the ensemble never drew, so the panel shows a disabled
+  control and no numbers. The same reasoning withholds the cut-edges comparison
+  on a shatterable module, where the backend counts block-level cut edges and
+  the chain ran on VTDs.
+- **Evaluation use only.** Offering a random ensemble plan as a starting point
+  for editing is a separate decision, deliberately left unmade here.
+
 ## Moderation goes deterministic, submissions only (2026-09-29)
 
 - **A word list, not a model.** `backend/app/submissions/moderation.py` flags a submission when it contains a blocklisted phrase (whole-word, punctuation-insensitive). `blocklist.sha256` stores SHA-256 digests of the phrases, not the words; `python -m app.submissions.moderation "<phrase>"` prints a phrase's line and whether it's listed. The OpenAI endpoint and `safetext` are gone: same text, same verdict, no network call, no API key. The list is curated to spare identity terms and place/person names that tripped on testimony. The matched phrase is stored as `moderation_match` and shown to portal admins, so a false positive can be traced to its list entry. It replaces the 0–1 `moderation_score`, which a yes/no check can't fill meaningfully (migration `f1c6a3d85b20`). The check also runs inside the request's transaction, not as a background task: it takes under a millisecond and can't fail on the network, so an entry is never public before it's been checked.

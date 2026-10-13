@@ -11,6 +11,9 @@ import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
+import {useMapStore} from '@store/mapStore';
+import type {EnsembleReference} from '@/app/hooks/useEnsembleReference';
+import {EnsembleTip} from './EnsembleTip';
 
 // Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
 // All three districts are from the 2020 redistricting cycle: Alabama's and
@@ -53,6 +56,7 @@ const CO2 = {
 
 interface CompactnessSectionProps {
   evaluation: DocumentEvaluation;
+  ensemble: EnsembleReference;
 }
 
 interface Exemplar {
@@ -125,9 +129,14 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
   );
 };
 
-export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluation}) => {
+export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluation, ensemble}) => {
   const {cut_edges, polsby_popper, reock} = evaluation;
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+  const parentUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
+  // The package states the unit its cut edges were counted between; a plan's
+  // count compares only against a count in the same unit.
+  const ensembleCutEdgesUnit = ensemble.summary?.cut_edges?.unit_type ?? parentUnitType;
+  const cutEdgesComparable = !!cut_edges && cut_edges.unit_type === ensembleCutEdgesUnit;
   const zoomToDistrict = useZoomToDistrict();
   const zones = useMemo(
     () => (polsby_popper ? Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b)) : []),
@@ -177,8 +186,16 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           {cut_edges ? (
             <>
               <Text size="2" mb="2" as="p">
-                Your plan has <strong>{cut_edges.cut_count.toLocaleString()}</strong> cut edges
-                between {cut_edges.unit_type}s.
+                Your plan has{' '}
+                <EnsembleTip
+                  ensemble={ensemble}
+                  metric={{kind: 'plan', metric: 'cut_edges'}}
+                  value={cutEdgesComparable ? cut_edges.cut_count : null}
+                  format={NUMBER_FORMATS.STRING}
+                >
+                  <strong>{cut_edges.cut_count.toLocaleString()}</strong>
+                </EnsembleTip>{' '}
+                cut edges between {cut_edges.unit_type}s.
               </Text>
               <Text size="2" as="p">
                 One measurement of compactness is the number of <strong>cut edges</strong> in a
@@ -205,9 +222,34 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           <ExemplarTable scoreKey="polsby_popper" exemplars={PP_exemplars} />
           {ppStats && (
             <Text size="2" as="p" mb="3">
-              In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
-              <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of{' '}
-              <strong>{ppStats.mean.toFixed(3)}</strong>.
+              In your plan, scores range from{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'polsby_popper', aggregate: 'min'}}
+                value={ppStats.min}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{ppStats.min.toFixed(3)}</strong>
+              </EnsembleTip>{' '}
+              to{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'polsby_popper', aggregate: 'max'}}
+                value={ppStats.max}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{ppStats.max.toFixed(3)}</strong>
+              </EnsembleTip>
+              , with a mean of{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'polsby_popper', aggregate: 'mean'}}
+                value={ppStats.mean}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{ppStats.mean.toFixed(3)}</strong>
+              </EnsembleTip>
+              .
             </Text>
           )}
 
@@ -224,9 +266,34 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           <ExemplarTable scoreKey="reock" exemplars={REOCK_exemplars} />
           {reockStats && (
             <Text size="2" as="p" mb="3">
-              In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
-              <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of{' '}
-              <strong>{reockStats.mean.toFixed(3)}</strong>.
+              In your plan, scores range from{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'reock', aggregate: 'min'}}
+                value={reockStats.min}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{reockStats.min.toFixed(3)}</strong>
+              </EnsembleTip>{' '}
+              to{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'reock', aggregate: 'max'}}
+                value={reockStats.max}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{reockStats.max.toFixed(3)}</strong>
+              </EnsembleTip>
+              , with a mean of{' '}
+              <EnsembleTip
+                ensemble={ensemble}
+                metric={{kind: 'compactness', metric: 'reock', aggregate: 'mean'}}
+                value={reockStats.mean}
+                format={NUMBER_FORMATS.DECIMAL_3}
+              >
+                <strong>{reockStats.mean.toFixed(3)}</strong>
+              </EnsembleTip>
+              .
             </Text>
           )}
 

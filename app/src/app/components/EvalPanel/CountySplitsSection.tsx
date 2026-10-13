@@ -9,6 +9,9 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {hoverHandlers} from './HoverTrigger';
+import {NUMBER_FORMATS} from '@constants/demography/format';
+import type {EnsembleReference} from '@/app/hooks/useEnsembleReference';
+import {EnsembleTip} from './EnsembleTip';
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.VTD]:
@@ -21,9 +24,10 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
 
 interface CountySplitsSectionProps {
   evaluation: DocumentEvaluation;
+  ensemble: EnsembleReference;
 }
 
-export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluation}) => {
+export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluation, ensemble}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -193,9 +197,16 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                     <Text size="2">Number of counties that are split</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" weight="bold">
-                      {splitCounties}
-                    </Text>
+                    <EnsembleTip
+                      ensemble={ensemble}
+                      metric={{kind: 'plan', metric: 'county_splits'}}
+                      value={splitCounties}
+                      format={NUMBER_FORMATS.STRING}
+                    >
+                      <Text size="2" weight="bold">
+                        {splitCounties}
+                      </Text>
+                    </EnsembleTip>
                   </Table.Cell>
                 </Table.Row>
                 {smallSplitCount !== null && (
