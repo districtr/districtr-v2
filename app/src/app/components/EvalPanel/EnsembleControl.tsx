@@ -9,15 +9,19 @@ import type {EnsembleReference} from '@/app/hooks/useEnsembleReference';
  * A plan with unassigned units, or with a district count the ensemble was never
  * drawn for, has no place in the distributions: the control reduces to one
  * line saying so, and every other part of the ensemble layer stays off the page.
+ * A custom-districts module reaches its base module's ensemble through an alias
+ * index, so the district-count line is what its readers mostly see.
  */
 export const EnsembleControl: React.FC<{ensemble: EnsembleReference}> = ({ensemble}) => {
   const openModal = useEnsembleStore(state => state.openModal);
-  const {index, preset, blocked} = ensemble;
+  const {index, preset, blocked, summary} = ensemble;
   if (!index || !preset) return null;
   if (blocked) {
     return (
       <Text size="1" color="gray" mt="2" as="p">
-        Ensemble-based comparison available once all districts are drawn
+        {blocked === 'district-count' && summary
+          ? `Ensemble-based comparison available for complete ${summary.num_dists}-district plans`
+          : 'Ensemble-based comparison available once all districts are drawn'}
       </Text>
     );
   }

@@ -73,7 +73,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   <EnsembleModalDialog
     open={open}
     onOpenChange={onOpenChange}
-    moduleSlug={moduleSlug}
+    moduleSlug={preset.package ?? moduleSlug}
     presetKey={preset.key}
     presetLabel={preset.label}
     nPlans={preset.n_plans}

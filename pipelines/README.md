@@ -214,3 +214,8 @@ distribution and on every segment step.
 `publish --module-slug <slug>` uploads `package/` to
 `s3://<S3_BUCKET>/ensembles/<slug>/` with the credentials in `.env`;
 `--dry-run` lists the files and keys without uploading.
+`--alias <other slug>` additionally writes an `index.json` under the other
+module's slug whose presets carry `"package": "<slug>"`, the folder the app
+then reads them from. A custom-districts module shares its base module's
+ensemble this way (Colorado: `--alias co_custom_districts_v2`); the app's
+district-count gate admits only plans of the ensemble's size.

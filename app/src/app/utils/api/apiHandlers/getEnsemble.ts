@@ -19,6 +19,10 @@ export interface EnsemblePreset {
   default: boolean;
   n_plans: number;
   generated_at: string;
+  /** Module slug whose package folder holds this preset's files, when the
+   * index is an alias for another module's package (a custom-districts module
+   * reading its base module's ensemble). Absent means the index's own module. */
+  package?: string;
 }
 
 export interface EnsembleIndex {

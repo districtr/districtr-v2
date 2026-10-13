@@ -565,6 +565,24 @@ def write_index(package_dir: str | Path, module_slug: str) -> dict:
     return index
 
 
+# Alias indexes are written under the package folder but published under their
+# own module slug, so the base upload leaves this folder out.
+ALIASES_DIRNAME = "aliases"
+
+
+def alias_index(index: dict, alias_slug: str, base_slug: str) -> dict:
+    """``index.json`` for a module that reads another module's package: the same
+    presets, each naming the ``package`` folder to read from. The app's CDN
+    client fetches a preset's files from ``ensembles/<package>/`` when that
+    field is present. A custom-districts module shares its base module's
+    ensemble this way; the app's own district-count gate keeps plans of other
+    sizes out of the comparison."""
+    return {
+        "module_slug": alias_slug,
+        "presets": [{**preset, "package": base_slug} for preset in index["presets"]],
+    }
+
+
 def upload_targets(package_dir: str | Path, module_slug: str) -> list[tuple[Path, str]]:
     """(local file, S3 key) for every file in ``package_dir``, keyed
     ``ensembles/<module_slug>/<relative path>``."""
@@ -572,7 +590,7 @@ def upload_targets(package_dir: str | Path, module_slug: str) -> list[tuple[Path
     return [
         (path, f"ensembles/{module_slug}/{path.relative_to(package_dir).as_posix()}")
         for path in sorted(package_dir.rglob("*"))
-        if path.is_file()
+        if path.is_file() and path.relative_to(package_dir).parts[0] != ALIASES_DIRNAME
     ]
 
 

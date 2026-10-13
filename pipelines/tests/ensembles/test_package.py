@@ -351,3 +351,27 @@ def test_distribution_keeps_many_valued_float_series_continuous():
     dist = package.distribution(np.linspace(0, 1, 500))
     assert dist["kind"] == "continuous"
     assert len(dist["counts"]) == package.CONTINUOUS_BUCKETS
+
+
+def test_alias_index_points_every_preset_at_the_base_package():
+    index = {
+        "module_slug": "co_congressional_districts_v2",
+        "presets": [
+            {"key": "recom_b", "label": "ReCom-B", "default": True, "n_plans": 3}
+        ],
+    }
+    alias = package.alias_index(
+        index, "co_custom_districts_v2", "co_congressional_districts_v2"
+    )
+    assert alias["module_slug"] == "co_custom_districts_v2"
+    assert alias["presets"][0]["package"] == "co_congressional_districts_v2"
+    assert alias["presets"][0]["key"] == "recom_b"
+    assert "package" not in index["presets"][0]
+
+
+def test_upload_targets_leave_alias_indexes_out(tmp_path):
+    (tmp_path / "index.json").write_text("{}")
+    (tmp_path / package.ALIASES_DIRNAME / "other").mkdir(parents=True)
+    (tmp_path / package.ALIASES_DIRNAME / "other" / "index.json").write_text("{}")
+    keys = [key for _, key in package.upload_targets(tmp_path, "base")]
+    assert keys == ["ensembles/base/index.json"]

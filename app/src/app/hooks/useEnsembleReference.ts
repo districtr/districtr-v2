@@ -77,19 +77,22 @@ export const useEnsembleReference = (evaluation: DocumentEvaluation): EnsembleRe
     presets.find(p => p.key === storedPreset) ?? presets.find(p => p.default) ?? presets[0] ?? null;
 
   const {data: summary = null} = useQuery({
-    queryKey: ensembleQueryKeys.summary(moduleSlug ?? '', preset?.key ?? ''),
-    queryFn: () => getEnsembleSummary(moduleSlug!, preset!.key),
+    // An alias index names the module whose folder holds the preset's files.
+    queryKey: ensembleQueryKeys.summary(preset?.package ?? moduleSlug ?? '', preset?.key ?? ''),
+    queryFn: () => getEnsembleSummary(preset!.package ?? moduleSlug!, preset!.key),
     enabled: !!moduleSlug && !!preset,
     staleTime: Infinity,
     retry: false,
   });
 
   const districts = planDistrictCount(evaluation);
-  const blocked: EnsembleBlock | null = !planIsComplete(evaluation)
-    ? 'incomplete'
-    : summary && districts !== null && districts !== summary.num_dists
+  // A plan of the wrong size is told so first: finishing it would change nothing.
+  const blocked: EnsembleBlock | null =
+    summary && districts !== null && districts !== summary.num_dists
       ? 'district-count'
-      : null;
+      : !planIsComplete(evaluation)
+        ? 'incomplete'
+        : null;
 
   return {
     available: !!index && presets.length > 0,

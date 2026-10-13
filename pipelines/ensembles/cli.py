@@ -213,9 +213,19 @@ def package_cmd(
     default=None,
     help="Package folder [default: ../data/ensembles/<module-slug>/package]",
 )
+@click.option(
+    "--alias",
+    "aliases",
+    multiple=True,
+    help="Another module slug that reads this package (e.g. the custom-districts "
+    "module); gets an index.json of its own pointing here. Repeatable.",
+)
 @click.option("--dry-run", is_flag=True, help="List the uploads without uploading")
-def publish(module_slug: str, package_dir: str | None, dry_run: bool) -> None:
-    """Upload a module's package to s3://<S3_BUCKET>/ensembles/<module-slug>/."""
+def publish(
+    module_slug: str, package_dir: str | None, aliases: tuple[str, ...], dry_run: bool
+) -> None:
+    """Upload a module's package to s3://<S3_BUCKET>/ensembles/<module-slug>/,
+    plus an index.json under each --alias slug that points at it."""
     from core.settings import settings
 
     folder = (
@@ -226,6 +236,15 @@ def publish(module_slug: str, package_dir: str | None, dry_run: bool) -> None:
     if not (folder / "index.json").exists():
         raise click.ClickException(f"{folder} has no index.json; run package first")
     targets = package.upload_targets(folder, module_slug)
+    index = json.loads((folder / "index.json").read_text())
+    alias_dir = folder / package.ALIASES_DIRNAME
+    for alias in aliases:
+        alias_path = alias_dir / alias / "index.json"
+        alias_path.parent.mkdir(parents=True, exist_ok=True)
+        alias_path.write_text(
+            json.dumps(package.alias_index(index, alias, module_slug), indent=1)
+        )
+        targets.append((alias_path, f"ensembles/{alias}/index.json"))
     s3_client = None if dry_run else settings.get_s3_client()
     if not dry_run and s3_client is None:
         raise click.ClickException("S3 client is not initialized")
