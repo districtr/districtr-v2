@@ -3,11 +3,18 @@ import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
+import {getEvaluation, type DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
 import {CompactnessSection} from './CompactnessSection';
+import {EnsembleControl} from './EnsembleControl';
+import {EnsembleModal} from './EnsembleModal';
+import {useEnsembleReference} from '@/app/hooks/useEnsembleReference';
+import {useEnsembleStore} from '@store/ensembleStore';
+
+/** Stand-in while the evaluation is in flight: no metric has a value yet. */
+const NO_METRICS: DocumentEvaluation = {};
 
 export const EvalPanel: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -42,6 +49,11 @@ export const EvalPanel: React.FC = () => {
   }, [isLoading, setLoadingState]);
 
   const evaluation = envelope?.metrics;
+  const hasMetrics = !!evaluation && Object.keys(evaluation).length > 0;
+  const ensemble = useEnsembleReference(evaluation ?? NO_METRICS);
+  const modalOpen = useEnsembleStore(state => state.modalOpen);
+  const modalMetric = useEnsembleStore(state => state.modalMetric);
+  const setModalOpen = useEnsembleStore(state => state.setModalOpen);
 
   const planName = mapDocument?.map_metadata?.name ?? 'Untitled Plan';
   const snapshotDate = mapDocument?.updated_at
@@ -63,6 +75,7 @@ export const EvalPanel: React.FC = () => {
             Snapshot of {snapshotDate} · Plan id {publicId}
           </Text>
         )}
+        {ensemble.available && hasMetrics && <EnsembleControl ensemble={ensemble} />}
       </Flex>
 
       {isLoading && (
@@ -79,7 +92,7 @@ export const EvalPanel: React.FC = () => {
         </Flex>
       )}
 
-      {evaluation && Object.keys(evaluation).length === 0 && (
+      {evaluation && !hasMetrics && (
         <Flex p="5">
           <Text size="3">
             This plan is empty. Please add at least one district in the draw mode to see its
@@ -88,13 +101,24 @@ export const EvalPanel: React.FC = () => {
         </Flex>
       )}
 
-      {evaluation && Object.keys(evaluation).length > 0 && (
+      {evaluation && hasMetrics && (
         <Flex direction="column" gap="5" pl="2" pr="5" pb="5">
           <BasicsSection evaluation={evaluation} />
-          <PartisanSection evaluation={evaluation} />
-          <CountySplitsSection evaluation={evaluation} />
-          <CompactnessSection evaluation={evaluation} />
+          <PartisanSection evaluation={evaluation} ensemble={ensemble} />
+          <CountySplitsSection evaluation={evaluation} ensemble={ensemble} />
+          <CompactnessSection evaluation={evaluation} ensemble={ensemble} />
         </Flex>
+      )}
+
+      {ensemble.available && ensemble.preset && mapDocument && hasMetrics && (
+        <EnsembleModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          moduleSlug={mapDocument.districtr_map_slug}
+          preset={ensemble.preset}
+          summary={ensemble.summary}
+          metric={modalMetric}
+        />
       )}
     </div>
   );

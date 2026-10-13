@@ -1,9 +1,10 @@
 'use client';
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import dynamic from 'next/dynamic';
 import {Box, Button, Dialog, Flex, HoverCard, Link, Text} from '@radix-ui/themes';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
 import {helpTipContent, type HelpTipEntry, type HelpTipKey} from './helpTipContent';
+import {HOVER_CARD_CLOSE_DELAY, NEVER_MS, useHoverCard} from './useHoverCard';
 
 // Code-split: most hovers never reach "Watch video", so the player (and the video
 // bytes themselves, loaded lazily inside it) shouldn't be in everyone's initial bundle.
@@ -14,12 +15,6 @@ const LoopVideoPlayer = dynamic(
 
 const COLLAPSED_WIDTH = 220;
 const VIDEO_MODAL_MAX_WIDTH = 720;
-
-// Effectively "never": passed as Radix's own openDelay so its internal open timer
-// can't meaningfully fire. Opening is driven entirely by this component's own timer
-// (see HelpTip), because Radix's timer can't be cancelled from outside — it survives
-// clicks, and a controlled `open` prop doesn't clear it.
-const NEVER_MS = 2 ** 30;
 
 /** Delay (ms) before help opens on hover — the default for every trigger. */
 export const HELP_TIP_HOVER_DELAY = 1250;
@@ -83,28 +78,6 @@ export const HelpTipVideoDialog: React.FC<{
   );
 };
 
-/**
- * Small hover-triggered help affordance: short text, optionally a "Watch video" link
- * opening a full-window modal with the clip and a guide link.
- *
- * Responsibility is split with Radix's HoverCard: OPENING is owned entirely by this
- * component (its own pointerenter-started timer, cancelled by pointerleave), with
- * Radix's internal open timer disabled via a huge openDelay — that timer can't be
- * cancelled from outside, so it would otherwise fire stale opens after the pointer
- * has already left (help popping open with no pointer event left to ever close
- * it). CLOSING stays Radix's: its closeDelay grace period lets the cursor travel
- * from the trigger into the card, and it deliberately keeps the card open while
- * text inside it is selected (`hasSelectionRef` in Radix's own source) so
- * selecting/copying the hover text doesn't get interrupted mid-drag.
- *
- * That selection guard has no built-in expiry, though — once text has been
- * selected, Radix's own hover-leave close won't fire again until a fresh
- * pointerdown inside the content, which can leave the card open indefinitely
- * after a copy. `onPointerDownOutside` below is the escape hatch: any outside
- * click dismisses the card, except a click back on the trigger itself (which
- * would otherwise register as "outside" the portaled content and immediately
- * close the card that same click just reopened).
- */
 /** Calls every ref with the same node, so cloning an element for `ref` doesn't
  * clobber a ref the caller already put on it (same purpose as Radix's own
  * `composeRefs`, used internally by `Slot`). */
@@ -117,6 +90,11 @@ function mergeRefs<T>(...refs: (React.Ref<T> | null | undefined)[]): React.RefCa
   };
 }
 
+/**
+ * Small hover-triggered help affordance: short text, optionally a "Watch video" link
+ * opening a full-window modal with the clip and a guide link. Opening, alignment and
+ * outside-click dismissal come from `useHoverCard`.
+ */
 export const HelpTip: React.FC<{
   tip: HelpTipKey;
   /** Custom hover trigger — wraps this element instead of rendering the default info
@@ -141,40 +119,9 @@ export const HelpTip: React.FC<{
    * a specific side wants that side, not to have it silently overridden. */
   side?: 'top' | 'right' | 'bottom' | 'left';
 }> = ({tip, children, openDelay = HELP_TIP_HOVER_DELAY, text, hideLink, side}) => {
-  const [open, setOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
-  const openTimerRef = useRef<number | undefined>(undefined);
-  // Identifies a click back on the trigger itself in onPointerDownOutside below,
-  // so that case can be exempted from the outside-click dismiss path.
-  const triggerRef = useRef<HTMLElement | null>(null);
-  // Where along the trigger's own edge the pointer actually is, in pixels from
-  // that edge's start — read directly into `alignOffset` below so the card
-  // anchors near the cursor instead of always at the trigger's start corner.
-  // Barely visible on a small icon trigger (little room for the offset to
-  // differ from 0), but on a wide one (e.g. a full-row accordion header) a
-  // fixed `align="start"` anchors the card at the far edge regardless of where
-  // along the row you actually hovered — this tracks that instead. A ref, not
-  // state: mutating it doesn't need its own re-render, since the timeout below
-  // already re-renders (via setOpen) once open actually happens, picking up
-  // whatever value was last recorded by then.
-  const pointerOffsetRef = useRef(0);
-  // alignOffset's axis is perpendicular to `side` — horizontal when the card
-  // opens above/below (the default), vertical when it opens beside a narrow
-  // column (side="right", e.g. Super Draw's row inside the Mode switcher).
-  const trackPointerOffset = (event: React.PointerEvent) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    pointerOffsetRef.current =
-      side === 'left' || side === 'right' ? event.clientY - rect.top : event.clientX - rect.left;
-  };
-
-  const cancelOpenTimer = () => window.clearTimeout(openTimerRef.current);
-  const handlePointerEnter = (event: React.PointerEvent) => {
-    trackPointerOffset(event);
-    cancelOpenTimer();
-    openTimerRef.current = window.setTimeout(() => setOpen(true), openDelay);
-  };
-  const handlePointerLeave = () => cancelOpenTimer();
-  useEffect(() => cancelOpenTimer, []);
+  const {open, setOpen, triggerRef, triggerProps, alignOffset, onPointerDownOutside} =
+    useHoverCard(openDelay, side);
 
   // Widened to the interface: `helpTipContent`'s `satisfies` (see helpTipContent.ts)
   // preserves each entry's own literal shape for HelpTipKey's sake, so indexing by a
@@ -209,18 +156,18 @@ export const HelpTip: React.FC<{
     React.cloneElement(children as React.ReactElement<TriggerProps>, {
       ref: mergeRefs(triggerRef, childRef),
       onPointerEnter: (event: React.PointerEvent) => {
-        handlePointerEnter(event);
+        triggerProps.onPointerEnter(event);
         (children as React.ReactElement<TriggerProps>).props.onPointerEnter?.(event);
       },
       // Keeps the tracked offset current if the pointer drifts along a wide
       // trigger during the open delay, so it opens near wherever the cursor
       // ended up, not just where it first entered.
       onPointerMove: (event: React.PointerEvent) => {
-        trackPointerOffset(event);
+        triggerProps.onPointerMove(event);
         (children as React.ReactElement<TriggerProps>).props.onPointerMove?.(event);
       },
       onPointerLeave: (event: React.PointerEvent) => {
-        handlePointerLeave();
+        triggerProps.onPointerLeave();
         (children as React.ReactElement<TriggerProps>).props.onPointerLeave?.(event);
       },
     })
@@ -234,9 +181,7 @@ export const HelpTip: React.FC<{
       role="button"
       tabIndex={0}
       aria-label={entry.title}
-      onPointerEnter={handlePointerEnter}
-      onPointerMove={trackPointerOffset}
-      onPointerLeave={handlePointerLeave}
+      {...triggerProps}
       className="cursor-help shrink-0 inline-flex items-center justify-center"
       style={{
         width: 16,
@@ -254,30 +199,22 @@ export const HelpTip: React.FC<{
 
   return (
     <>
-      {/* openDelay={NEVER_MS} deliberately benches Radix's own open path — see the
-          component doc comment. closeDelay is real: it's the grace period for
-          moving the cursor from the trigger into the card. */}
-      <HoverCard.Root open={open} onOpenChange={setOpen} openDelay={NEVER_MS} closeDelay={300}>
+      {/* openDelay={NEVER_MS} deliberately benches Radix's own open path — see
+          useHoverCard. */}
+      <HoverCard.Root
+        open={open}
+        onOpenChange={setOpen}
+        openDelay={NEVER_MS}
+        closeDelay={HOVER_CARD_CLOSE_DELAY}
+      >
         <HoverCard.Trigger>{trigger}</HoverCard.Trigger>
         <HoverCard.Content
           style={{width: COLLAPSED_WIDTH}}
           align="start"
-          alignOffset={pointerOffsetRef.current}
+          alignOffset={alignOffset}
           side={side}
           avoidCollisions={!side}
-          // Radix's own DismissableLayer, wrapping Content, dismisses on any
-          // pointerdown outside Content's DOM by default — and the trigger is a
-          // separate portaled element, so clicking it counts as "outside" too.
-          // Exempt only that case (which would otherwise immediately re-close
-          // the card the same click just reopened); let every other outside
-          // click through as the manual escape hatch out of the "open forever
-          // after a text selection" state described in the doc comment above.
-          onPointerDownOutside={event => {
-            const target = event.detail.originalEvent.target as Node | null;
-            if (target && triggerRef.current?.contains(target)) {
-              event.preventDefault();
-            }
-          }}
+          onPointerDownOutside={onPointerDownOutside}
         >
           <Flex direction="column" gapY="2">
             {/* whiteSpace: 'pre-line' so a caller (e.g. Undo/Redo's shortcut
