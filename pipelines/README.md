@@ -125,3 +125,27 @@ ReCom-B; population tolerance 1%) and writes per preset:
 Each step of a non-reversible rustrecom chain is an accepted proposal, so
 `--n-steps` is the number of stored plans. A 100,000-step run on Colorado's
 3,158 VTDs takes about 35 seconds and packs to roughly 30 MB.
+
+`score` evaluates a packed ensemble's plans for compactness and county splits,
+using [gerrytools](https://gerrytools.readthedocs.io/)' engine-backed
+`PlanEvaluator`, which prepares VTD geometry once (reprojected to EPSG:5070,
+the equal-area projection the app's evaluation panel uses) and then scores
+every plan with its compiled Rust engine:
+
+```sh
+python cli.py ensembles score \
+    --npz ../data/ensembles/co_congressional_districts_v2/recom_b.npz \
+    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
+    --n-plans 10000 \
+    -o ../data/ensembles/co_congressional_districts_v2/recom_b.scores.npz
+```
+
+It writes, next to the npz:
+
+- `<preset>.scores.npz` — `reock` and `polsby_popper` (plans × districts),
+  `county_splits` and `county_pieces` (plans)
+- `<preset>.scores.json` — manifest: source npz and GeoPackage, plan count,
+  gerrytools version, the metric definitions used, CRS, wall time
+
+`--n-plans` scores only the first N plans of the npz (default: every plan).
+Scoring Colorado's 3,158-VTD, 8-district ensemble runs at roughly 1 ms/plan.

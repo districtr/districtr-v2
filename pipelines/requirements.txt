@@ -2,8 +2,10 @@
 #    uv pip compile - --python .venv/bin/python -o requirements.txt
 annotated-types==0.7.0
     # via pydantic
-attrs==23.2.0
-    # via fiona
+anyio==4.15.1
+    # via httpx
+binary-ensemble==2.0.0
+    # via gerrytools
 boto3==1.35.5
 botocore==1.35.5
     # via
@@ -11,77 +13,141 @@ botocore==1.35.5
     #   s3transfer
 certifi==2024.2.2
     # via
-    #   fiona
+    #   httpcore
+    #   httpx
     #   pyogrio
     #   pyproj
     #   requests
 charset-normalizer==3.3.2
     # via requests
-click==8.1.7
-    # via
-    #   click-plugins
-    #   cligj
-    #   fiona
-click-plugins==1.1.1
-    # via fiona
-cligj==0.7.2
-    # via fiona
+click==8.5.0
+cloudpickle==3.1.2
+    # via joblib
+contourpy==1.4.0
+    # via matplotlib
+cycler==0.12.1
+    # via matplotlib
 duckdb==1.0.0
-fiona==1.10.1
-    # via geopandas
-geopandas==0.14.4
+fonttools==4.66.1
+    # via matplotlib
+frozendict==2.4.7
+    # via gerrytools
+geopandas==1.2.0
+    # via
+    #   gerrychain
+    #   gerrytools
+gerrychain==1.0.0
+    # via gerrytools
+gerrytools==2.0.1
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via gerrytools
 idna==3.7
-    # via requests
+    # via
+    #   anyio
+    #   httpx
+    #   requests
+jellyfish==1.2.1
+    # via us
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
-networkx==3.6.1
-numpy==1.26.4
+joblib==1.6.0
+    # via gerrytools
+kiwisolver==1.5.1
+    # via matplotlib
+matplotlib==3.11.2
     # via
+    #   gerrytools
+    #   seaborn
+networkx==3.6.1
+    # via
+    #   binary-ensemble
+    #   gerrychain
+    #   gerrytools
+numpy==2.5.4
+    # via
+    #   contourpy
     #   geopandas
+    #   gerrychain
+    #   gerrytools
+    #   matplotlib
     #   pandas
-    #   pyarrow
     #   pyogrio
+    #   rustworkx
+    #   scipy
+    #   seaborn
     #   shapely
 packaging==24.0
     # via
     #   geopandas
+    #   matplotlib
     #   pyogrio
-pandas==2.2.2
-    # via geopandas
-pyarrow==16.1.0
+pandas==3.0.6
+    # via
+    #   geopandas
+    #   gerrychain
+    #   gerrytools
+    #   seaborn
+pillow==12.3.0
+    # via matplotlib
+pyarrow==26.0.0
+    # via gerrytools
 pydantic==2.8.2
     # via pydantic-settings
 pydantic-core==2.20.1
     # via pydantic
 pydantic-settings==2.4.0
 pyogrio==0.8.0
-pyproj==3.6.1
     # via geopandas
+pyparsing==3.3.3
+    # via matplotlib
+pyproj==3.8.0
+    # via
+    #   geopandas
+    #   gerrytools
 python-dateutil==2.9.0.post0
     # via
     #   botocore
+    #   matplotlib
     #   pandas
 python-dotenv==1.0.1
     # via pydantic-settings
-pytz==2024.1
-    # via pandas
 pyyaml==6.0.2
 requests==2.32.3
+rustworkx==0.18.1
+    # via gerrychain
 s3transfer==0.10.2
     # via boto3
-shapely==2.0.4
-    # via geopandas
+scipy==1.18.1
+    # via
+    #   gerrychain
+    #   gerrytools
+seaborn==0.13.2
+    # via gerrytools
+shapely==2.2.0
+    # via
+    #   geopandas
+    #   gerrychain
+    #   gerrytools
 six==1.16.0
     # via python-dateutil
-typing-extensions==4.12.2
+tqdm==4.70.1
     # via
+    #   gerrychain
+    #   gerrytools
+typing-extensions==4.16.0
+    # via
+    #   anyio
     #   pydantic
     #   pydantic-core
-tzdata==2024.1
-    # via pandas
 urllib3==2.2.1
     # via
     #   botocore
     #   requests
+us==4.0.0
+    # via gerrytools

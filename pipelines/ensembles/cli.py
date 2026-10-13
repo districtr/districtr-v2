@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from ensembles import chain, graph
+from ensembles import chain, graph, score
 from ensembles.presets import PRESETS
 
 logging.basicConfig(level=logging.INFO)
@@ -104,6 +104,25 @@ def run(
         if not keep_jsonl:
             jsonl.unlink()
         logger.info("Packed %d plans into %s", facts["n_plans"], out / f"{key}.npz")
+
+
+@ensembles.command("score")
+@click.option("--npz", required=True, help="Packed ensemble npz from `ensembles run`")
+@click.option("--vtd-gpkg", required=True, help="VTD GeoPackage (GerryDB export)")
+@click.option(
+    "--n-plans",
+    type=int,
+    default=None,
+    help="Score only the first N plans (default: every plan in the npz)",
+)
+@click.option("--out", "-o", required=True, help="Output <preset>.scores.npz path")
+def score_cmd(npz: str, vtd_gpkg: str, n_plans: int | None, out: str) -> None:
+    """Score an ensemble's plans for compactness and county splits with gerrytools."""
+    out_path = Path(out)
+    facts = score.score_ensemble(npz, vtd_gpkg, n_plans)
+    score.write_npz(out_path, facts)
+    score.write_manifest(out_path.with_suffix(".json"), npz, vtd_gpkg, facts)
+    logger.info("Wrote %d plans' scores to %s", facts["n_plans"], out_path)
 
 
 def _node_attributes(graph_path: Path) -> list[str]:
