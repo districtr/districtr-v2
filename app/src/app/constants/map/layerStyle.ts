@@ -11,8 +11,14 @@ export const EMPTY_FT_COLLECTION = {
 export const SENTINEL_EMPTY_VALUE: string = '-999';
 export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 
-export const HIGHLIGHT_LINE_COLOR = '#666666';
+export const HIGHLIGHT_LINE_COLOR = '#ff7a00';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
+
+// Dims every non-hovered district while one is focused, so the
+// highlighted district reads clearly against the rest of the map —
+// same masking convention as the paint-mask overlay (CountyLayers.tsx).
+export const HIGHLIGHT_MASK_COLOR = '#FFFFFF';
+export const HIGHLIGHT_MASK_OPACITY = 0.45;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];
@@ -48,7 +54,10 @@ export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
 
 export function getLayerFill(
   captiveIds?: Set<string>,
-  isDemographic?: boolean
+  isDemographic?: boolean,
+  // User's "Districts layer opacity" multiplier; applied here so the declarative
+  // (ZoneLayerGroup) and imperative (mapRenderSubs setPaintProperty) paths agree.
+  opacityScale: number = 1
 ): DataDrivenPropertyValueSpecification<number> {
   const baseOpacity = isDemographic ? 1 : 0.6;
   const innerFillSpec = [
@@ -75,24 +84,25 @@ export function getLayerFill(
     baseOpacity + 0.1,
     0,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
-  if (captiveIds?.size) {
-    return [
-      'case',
-      ['boolean', ['feature-state', 'broken'], false],
-      0,
-      // @ts-ignore
-      ['!', ['==', ['feature-state', 'zone'], null]],
-      [
+  const fill = captiveIds?.size
+    ? ([
         'case',
-        ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-        baseOpacity - 0.25,
-        innerFillSpec,
-      ],
-      0,
-    ] as unknown as DataDrivenPropertyValueSpecification<number>;
-  } else {
-    return innerFillSpec;
-  }
+        ['boolean', ['feature-state', 'broken'], false],
+        0,
+        // @ts-ignore
+        ['!', ['==', ['feature-state', 'zone'], null]],
+        [
+          'case',
+          ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
+          baseOpacity - 0.25,
+          innerFillSpec,
+        ],
+        0,
+      ] as unknown as DataDrivenPropertyValueSpecification<number>)
+    : innerFillSpec;
+  return opacityScale === 1
+    ? fill
+    : (['*', fill, opacityScale] as unknown as DataDrivenPropertyValueSpecification<number>);
 }
 export const BASEMAP_IDS = {
   MINIMAL: 'minimal',

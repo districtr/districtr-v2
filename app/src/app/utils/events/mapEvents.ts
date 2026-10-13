@@ -24,6 +24,8 @@ import {
   BLOCK_POINTS_LAYER_ID_CHILD,
   ZONE_LABEL_LAYER_LIST,
   INTERACTIVE_LAYERS,
+  CANONICAL_LAYER_IDS,
+  COUNTY_SOURCE_ID,
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -50,6 +52,16 @@ export const MUTATION_TOOLS: ActiveTool[] = [
 ];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
+
+/**
+ * The clickable layer while selecting a paint-mask area. The built-in county
+ * layer (COUNTY_SOURCE_ID sentinel) uses its always-on invisible fill layer;
+ * overlays use their dedicated click layer.
+ */
+export const getSelectingClickLayer = (selectingLayerId: string) =>
+  selectingLayerId === COUNTY_SOURCE_ID
+    ? CANONICAL_LAYER_IDS.COUNTIES.FILL
+    : `overlay-click-${selectingLayerId}`;
 /*
  MapEvent handling; these functions are called by the event listeners in the MapComponent
  */
@@ -172,7 +184,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
 
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setPaintConstraint(selectingLayerId, features[0].id as string);
@@ -184,7 +196,14 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
-    selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+    // The inspector reads data everywhere, including locked areas.
+    selectedFeatures = paintFunction(
+      mapRef,
+      e,
+      brushSize,
+      paintLayers,
+      !TOOLTIP_TOOLS.includes(activeTool)
+    );
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
@@ -201,12 +220,58 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
     // set isPainting to false
     mapControls.setIsPainting(false);
   }
+  // Touch has no mouseleave/move-away to dismiss the paint tooltip, so it
+  // would stick at the last finger position — clear it on lift.
+  if ('touches' in e.originalEvent) {
+    useTooltipStore.getState().setTooltip(null);
+  }
 };
+
+// Cleanup for an in-flight middle-mouse pan; module-level so a second
+// middle-click can never stack a duplicate listener pair.
+let endMiddleMousePan: (() => void) | null = null;
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
+
+  // A second finger means a pinch/two-finger gesture, never a paint stroke —
+  // cancel any in-progress paint and let maplibre's touchZoomRotate handle it.
+  if ('points' in e && e.points.length > 1) {
+    mapControls.setIsPainting(false);
+    return;
+  }
+
+  // Middle-mouse drag always pans the map, regardless of the active tool.
+  const originalEvent = 'button' in e.originalEvent ? (e.originalEvent as MouseEvent) : null;
+  if (originalEvent?.button === 1) {
+    // Suppress the browser's middle-click autoscroll and any tool behavior.
+    originalEvent.preventDefault();
+    endMiddleMousePan?.();
+    let last = originalEvent;
+    const onMove = (me: MouseEvent) => {
+      // A release outside the window never delivers a mouseup; the buttons
+      // bitmask (4 = middle) tells us the drag ended, so end the pan here.
+      if (!(me.buttons & 4)) {
+        endMiddleMousePan?.();
+        return;
+      }
+      mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
+      last = me;
+    };
+    const onUp = () => endMiddleMousePan?.();
+    endMiddleMousePan = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
+      endMiddleMousePan = null;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp);
+    return;
+  }
 
   if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
@@ -308,7 +373,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
-      layers: [`overlay-click-${selectingLayerId}`],
+      layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
       setHoverFeatures([features[0]]);
@@ -322,13 +387,24 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     return;
   }
 
-  const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
+  // The inspector reads data everywhere, including locked areas.
+  const selectedFeatures = paintFunction(
+    mapRef,
+    e,
+    brushSize,
+    paintLayers,
+    !TOOLTIP_TOOLS.includes(activeTool)
+  );
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  // Maplibre touch events carry `points`/`lngLats` (not `touches`) — the
+  // TouchEvent lives on originalEvent.
   const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent && !isPainting) {
+    'touches' in e.originalEvent || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+  // Keep updating while painting too, so the brush footprint follows the
+  // cursor during a drag instead of freezing at the mousedown spot.
+  if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures || []);
   }
   const isMutationTool = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
@@ -355,18 +431,18 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   ) {
     setTooltip({
       ...e.point,
-      data: mapOptions.showPopulationTooltip
-        ? [
-            {
-              label: 'Total Pop',
-              value:
-                selectedFeatures?.reduce(
+      data:
+        mapOptions.showPopulationTooltip && !TOOLTIP_TOOLS.includes(activeTool)
+          ? [
+              {
+                label: 'Total Pop',
+                value: selectedFeatures.reduce(
                   (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
                   0
-                ) ?? 'N/A',
-            },
-          ]
-        : [],
+                ),
+              },
+            ]
+          : [],
     });
   } else {
     setTooltip(null);
@@ -473,6 +549,13 @@ export const mapEventHandlers = {
   onZoomEnd: handleMapZoomEnd,
   onContextMenu: handleMapContextMenu,
   onData: handleDataLoad,
+  // The mouse handlers are typed for MapLayerTouchEvent too; wiring them here
+  // is what makes touch painting work (maplibre does not synthesize
+  // mousedown/mousemove for touch drags).
+  onTouchStart: handleMapMouseDown,
+  onTouchMove: handleMapMouseMove,
+  onTouchEnd: handleMapMouseUp,
+  onTouchCancel: handleMapMouseUp,
 } as const;
 
 export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapRef | null) => {

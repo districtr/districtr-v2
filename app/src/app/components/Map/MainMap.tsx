@@ -13,9 +13,12 @@ import {BlockSource} from './GeoSources/BlockSource';
 import {MetaLayers} from './PointLayers/MetaLayers';
 import {PointSelectionLayer} from './PointLayers/PointSelectionLayer';
 import {DotDensityLayer} from './CustomLayers/DotDensityLayer';
+import {SizedCircleLayer} from './PointLayers/SizedCircleLayers';
 import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
+import {BlockModePill} from './BlockModePill';
+import {PaintConstraintPill} from './PaintConstraintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
 import {BlockLayers} from './PolygonLayers/BlockLayers';
@@ -76,7 +79,7 @@ export const MainMap: React.FC = () => {
       {isMapLoaded && <MapLayerAnchors />}
       {areAnchorLayersReady && (
         <>
-          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.reference} />
+          <CountyLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.countyBoundaries} />
           <BlockSource>
             {!!mapDocument?.parent_layer && (
               <BlockLayers
@@ -100,9 +103,13 @@ export const MainMap: React.FC = () => {
           <PointSource>
             <PointSelectionLayer />
             <PointSelectionLayer child />
+            <SizedCircleLayer />
+            <SizedCircleLayer child />
             <MetaLayers isDemographicMap={false} />
           </PointSource>
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+          <BlockModePill />
+          <PaintConstraintPill />
         </>
       )}
     </MapContainer>

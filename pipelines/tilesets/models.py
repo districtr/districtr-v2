@@ -3,7 +3,6 @@ import os
 import logging
 from subprocess import run
 from urllib.parse import urlparse
-from typing import Iterable
 from core.models import Config
 from core.settings import settings
 from core.io import download_file_from_s3
@@ -27,7 +26,10 @@ class GerryDBTileset(BaseModel):
     gpkg: str
     layer_name: str
     new_layer_name: str | None
-    columns: Iterable[str] = [
+    # list, not Iterable: pydantic v2 validates Iterable[str] into a one-shot
+    # lazy iterable, so the first consumer (generate_tiles) drains it and
+    # later consumers (generate_points) see no columns
+    columns: list[str] = [
         "path",
         "geography",
         "total_pop_20",
@@ -126,6 +128,10 @@ class GerryDBTileset(BaseModel):
         Outputs a parquet with x, y, and total_population columns. Output should be in EPSG:4326.
         """
         logger.info("Creating points parquet file...")
+        out_path = f"{settings.OUT_SCRATCH}/{self.layer_name}_points.parquet"
+        if os.path.exists(out_path) and not replace:
+            logger.info("File already exists. Skipping creation.")
+            return out_path
         s3 = settings.get_s3_client()
         url = urlparse(self.gpkg)
         logger.info("URL: %s", url)

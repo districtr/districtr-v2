@@ -1,3 +1,4 @@
+import {serializeMapSaves} from '@/app/utils/sync/serializeMapSaves';
 import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
 import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -18,6 +19,7 @@ import {fetchDocument, SyncConflictInfo} from '../utils/api/apiHandlers/fetchDoc
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+import {editPath} from '../utils/map/editUrl';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -25,9 +27,27 @@ import {
 } from './errors';
 import {temporalManager} from '../utils/temporal';
 import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
+import type {
+  AssignmentIssues,
+  AssignmentRepairResult,
+  ParentAssignmentChoice,
+} from './assignmentRepairStore';
+import {
+  checkAssignments,
+  districtSnapshot,
+  findAssignmentIssues,
+  findNewIssueIds,
+  planRepair,
+} from '../utils/map/assignmentIntegrity';
 import {assignmentsTemporalConfig} from './middlewareConfig';
 import {exposeStoreToWindow as _exposeAssignmentsStore} from './exposeToWindow';
 import {MAP_MODES} from '@constants/map/mode';
+
+type SaveOptions = {
+  silent?: boolean;
+  /** A background save; stays quiet once the user has dismissed the repair modal. */
+  autosave?: boolean;
+};
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -94,7 +114,10 @@ export interface AssignmentsStore {
 
   /** Clears all shatter state */
   resetShatterState: () => void;
-  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handlePutAssignments: (
+    overwrite?: boolean,
+    opts?: SaveOptions
+  ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
@@ -127,6 +150,11 @@ export interface AssignmentsStore {
       }
     | undefined;
   removeAssignmentsForZonesAbove: (maxZone: number) => void;
+  /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
+  applyAssignmentRepair: (
+    seen: AssignmentIssues,
+    choices: Record<string, ParentAssignmentChoice>
+  ) => AssignmentRepairResult;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -154,7 +182,7 @@ type ConflictDependencies = {
   store: AssignmentsStore;
   setMapDocument: (doc: DocumentObject) => void;
   setMapLock: (lock: {isLocked: boolean; reason: string} | null) => void;
-  onNavigate?: (documentId: string) => void;
+  onNavigate?: (document: DocumentObject) => void;
 };
 
 /**
@@ -323,9 +351,10 @@ const resolveFork = async ({
     store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
-      onNavigate(createMapDocumentResponse.response.document_id);
+      onNavigate(createMapDocumentResponse.response);
     } else {
-      history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
+      const {document_id, public_id} = createMapDocumentResponse.response;
+      history.pushState(null, '', editPath('map', document_id, public_id));
     }
   } finally {
     setMapLock(null);
@@ -371,7 +400,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
   mutateZoneAssignments: (mapRef, features, zone) => {
-    const {accumulatedAssignments, zonesLastUpdated} = get();
+    const {accumulatedAssignments, zonesLastUpdated, shatterIds} = get();
     const {setPaintedChanges} = useChartStore.getState();
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
@@ -393,8 +422,14 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       const state = featureStateCache[sourceLayer]?.[id];
       const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
       const prevAssignment = stateChanges?.zone || state?.zone || false;
+      // Never zone a shattered parent: its blocks carry the zone, and its own assignment
+      // breaks the population join. Backstop for paint functions that miss the filter.
       const shouldSkip =
-        accumulatedAssignments.has(id) || state?.['locked'] || prevAssignment === zone || false;
+        accumulatedAssignments.has(id) ||
+        shatterIds.parents.has(id) ||
+        state?.['locked'] ||
+        prevAssignment === zone ||
+        false;
       if (shouldSkip) return;
       accumulatedAssignments.set(id, zone);
       zonesLastUpdated.set(prevAssignment, timestamp);
@@ -553,6 +588,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         childToParent,
       };
     } else {
+      // Healing is an automatic consequence of the triggering gesture (exiting block
+      // view), not a user edit — suppress its undo snapshot so it coalesces into that
+      // gesture's history entry instead of adding a transient pre-heal step.
+      const {isTracking, pause} = useAssignmentsStore.temporal.getState();
+      isTracking && pause();
       set({
         zoneAssignments: new Map(zoneAssignments),
         accumulatedAssignments: new Map<string, NullableZone>(),
@@ -566,6 +606,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         pendingShatterUndoState: null,
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
+      isTracking && useAssignmentsStore.temporal.getState().resume();
     }
   },
   ingestAccumulatedAssignments: () => {
@@ -733,6 +774,68 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
+  applyAssignmentRepair: (seen, choices) => {
+    const state = get();
+    // Demography may lag a shatter or heal, and its stale unmatched ids could delete
+    // valid assignments, so refuse until it catches up.
+    if (!demographyService.isLoadedFor(state.shatterIds.parents, seen.documentId)) {
+      return {applied: false, reason: 'loading'};
+    }
+    // Re-check the state about to change; anything the user hasn't seen goes back to them.
+    const current = findAssignmentIssues(
+      districtSnapshot(state),
+      demographyService.unmatchedPaths,
+      seen.blocksByParent
+    );
+    const newIds = findNewIssueIds(current, seen);
+    if (newIds.length) return {applied: false, reason: 'changed', current, newIds};
+    const {keepWhole, dropAssignments, addBlocks} = planRepair(current, choices);
+    const {zoneAssignments, shatterIds, parentToChild, childToParent} =
+      cloneTemporalSnapshot(state);
+    addBlocks.forEach((blocks, parent) => {
+      const zone = zoneAssignments.get(parent) ?? null;
+      const children = parentToChild.get(parent) ?? new Set<string>();
+      blocks.forEach(block => {
+        zoneAssignments.set(block, zone);
+        children.add(block);
+        shatterIds.children.add(block);
+        childToParent.set(block, parent);
+      });
+      parentToChild.set(parent, children);
+    });
+    const removedBlocks: string[] = [];
+    keepWhole.forEach(parent => {
+      parentToChild.get(parent)?.forEach(block => {
+        removedBlocks.push(block);
+        zoneAssignments.delete(block);
+        shatterIds.children.delete(block);
+        childToParent.delete(block);
+      });
+      parentToChild.delete(parent);
+      shatterIds.parents.delete(parent);
+    });
+    dropAssignments.forEach(id => zoneAssignments.delete(id));
+
+    const clientLastUpdated = new Date().toISOString();
+    set({
+      zoneAssignments,
+      shatterIds,
+      parentToChild,
+      childToParent,
+      accumulatedAssignments: new Map<string, NullableZone>(),
+      clientLastUpdated,
+      pendingShatterUndoState: null,
+    });
+    // Clear undo history: undoing a repair could only bring the bad assignments back.
+    useAssignmentsStore.temporal.getState().clear();
+    if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
+    const {mapDocument} = useMapStore.getState();
+    // Must run after set(): updateIdbAssignments reads shatterIds from the store to tag parent_path.
+    if (mapDocument)
+      idb.updateIdbAssignments(mapDocument, zoneAssignments, clientLastUpdated, true);
+    return {applied: true};
+  },
+
   removeAssignmentsForZonesAbove: maxZone => {
     const {zoneAssignments, zonesLastUpdated} = get();
     const {mapDocument, getMapRef} = useMapStore.getState();
@@ -786,22 +889,52 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
-  handlePutAssignments: async (overwrite = false) => {
+  // One save at a time across stores; see serializeMapSaves.
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, opts: SaveOptions = {}) => {
+    const {silent = false, autosave = false} = opts;
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
+    if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
+      // Blocked until the user repairs: saving now would persist the bad assignments.
+      return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
+    }
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
-    if (!mapDocument?.document_id || !mapDocument.updated_at) return;
+    if (!mapDocument?.document_id || !mapDocument.updated_at) {
+      setNotification({
+        message: 'Unable to save: no map document loaded.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'No map document loaded.',
+        },
+      };
+    }
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
-    if (!idbDocument) return;
+    if (!idbDocument) {
+      setNotification({
+        message: 'Unable to save: local copy of this map is missing. Please refresh and try again.',
+        importance: 2,
+        type: 'error',
+      });
+      return {
+        ok: false,
+        error: {
+          detail: 'Unable to find IDB document.',
+        },
+      };
+    }
     // Whether this save carries real local edits (paints, comments, metadata).
     // Mode switches trigger a defensive save even when nothing changed, and a
     // "Map saved" toast there misleads — so only announce saves with a delta.
     const hasPendingChanges =
       Object.values(updated).some(Boolean) ||
       (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
-    setMapLock({isLocked: true, reason: 'Saving plan'});
+    setMapLock({isLocked: true, reason: 'Saving plan', silent});
 
     try {
       // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
@@ -829,24 +962,55 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         assignmentsPostResponse.error === 'Document has been updated since the last update'
       ) {
         setShowSaveConflictModal(true);
+        return {
+          ok: false,
+          error: {
+            detail: 'Backend conflict',
+          },
+        };
       } else if (!assignmentsPostResponse.ok) {
         setNotification({
           message: assignmentsPostResponse.error,
           importance: 2,
           type: 'error',
         });
+        return {
+          ok: false,
+          error: {
+            detail: assignmentsPostResponse.error,
+          },
+        };
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        if (hasPendingChanges) {
+        if (hasPendingChanges && !silent) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
+          return {
+            ok: true,
+            response: 'Assignments PUT successfully.',
+          };
         }
+        return {
+          ok: true,
+          response: 'No assignments to PUT.',
+        };
       }
     } finally {
       setMapLock(null);
     }
-  },
+    setNotification({
+      message: 'Saving this map failed. Please try again in a moment.',
+      importance: 2,
+      type: 'error',
+    });
+    return {
+      ok: false,
+      error: {
+        detail: 'An unknown error occured during PUT assignments.',
+      },
+    };
+  }),
   handleRevert: async (mapDocument: DocumentObject) => {
-    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
+    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument);
     const {setNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
     await initiateFlushMapState();
     const {ingestFromDocument} = get();

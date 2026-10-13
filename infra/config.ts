@@ -9,6 +9,27 @@ if (stack !== "dev" && stack !== "prod") {
 
 const isProd = stack === "prod";
 
+// Turnstile migration guard: the old reCAPTCHA secrets are useless for
+// Turnstile verification, so a stack that still carries them without the
+// replacements would silently deploy captcha-less comment endpoints and
+// unverified session minting. Fail the deploy instead.
+for (const [oldKey, newKey] of [
+  ["recaptchaSecretKey", "turnstileSecretKey"],
+  ["recaptchaV3SecretKey", "turnstileSessionSecretKey"],
+] as const) {
+  if (cfg.getSecret(oldKey) && !cfg.getSecret(newKey)) {
+    throw new Error(
+      `Stack config still has ${oldKey} but ${newKey} is unset — run ` +
+        `"pulumi config set --secret ${newKey} <value>" then "pulumi config rm ${oldKey}"`
+    );
+  }
+}
+
+// Hoisted: the listener rule and the WAF rate limit must scope to the *same*
+// set of API hostnames, so it's computed once rather than derived twice.
+const apiDomain = cfg.require("apiDomain");
+const extraApiDomains = cfg.getObject<string[]>("extraApiDomains") ?? [];
+
 export const config = {
   stack,
   isProd,
@@ -20,33 +41,59 @@ export const config = {
   // Domains. The ALB serves the app on appDomain (+ extraDomains) and the
   // API on apiDomain via a host-header listener rule.
   appDomain: cfg.require("appDomain"),
-  apiDomain: cfg.require("apiDomain"),
+  apiDomain,
   extraDomains: cfg.getObject<string[]>("extraDomains") ?? [],
+  // Additional hostnames that must reach the backend, in either direction of a
+  // domain cutover: the incoming name before apiDomain flips, the outgoing one
+  // after (NEXT_PUBLIC_API_URL is baked in at build time, so loaded clients go
+  // on calling it). Names here still need a cert — list them in extraDomains
+  // too. Empty outside a cutover.
+  extraApiDomains,
+  /** Every hostname routed to the backend. Anything answering on one of these
+   * bypasses the frontend target group *and* falls under the API rate limit;
+   * the two must not disagree. */
+  apiHosts: Array.from(new Set([apiDomain, ...extraApiDomains])),
   corsOrigins: cfg.require("corsOrigins"),
+  // Regex of additional allowed CORS origins, so label-based PR previews
+  // (pr-<N>.dev.districtr.org) can call the shared dev API. Dev only.
+  corsOriginRegex: cfg.get("corsOriginRegex"),
 
   // Existing object storage / CDN — not managed by this project.
   s3BucketName: cfg.requireSecret("s3BucketName"),
   cdnUrl: cfg.require("cdnUrl"),
 
-  // Auth0 (non-secret identifiers)
-  auth0Domain: cfg.require("auth0Domain"),
-  auth0ApiAudience: cfg.require("auth0ApiAudience"),
-  auth0Issuer: cfg.require("auth0Issuer"),
-  auth0Algorithms: cfg.get("auth0Algorithms") ?? "RS256",
+  // Districtr CMS (Wagtail) — the JWT issuer. The backend verifies tokens
+  // against https://{cmsDomain}/.well-known/jwks.json.
+  cmsDomain: cfg.require("cmsDomain"),
+  /** `aud` claim minted by the CMS and required by the backend verifier. */
+  jwtAudience: cfg.get("jwtAudience") ?? `https://${apiDomain}/`,
+  /**
+   * Legacy page-author mapping for content/0003's one-time TipTap import,
+   * "auth0|<sub>=<email>,..." or "unowned". A secret: it names people by
+   * email and the stack files are public. Set it for the cutover deploy
+   * only; the migration refuses to import legacy pages without it.
+   */
+  migrateTiptapOwners: cfg.getSecret("migrateTiptapOwners"),
 
   // Secrets (KMS-encrypted in the stack file; land in SSM SecureStrings)
   secretKey: cfg.requireSecret("secretKey"),
-  auth0ClientId: cfg.requireSecret("auth0ClientId"),
-  auth0ClientSecret: cfg.requireSecret("auth0ClientSecret"),
-  auth0SessionSecret: cfg.requireSecret("auth0SessionSecret"),
-  openaiApiKey: cfg.getSecret("openaiApiKey"),
-  recaptchaSecretKey: cfg.getSecret("recaptchaSecretKey"),
+  djangoSecretKey: cfg.requireSecret("djangoSecretKey"),
+  // RS256 PEM pair from `manage.py generate_jwt_keys`.
+  jwtSigningKey: cfg.requireSecret("jwtSigningKey"),
+  jwtVerifyingKey: cfg.requireSecret("jwtVerifyingKey"),
+  // Set only during key rotation (served alongside the active key in JWKS).
+  jwtNextVerifyingKey: cfg.getSecret("jwtNextVerifyingKey"),
+  resendApiKey: cfg.getSecret("resendApiKey"),
+  turnstileSecretKey: cfg.getSecret("turnstileSecretKey"),
+  turnstileSessionSecretKey: cfg.getSecret("turnstileSessionSecretKey"),
+  researchApiKey: cfg.getSecret("researchApiKey"),
 
   // Image tags. Deploy workflows write the current git SHA to
   // /districtr/{stack}/meta/{backend,frontend}-image-tag in SSM before
   // `pulumi up`; config values override for manual rollbacks.
   backendImageTagOverride: cfg.get("backendImageTag"),
   frontendImageTagOverride: cfg.get("frontendImageTag"),
+  cmsImageTagOverride: cfg.get("cmsImageTag"),
 
   // Forces the frontend into maintenance mode during planned downtime
   // (e.g. DB migration), independent of the CMS flag in the database.
@@ -60,10 +107,15 @@ export const config = {
   backendMemory: cfg.getNumber("backendMemory") ?? 8192,
   backendMinCount: cfg.getNumber("backendMinCount") ?? (isProd ? 2 : 1),
   backendMaxCount: cfg.getNumber("backendMaxCount") ?? (isProd ? 6 : 2),
+  // ALB requests/min per backend task before scale-out.
+  backendRequestsPerTarget: cfg.getNumber("backendRequestsPerTarget") ?? 600,
   frontendCpu: cfg.getNumber("frontendCpu") ?? (isProd ? 1024 : 512),
   frontendMemory: cfg.getNumber("frontendMemory") ?? 2048,
   frontendMinCount: cfg.getNumber("frontendMinCount") ?? (isProd ? 2 : 1),
   frontendMaxCount: cfg.getNumber("frontendMaxCount") ?? (isProd ? 4 : 2),
+  // ~20 admin users + ISR-shielded content reads: one small task, no autoscaling.
+  cmsCpu: cfg.getNumber("cmsCpu") ?? 512,
+  cmsMemory: cfg.getNumber("cmsMemory") ?? 1024,
 
   // Database
   dbInstanceClass: cfg.get("dbInstanceClass") ?? (isProd ? "db.t4g.large" : "db.t4g.small"),
@@ -73,6 +125,8 @@ export const config = {
 
   // Networking
   vpcCidr: cfg.get("vpcCidr") ?? (isProd ? "10.0.0.0/16" : "10.1.0.0/16"),
+  // WAF allow-before-everything IPs (CIDRs, e.g. "1.2.3.4/32"); empty = no rule.
+  wafAllowlistIps: cfg.getObject<string[]>("wafAllowlistIps") ?? [],
 
   // Monitoring
   alarmEmails: cfg.getObject<string[]>("alarmEmails") ?? [],

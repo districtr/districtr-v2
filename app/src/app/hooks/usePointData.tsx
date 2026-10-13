@@ -1,6 +1,9 @@
 import {MutableRefObject, useEffect, useRef, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {useAssignmentsStore} from '../store/assignmentsStore';
+import {useCoiAssignmentsStore} from '../store/coiAssignmentsStore';
+import {useMapControlsStore} from '../store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
 import {EMPTY_FT_COLLECTION} from '../constants/map/layerStyle';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
@@ -52,7 +55,11 @@ export const usePointData = (isChild?: boolean) => {
   const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
   const [dataHash, setDataHash] = useState<string>('');
   const mapDocument = useMapStore(state => state.mapDocument);
-  const exposedChildIds = useAssignmentsStore(state => state.shatterIds.children);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const districtChildIds = useAssignmentsStore(state => state.shatterIds.children);
+  const coiChildIds = useCoiAssignmentsStore(state => state.shatterIds.children);
+  // COI maps track shattering in their own store; mirror useLayerFilter
+  const exposedChildIds = mapMode === MAP_MODES.COI ? coiChildIds : districtChildIds;
   const layer = isChild ? mapDocument?.child_layer : mapDocument?.parent_layer;
   useEffect(() => {
     if (layer) {

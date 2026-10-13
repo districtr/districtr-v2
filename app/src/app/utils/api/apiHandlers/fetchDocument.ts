@@ -185,10 +185,13 @@ export const fetchDocument = async (
     ok: true,
     response: {
       document: {
-        // in case of missing fields or moderation overwrites
+        // in case of missing fields or server-side trims
         ...subordinateDocument,
         ...priorityDocument,
-        // always override with remote
+        // Server-owned fields: no UI edits these locally, so the local copy's
+        // values are never information — taking them from a winning local doc
+        // would pin stale values against server-side changes. Keep them pinned
+        // to the server even when local wins the merge.
         overlays: remoteMetadata.response.overlays,
         statefps: remoteMetadata.response.statefps,
       },

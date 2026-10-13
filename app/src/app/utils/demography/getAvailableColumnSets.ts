@@ -1,9 +1,9 @@
-import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {evalColumnConfigs} from '@/app/store/demography/demographyTableConfig';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
-import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from '../api/summaryStats';
+import {AllDemographyTableConfigs, AllMapConfigs, AllTabularColumns} from '../api/summaryStats';
 
 export function getAvailableColumnSets(availableColumns: AllTabularColumns[number][]) {
-  const evaluation: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+  const evaluation: Record<string, AllDemographyTableConfigs> = Object.fromEntries(
     Object.entries(evalColumnConfigs)
       .map(([key, config]) => [
         key,

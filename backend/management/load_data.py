@@ -3,15 +3,15 @@ import sqlalchemy as sa
 from pathlib import Path
 
 from app.utils import (
-    create_parent_child_edges,
     create_districtr_map,
     create_shatterable_gerrydb_view,
     add_extent_to_districtrmap,
     create_spatial_index,
     add_districtr_map_to_map_group,
+    create_map_group,
 )
 from app.core.io import get_local_or_s3_path
-from app.main import get_session
+from app.core.db import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
@@ -126,11 +126,6 @@ def _create_districtr_map(session: Session, **kwargs) -> str:
     return create_districtr_map(session=session, **kwargs)
 
 
-@continue_on_previous_load
-def _create_parent_child_edges(session: Session, **kwargs):
-    create_parent_child_edges(session=session, **kwargs)
-
-
 class GerryDBViewImport(BaseModel):
     gpkg: str
     layer: str
@@ -148,6 +143,19 @@ class ShatterableViewImport(BaseModel):
     child_layer: str
 
 
+class MapGroupDefinition(BaseModel):
+    """Display name for a map group, keyed by slug.
+
+    Groups referenced by `map_groups` entries are created automatically if
+    absent; this section supplies the human-facing name (e.g. slug `custom`
+    -> name "Custom Districts"). Groups without a definition fall back to a
+    title-cased slug.
+    """
+
+    slug: str
+    name: str
+
+
 def get_filetype(file_path: str) -> str:
     _, ext = os.path.splitext(file_path)
     return ext.lower()
@@ -158,6 +166,7 @@ class Config(BaseModel):
     shatterable_views: list[ShatterableViewImport] | None = None
     districtr_maps: list[DistrictrMapPublic] | None = None
     map_groups: list[ConfigMapGroup] | None = None
+    map_group_definitions: list[MapGroupDefinition] | None = None
 
     @computed_field
     @property
@@ -178,6 +187,11 @@ class Config(BaseModel):
     @property
     def _map_groups(self) -> list[ConfigMapGroup]:
         return self.map_groups or []
+
+    @computed_field
+    @property
+    def _map_group_definitions(self) -> list[MapGroupDefinition]:
+        return self.map_group_definitions or []
 
     @classmethod
     def from_file(cls, file_path: str) -> "Config":
@@ -205,7 +219,10 @@ class Config(BaseModel):
 
 
 def load_sample_data(
-    config: Config, data_dir: str, skip_gerrydb_loads: bool = False
+    config: Config,
+    data_dir: str,
+    skip_gerrydb_loads: bool = False,
+    visibility_override: bool | None = None,
 ) -> None:
     """
     Load sample data from the specified data directory.
@@ -218,7 +235,6 @@ def load_sample_data(
     1. Add base gerrydb layer(s)
     2. Add shatterable view, if using shatterable layers
     3. Add districtr map, which is the gerrydb view or the shatterable view
-    4. Add parent child edges, if using shatterable layers
 
     Args:
         config: Configuration dictionary
@@ -234,7 +250,7 @@ def load_sample_data(
 
         if not Path(gpkg).exists():
             logger.info(f"File {gpkg} does not exist.")
-            gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
+            gpkg = f"s3://{settings.AWS_S3_BUCKET}/gerrydb/{view.gpkg}"
 
         try:
             table_exists = session.execute(
@@ -291,14 +307,18 @@ def load_sample_data(
                 child_layer=view.child_layer,
                 tiles_s3_path=view.tiles_s3_path,
                 num_districts=view.num_districts,
+                num_districts_modifiable=view.num_districts_modifiable,
+                visibility=(
+                    visibility_override
+                    if visibility_override is not None
+                    else view.visible
+                ),
             )
             logger.info(f"Adding extent to districtr map with UUID {u}")
             add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
             session.commit()
 
-        if u is not None:
-            logger.info(f"Created districtr map with UUID {u}")
-        else:
+        if u is None:
             session = next(get_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
@@ -310,15 +330,28 @@ def load_sample_data(
                 raise ValueError(
                     f"Districtr map with districtr_map_slug {view.districtr_map_slug} not found"
                 )
-
-        if view.child_layer is not None:
-            # Commit districtr views
-            session.commit()
-            _create_parent_child_edges(
-                session=session, districtr_map_uuid=view.districtr_map_uuid
-            )
+        else:
+            logger.info(f"Created districtr map with UUID {u}")
 
         session.commit()
+
+    # Ensure every group referenced by map_groups exists before adding
+    # memberships (check-before-create, idempotent across re-runs).
+    group_names = {d.slug: d.name for d in config._map_group_definitions}
+    referenced_slugs = sorted({g.group_slug for g in config._map_groups})
+    for slug in referenced_slugs:
+        session = next(get_session())
+        group_exists = session.execute(
+            sa.text("select 1 from map_group where slug = :slug limit 1"),
+            {"slug": slug},
+        ).scalar()
+        session.rollback()
+        if group_exists:
+            logger.info(f"Map group `{slug}` already exists.")
+            continue
+        name = group_names.get(slug, slug.replace("_", " ").replace("-", " ").title())
+        create_map_group(session=session, group_name=name, slug=slug)
+        logger.info(f"Created map group `{slug}` ({name}).")
 
     for group in config._map_groups:
         session = next(get_session())

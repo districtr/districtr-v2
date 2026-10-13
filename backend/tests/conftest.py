@@ -11,8 +11,8 @@ from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
-import app.evaluation.graph as eval_graph_module
-from app.evaluation.graph import get_graph as _get_graph_cached
+import app.evaluation.graph_loader as eval_graph_module
+from app.evaluation.graph_loader import get_graph as _get_graph_cached
 from app.evaluation.context import GerrydbTableName
 from app.evaluation.types import Election
 from tests.constants import (
@@ -31,7 +31,6 @@ from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    create_parent_child_edges,
 )
 
 
@@ -406,6 +405,49 @@ def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
     session.close()
 
 
+@pytest.fixture(name="antimeridian_geos")
+def antimeridian_geos_fixture(session: Session):
+    """Two small polygons straddling the antimeridian, mirroring Alaska's Aleutian
+    islands, so extent computation can be tested for that failure mode."""
+    layer = "antimeridian_geos"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="antimeridian_geos_gerrydb")
+def antimeridian_geos_gerrydb_fixture(session: Session, antimeridian_geos):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "antimeridian_geos"})
+    session.commit()
+    session.close()
+
+
 @pytest.fixture(name="gerrydb_simple_geos_view")
 def gerrydb_simple_geos_view_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
@@ -447,8 +489,25 @@ def simple_parent_child_geos_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=inserted_districtr_map
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture(name="simple_shatterable_fixed_districtr_map")
+def simple_shatterable_fixed_districtr_map_fixture(
+    session: Session, simple_shatterable_districtr_map
+):
+    """Same layers/graph as simple_geos but num_districts_modifiable=False."""
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Simple shatterable layer (fixed districts)",
+        districtr_map_slug="simple_geos_fixed",
+        gerrydb_table_name="simple_geos",
+        num_districts=3,
+        num_districts_modifiable=False,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
     )
     session.commit()
     return inserted_districtr_map
@@ -466,24 +525,6 @@ def simple_child_geos_nonshatterable_districtr_map_fixture(
         num_districts=2,
         parent_layer="simple_child_geos",
     )
-
-
-@pytest.fixture
-def simple_shatterable_districtr_map_no_edges_yet(
-    session: Session, gerrydb_simple_geos_view
-):
-    inserted_districtr_map = create_districtr_map(
-        session,
-        name="Simple shatterable layer",
-        districtr_map_slug="simple_geos",
-        gerrydb_table_name="simple_geos",
-        num_districts=3,
-        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
-        parent_layer="simple_parent_geos",
-        child_layer="simple_child_geos",
-    )
-    session.commit()
-    return inserted_districtr_map
 
 
 @pytest.fixture(name="ks_ellis_county_vtd")
@@ -743,25 +784,25 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Graph fixture generation — pkl files are pre-built and committed to
+# Graph fixture generation — npz files are pre-built and committed to
 # fixtures/graph/. The code below is kept as documentation so future
-# developers can regenerate them if needed.
+# developers can regenerate them if needed. It builds networkx graphs and
+# writes them with the pipeline's own writer, so run it from the pipelines
+# environment (networkx and graph_to_npz_arrays live there, not in the
+# backend): import Graph and number_connected_components from networkx,
+# numpy as np, and graph_to_npz_arrays from transforms.graph.
 #
-# To regenerate, uncomment the code, add the required imports at the top
-# of the file (pickle, Graph from networkx, number_connected_components),
-# and run:
-#   pytest backend/tests/conftest.py --collect-only   # loads the module
-# or execute the functions directly in a Python session.
-#
-# For ks_ellis_geos.pkl, a live DB connection with the ks_ellis_county_vtd
+# For ks_ellis_geos.npz, a live DB connection with the ks_ellis_county_vtd
 # gerrydb table loaded is required (see ks_ellis_county_vtd_gerrydb fixture).
 # ---------------------------------------------------------------------------
 #
 # def _build_grid_block_graph() -> Graph:
+#     """Plain block graph, no parent hierarchy — mirrors graph_from_gpkg's
+#     non-shatterable-map output (no annotate step run)."""
 #     G = Graph()
 #     for r in range(8):
 #         for c in range(8):
-#             G.add_node(_block_geoid(r, c), parent=_vtd_geoid(r // 2, c // 2))
+#             G.add_node(_block_geoid(r, c))
 #     for r in range(8):
 #         for c in range(7):
 #             G.add_edge(_block_geoid(r, c), _block_geoid(r, c + 1))
@@ -784,8 +825,12 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 #     return G
 #
 # def _build_grid_combined_graph() -> Graph:
-#     """Inline of pipelines/transforms/graph.py:_build_combined_graph."""
+#     """Inline of pipelines/transforms/graph.py:_build_combined_graph, with the
+#     annotate step (_annotate_graph_with_parents_from_gpkg) also inlined."""
 #     G = _build_grid_block_graph()
+#     for r in range(8):
+#         for c in range(8):
+#             G.nodes[_block_geoid(r, c)]["parent"] = _vtd_geoid(r // 2, c // 2)
 #     G.graph["weighted_edges"] = {}
 #     for u, v in list(G.edges()):
 #         p_u = G.nodes[u]["parent"]
@@ -834,23 +879,36 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 #     _build_combined_graph_inline(G)
 #     return G
 #
-# # To write the grid pkls:
+# # To write the grid npz files:
 # # for name, fn in [(GRID_COMBINED_NAME, _build_grid_combined_graph),
 # #                  (PARENT_GRID_NAME, _build_grid_parent_graph),
 # #                  (BLOCK_GRID_NAME, _build_grid_block_graph),
 # #                  ("simple_geos", _build_simple_geos_combined_graph)]:
-# #     with open(FIXTURES_PATH / "graph" / f"{name}.pkl", "wb") as f:
-# #         pickle.dump(fn(), f)
+# #     np.savez_compressed(
+# #         FIXTURES_PATH / "graph" / f"{name}.npz", **graph_to_npz_arrays(fn())
+# #     )
 #
-# # For ks_ellis_geos.pkl (requires DB + ks_ellis_county_vtd_gerrydb fixture):
+# # For ks_ellis_geos.npz (requires DB + ks_ellis_county_vtd_gerrydb fixture):
 # # rows = session.execute(text("""
 # #     SELECT a.path, b.path FROM gerrydb.ks_ellis_county_vtd a
 # #     JOIN gerrydb.ks_ellis_county_vtd b ON a.path < b.path
 # #     WHERE ST_Touches(a.geometry, b.geometry)
 # # """)).fetchall()
 # # G = Graph([(r[0], r[1]) for r in rows])
-# # with open(FIXTURES_PATH / "graph" / "ks_ellis_geos.pkl", "wb") as f:
-# #     pickle.dump(G, f)
+# # np.savez_compressed(
+# #     FIXTURES_PATH / "graph" / "ks_ellis_geos.npz", **graph_to_npz_arrays(G)
+# # )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_graph_disk_cache(tmp_path_factory):
+    """Point the shared mmap graph cache at a fresh temp dir per test.
+
+    Per-test (not per-session) so a graph cached by one test's mock can't
+    leak into a test that forgot to request a graph mock fixture."""
+    from app.core.config import settings as app_settings
+
+    app_settings.GRAPH_CACHE_PATH = str(tmp_path_factory.mktemp("graph-cache"))
 
 
 @pytest.fixture(name="mock_grid_graph_file")
@@ -858,12 +916,18 @@ def mock_grid_graph_file_fixture(monkeypatch):
     """Redirect get_gerrydb_graph_file to fixtures/graph/ and flush the LRU cache."""
 
     def _get_file(gerrydb_name: str) -> str:
-        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.pkl")
+        return str(FIXTURES_PATH / "graph" / f"{gerrydb_name}.npz")
 
     monkeypatch.setattr(eval_graph_module, "get_gerrydb_graph_file", _get_file)
     _get_graph_cached.cache_clear()
     yield
     _get_graph_cached.cache_clear()
+
+
+@pytest.fixture(name="mock_gerrydb_graph_file")
+def mock_gerrydb_graph_file_fixture(mock_grid_graph_file):
+    """Alias: any fixture graph by gerrydb name (not just grids)."""
+    yield
 
 
 _UPSERT_GERRYDBTABLE = text("""

@@ -8,7 +8,7 @@ import {MAP_TYPES} from '@constants/document/types';
 
 /**
  * Whether the current map has unsaved (browser-only) changes, plus the matching
- * save action and last-synced time. Shared by the cloud save indicator and the
+ * save action. Shared by the cloud save indicator and the
  * view switcher (which saves pending changes before swapping to a read-only view).
  */
 export function useMapSaveStatus() {
@@ -32,6 +32,5 @@ export function useMapSaveStatus() {
   return {
     isOutdated: updated || assignmentsOutdated,
     save: isCommunity ? coiSave : districtSave,
-    lastSyncedAt: documentFromIdb?.document_metadata.updated_at,
   };
 }

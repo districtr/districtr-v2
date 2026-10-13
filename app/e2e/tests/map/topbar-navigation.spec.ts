@@ -99,7 +99,7 @@ test.describe('View switcher', () => {
     // Then it lands on the evaluation view. (Display/Evaluate are keyed on the
     // public_id; an editor on an unshared draft mints one transparently, so allow
     // extra time for that round-trip plus the ~3s pre-loader.)
-    await page.waitForURL(/\/map\/eval\/\d+/, {timeout: testTimeouts.long});
+    await page.waitForURL(/\/map\/\d+\/eval/, {timeout: testTimeouts.long});
     await expect(page.getByRole('button', {name: 'Switch view'})).toContainText('Evaluate');
   });
 });

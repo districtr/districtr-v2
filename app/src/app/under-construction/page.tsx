@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import {Flex, Heading, Text} from '@radix-ui/themes';
 
 export const metadata: Metadata = {
-  title: 'Under Construction | Districtr',
+  title: 'Under Construction',
   description: 'Districtr is temporarily unavailable while we make improvements.',
   robots: {index: false},
 };

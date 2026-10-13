@@ -14,7 +14,7 @@ The Districtr reboot monorepo.
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
 1. Install and configure [Docker](https://www.docker.com/) for your machine
-2. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
+2. Copy the env examples (compose requires all three to parse): `cp ./backend/.env.docker.example ./backend/.env.docker && cp ./app/.env.docker.example ./app/.env.docker && cp ./cms/.env.docker.example ./cms/.env.docker`, then fill in missing variables.
 3. From the repo root, run `docker-compose up db backend frontend`
 4. Add data as necessary by following the steps in [Loading data](#loading-data) below
 
@@ -43,8 +43,11 @@ The existing Docker Compose services can be used as [Dev Containers](https://con
    ```bash
    cp ./backend/.env.docker.example ./backend/.env.docker
    cp ./app/.env.docker.example ./app/.env.docker
+   cp ./cms/.env.docker.example ./cms/.env.docker
    ```
-   Fill in any missing variables in both files.
+   Fill in any missing variables in the copied files. All three copies must
+   exist before `docker-compose` will parse — the compose file references
+   them as required env_file entries.
 
 ### Available containers
 
@@ -149,9 +152,12 @@ When reviewing a PR, use the "HIPPO" method to provide feedback:
 | **PP** - Personal preference | Possible changes requested. Something the reviewer would do but is non-blocking. |
 | **O** - Opinion | Comment for discussion. Non-blocking. Could be a bigger idea that's relevant to the PR. |
 
-Open PRs will spin up a set of test apps for review, following the convention `pr-<pr number>-districtr-districtr-v2-<sub app>`, and would be available for testing at e.g. `https://pr-116-districtr-districtr-v2-app.fly.dev/map`. This behavior can be tweaks via `.github/workflows/fly-deploy-pr.yml`
+PRs get an ephemeral preview when labeled (`.github/workflows/preview.yml`):
 
-Updates to PRs will trigger updates to staging apps, including re-running of migrations on the testing db.
+- `Preview: FE` — frontend at `https://pr-<pr number>.dev.districtr.org`, pointed at the shared dev backend
+- `Preview: Fullstack` — also a backend at `https://api-pr-<pr number>.dev.districtr.org` with a database restored from the latest dev snapshot
+
+New commits update the preview; closing the PR (or removing the label) tears it down.
 
 ### CI/CD
 

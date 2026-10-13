@@ -1,21 +1,32 @@
 import {useTooltipStore} from '@store/tooltipStore';
-import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
+import {CONFIG_BY_COLUMN_SET, summaryStatLabels} from '@store/demography/demographyTableConfig';
+import {useDemographyStore} from '@store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {useEffect} from 'react';
-import {Flex, Heading, Button} from '@radix-ui/themes';
+import {Flex, RadioGroup, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
 import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
-import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
+import {SUMMARY_TYPES, TOTAL_COLUMN, type SummaryType} from '@constants/demography/summary';
 
 export const InspectorControls = () => {
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const setInspectorMode = useTooltipStore(state => state.setInspectorMode);
   const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
+  const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
+  const availableModes = summaryStatLabels.filter(f => availableSummaries[f.value]);
 
-  const columnList = CONFIG_BY_COLUMN_SET[inspectorMode]
-    .filter(f => demographyService.availableColumns.includes(f.sourceCol ?? f.column))
-    .sort((a, b) => a.label.localeCompare(b.label));
+  // Total is always active, not a toggle; order by universe totals, voter
+  // history stays chronological.
+  const universeTotals = demographyService.universeTotals;
+  const columnList = CONFIG_BY_COLUMN_SET[inspectorMode].filter(
+    f => !f.isTotal && demographyService.availableColumns.includes(f.sourceCol ?? f.column)
+  );
+  if (inspectorMode !== SUMMARY_TYPES.VOTERHISTORY) {
+    columnList.sort(
+      (a, b) => (universeTotals?.[b.column] ?? 0) - (universeTotals?.[a.column] ?? 0)
+    );
+  }
 
   const totalColumn = TOTAL_COLUMN[inspectorMode];
   const totalColumns = totalColumn ? [totalColumn] : [];
@@ -24,42 +35,49 @@ export const InspectorControls = () => {
     setActiveColumns([...totalColumns, ...columnList.map(f => f.column)]);
   }, [inspectorMode, setActiveColumns]);
 
+  useEffect(() => {
+    if (availableModes.length && !availableModes.some(f => f.value === inspectorMode)) {
+      setInspectorMode(availableModes[0].value);
+    }
+  }, [availableModes, inspectorMode, setInspectorMode]);
+
   return (
-    <Flex direction="column">
+    <Flex direction="column" gapY="4">
       <BrushControls />
-      <Heading as="h3" size="3">
-        Inspector mode
-      </Heading>
-      <Flex direction="row" className="w-full" wrap="wrap" gap="1">
-        <Button
-          variant="soft"
-          color={inspectorMode === SUMMARY_TYPES.VAP ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode(SUMMARY_TYPES.VAP)}
-        >
-          Voting Age Population
-        </Button>
-        <Button
-          variant="soft"
-          color={inspectorMode === SUMMARY_TYPES.TOTPOP ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode(SUMMARY_TYPES.TOTPOP)}
-        >
-          Total Population
-        </Button>
-        <Button
-          variant="soft"
-          color={inspectorMode === SUMMARY_TYPES.VOTERHISTORY ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode(SUMMARY_TYPES.VOTERHISTORY)}
-        >
-          Voter History
-        </Button>
-      </Flex>
-      <Flex direction="column" py="4" gap="2">
-        <Heading as="h3" size="3">
-          Inspector columns
-        </Heading>
+      {/* A radio group asserts a choice, so it needs at least two summary
+          types; with exactly one, the name still tells the user which stats
+          the inspector shows, so it renders as plain text. Zero means
+          demography hasn't resolved yet — no label over nothing. */}
+      {availableModes.length > 0 && (
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            Summary type
+          </Text>
+          {availableModes.length > 1 ? (
+            <RadioGroup.Root
+              size="1"
+              value={inspectorMode}
+              onValueChange={value => setInspectorMode(value as SummaryType)}
+            >
+              <Flex direction="row" align="center" gapX="3" gapY="1" wrap="wrap">
+                {availableModes.map(({value, label}) => (
+                  <RadioGroup.Item key={value} value={value}>
+                    {label}
+                  </RadioGroup.Item>
+                ))}
+              </Flex>
+            </RadioGroup.Root>
+          ) : (
+            <Text size="1" color="gray">
+              {availableModes[0].label}
+            </Text>
+          )}
+        </Flex>
+      )}
+      <Flex direction="column" gap="1">
+        <Text size="2" weight="medium">
+          Columns
+        </Text>
         <Flex direction="row" className="w-full" wrap="wrap" gap="1">
           <ResponsiveCheckboxCards
             defaultValue={[]}

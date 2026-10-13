@@ -4,6 +4,7 @@ from app.core.config import settings
 from urllib.parse import urlparse
 from pathlib import Path
 import logging
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -110,10 +111,15 @@ def file_exists(file_path) -> bool:
         key = url.path.lstrip("/")
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        object_information = s3.head_object(
-            Bucket=bucket,
-            Key=key,
-        )
+        try:
+            object_information = s3.head_object(
+                Bucket=bucket,
+                Key=key,
+            )
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+                return False
+            raise
         return object_information["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     if url.scheme == "":

@@ -11,7 +11,9 @@ from urllib.request import urlopen
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_CONFIG_URL = "https://tilesets1.cdn.districtr.org/stress-test/config.json"
+# config-v2: both stacks run only _v2 modules now, so the original
+# stress-test/config.json (pre-v2 slugs) seeds neither stack.
+DEFAULT_CONFIG_URL = "https://tilesets1.cdn.districtr.org/stress-test/config-v2.json"
 
 
 class StressSettings(BaseSettings):

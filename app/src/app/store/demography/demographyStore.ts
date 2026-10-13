@@ -7,8 +7,9 @@ import {DemographyStore} from './types';
 import {useAssignmentsStore} from '../assignmentsStore';
 import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
-import {demographyService} from '@/app/utils/demography/demographyService';
+import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
 import {type CoalitionGroupKey} from '@constants/demography/coalition';
@@ -21,6 +22,15 @@ import {COALITION_UNIVERSES, SUMMARY_TYPES} from '@constants/demography/summary'
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
 import {MAP_TYPES} from '@constants/document/types';
+import {checkAssignments} from '@/app/utils/map/assignmentIntegrity';
+
+// Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
+// switch to planning regions as county-equivalents, but districtr's own block
+// geoids still carry the legacy county FIPS codes — the two never match, so
+// county brush can never find any blocks under a "county" queried from that
+// layer there. Excluded from the default-on check below rather than left to
+// spansMultipleCounties(), which has no way to see this mismatch.
+const CONNECTICUT_STATE_FIPS = '09';
 
 let coalitionHydrationRequestId = 0;
 let coalitionVersion = 0;
@@ -29,6 +39,10 @@ let coalitionVersion = 0;
 // the late resolver would otherwise win and leave the demographyService singleton
 // out of sync with the store's dataHash.
 let updateDataRequestId = 0;
+// Which document's county-brush default has already been set, so a later
+// re-hash (shatter/unshatter changes brokenIds, re-triggering this function
+// for the same document) never recomputes and overrides a session choice.
+let countyBrushDefaultAppliedFor: string | null = null;
 
 const getActiveBrokenIds = () => {
   const mapMode = useMapControlsStore.getState().mapMode;
@@ -46,7 +60,7 @@ export var useDemographyStore = create(
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
       const {mapDocument} = useMapStore.getState();
-      const currentDataHash = `${getActiveBrokenIds().join(',')}|${mapDocument?.document_id}`;
+      const currentDataHash = demographyDataHash(getActiveBrokenIds(), mapDocument?.document_id);
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
@@ -196,11 +210,13 @@ export var useDemographyStore = create(
       const {setNotification} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
-      const dataHash = `${brokenIds.join(',')}|${mapDocument.document_id}`;
+      const dataHash = demographyDataHash(brokenIds, mapDocument.document_id);
 
+      // Bump before the early return, so a load still in flight for an abandoned
+      // shatter state (shatter, then undo before it lands) is dropped.
+      const requestId = ++updateDataRequestId;
       if (currDataHash === dataHash) return;
 
-      const requestId = ++updateDataRequestId;
       const result = await getDemography({
         mapDocument,
         brokenIds,
@@ -230,6 +246,38 @@ export var useDemographyStore = create(
         demographyService.updateOverlay(result.columns, result.results, dataHash);
       } else {
         demographyService.update(result.columns, result.results, dataHash, get().coalitionGroups);
+        // County brush's default (on for a blank multi-county map, off for a
+        // single-county map or one the user has already started painting) needs
+        // the full unit universe, which only exists once demography data has
+        // loaded — set once per document, not on every re-hash a shatter/unshatter
+        // triggers, so it never overrides a choice made mid-session.
+        if (
+          mapDocument.access === ACCESS_STATES.EDIT &&
+          countyBrushDefaultAppliedFor !== mapDocument.document_id
+        ) {
+          countyBrushDefaultAppliedFor = mapDocument.document_id;
+          const hasAssignments =
+            mapDocument.map_type === MAP_TYPES.COMMUNITY
+              ? useCoiAssignmentsStore.getState().communityAssignments.size > 0
+              : useAssignmentsStore.getState().zoneAssignments.size > 0;
+          // statefps is null for maps without it in the DB.
+          const isConnecticut =
+            mapDocument.statefps?.length === 1 &&
+            mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
+          const paintByCounty =
+            !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
+          useMapControlsStore.getState().setMapOptions({paintByCounty});
+          if (paintByCounty) {
+            useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
+          }
+        }
+        // Demography and assignments are both current here, so this is the load-time
+        // integrity check (and a cheap re-check on each shatter's re-hash).
+        if (mapDocument.access === ACCESS_STATES.EDIT) {
+          checkAssignments('load').catch(error =>
+            console.error('Assignment check failed to run', error)
+          );
+        }
       }
 
       set({

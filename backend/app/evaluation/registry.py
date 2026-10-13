@@ -85,9 +85,9 @@ METRICS: tuple[Metric[Any], ...] = (
         key="disproportionality", version=1, compute=partisans.disproportionality
     ),
     Metric[CompetitiveMetrics](
-        key="competitiveness", version=1, compute=partisans.competitive_metrics
+        key="competitiveness", version=2, compute=partisans.competitive_metrics
     ),
-    Metric[int](key="ideal_population", version=1, compute=validity.ideal_population),
+    Metric[int](key="ideal_population", version=2, compute=validity.ideal_population),
     Metric[dict[CountyGeoid, CountyPiecesInfo]](
         key="county_pieces", version=1, compute=splits.county_pieces
     ),
@@ -97,23 +97,23 @@ METRICS: tuple[Metric[Any], ...] = (
         compute=splits.district_county_membership,
     ),
     Metric[CutEdgesResult](
-        key="cut_edges", version=1, compute=compactness.block_cut_edges
+        key="cut_edges", version=2, compute=compactness.block_cut_edges
     ),
     Metric[dict[DistrictId, float]](
         key="polsby_popper", version=1, compute=compactness.polsby_popper
     ),
     Metric[dict[DistrictId, float]](key="reock", version=1, compute=compactness.reock),
     Metric[PopulationDeviationResults](
-        key="population_deviation", version=2, compute=validity.population_deviation
+        key="population_deviation", version=3, compute=validity.population_deviation
     ),
     Metric[AssignedUnitsResult](
-        key="assigned_units", version=3, compute=validity.assigned_units
+        key="assigned_units", version=4, compute=validity.assigned_units
     ),
     Metric[UnassignedPopulation](
         key="unassigned_population", version=1, compute=validity.unassigned_population
     ),
     Metric[dict[DistrictId, bool]](
-        key="contiguous", version=1, compute=validity.contiguous
+        key="contiguous", version=2, compute=validity.contiguous
     ),
 )
 

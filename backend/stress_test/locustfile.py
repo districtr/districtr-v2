@@ -159,7 +159,7 @@ class Viewer(SessionUser):
         self.sleep_until(self.start_offset())
         document_id = self.rng.choice(VIEW_DOCS)
         if self.api.get_document(document_id):
-            self.api.get_assignments(document_id)
+            self.api.get_document_stats(document_id)
         raise StopUser
 
 
@@ -173,7 +173,6 @@ class EvalUser(SessionUser):
         self.sleep_until(self.start_offset())
         document_id = self.rng.choice(VIEW_DOCS)
         if self.api.get_document(document_id):
-            self.api.get_assignments(document_id)
             self.api.get_evaluation(document_id)
         raise StopUser
 

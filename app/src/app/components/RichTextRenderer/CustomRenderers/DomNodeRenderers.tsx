@@ -1,11 +1,6 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../../Static/ContentHeader';
-import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
-import {
-  PlanGallery,
-  PlanGalleryProps,
-} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import {
   MapCreateButtons,
   MapCreateButtonsProps,
@@ -19,10 +14,8 @@ import {
   RICH_TEXT_NODE_TYPES,
   BOILERPLATE_ATTRIBUTE_NAME,
   SECTION_HEADER_ATTRIBUTE_NAME,
-  FORM_ATTRIBUTES,
   MAP_CREATE_BUTTONS_ATTRIBUTES,
   COMMENT_GALLERY_ATTRIBUTES,
-  PLAN_GALLERY_ATTRIBUTES,
 } from '@constants/cms';
 
 export const domNodeReplacers = (disabled: boolean) => {
@@ -38,30 +31,6 @@ export const domNodeReplacers = (disabled: boolean) => {
           // Remove outer quotes
           const title = domNode.attribs[SECTION_HEADER_ATTRIBUTE_NAME]?.slice(1, -1);
           return <ContentHeader title={title} />;
-        }
-        case RICH_TEXT_NODE_TYPES.PLAN_GALLERY: {
-          const props = Object.fromEntries(
-            PLAN_GALLERY_ATTRIBUTES.map(attr => [
-              attr.name,
-              JSON.parse(domNode.attribs[attr.name] ?? 'null'),
-            ])
-          ) as PlanGalleryProps;
-          return <PlanGallery {...props} />;
-        }
-        case RICH_TEXT_NODE_TYPES.FORM: {
-          const props = Object.fromEntries(
-            FORM_ATTRIBUTES.map(attr => [
-              attr.name,
-              JSON.parse(domNode.attribs[attr.name] ?? 'null'),
-            ])
-          );
-          return (
-            <CommentSubmissionForm
-              disabled={disabled}
-              mandatoryTags={props.mandatoryTags}
-              allowListModules={props.allowListModules}
-            />
-          );
         }
         case RICH_TEXT_NODE_TYPES.MAP_CREATE_BUTTONS: {
           const props = Object.fromEntries(

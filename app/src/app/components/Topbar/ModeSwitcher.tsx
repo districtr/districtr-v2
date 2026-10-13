@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button, DropdownMenu, Flex, Spinner, Text} from '@radix-ui/themes';
 import {
   BarChartIcon,
@@ -7,6 +7,7 @@ import {
   CheckIcon,
   EyeOpenIcon,
   LockClosedIcon,
+  MagicWandIcon,
   Pencil1Icon,
 } from '@radix-ui/react-icons';
 import {useRouter, useSearchParams} from 'next/navigation';
@@ -16,23 +17,35 @@ import {MAP_MODES} from '@constants/map/mode';
 import {routeForMode} from '@constants/document/routes';
 import {ACCESS_STATES} from '@constants/document/state';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {patchSharePlan} from '@/app/utils/api/apiHandlers/patchSharePlan';
+import {editPath, evalPath} from '@/app/utils/map/editUrl';
 import {idb} from '@/app/utils/idb/idb';
+import {useUiHintStore} from '@/app/store/uiHintStore';
+import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
-type ViewMode = 'edit' | 'display' | 'evaluate';
+type ViewMode = 'draw' | 'superdraw' | 'display' | 'evaluate';
 
 const MODE_META: Record<
   ViewMode,
   {label: string; Icon: React.ComponentType<{className?: string}>}
 > = {
-  edit: {label: 'Draw', Icon: Pencil1Icon},
+  draw: {label: 'Draw', Icon: Pencil1Icon},
+  superdraw: {label: 'Super Draw', Icon: MagicWandIcon},
   display: {label: 'View', Icon: EyeOpenIcon},
   evaluate: {label: 'Evaluate', Icon: BarChartIcon},
 };
 
+const isDrawMode = (mode: ViewMode): mode is 'draw' | 'superdraw' =>
+  mode === 'draw' || mode === 'superdraw';
+
 /** A single mode option in the switcher menu. Owns its own icon/description so the
- * switcher template stays declarative. `locked` is the password-gated edit state. */
+ * switcher template stays declarative. `locked` is the password-gated edit state.
+ *
+ * Super Draw's explanation is a text-only HelpTip: this row is a DropdownMenu.Item,
+ * whose own pointer handling closes the hover card before the cursor can reach any
+ * interactive content inside it (see the superDraw entry in helpTipContent). */
 const ModeSwitcherItem: React.FC<{
   mode: ViewMode;
   isCurrent: boolean;
@@ -43,19 +56,37 @@ const ModeSwitcherItem: React.FC<{
 }> = ({mode, isCurrent, disabled, disabledReason, locked, onSelect}) => {
   const meta = MODE_META[mode];
   const Icon = locked ? LockClosedIcon : meta.Icon;
+  // Guide target for the helper's mode pointers (see uiHintStore).
+  const guiding = useUiHintStore(state => state.guideTargets[0] === `mode-${mode}`);
+  const row = (
+    <Flex
+      align="center"
+      justify="between"
+      gap="4"
+      width="100%"
+      py="1"
+      className={guiding ? 'ui-guide' : ''}
+    >
+      <Flex align="center" gap="3">
+        <Icon className="size-4 shrink-0" />
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            {meta.label}
+          </Text>
+        </Flex>
+      </Flex>
+      {isCurrent && <CheckIcon className="shrink-0" />}
+    </Flex>
+  );
   return (
     <DropdownMenu.Item disabled={disabled} onSelect={onSelect}>
-      <Flex align="center" justify="between" gap="4" width="100%" py="1">
-        <Flex align="center" gap="3">
-          <Icon className="size-4 shrink-0" />
-          <Flex direction="column" gap="1">
-            <Text size="2" weight="medium">
-              {meta.label}
-            </Text>
-          </Flex>
-        </Flex>
-        {isCurrent && <CheckIcon className="shrink-0" />}
-      </Flex>
+      {mode === 'superdraw' ? (
+        <HelpTip tip="superDraw" openDelay={HELP_TIP_HOVER_DELAY} side="right">
+          {row}
+        </HelpTip>
+      ) : (
+        row
+      )}
     </DropdownMenu.Item>
   );
 };
@@ -77,6 +108,9 @@ export const ModeSwitcher: React.FC = () => {
   const setNotification = useMapStore(state => state.setNotification);
   const isEditing = useMapControlsStore(state => state.isEditing);
   const isEval = useMapControlsStore(state => state.isEval);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const setSuperDraw = useToolbarStore(state => state.setSuperDraw);
+  const setPendingSuperDraw = useToolbarStore(state => state.setPendingSuperDraw);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const editDocId = useEditableDocId();
   const {isOutdated, save} = useMapSaveStatus();
@@ -87,23 +121,46 @@ export const ModeSwitcher: React.FC = () => {
   const setLoadingState = useMapStore(state => state.setLoadingState);
   const publicIdForLookup = useMapStore(state => state.mapDocument?.public_id ?? null);
   const pwParam = useSearchParams().get('pw');
-  const [isMinting, setIsMinting] = React.useState(false);
+  const [isMinting, setIsMinting] = useState(false);
 
   // A map is unlockable if the share link carries `?pw=true` or the document itself
   // reports an edit password (so a viewer who landed on the bare public URL still gets
   // the affordance). Remember it so it survives dismissing the prompt or switching views.
   const passwordRequired = mapDocument?.password_required;
-  React.useEffect(() => {
+  useEffect(() => {
     if (pwParam || passwordRequired) setPasswordUnlockable(true);
   }, [pwParam, passwordRequired, publicIdForLookup, setPasswordUnlockable]);
+
+  // Mode-pointer guide: pulses this trigger, then the meant mode item.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const guideTarget = useUiHintStore(state => state.guideTargets[0]);
+  const advanceGuide = useUiHintStore(state => state.advanceGuide);
+  const cancelGuide = useUiHintStore(state => state.cancelGuide);
+  const handleMenuOpenChange = (open: boolean) => {
+    setMenuOpen(open);
+    if (open) {
+      advanceGuide('mode-switcher');
+    } else if (guideTarget?.startsWith('mode-') && guideTarget !== 'mode-switcher') {
+      // Closed without selecting: end the guide rather than pulse an unmounted item.
+      cancelGuide();
+    }
+  };
 
   // No map loaded yet (e.g. the empty "start here" landing) — nothing to switch.
   if (!mapDocument) return null;
 
-  const currentMode: ViewMode = isEval ? 'evaluate' : isEditing ? 'edit' : 'display';
+  const currentMode: ViewMode = isEval
+    ? 'evaluate'
+    : isEditing
+      ? superDraw
+        ? 'superdraw'
+        : 'draw'
+      : 'display';
   // COI has no evaluation route/view.
   const modes: ViewMode[] =
-    mapMode === MAP_MODES.COI ? ['edit', 'display'] : ['edit', 'display', 'evaluate'];
+    mapMode === MAP_MODES.COI
+      ? ['draw', 'superdraw', 'display']
+      : ['draw', 'superdraw', 'display', 'evaluate'];
   const prefix = routeForMode(mapMode);
 
   const publicId = mapDocument.public_id ?? null;
@@ -115,18 +172,19 @@ export const ModeSwitcher: React.FC = () => {
 
   const targetFor = (mode: ViewMode): string | null => {
     switch (mode) {
-      case 'edit':
-        return editDocId ? `/${prefix}/edit/${editDocId}` : null;
+      case 'draw':
+      case 'superdraw':
+        return editDocId ? editPath(prefix, editDocId, publicId) : null;
       case 'display':
         return publicId ? `/${prefix}/${publicId}` : null;
       case 'evaluate':
-        return publicId ? `/map/eval/${publicId}` : null;
+        return publicId ? evalPath(prefix, publicId) : null;
     }
   };
 
   const isDisabled = (mode: ViewMode): boolean => {
     if (mode === currentMode) return false;
-    if (mode === 'edit') return !editDocId && !isUnlockable;
+    if (isDrawMode(mode)) return !editDocId && !isUnlockable;
     // display / evaluate: available once a public_id exists; otherwise only an
     // editor can reach them (we mint a public_id on the fly).
     if (publicId) return false;
@@ -134,7 +192,7 @@ export const ModeSwitcher: React.FC = () => {
   };
 
   const disabledReasonFor = (mode: ViewMode): string =>
-    mode === 'edit' ? "You don't have edit access" : 'Unavailable for this map';
+    isDrawMode(mode) ? "You don't have edit access" : 'Unavailable for this map';
 
   /** Editor switching to display/evaluate on an unshared draft: mint a read-only
    * public_id, persist it, and return the freshly-resolved target route. */
@@ -156,7 +214,7 @@ export const ModeSwitcher: React.FC = () => {
       // Persist so reloads and the My-Maps list reflect the new public_id.
       const nextDoc = useMapStore.getState().mapDocument;
       if (nextDoc) idb.updateIdbDocumentMetadata(nextDoc);
-      return mode === 'evaluate' ? `/map/eval/${newPublicId}` : `/${prefix}/${newPublicId}`;
+      return mode === 'evaluate' ? evalPath(prefix, newPublicId) : `/${prefix}/${newPublicId}`;
     } finally {
       setIsMinting(false);
     }
@@ -164,11 +222,23 @@ export const ModeSwitcher: React.FC = () => {
 
   const handleSelect = async (mode: ViewMode) => {
     if (mode === currentMode || isDisabled(mode)) return;
-    // Edit: route straight in when we hold the UUID; otherwise unlock with a password.
-    if (mode === 'edit') {
+    // Draw / Super Draw: same edit route, different client-side toolset flag.
+    // setSuperDraw handles backing out of super-only tools/settings on exit.
+    if (isDrawMode(mode)) {
+      // Only flip (and persist) the mode once we can actually enter the editor —
+      // a cancelled password prompt must not leave superDraw switched on.
+      if (isEditing || editDocId) {
+        setSuperDraw(mode === 'superdraw');
+      }
+      // Already editing: pure client toggle, no navigation.
+      if (isEditing) return;
+      // Route straight in when we hold the UUID; otherwise unlock with a password.
       if (editDocId) {
-        router.push(`/${prefix}/edit/${editDocId}`);
+        router.push(editPath(prefix, editDocId, publicId));
       } else if (isUnlockable) {
+        // Remember which draw mode was requested so a successful unlock lands
+        // in it; the password modal clears this on cancel without persisting.
+        setPendingSuperDraw(mode === 'superdraw');
         setPasswordPrompt(true);
       }
       return;
@@ -206,21 +276,34 @@ export const ModeSwitcher: React.FC = () => {
   const CurrentIcon = MODE_META[currentMode].Icon;
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Button
-          variant="surface"
-          color="gray"
-          size="2"
-          className="cursor-pointer transition-shadow hover:shadow-md"
-          disabled={isMinting}
-          aria-label="Switch view"
-        >
-          {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
-          Mode: {MODE_META[currentMode].label}
-          <CaretDownIcon />
-        </Button>
-      </DropdownMenu.Trigger>
+    // Non-modal so clicks on other helper pointers aren't swallowed by the
+    // modal dismiss layer.
+    <DropdownMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange} modal={false}>
+      {/* HelpTip wraps DropdownMenu.Trigger (not the reverse): HelpTip's own
+          HoverCard.Trigger and DropdownMenu.Trigger both need asChild to reach the
+          real Button underneath — chained asChild forwarding handles that (each
+          layer forwards props it doesn't own down to its child), but only in this
+          order. Reversed, DropdownMenu.Trigger's click-to-open props would land on
+          HelpTip itself, which doesn't know to forward them anywhere. */}
+      <HelpTip tip="modeSwitcher" openDelay={HELP_TIP_HOVER_DELAY}>
+        <DropdownMenu.Trigger>
+          <Button
+            variant="surface"
+            color="gray"
+            size="2"
+            className={`cursor-pointer transition-shadow hover:shadow-md ${
+              guideTarget === 'mode-switcher' ? 'ui-guide' : ''
+            }`}
+            disabled={isMinting}
+            aria-label="Switch view"
+          >
+            {isMinting ? <Spinner size="1" /> : <CurrentIcon />}
+            {/* Icon-only on phones; the dropdown spells out the modes. */}
+            <span className="hidden md:inline">Mode: {MODE_META[currentMode].label}</span>
+            <CaretDownIcon />
+          </Button>
+        </DropdownMenu.Trigger>
+      </HelpTip>
       <DropdownMenu.Content
         sideOffset={6}
         className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
@@ -232,8 +315,11 @@ export const ModeSwitcher: React.FC = () => {
             isCurrent={mode === currentMode}
             disabled={isDisabled(mode)}
             disabledReason={disabledReasonFor(mode)}
-            locked={mode === 'edit' && editLocked}
-            onSelect={() => handleSelect(mode)}
+            locked={isDrawMode(mode) && editLocked}
+            onSelect={() => {
+              advanceGuide(`mode-${mode}`);
+              handleSelect(mode);
+            }}
           />
         ))}
       </DropdownMenu.Content>

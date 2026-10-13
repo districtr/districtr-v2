@@ -1,0 +1,23 @@
+{% extends 'wagtailadmin/shared/headers/slim_header.html' %}
+{% load wagtailadmin_tags i18n districtr_admin %}
+{# Copy of Wagtail's page_edit_header. Partners reach pages through the #}
+{# Portals hub, so they get the page title instead of breadcrumb links #}
+{# into the page tree. #}
+
+{% block breadcrumbs %}
+    {% if request.user|is_districtr_admin %}
+        {% page_breadcrumbs page 'wagtailadmin_explore' url_root_name='wagtailadmin_explore_root' %}
+    {% else %}
+        <span class="w-text-14 w-font-semibold w-px-2">{{ page.get_admin_display_title }}</span>
+    {% endif %}
+{% endblock %}
+
+{% block actions %}
+    {# Page actions dropdown #}
+    {% page_header_buttons page user=request.user view_name="edit" %}
+{% endblock %}
+
+{% block toggles %}
+    {{ block.super }}
+    {% include "wagtailadmin/shared/page_status_tag_new.html" with page=page_for_status %}
+{% endblock %}

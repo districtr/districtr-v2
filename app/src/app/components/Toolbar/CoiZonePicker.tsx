@@ -12,7 +12,7 @@ import {getUnusedCommunityColors} from '@/app/utils/communities';
 import {Tooltip} from '@radix-ui/themes';
 import {ACCESS_STATES} from '@constants/document/state';
 
-export const CoiZonePicker: React.FC = () => {
+export const CoiZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const communities = useMapStore(state => state.communities);
@@ -83,7 +83,7 @@ export const CoiZonePicker: React.FC = () => {
   const canAdd = communities.length < COI_MAX_COMMUNITIES;
   return (
     <Box
-      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
+      className={isReadOnly || disabled ? 'pointer-events-none opacity-50' : ''}
       data-testid="zone-picker"
       maxWidth="100%"
       width="100%"
@@ -122,6 +122,7 @@ export const CoiZonePicker: React.FC = () => {
           availableColors={availableCommunityColors}
           onRemoveCommunity={handleRemoveCommunity}
           onUpdateCommunity={handleUpdateCommunity}
+          disabled={disabled}
         />
         {!isReadOnly && (
           <Flex justify="start">

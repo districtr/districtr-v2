@@ -5,6 +5,7 @@ import {Link, Flex, Heading, Text, Blockquote, Spinner, Callout} from '@radix-ui
 import {ExclamationTriangleIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
@@ -25,8 +26,13 @@ export const Uploader: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getAvailableDistrictrMaps({}).then(result => {
-      if (result.ok) setAvailableMaps(result.response);
+    // Custom (num_districts_modifiable) maps live in the 'custom' group, not
+    // 'states', so they don't clutter the public map picker. CSV imports
+    // target custom maps exclusively.
+    getAvailableDistrictrMaps({group: 'custom'}).then(custom => {
+      if (custom.ok) {
+        setAvailableMaps(custom.response);
+      }
     });
   }, []);
 
@@ -36,7 +42,11 @@ export const Uploader: React.FC<{
       // GEOIDs or remapped zone labels both require a manual "Continue" click.
       const needsReview = mapLink.skipped_geo_ids?.length || mapLink.zone_label_remapping;
       if (!needsReview) {
-        window.location.href = `/${routePrefix}/edit/${mapLink.document_id}`;
+        window.location.href = editPath(
+          routePrefix,
+          mapLink.document_id,
+          mapLink.public_id ?? null
+        );
         onFinish?.();
       }
     }
@@ -100,8 +110,27 @@ export const Uploader: React.FC<{
         onDrop={handleDrop}
       >
         <Text size="2" color="gray">
-          Upload a CSV with census block GEOIDs in the first column and zone numbers in the second.
-          The congressional map will be inferred from the state.
+          Upload a CSV with 2020 census block GEOIDs in the first column and District numbers in the
+          second column, like the following...
+        </Text>
+        <Flex direction="column" className="bg-gray-50 rounded p-2 font-mono text-xs text-gray-600">
+          <Text as="p">GEOID20,District</Text>
+          <Text as="p">440070112002000,1</Text>
+          <Text as="p">440070112002001,1</Text>
+          <Text as="p">440070112002002,1</Text>
+          <Text as="p" color="gray">
+            ...
+          </Text>
+        </Flex>
+        <Text size="2" color="gray">
+          Still not sure of the format?{' '}
+          <Link
+            href="https://tilesets1.cdn.districtr.org/reference/example-block-assignments-RI.csv"
+            target="_blank"
+          >
+            Download an example
+          </Link>
+          .
         </Text>
         <input
           type="file"
@@ -164,7 +193,7 @@ export const Uploader: React.FC<{
             </Callout.Root>
           )}
           <Link
-            href={`/${routePrefix}/edit/${mapLink.document_id}`}
+            href={editPath(routePrefix, mapLink.document_id, mapLink.public_id ?? null)}
             target={newTab ? '_blank' : undefined}
             className="self-start"
           >

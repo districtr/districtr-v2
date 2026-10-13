@@ -16,7 +16,7 @@ from sqlmodel import (
     Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM
+from sqlalchemy.dialects.postgresql import JSON, ENUM, TIMESTAMP
 from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -70,7 +70,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
     gerrydb_table_name: str | None = Field(nullable=True)
-    # Null means default number of districts? Should we have a sensible default?
+    # On fixed maps (num_districts_modifiable=False) this is the exact district
+    # count and must not be NULL (batch_insert_assignments raises on such rows).
+    # On modifiable/custom maps it is the default and floor for new documents:
+    # a CSV upload can grow a document's count beyond it but never below it.
     num_districts: int | None = Field(nullable=True, default=None)
     # If False, users cannot change the number of districts on the frontend.
     num_districts_modifiable: bool = Field(
@@ -90,6 +93,10 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    # Gates discovery only: the views listing (GET /api/gerrydb/views) filters
+    # on visible, so invisible maps do not appear in the frontend picker.
+    # Documents reference maps by districtr_map_slug without filtering on
+    # visible, so hiding a map never breaks documents already created on it.
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     map_type: str = Field(
         sa_column=Column(
@@ -116,6 +123,12 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     comment_length_limit: int | None = Field(nullable=True)
     # Maximum number of comments per document
     comment_count_limit: int | None = Field(nullable=True)
+    # Descriptive metadata for module pickers (CMS) and listings.
+    description: str | None = Field(nullable=True)
+    state_abbr: str | None = Field(nullable=True)
+    state_name: str | None = Field(nullable=True)
+    # Free text, e.g. "Congressional", "State House", "State Senate", "Custom"
+    boundary_type: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -153,41 +166,16 @@ class DistrictrMapUpdate(BaseModel):
     statefps: list[str] | None = None
     comment_length_limit: int | None = None
     comment_count_limit: int | None = None
+    description: str | None = None
+    state_abbr: str | None = None
+    state_name: str | None = None
+    boundary_type: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
-
-
-class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    __table_args__ = (
-        UniqueConstraint(
-            "districtr_map",
-            "parent_path",
-            "child_path",
-            name="districtr_map_parent_child_edge_unique",
-        ),
-        Index(
-            "idx_parentchildedges_child_path_districtr_map",
-            "child_path",
-            "districtr_map",
-        ),
-        {"postgresql_partition_by": "LIST (districtr_map)"},
-    )
-    __tablename__ = "parentchildedges"
-
-    districtr_map: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("districtrmap.uuid"),
-            nullable=False,
-            primary_key=True,
-        )
-    )
-    parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-    child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
 class DocumentMetadata(BaseModel):
@@ -277,6 +265,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(JSON, nullable=True)
     )
     map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
+    # The portal this map was created to fit, or None. A map belongs to at most
+    # one portal: stamped at creation for maps started from a portal page and
+    # on the clone for form/finalize submissions; other portals borrow a map by
+    # listing its id. The FK to comments.form_configs (ON UPDATE CASCADE, ON
+    # DELETE SET NULL) is appended in app/submissions/models.py: FormConfig
+    # imports this module, so declaring it here would be circular.
+    portal_id: str | None = Field(
+        default=None,
+        sa_column=Column(String(255), nullable=True, index=True),
+    )
     document_type: DocumentType = Field(
         sa_column=Column(
             ENUM(
@@ -289,6 +287,22 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=DocumentType.DISTRICT.value,
         )
     )
+    # Bumped only on assignment writes that actually change geo_id → zone
+    # mapping. Drives per-zone district_unions cache invalidation and the
+    # CDN-vs-inline branch in /stats.
+    assignments_updated_at: datetime = Field(
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=text("NOW()"),
+        )
+    )
+    # Last successful upload of plans/display/{public_id}.geojson to S3.
+    # Compared against assignments_updated_at to decide if the CDN object is
+    # fresh enough to redirect to.
+    stats_published_at: datetime | None = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -298,6 +312,9 @@ class DocumentCreate(BaseModel):
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
+    # Portal slug: when set, a draft submission is created alongside the
+    # document (the map-from-portal auto-submit pathway).
+    portal_id: str | None = None
 
 
 # TODO: Remove this table
@@ -321,7 +338,6 @@ class DocumentCommentPublic(BaseModel):
     comment_id: str
     zone: int | None = None
     text: str
-    moderated: bool = False  # True when comment failed moderation; edit access sees full text, public sees placeholder
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -330,7 +346,9 @@ class DocumentCommentCreate(BaseModel):
     """Create/update a document comment. If comment_id is provided, it's an update."""
 
     comment_id: int | None = None
-    zone: int | None = None
+    # ge=0 mirrors comments.district_notes' zone_non_negative CHECK so bad
+    # input 422s instead of surfacing as an IntegrityError 500.
+    zone: int | None = Field(default=None, ge=0)
     text: str
 
 
@@ -374,14 +392,11 @@ class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
     skipped_geo_ids: list[str] = []
     zone_label_remapping: dict[str, int] = {}
+    # Draft-submission write capability, present when portal_id was given.
+    submission_id: str | None = None
 
 
 class Assignments(SQLModel, table=True):
-    # this is the empty parent table; not a partition itself
-    __table_args__ = (
-        UniqueConstraint("document_id", "geo_id", name="document_geo_id_unique"),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
@@ -390,23 +405,6 @@ class Assignments(SQLModel, table=True):
 
 class CommunityAssignments(SQLModel, table=True):
     __tablename__ = "community_assignments"
-    __table_args__ = (
-        Index(
-            "ix_document_community_assignments_community_id",
-            "community_id",
-        ),
-        Index(
-            "ix_document_community_assignments_geo_id",
-            "geo_id",
-        ),
-        UniqueConstraint(
-            "document_id",
-            "community_id",
-            "geo_id",
-            name="document_community_geo_id_unique",
-        ),
-        {"postgresql_partition_by": "LIST (document_id)"},
-    )
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     community_id: int = Field(
@@ -480,33 +478,54 @@ class MapGroup(SQLModel, table=True):
 
 class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtrmap_uuid, group_slug) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtrmap_uuid: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            nullable=False,
+        )
     )
     group_slug: str = Field(
         sa_column=Column(
             String,
-            ForeignKey("map_group.slug"),
-            primary_key=True,
+            ForeignKey("map_group.slug", ondelete="CASCADE"),
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint("districtrmap_uuid", "group_slug", name="group_map_unique"),
     )
 
 
 class DistrictrMapOverlays(SQLModel, table=True):
     __tablename__ = "districtrmap_overlays"
+    # Surrogate PK so external admin tooling (Django/Wagtail) can edit rows;
+    # the (districtr_map_id, overlay_id) pair remains unique.
+    id: int | None = Field(default=None, primary_key=True)
     districtr_map_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
     )
     overlay_id: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
-            primary_key=True,
+            nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint(
+            "districtr_map_id", "overlay_id", name="districtrmap_overlays_unique"
+        ),
+        # Created by migration 24137793FE9B; declared here so autogenerate
+        # doesn't propose dropping it.
+        Index("idx_districtrmap_overlays_overlay_id", "overlay_id"),
     )
 
 
@@ -564,6 +583,10 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
 
 class DistrictUnionsResponse(BaseModel):
     zone: int | None
-    geometry: str | None
-    demographic_data: dict[str, int] | None
+    # Native GeoJSON object (Postgres ST_AsGeoJSON(...)::json) — avoids the
+    # client-side double-parse of a JSON-encoded string inside the outer JSON.
+    geometry: dict | None
+    # float, not int: ACS-derived columns are prorated tract counts, so the
+    # per-district sums carry fractional parts (decennial columns stay whole).
+    demographic_data: dict[str, float] | None
     updated_at: datetime

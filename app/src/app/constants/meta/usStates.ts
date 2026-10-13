@@ -2,6 +2,9 @@ export const US_STATE_META: Array<{
   FIPS: string;
   NAME: string;
   ABBR: string;
+  // Only set where the CMS place slug isn't NAME kebab-cased (insular
+  // areas: "Washington, DC" / "Puerto Rico" don't reduce to "dc" / "pr").
+  SLUG?: string;
 }> = [
   {FIPS: '01', NAME: 'Alabama', ABBR: 'AL'},
   {FIPS: '02', NAME: 'Alaska', ABBR: 'AK'},
@@ -11,6 +14,7 @@ export const US_STATE_META: Array<{
   {FIPS: '08', NAME: 'Colorado', ABBR: 'CO'},
   {FIPS: '09', NAME: 'Connecticut', ABBR: 'CT'},
   {FIPS: '10', NAME: 'Delaware', ABBR: 'DE'},
+  {FIPS: '11', NAME: 'Washington, DC', ABBR: 'DC', SLUG: 'dc'},
   {FIPS: '12', NAME: 'Florida', ABBR: 'FL'},
   {FIPS: '13', NAME: 'Georgia', ABBR: 'GA'},
   {FIPS: '15', NAME: 'Hawaii', ABBR: 'HI'},
@@ -53,7 +57,7 @@ export const US_STATE_META: Array<{
   {FIPS: '54', NAME: 'West Virginia', ABBR: 'WV'},
   {FIPS: '55', NAME: 'Wisconsin', ABBR: 'WI'},
   {FIPS: '56', NAME: 'Wyoming', ABBR: 'WY'},
-  {FIPS: '72', NAME: 'Puerto Rico', ABBR: 'PR'},
+  {FIPS: '72', NAME: 'Puerto Rico', ABBR: 'PR', SLUG: 'pr'},
 ] as const;
 
 export const FIPS_TO_ABBR = Object.fromEntries(US_STATE_META.map(s => [s.FIPS, s.ABBR]));

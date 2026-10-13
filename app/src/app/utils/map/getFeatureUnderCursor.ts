@@ -19,10 +19,11 @@ export const getFeatureUnderCursor = (
   map: MaplibreMap | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_HOVER_LAYER_ID]
+  layers: string[] = [BLOCK_HOVER_LAYER_ID],
+  filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   return filterFeatures({
     _features: map?.queryRenderedFeatures(e.point, {layers}) || [],
-    filterLocked: true,
+    filterLocked,
   });
 };

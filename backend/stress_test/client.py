@@ -2,12 +2,15 @@
 tagging, and `name=` grouping so per-document URLs collapse into one stat per
 route."""
 
+import os
+
 import msgpack
 
 # Canonical Locust stat names, one per route.
 DOCUMENT = "/api/document/{id}"
 ASSIGNMENTS_GET = "/api/get_assignments/{id}"
 EVALUATION = "/api/document/{id}/evaluation"
+STATS = "/api/document/{id}/stats"
 CREATE_DOCUMENT = "/api/create_document"
 ASSIGNMENTS_PUT = "/api/assignments"
 
@@ -20,6 +23,11 @@ class StressClient:
     def __init__(self, http, user_agent: str):
         self.http = http
         self.headers = {"User-Agent": user_agent}
+        # Bypasses the captcha session gate once SESSION_ENFORCE is on;
+        # see RUNBOOK.md "Session key" for how to configure it.
+        session_key = os.environ.get("STRESS_SESSION_KEY")
+        if session_key:
+            self.headers["X-Districtr-Session"] = session_key
 
     def get_document(self, document_id: str) -> dict | None:
         with self.http.get(
@@ -55,6 +63,18 @@ class StressClient:
             f"/api/document/{document_id}/evaluation",
             headers=self.headers,
             name=EVALUATION,
+            catch_response=True,
+        ) as resp:
+            if resp.status_code != 200:
+                resp.failure(f"HTTP {resp.status_code}")
+                return None
+            return resp.json()
+
+    def get_document_stats(self, document_id: str) -> dict | None:
+        with self.http.get(
+            f"/api/document/{document_id}/stats",
+            headers=self.headers,
+            name=STATS,
             catch_response=True,
         ) as resp:
             if resp.status_code != 200:

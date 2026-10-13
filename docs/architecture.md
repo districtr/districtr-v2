@@ -1,0 +1,189 @@
+# Architecture Overview
+
+Districtr v2 is a community redistricting platform that lets users draw and evaluate electoral district maps interactively in the browser. The system is a monorepo with five main components.
+
+## System Diagram
+
+```mermaid
+graph TD
+    subgraph Pipelines["Data Pipelines (offline/batch)"]
+        P1["GeoPackage → Tippecanoe → PMTiles"]
+        P2["GeoPackage → DuckDB → Parquet"]
+    end
+
+    subgraph S3["S3 / Cloudfront CDN"]
+        Tiles["PMTiles<br/>(basemap + district tiles)"]
+        Parquet["Parquet<br/>(demographic tables)"]
+    end
+
+    subgraph CMS["Wagtail CMS (cms/)"]
+        Wagtail["Admin UI · content API<br/>JWT issuer (RS256, JWKS)"]
+    end
+
+    subgraph Browser["Browser"]
+        subgraph Workers["Web Workers"]
+            MapLibre["MapLibre GL JS<br/>(PMTiles protocol)"]
+            PW["ParquetWorker<br/>(hyparquet, Comlink)"]
+            GW["GeometryWorker<br/>(centroids, dissolve)"]
+        end
+        subgraph App["Next.js Frontend (React)"]
+            Zustand["Zustand stores"]
+            IDB["IndexedDB<br/>(draft cache)"]
+            UI["Map UI · Toolbar · Demographics · CMS"]
+        end
+    end
+
+    subgraph API["FastAPI Backend"]
+        Endpoints["Assignments (COPY bulk) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control"]
+        Note["Does NOT serve tiles or demographic data"]
+    end
+
+    subgraph DB["PostgreSQL 15 + PostGIS 3.3"]
+        Tables["Assignments (plain tables) · PostGIS geometry<br/>Document schema · district_unions cache · UDFs (legacy)"]
+    end
+
+    P1 -->|upload| Tiles
+    P2 -->|upload| Parquet
+    Tiles -->|HTTP range requests| MapLibre
+    Parquet -->|HTTP range requests| PW
+    Wagtail -->|"page content (content API)"| App
+    Wagtail -->|"per-request JWT bearer token"| API
+    MapLibre --> Zustand
+    PW --> Zustand
+    GW --> Zustand
+    App -->|"direct fetch (CORS)<br/>+ session token"| API
+    API -->|SQLAlchemy / SQLModel| DB
+
+    style Pipelines fill:#f0f0f0,stroke:#999
+    style S3 fill:#fff3cd,stroke:#d4a017
+    style CMS fill:#d4edda,stroke:#28a745
+    style Browser fill:#cce5ff,stroke:#007bff
+    style Workers fill:#e2e3f1,stroke:#6c6fbd
+    style App fill:#dbeafe,stroke:#3b82f6
+    style API fill:#fde2e2,stroke:#e53e3e
+    style DB fill:#e2e8f0,stroke:#4a5568
+    style Note fill:none,stroke:none,color:#999
+```
+
+### Key wiring details
+
+- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
+- **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI. It sends a Turnstile-backed session token, never a user JWT.
+- **The CMS issues user JWTs.** The frontend holds no user credentials. Editors sign in to the Wagtail admin, which mints a 5-minute RS256 token per backend call (`cms/authapi/serializers.py`). The backend verifies it against the CMS JWKS.
+- **IndexedDB is a local draft cache**, not a sync layer. Debounced writes store in-progress assignments; the server remains source of truth via optimistic concurrency (`updated_at`).
+- **Pipelines are offline/batch.** They produce static artifacts (PMTiles, Parquet) uploaded to S3. No runtime connection to the backend.
+
+## Frontend (`app/`)
+
+**Stack**: Next.js 16, TypeScript, Bun, MapLibre GL JS, Zustand, IndexedDB (Dexie)
+
+### Routing
+
+- `(interactive)/map/[public_id]` - Map viewer; `(interactive)/map/edit` - Map editor
+- `(static)/` - Landing, about, guide, places, portals, changelog, and CMS pages via `[slug]`, `portal/[slug]`, `place/[slug]`
+- No admin routes. Administration lives in the Wagtail CMS.
+
+### State Management
+
+Zustand stores with composed middleware (persist → devtools → temporal → subscribeWithSelector):
+
+| Store | Purpose |
+|-------|---------|
+| `mapStore` | Central document state, map refs, loading, zone comments, shatter state |
+| `assignmentsStore` | Zone assignments, spatial paint operations, unassigned features |
+| `mapControlsStore` | Active tool, pan/zoom, interaction mode |
+| `demography/demographyStore` | Demographic display and caching |
+| `temporalStore` | Undo/redo via Zundo |
+| `saveShareStore` | Save/share workflow |
+
+Cross-store side effects are coordinated via explicit subscriptions in `store/subscriptions.tsx`, `store/mapEditSubs.ts`, and `store/metricsSubs.ts`, not component-level listeners.
+
+### Web Workers
+
+- **GeometryWorker** - Centroids, dissolve, geometry calculations (via Comlink)
+- **ParquetWorker** - Parquet file reading, columnar data extraction (via Comlink)
+- Both use IndexedDB caching and explicit lifecycle management
+
+### Persistence
+
+IndexedDB serves as offline cache and conflict resolution source. Debounced writes for rapid paint updates; immediate flush before navigation. Server is source of truth; IDB enables optimistic concurrency with `updated_at` conflict detection.
+
+## Backend (`backend/`)
+
+**Stack**: FastAPI, Python 3.12, SQLModel/SQLAlchemy, Alembic, PostGIS
+
+### Core Models
+
+| Model | Purpose |
+|-------|---------|
+| `DistrictrMap` | Map metadata (slug, layers, tiles path, num_districts, visibility) |
+| `Document` | Map document instance (UUID, auto-increment public_id, metadata JSON) |
+| `Assignments` | Plain table: geo_id → zone mapping per document (LIST partitioning removed — was causing ACCESS EXCLUSIVE lock convoys) |
+| `CommunityAssignments` | Plain table: geo_id → community_id mapping (same departition as Assignments) |
+| `DistrictUnions` | Per-zone cached geometry + demographic stats; `zone` and `geometry` nullable for the unassigned-totals row |
+| `GerryDBTable` | Reference to loaded geospatial data layers |
+
+### Key API Patterns
+
+- **Bulk assignments**: `PUT /api/assignments` uses PostgreSQL COPY for performance with optimistic concurrency
+- **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
+- **Contiguity**: Graph-based checking via `DualLevelGraph` (numpy/scipy `csgraph`, not NetworkX at runtime)
+- **Auth**: CMS-issued RS256 JWTs with scopes (`TokenScope`, mirrored by `cms/authapi/scopes.py`). Portal admin endpoints also check the `teams` claim against `form_configs.admin_teams`. Cloudflare Turnstile guards public forms.
+
+### Database Design
+
+- Schema isolation: `public` for maps/references, `document` schema for document-specific tables, `comments` for submissions and district notes. The Wagtail CMS owns the `admin` schema through Django migrations.
+- `document.assignments` and `document.community_assignments` are **plain tables**; the schema has no partitioned tables.
+- `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
+- `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
+- `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.
+- PostGIS geometry columns for spatial queries
+- **SQLAlchemy-first policy**: No new UDFs; existing UDF paths are legacy
+
+### Migrations
+
+Alembic with 60+ versions. UDF handling stores previous definitions under `sql/versions/{down_revision}/` for downgrade support. `deploy-api.yml` runs migrations as a one-off ECS task before each deploy. The CMS runs `manage.py migrate` the same way in `deploy-cms.yml`.
+
+## Pipelines (`pipelines/`)
+
+**Stack**: Python, Tippecanoe, DuckDB, OGR2OGR, GDAL
+
+### Data Flow
+
+1. **Input**: GeoPackage files (from GerryDB or external sources)
+2. **Tileset generation**: `ogr2ogr` → `tippecanoe` → PMTiles
+3. **Tabular data**: GeoPackage → DuckDB → Parquet
+4. **Graph build**: child + parent GeoPackage → dual-level NetworkX graph, written as a compact `.npz` array file
+5. **Upload**: Artifacts pushed to S3
+6. **Consumption**: Frontend loads PMTiles (map tiles) and Parquet (demographics) directly from S3/CloudFront; backend loads graph files into a `DualLevelGraph` (numpy/scipy-backed, mmap-shareable across workers) for contiguity checks and other graph-touching metrics, cached locally
+
+### CLI Commands
+
+- `tileset create-gerrydb-tileset` - Generate PMTiles from GeoPackage
+- `tileset merge-gerrydb-tilesets` - Combine parent+child for shatterable maps
+- `tabular build-parquet` / `batch-build-parquet` - Parquet generation for demographic data
+- `transforms aggregate` - Aggregate block-level data to higher geographies
+- `transforms create-graph` - Build a dual-level graph npz from two GeoPackage files
+- `transforms batch-create-graphs` - Batch build graph npz files from a config file
+
+## Infrastructure
+
+### Local Development
+
+Docker Compose services: `db` (PostGIS), `backend` (Uvicorn), `frontend` (Bun dev), `frontend-prod`, `cms` (Wagtail), `pre-commit` (linting), `pipelines`. Hot reload via bind mounts.
+
+### Production (AWS)
+
+ECS Fargate services (backend, frontend, CMS) behind an ALB, RDS PostGIS, images in ECR, secrets in SSM — two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference. Tilesets and Parquet are served from S3 / CloudFront.
+
+### CI/CD (GitHub Actions)
+
+- `deploy-app.yml` / `deploy-api.yml` / `deploy-cms.yml` - Deploy to AWS (ECS via Pulumi) on push to `main`/`dev`
+- `preview.yml` - Label-driven ephemeral PR previews on the dev AWS stack
+- `test-backend.yml` - pytest against PostGIS on backend changes
+- `test-cms.yml` - CMS tests on `cms/` changes
+- `test-app.yml` - frontend unit tests (`bun run test`) on `app/` changes
+
+## Key Architectural Decisions
+
+Dated, PR-anchored history: [`decisions.md`](decisions.md).

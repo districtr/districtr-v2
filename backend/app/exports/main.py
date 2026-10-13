@@ -14,10 +14,11 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select, col
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
+from app.core.security import require_session
 from app.models import Document, DistrictrMap, DistrictUnionsResponse, Assignments
 from app.exports.models import DocumentExportType
 from app.utils import update_or_select_district_stats
-from app.evaluation.graph import get_graph
+from app.evaluation.graph_loader import get_graph
 from app.evaluation.main import update_or_select_document_evaluation
 
 
@@ -59,8 +60,8 @@ def build_block_assignments_csv(
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["geo_id", "zone"])
         for geo_id, zone in rows:
-            if "children" in G.nodes[geo_id]:
-                for child in G.nodes[geo_id]["children"]:
+            if G.is_shattered_parent(geo_id):
+                for child in G.children_of(geo_id):
                     writer.writerow([child, zone])
             else:
                 writer.writerow([geo_id, zone])
@@ -81,10 +82,8 @@ def build_evaluation_json(
 def build_districts_geojson(
     district_rows: list[DistrictUnionsResponse], out_file: str
 ) -> None:
-    # row.geometry is already a GeoJSON string from ST_AsGeoJSON — embed directly
-    # as a raw fragment to avoid a json.loads() + json.dumps() round-trip on large geometries.
     features = ",".join(
-        f'{{"type":"Feature","id":"{row.zone}","geometry":{row.geometry},"properties":{{"zone":"{row.zone}"}}}}'
+        f'{{"type":"Feature","id":"{row.zone}","geometry":{json.dumps(row.geometry)},"properties":{{"zone":"{row.zone}"}}}}'
         for row in district_rows
         if row.zone is not None and row.geometry is not None
     )
@@ -97,7 +96,7 @@ def build_districts_shapefile(
 ) -> None:
     rows = [r for r in district_rows if r.zone is not None and r.geometry is not None]
     zones = [str(r.zone) for r in rows]
-    geoms = [shapely.from_geojson(r.geometry) for r in rows]
+    geoms = [shapely.geometry.shape(r.geometry) for r in rows]
     gdf = gpd.GeoDataFrame({"zone": zones}, geometry=geoms, crs="EPSG:4326")
     with tempfile.TemporaryDirectory() as tmpdir:
         shp_path = os.path.join(tmpdir, "districts.shp")
@@ -107,8 +106,12 @@ def build_districts_shapefile(
                 zf.write(os.path.join(tmpdir, fname), arcname=fname)
 
 
-@router.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
-async def export_document(
+@router.get(
+    "/api/document/{document_id}/export",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_session)],
+)
+def export_document(
     *,
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
@@ -131,7 +134,7 @@ async def export_document(
         DocumentExportType.districts_shapefile: "zip",
         DocumentExportType.evaluation_json: "json",
     }[_export_type]
-    out_file_name = f"{document_id}_{_export_type.value}_{timestamp}.{ext}"
+    out_file_name = f"{document.public_id}_{_export_type.value}_{timestamp}.{ext}"
     _out_file = f"/tmp/{out_file_name}"
     background_tasks.add_task(remove_file, _out_file)
 

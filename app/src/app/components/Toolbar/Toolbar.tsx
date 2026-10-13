@@ -1,6 +1,6 @@
 'use client';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {ToolControls} from '@/app/components/Toolbar/ToolControls/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
@@ -8,43 +8,38 @@ import {ToolButtons} from './ToolButtons';
 export const Toolbar: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
   const activeTools = useActiveTools();
+  // The handler reads the latest tools through a ref so the document listener
+  // mounts once instead of re-binding on every render (painting re-renders the
+  // toolbar constantly via undo/redo state).
+  const activeToolsRef = useRef(activeTools);
+  activeToolsRef.current = activeTools;
 
   useEffect(() => {
-    // Listen for option/alt to reveal shortcuts, and trigger tool hotkeys.
-    const handleKeyPress = (event: KeyboardEvent) => {
+    // Trigger tool hotkeys.
+    const handleKeyDown = (event: KeyboardEvent) => {
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;
-      if (event.altKey) {
-        setShowShortcuts(true);
-      } else {
-        setShowShortcuts(false);
-      }
-
-      const tool = activeTools.find(f => f.hotKeyAccessor(event));
+      const tool = activeToolsRef.current.find(f => !f.disabled && f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
       }
     };
 
-    document.addEventListener('keydown', handleKeyPress);
-    document.addEventListener('keyup', handleKeyPress);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [setActiveTool]);
 
   if (!isEditing) return null;
   return (
     <>
-      <ToolButtons showShortcuts={showShortcuts} toolbarItemsRef={toolbarItemsRef} />
+      <ToolButtons />
       <ToolControls />
     </>
   );

@@ -107,5 +107,8 @@ export const formatCoiAssignmentsFromDocument = (assignments: Assignment[]) => {
     }
   });
 
+  // A parent saved alongside its blocks stays as is on purpose: the load-time check
+  // (assignmentIntegrity.ts) flags it and the user picks the fix.
+
   return {communityAssignments, shatterIds, parentToChild, childToParent} as const;
 };

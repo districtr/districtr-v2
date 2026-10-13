@@ -1,0 +1,10 @@
+import MapPage from '@/app/components/MapPage/MapPage';
+import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
+import {MapPageProps} from '../../types';
+
+export const generateMetadata = generateMapPageMetadata;
+
+export default async function EditPage({params}: MapPageProps) {
+  const {public_id} = await params;
+  return <MapPage isEditing={true} mapId={public_id} />;
+}

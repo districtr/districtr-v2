@@ -1,32 +1,25 @@
 from fastapi.testclient import TestClient
 from pytest import fixture
-from networkx import Graph
 
-import pickle
 from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
     get_assigned_nodes,
 )
-import app.evaluation.graph as graph
+import app.evaluation.graph_loader as graph
 from app.models import DistrictrMap
-from app.utils import create_parent_child_edges
 from tests.constants import FIXTURES_PATH
+from tests.graph_helpers import make_graph
 from sqlmodel import Session
 from datetime import datetime
 
 
 @fixture
 def connected_graph():
-    G = Graph()
     # a - b
     # |   |
     # d - c
-    G.add_edge("a", "b")
-    G.add_edge("b", "c")
-    G.add_edge("c", "d")
-    G.add_edge("d", "a")
-    return G
+    return make_graph(edges=[("a", "b"), ("b", "c"), ("c", "d"), ("d", "a")])
 
 
 def test_check_subgraph_contiguity(connected_graph):
@@ -49,15 +42,6 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
-def test_load_pkl(connected_graph, tmp_path):
-    pkl_path = tmp_path / "test_graph.pkl"
-    with open(pkl_path, "wb") as f:
-        pickle.dump(connected_graph, f)
-    with open(pkl_path, "rb") as f:
-        G = pickle.load(f)
-    test_check_subgraph_contiguity(G)
-
-
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     client.put(
         "/api/assignments",
@@ -73,7 +57,7 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     )
 
 
-# simple_geos graph topology (see fixtures/graph/simple_geos.pkl):
+# simple_geos graph topology (see fixtures/graph/simple_geos.npz):
 #
 #   Parents (vtd:)        Children (15-digit block)
 #   vtd:...001 – vtd:...003       ...001 – ...005 – ...006
@@ -118,7 +102,7 @@ def test_all_zones_contiguous(
     document_id = simple_contiguous_assignments
     districtr_map = session.get(DistrictrMap, simple_shatterable_districtr_map)
     zone_assignments = get_assigned_nodes(session, document_id, districtr_map)
-    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.npz"))
     for zone in zone_assignments:
         assert check_subgraph_contiguity(G, zone.nodes)
 
@@ -134,14 +118,14 @@ def test_subset_of_zones_contiguous(
     (zone_assignment,) = get_assigned_nodes(
         session, document_id, districtr_map, zones=[1]
     )
-    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.pkl"))
+    G = graph.get_gerrydb_graph(str(FIXTURES_PATH / "graph" / "simple_geos.npz"))
     assert check_subgraph_contiguity(G, zone_assignment.nodes)
 
 
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
-        return f"{FIXTURES_PATH}/graph/{gerrydb_name}.pkl"
+        return f"{FIXTURES_PATH}/graph/{gerrydb_name}.npz"
 
     monkeypatch.setattr(graph, "get_gerrydb_graph_file", mock_get_file)
 
@@ -263,6 +247,18 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     assert response.status_code == 200
     data = response.json()
     assert len(data["features"]) == 2
+    # All components are Features with bbox + n_geos, sorted largest first so
+    # features[0] is the main body. Single-geometry components also carry their
+    # geo_id so the client can zoom to the exact rendered geometry.
+    sizes = [f["properties"]["n_geos"] for f in data["features"]]
+    assert sizes == sorted(sizes, reverse=True)
+    assert any(size == 1 for size in sizes)
+    for f in data["features"]:
+        assert f["type"] == "Feature"
+        assert len(f["properties"]["bbox"]) == 4
+        assert f["geometry"]["type"] == "Polygon"
+        if f["properties"]["n_geos"] == 1:
+            assert len(f["properties"]["geo_ids"]) == 1
 
 
 @fixture
@@ -272,9 +268,6 @@ def ks_ellis_document_id(
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
 ):
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=ks_ellis_shatterable_districtr_map
-    )
     response = client.post(
         "/api/create_document",
         json={"districtr_map_slug": "ks_ellis_geos"},

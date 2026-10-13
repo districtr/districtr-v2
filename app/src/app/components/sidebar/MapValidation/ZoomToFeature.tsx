@@ -1,31 +1,18 @@
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
-import {Box, IconButton, Select} from '@radix-ui/themes';
-import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
+import {Button, Flex, Select} from '@radix-ui/themes';
+import {useEffect, useLayoutEffect, useRef, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Feature, Polygon} from 'geojson';
-import type {Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
-
-/**
- * Clamp fitBounds padding to a quarter of each canvas dimension, so at least half the
- * canvas remains for the fitted bounds. Unclamped, a fixed padding can eat most of a
- * small canvas, forcing extreme zoom-outs or a no-op.
- */
-export const getFitBoundsPadding = (
-  map: MapLibreMap | null | undefined,
-  desiredPadding: number
-): PaddingOptions | number => {
-  const canvas = map?.getCanvas();
-  if (!canvas) return desiredPadding;
-  const horizontal = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientWidth / 4)));
-  const vertical = Math.max(0, Math.min(desiredPadding, Math.floor(canvas.clientHeight / 4)));
-  return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
-};
+import type {LngLatBoundsLike} from 'maplibre-gl';
+import {zoomToBounds} from '@/app/utils/map/fitBounds';
 
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
   setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
-  features: GeoJSON.Feature[] | GeoJSON.Polygon[];
+  features: Array<GeoJSON.Feature | GeoJSON.Polygon>;
   padding?: number;
+  /** Optional display labels per feature; falls back to 1-based numbering. */
+  labels?: string[];
 }
 
 export default function ZoomToFeature({
@@ -33,8 +20,21 @@ export default function ZoomToFeature({
   setSelectedIndex,
   features,
   padding,
+  labels,
 }: ZoomToFeatureProps) {
   const mapRef = useMapStore(state => state.getMapRef());
+  const mapDocument = useMapStore(state => state.mapDocument);
+  // Cancels the in-flight zoom's pending fly (idle listener + dwell timer);
+  // called when a new zoom starts — or the component unmounts — so a stale
+  // handler can't yank the camera later.
+  const cancelPendingFly = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      cancelPendingFly.current?.();
+      cancelPendingFly.current = null;
+    };
+  }, []);
 
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = useState(false);
@@ -45,20 +45,37 @@ export default function ZoomToFeature({
     setHasMounted(true);
   }, []);
 
-  const changeSelectedIndex = (amount: number) => {
-    const prevIndex = selectedIndex || 0;
-    const newIndex = prevIndex + amount;
-    if (newIndex < 0 || newIndex >= features.length) return;
-    setSelectedIndex(newIndex);
-  };
-
   function isFeature(feature: any): feature is Feature {
     return feature && typeof feature === 'object' && feature.type === 'Feature';
   }
 
+  const nextIndex = selectedIndex === null ? 0 : selectedIndex + 1;
+  const prevIndex = selectedIndex === null ? null : selectedIndex - 1;
+
   function isPolygon(feature: any): feature is Polygon {
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
   }
+
+  const getFeatureBounds = (feature: Feature | Polygon): LngLatBoundsLike | null => {
+    if (isFeature(feature) && feature.properties?.bbox) {
+      return feature.properties.bbox;
+    }
+    // Assumes the Polygon is a bbox ring à la PostGIS `ST_Envelope`:
+    // ((MINX, MINY), (MAXX, MINY), (MAXX, MAXY), (MINX, MAXY), (MINX, MINY)),
+    // so corners 0 and 2 are SW/NE. An arbitrary polygon won't work here.
+    const polygon = isPolygon(feature)
+      ? feature
+      : isFeature(feature) && isPolygon(feature.geometry)
+        ? feature.geometry
+        : null;
+    if (polygon) {
+      return [
+        {lng: polygon.coordinates[0][0][0], lat: polygon.coordinates[0][0][1]},
+        {lng: polygon.coordinates[0][2][0], lat: polygon.coordinates[0][2][1]},
+      ];
+    }
+    return null;
+  };
 
   const zoomToFeature = (selectedIndex: number | null) => {
     let feature;
@@ -67,85 +84,85 @@ export default function ZoomToFeature({
     } else {
       return;
     }
-    // Bboxes are centroid-derived, so a single-unit component collapses to a point and
-    // would zoom to street level without the cap.
-    // TODO: the cap also blocks legitimate street-level zooms; remove it once the points
-    // parquets carry per-unit bbox/size columns.
-    const fitOptions = {
-      maxZoom: 10,
-      ...(padding ? {padding: getFitBoundsPadding(mapRef, padding)} : {}),
-    };
-    if (isFeature(feature) && feature.properties?.bbox) {
-      mapRef?.fitBounds(feature.properties.bbox, fitOptions);
+    cancelPendingFly.current?.();
+    cancelPendingFly.current = null;
+    const bounds = getFeatureBounds(feature);
+    if (!bounds) {
+      console.error('Invalid feature type');
       return;
     }
-
-    // This is just assuming that the Polygon is the valid BBOX output from
-    // `ST_Envelope` function in PostGIS, which:
-    // ```
-    // Returns the double-precision (float8) minimum bounding box for the supplied geometry, as a geometry.
-    // The polygon is defined by the corner points of the bounding box
-    // ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY)).
-    // (PostGIS will add a ZMIN/ZMAX coordinate as well).
-    // ```
-    // If an arbitrary polygon is provided, this won't work.
-    if (isPolygon(feature)) {
-      let SW = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
-      let NE = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
-      mapRef?.fitBounds([SW, NE], fitOptions);
-      return;
-    }
-
-    console.error('Invalid feature type');
+    const geoIds = isFeature(feature) ? feature.properties?.geo_ids : undefined;
+    if (!mapRef) return;
+    cancelPendingFly.current = zoomToBounds(mapRef, mapDocument, {bounds, geoIds, padding});
   };
 
   useEffect(() => {
     zoomToFeature(selectedIndex);
   }, [selectedIndex]);
 
-  return (
-    <div>
-      {features.length > 1 && (
-        <Box>
-          <IconButton
-            variant="outline"
-            onClick={() => changeSelectedIndex(-1)}
-            disabled={!selectedIndex || selectedIndex === 0}
-          >
-            <ChevronLeftIcon />
-          </IconButton>
-          <Select.Root value={`${selectedIndex || 0}`}>
-            <Select.Trigger mx="2" />
-            <Select.Content>
-              {features.map((_, index) => (
-                <Select.Item
-                  key={index}
-                  value={`${index}`}
-                  onMouseDown={() => {
-                    // Allow re-zooming to currently selected feature
-                    // The root level onValueChange event won't trigger if the same item is clicked
-                    if (index === selectedIndex) {
-                      zoomToFeature(index);
-                    } else {
-                      setSelectedIndex(index);
-                    }
-                  }}
-                >
-                  {index + 1}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
+  const selectFeature = (index: number) => {
+    // Allow re-zooming to the currently selected feature: setSelectedIndex is a
+    // no-op when the index is unchanged, so zoom explicitly.
+    if (index === selectedIndex) {
+      zoomToFeature(index);
+    } else {
+      setSelectedIndex(index);
+    }
+  };
 
-          <IconButton
-            variant="outline"
-            onClick={() => changeSelectedIndex(1)}
-            disabled={selectedIndex === features.length - 1}
-          >
-            <ChevronRightIcon />
-          </IconButton>
-        </Box>
+  if (!features.length) return null;
+
+  return (
+    <Flex direction="column" gap="2">
+      {/* Few areas: pick directly with buttons; many: a dropdown. */}
+      {features.length < 10 ? (
+        <Flex direction="row" gap="1" wrap="wrap">
+          {features.map((_, index) => (
+            <Button
+              key={index}
+              size="1"
+              variant={index === selectedIndex ? 'solid' : 'outline'}
+              onClick={() => selectFeature(index)}
+              className="cursor-pointer"
+            >
+              {labels?.[index] ?? index + 1}
+            </Button>
+          ))}
+        </Flex>
+      ) : (
+        <Select.Root value={`${selectedIndex || 0}`}>
+          <Select.Trigger />
+          <Select.Content>
+            {features.map((_, index) => (
+              <Select.Item key={index} value={`${index}`} onMouseDown={() => selectFeature(index)}>
+                {labels?.[index] ?? index + 1}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
       )}
-    </div>
+      {features.length > 1 && (
+        <Flex direction="row" gap="2">
+          <Button
+            size="1"
+            variant="outline"
+            onClick={() => prevIndex !== null && prevIndex >= 0 && setSelectedIndex(prevIndex)}
+            disabled={prevIndex === null || prevIndex < 0}
+            className="cursor-pointer"
+          >
+            <ChevronLeftIcon /> Previous
+          </Button>
+          <Button
+            size="1"
+            variant="solid"
+            onClick={() => nextIndex < features.length && setSelectedIndex(nextIndex)}
+            disabled={nextIndex >= features.length}
+            className="cursor-pointer"
+          >
+            Next <ChevronRightIcon />
+          </Button>
+        </Flex>
+      )}
+    </Flex>
   );
 }

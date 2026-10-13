@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useMemo} from 'react';
 import {Box, Flex, Text} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
@@ -31,7 +31,17 @@ export const ChoroplethLegend: React.FC = () => {
     mapVariableConfig?.variants?.includes('percent') || isCoalitionVariable(variable);
   const labelFormat =
     canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const colors = scale?.range() || [];
+  const isContinuousScale = !!scale && !('invertExtent' in scale);
+  const colors = scale && !isContinuousScale ? scale.range() : [];
+  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
+  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
+  const continuousLegendColors = useMemo(() => {
+    if (!isContinuousScale || !scale) return [];
+    return Array.from(
+      {length: 11},
+      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
+    );
+  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   if (!scale) return null;
 
@@ -80,25 +90,22 @@ export const ChoroplethLegend: React.FC = () => {
     );
   }
 
-  if (mapVariableConfig?.fixedScale && mapVariableConfig.customLegendLabels) {
-    return (
-      <Flex direction={'column'} justify="center" gapX="2" width="100%">
-        <LinearGradient
-          colors={mapVariableConfig.fixedScale
-            .domain()
-            .map((d: number) => mapVariableConfig.fixedScale!(d))}
-          numTicks={mapVariableConfig.customLegendLabels.length}
-        />
-        <Flex direction={'row'} width="100%" justify="between">
-          {mapVariableConfig.customLegendLabels.map((label: string, i: number) => (
-            <Text key={`legend-label-${i}`}>{label}</Text>
-          ))}
-        </Flex>
-      </Flex>
+  const continuousLegendLabels =
+    mapVariableConfig?.customLegendLabels ??
+    Array.from(
+      {length: 5},
+      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
     );
-  }
-
-  return null;
+  return (
+    <Flex direction={'column'} justify="center" gapX="2" width="100%">
+      <LinearGradient colors={continuousLegendColors} numTicks={continuousLegendLabels.length} />
+      <Flex direction={'row'} width="100%" justify="between">
+        {continuousLegendLabels.map((label: string, i: number) => (
+          <Text key={`legend-label-${i}`}>{label}</Text>
+        ))}
+      </Flex>
+    </Flex>
+  );
 };
 
 const LinearGradient: React.FC<{

@@ -1,18 +1,17 @@
-"""Graph building pipeline - produces dual-level pkl graphs without DB access.
+"""Graph building pipeline - produces dual-level npz graphs without DB access.
 
 Derives parent-child relationships from GeoPackage spatial joins.
 """
 
 import logging
 import os
-import pickle
 import re
 import sqlite3
-from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from networkx import Graph, number_connected_components
 from pydantic import BaseModel
@@ -43,18 +42,70 @@ def _resolve_path(path: str | Path) -> Path:
     return Path(path)
 
 
-class GraphFileFormat(str, Enum):
-    pkl = "Pickle"
+GRAPH_NPZ_FORMAT_VERSION = 1
 
-    def format_filepath(self, filepath: str | Path) -> Path:
-        return Path(f"{filepath}.pkl")
 
-    def write_graph(self, G: Graph, filepath: str | Path) -> Path:
-        out_path = self.format_filepath(filepath)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "wb") as f:
-            pickle.dump(obj=G, file=f)
-        return out_path
+def graph_to_npz_arrays(G: Graph) -> dict:
+    """Flatten a graph into the npz array schema (format_version 1).
+
+    Read by the backend's app.evaluation.graph_loader.from_npz — keep the two in sync.
+    ~14x smaller on disk and ~10x faster to load than the pickled nx graph.
+    """
+    node_ids = np.sort(np.asarray(list(G.nodes()), dtype=str))
+    idx = {node: i for i, node in enumerate(node_ids.tolist())}
+    if G.number_of_edges():
+        edges = np.asarray([(idx[u], idx[v]) for u, v in G.edges()], dtype=np.int32)
+    else:
+        edges = np.empty((0, 2), dtype=np.int32)
+
+    node_parents = {
+        node: p
+        for node, data in G.nodes(data=True)
+        if (p := data.get("parent")) is not None
+    }
+    parent_of = np.full(len(node_ids), -1, dtype=np.int32)
+    for node, p in node_parents.items():
+        if p not in idx:
+            raise ValueError(
+                f"Parent {p!r} of node {node!r} is not itself a node in the "
+                "graph — the combined-graph build must add every referenced "
+                "parent as a node."
+            )
+        parent_of[idx[node]] = idx[p]
+
+    # "Absent attr" (plain graphs) and "empty attr" (combined graphs) are
+    # distinct in nx — preserve that with has_* flags.
+    we = G.graph.get("weighted_edges")
+    ncp = G.graph.get("non_contiguous_parents")
+    if we:
+        we_keys = np.asarray([(idx[a], idx[b]) for a, b in we], dtype=np.int32)
+        we_vals = np.asarray(list(we.values()), dtype=np.int32)
+    else:
+        we_keys = np.empty((0, 2), dtype=np.int32)
+        we_vals = np.empty(0, dtype=np.int32)
+
+    return {
+        "format_version": np.int32(GRAPH_NPZ_FORMAT_VERSION),
+        "node_ids": node_ids,
+        "edges": edges,
+        "parent_of": parent_of,
+        "has_weighted_edges": np.bool_(we is not None),
+        "we_keys": we_keys,
+        "we_vals": we_vals,
+        "has_non_contiguous_parents": np.bool_(ncp is not None),
+        "non_contiguous_parents": np.asarray(sorted(ncp or []), dtype=str),
+    }
+
+
+def npz_path(prefix: str | Path) -> Path:
+    return Path(f"{prefix}.npz")
+
+
+def write_npz(G: Graph, prefix: str | Path) -> Path:
+    out_path = npz_path(prefix)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(out_path, **graph_to_npz_arrays(G))
+    return out_path
 
 
 def graph_from_gpkg(
@@ -89,8 +140,8 @@ def _annotate_graph_with_parents_from_gpkg(
 ) -> None:
     """Attach parent node attributes to block nodes via GeoPackage spatial join.
 
-    Replaces the parentchildedges DB query in the backend. Uses representative_point
-    + within predicate, matching the PostGIS ST_PointOnSurface/ST_Contains procedure.
+    Uses representative_point + within predicate, matching the PostGIS
+    ST_PointOnSurface/ST_Contains procedure.
     Layer names default to the gpkg filename stem (GerryDB convention).
     Mutates G in place.
     """
@@ -226,21 +277,20 @@ def write_graph(
     gerrydb_name: str,
     out_path: str | Path | None = None,
     upload_to_s3: bool = False,
-    graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
 ) -> Path:
-    """Write a graph pkl to OUT_SCRATCH/graphs/ and optionally upload to S3."""
+    """Write the graph npz to OUT_SCRATCH/graphs/ and optionally upload to S3."""
     graph_prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
 
     if out_path:
         graph_prefix = Path(out_path)
 
-    path = graph_file_format.write_graph(G=G, filepath=graph_prefix)
+    path = write_npz(G, graph_prefix)
     LOGGER.info("Graph written to %s", path)
 
     if upload_to_s3:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3_key = f"{_S3_GRAPH_PREFIX}/{graph_file_format.format_filepath(gerrydb_name)}"
+        s3_key = f"{_S3_GRAPH_PREFIX}/{npz_path(gerrydb_name)}"
         s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
         LOGGER.info("Uploaded to s3://%s/%s", settings.S3_BUCKET, s3_key)
 
@@ -262,7 +312,7 @@ class GraphConfig(BaseModel):
 
 
 class GraphBatch(Config):
-    """Batch config for building and uploading graph pkl files."""
+    """Batch config for building and uploading graph npz files."""
 
     graphs: dict[str, GraphConfig]
 
@@ -273,8 +323,8 @@ class GraphBatch(Config):
         upload: bool = False,
     ) -> None:
         for gerrydb_name, cfg in self.graphs.items():
-            out = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
-            if not replace and out.exists():
+            prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
+            if not replace and npz_path(prefix).exists():
                 LOGGER.info("Graph %s already exists, skipping", gerrydb_name)
                 continue
             parent = (
@@ -299,9 +349,13 @@ class GraphBatch(Config):
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         for gerrydb_name in self.graphs:
-            path = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / f"{gerrydb_name}.pkl"
-            s3_key = f"{_S3_GRAPH_PREFIX}/{gerrydb_name}.pkl"
+            prefix = Path(settings.OUT_SCRATCH) / _S3_GRAPH_PREFIX / gerrydb_name
+            path = npz_path(prefix)
+            s3_key = f"{_S3_GRAPH_PREFIX}/{path.name}"
             s3.upload_file(str(path), settings.S3_BUCKET, s3_key)
             LOGGER.info(
-                "Uploaded %s to s3://%s/%s", gerrydb_name, settings.S3_BUCKET, s3_key
+                "Uploaded %s to s3://%s/%s",
+                gerrydb_name,
+                settings.S3_BUCKET,
+                s3_key,
             )

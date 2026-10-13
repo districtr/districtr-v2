@@ -11,7 +11,9 @@ import {
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
 import {ACCESS_STATES} from '@constants/document/state';
 
-const statusIcons: Record<DraftStatus, React.FC> = {
+/** The topbar's status glyphs, exported so anything that moves the status
+ * (the draft helper's advance button) can show the same icon it's moving to. */
+export const statusIcons: Record<DraftStatus, React.FC> = {
   [DRAFT_STATUSES.SCRATCH]: ScratchWorkIcon,
   [DRAFT_STATUSES.IN_PROGRESS]: InProgressIcon,
   [DRAFT_STATUSES.READY_TO_SHARE]: ReadyIcon,
@@ -57,6 +59,8 @@ export const MapStatus: React.FC<{
   );
 };
 
+/** Free choice by design: the draft status is the user's own label for their
+ * plan. The only earned move is the helper box's advance button. */
 export const MapStatusButtons: React.FC<{
   draftStatus: DraftStatus | null;
   onChange: (draftStatus: DraftStatus) => Promise<void>;

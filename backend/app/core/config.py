@@ -5,8 +5,10 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 from pydantic import (
+    AliasChoices,
     AnyUrl,
     BeforeValidator,
+    Field,
     PostgresDsn,
     computed_field,
     model_validator,
@@ -16,7 +18,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 from pathlib import Path
 from enum import Enum
-from openai import OpenAI
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -33,6 +34,16 @@ class Environment(str, Enum):
     development = "development"
     local = "local"
     test = "test"
+
+
+def s3_environment_folder(environment: "Environment") -> str:
+    """Only production gets its own S3 folder; every other value (local,
+    development, qa, test) collapses into "development" so non-prod objects
+    don't spread across more S3 folders than needed — colliding with each
+    other is fine, only production needs isolation."""
+    if environment == Environment.production:
+        return Environment.production.value
+    return Environment.development.value
 
 
 class Settings(BaseSettings):
@@ -62,8 +73,8 @@ class Settings(BaseSettings):
     ] = []
 
     # Regex of additional allowed CORS origins. Used so ephemeral preview
-    # frontends (e.g. https://districtr-v2-123-frontend-dev.fly.dev) can call a
-    # shared backend without re-listing every origin. See .github/PREVIEW_DEPLOYS.md.
+    # frontends (e.g. https://pr-123.dev.districtr.org) can call a shared
+    # backend without re-listing every origin. See .github/workflows/preview.yml.
     BACKEND_CORS_ORIGIN_REGEX: str | None = None
 
     PROJECT_NAME: str
@@ -79,8 +90,15 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = ""
     DATABASE_URL: str
 
-    # reCAPTCHA
-    RECAPTCHA_SECRET_KEY: str | None = None
+    # Cloudflare Turnstile (comment-form widget)
+    TURNSTILE_SECRET_KEY: str | None = None
+
+    # Silent-captcha session tokens (invisible Turnstile widget + stateless
+    # HMAC session JWTs)
+    TURNSTILE_SESSION_SECRET_KEY: str | None = None
+    SESSION_TOKEN_TTL_HOURS: int = 4
+    SESSION_ENFORCE: bool = False
+    RESEARCH_API_KEY: str | None = None
 
     @computed_field  # type: ignore[misc]
     @property
@@ -100,14 +118,6 @@ class Settings(BaseSettings):
     VERBOSE_LOGGING: bool = False
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
-
-    # Moderation
-
-    OPENAI_API_KEY: str | None = None
-
-    def get_openai_client(self) -> OpenAI | None:
-        if self.OPENAI_API_KEY:
-            return OpenAI(api_key=self.OPENAI_API_KEY)
 
     # Security
 
@@ -134,12 +144,20 @@ class Settings(BaseSettings):
     VOLUME_PATH: str = "/data"
     SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
-    # TODO: R2_BUCKET_NAME is a misnomer — storage has migrated to S3. Rename to
-    # S3_BUCKET_NAME and update all references and env var documentation.
-    R2_BUCKET_NAME: str | None = None
+    # Local directory of memory-mapped graph arrays shared by all uvicorn
+    # workers in the container (one physical copy via the OS page cache).
+    # Lives for the container lifetime — same staleness semantics as the
+    # in-process LRU; a redeploy or task restart starts fresh.
+    GRAPH_CACHE_PATH: str = "/tmp/districtr-graph-cache"
+
+    # Object storage is AWS S3. R2_BUCKET_NAME is accepted as a legacy env-var
+    # alias — it is still the bucket secret's name in existing deployments.
+    AWS_S3_BUCKET: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AWS_S3_BUCKET", "R2_BUCKET_NAME"),
+    )
     CDN_URL: str | None = None
-    ACCOUNT_ID: str | None = None
-    AWS_S3_BUCKET: str | None = None
+    # Optional custom S3 endpoint (e.g. an S3-compatible host); unset = real AWS.
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
@@ -148,7 +166,7 @@ class Settings(BaseSettings):
     # "S3 not configured", so this must stay opt-in for local dev.
     AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
-    # SNS topic ARN for operational alerts (e.g. missing graph pkl files).
+    # SNS topic ARN for operational alerts (e.g. missing graph npz files).
     # Populated by the ECS task definition; absent in local dev.
     ALARM_SNS_TOPIC_ARN: str | None = None
 
@@ -158,13 +176,11 @@ class Settings(BaseSettings):
                 return boto3.client("s3")
             return None
 
+        # AWS S3; AWS_S3_ENDPOINT overrides the host only for an S3-compatible
+        # endpoint. Mirrors cms/datastore/services.py::get_s3_client.
         kwargs = {}
-
-        if self.ACCOUNT_ID:
-            kwargs["endpoint_url"] = (
-                f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com"
-            )
-            kwargs["region_name"] = "auto"
+        if self.AWS_S3_ENDPOINT:
+            kwargs["endpoint_url"] = self.AWS_S3_ENDPOINT
 
         return boto3.client(
             service_name="s3",
@@ -179,14 +195,15 @@ class Settings(BaseSettings):
         if self.CDN_URL is not None:
             return self.CDN_URL
 
-        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
+        return f"https://{self.AWS_S3_BUCKET}.s3.amazonaws.com"
 
-    # Auth0
+    # Auth — tokens are issued by the Districtr CMS (cms/authapi) and
+    # verified against its JWKS endpoint.
 
-    AUTH0_DOMAIN: str
-    AUTH0_API_AUDIENCE: str
-    AUTH0_ISSUER: str
-    AUTH0_ALGORITHMS: str
+    AUTH_JWKS_URL: str
+    AUTH_AUDIENCE: str
+    AUTH_ISSUER: str
+    AUTH_ALGORITHMS: str = "RS256"
 
 
 @lru_cache()

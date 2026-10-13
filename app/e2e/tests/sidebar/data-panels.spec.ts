@@ -273,6 +273,17 @@ test.describe('Sidebar Responsiveness', () => {
     // Sidebar should be hidden on mobile
     const sidebar = page.locator(testSelectors.sidebar);
     await expect(sidebar).not.toBeVisible();
+
+    // ...but the drawing tools move to the mobile dock instead of vanishing.
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await expect(toolbar).toBeVisible();
+
+    // Selecting the paint tool reveals the brush controls (district picker).
+    const brushTool = page.locator(testSelectors.brushTool);
+    if (await brushTool.isVisible()) {
+      await brushTool.click();
+      await expect(page.getByText('Brush Size')).toBeVisible();
+    }
   });
 
   test('should show sidebar on landscape mobile/tablet', async ({page}) => {

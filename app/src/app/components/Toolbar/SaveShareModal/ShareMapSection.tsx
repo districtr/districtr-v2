@@ -34,7 +34,10 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
               <EyeOpenIcon />
               <Flex direction="column">
                 <Text weight="bold">Frozen</Text>
-                <Text>Share a read-only copy of the plan. Viewers can make a copy.</Text>
+                <Text>
+                  Share a frozen version of the plan with a simple url. Viewers must make a copy in
+                  order to edit it.
+                </Text>
               </Flex>
             </Flex>
           </Select.Item>
@@ -43,7 +46,10 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
               <Pencil1Icon />
               <Flex direction="column">
                 <Text weight="bold">Editable</Text>
-                <Text>Anyone with the password can take turns updating the plan.</Text>
+                <Text>
+                  Share an editable version of the plan with a private id in the url. Anyone with
+                  the link and the password can edit the map.
+                </Text>
               </Flex>
             </Flex>
           </Select.Item>
@@ -51,7 +57,7 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
       </Select.Root>
       {sharingMode === ACCESS_STATES.EDIT && (
         <Flex direction="column" gap="2">
-          <Text>Password</Text>
+          <Text>Password (optional)</Text>
           <Flex direction="row" gap="2">
             <TextField.Root
               value={password}

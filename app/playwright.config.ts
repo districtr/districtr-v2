@@ -6,7 +6,7 @@ import {defineConfig, devices} from '@playwright/test';
  * Supports multiple environments via BASE_URL environment variable:
  * - Local prod preview (default): BASE_URL=http://localhost:3001
  *   (matches the `frontend-prod` service in docker-compose.yml)
- * - Preview deploy: BASE_URL=https://districtr-v2-pr-123.fly.dev
+ * - Preview deploy: BASE_URL=https://pr-123.dev.districtr.org
  * - Staging: BASE_URL=https://staging.districtr.org
  *
  * NOTE: the dev `frontend` service (port 3000) is HMR-noisy and not suitable

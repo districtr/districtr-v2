@@ -1,4 +1,5 @@
-import {auth0} from '@/app/lib/auth0';
+import {NextResponse} from 'next/server';
+import type {NextRequest} from 'next/server';
 
 const UNDER_CONSTRUCTION_TTL_MS = 60_000;
 let underConstructionCache = {value: false, fetchedAt: 0};
@@ -28,44 +29,17 @@ async function isUnderConstruction(): Promise<boolean> {
   return underConstructionCache.value;
 }
 
-export async function proxy(request: Request) {
-  // Note that proxy uses the standard Request type
-  const authRes = await auth0.middleware(request);
+export async function proxy(request: NextRequest) {
+  const {pathname, origin} = request.nextUrl;
 
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-
-  // authentication routes — let the middleware handle it
-  if (pathname.startsWith('/auth')) {
-    return authRes;
-  }
-
-  if (pathname.startsWith('/admin')) {
-    const session = await auth0.getSession();
-
-    if (!session) {
-      return Response.redirect(`${url.origin}/auth/login`, 302);
-    }
-    return authRes;
-  }
-
-  // NOTE All other routes considered public
   if (pathname !== '/under-construction' && (await isUnderConstruction())) {
-    return Response.redirect(`${url.origin}/under-construction`, 302);
+    return NextResponse.redirect(`${origin}/under-construction`, 302);
   }
 
-  return authRes;
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     * - api (API routes)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api).*)',
-  ],
+  // Everything except Next internals, static assets, and API/auth route handlers.
+  matcher: ['/((?!_next/|api/|auth/|.*\\.).*)'],
 };

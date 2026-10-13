@@ -1,7 +1,7 @@
 .PHONY: dev prod playwright
 
 dev:
-	docker-compose up db backend frontend
+	docker-compose up db backend frontend cms
 
 prod:
 	docker-compose up db backend frontend-prod

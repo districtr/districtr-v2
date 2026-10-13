@@ -1,5 +1,10 @@
 import {Badge, Flex, Heading, Text} from '@radix-ui/themes';
 
+export const metadata = {
+  title: 'General Plan Directory',
+  description: 'Browse publicly shared districting plans',
+};
+
 export default function DirectoryPage() {
   return (
     <Flex direction="column" gap="3" align="start">

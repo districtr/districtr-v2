@@ -105,7 +105,7 @@ const CoiRadioRow: React.FC<{
             </Text>
           )}
         </Box>
-        <Box className="overflow-hidden" flexGrow="1">
+        <Box className="overflow-hidden min-w-0" flexGrow="1">
           <Tooltip content={community.description}>
             <Text size="2" color="gray" truncate>
               {community.description}

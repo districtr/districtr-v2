@@ -6,6 +6,13 @@ import Image from 'next/image';
 
 const placeImages = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];
 
+export async function generateMetadata({params}: {params: Promise<{slug: string}>}) {
+  const {slug} = await params;
+  const group = await getGroup(slug).catch(() => null);
+  const name = group?.ok ? group.response.name : null;
+  return name ? {title: name, description: `Districting maps for ${name}`} : {};
+}
+
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const {slug} = await params;
   const [groupResult, availableMapsResult] = await Promise.all([

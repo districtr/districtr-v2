@@ -21,11 +21,13 @@ import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
+import {useOverlayStore} from './overlayStore';
 import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
@@ -193,6 +195,8 @@ export interface MapStore {
   mapLock: {
     isLocked: boolean;
     reason: string;
+    // Silent locks (background autosave) still block edits but skip the overlay.
+    silent?: boolean;
   } | null;
   setMapLock: (lock: MapStore['mapLock']) => void;
   notification: {
@@ -205,11 +209,6 @@ export interface MapStore {
   showSaveConflictModal: boolean;
   setShowSaveConflictModal: (show: boolean) => void;
   // MAP DOCUMENT
-  /**
-   * Available districtr views
-   */
-  mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
-  setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   updated: {
     metadata: boolean;
@@ -246,6 +245,12 @@ export interface MapStore {
   clearZoneDescription: (zone: number) => void;
   getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
   getZonesWithDescriptions: () => number[];
+
+  // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
+  /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
+   * can reactively dim every other district while one is hovered. */
+  hoveredPublicZones: string[];
+  setHoveredPublicZones: (zones: string[]) => void;
 
   // SHATTERING
   /**
@@ -319,7 +324,7 @@ export interface MapStore {
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
-    window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/edit/`))
+    window.location.pathname.startsWith(`/${MAP_ROUTES.COI}/`))
     ? APP_LOADING_STATES.LOADING
     : APP_LOADING_STATES.INITIALIZING;
 
@@ -393,10 +398,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     showSaveConflictModal: false,
 
     setShowSaveConflictModal: show => set({showSaveConflictModal: show}),
-
-    mapViews: {isPending: true},
-
-    setMapViews: mapViews => set({mapViews}),
 
     mapDocument: null,
 
@@ -493,7 +494,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         count: numCommunities,
         colorScheme,
       });
-      colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      // Only community maps mirror community colors back into the scheme —
+      // districts maps get a fallback phantom community whose frozen default
+      // color would otherwise clobber customized district colors on every
+      // mutate (the "custom colors don't save" bug).
+      if (mapDocument.map_type === MAP_TYPES.COMMUNITY) {
+        colorScheme = syncCoiColorsToColorScheme(communities, colorScheme);
+      }
 
       useMapControlsStore.setState({
         mapOptions: {
@@ -502,10 +509,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
         },
+        // A fresh map (not just switching edit/display/eval views of the same
+        // one) defaults to painting — that's what a user opens a map to do.
         activeTool:
-          mapDocument.access === ACCESS_STATES.EDIT
-            ? mapControlsState.activeTool
-            : ACTIVE_TOOLS.PAN,
+          mapDocument.access !== ACCESS_STATES.EDIT
+            ? ACTIVE_TOOLS.PAN
+            : sameMapAcrossViews
+              ? mapControlsState.activeTool
+              : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -600,7 +611,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           count: nextNumCommunities,
           colorScheme: nextColorScheme,
         });
-        const syncedColorScheme = syncCoiColorsToColorScheme(nextCommunities, nextColorScheme);
+        // See setMapDocument: community-color sync is COI-only, otherwise the
+        // phantom fallback community reverts customized district colors.
+        const syncedColorScheme =
+          nextMapDocument.map_type === MAP_TYPES.COMMUNITY
+            ? syncCoiColorsToColorScheme(nextCommunities, nextColorScheme)
+            : nextColorScheme;
         return {
           mapDocument: {
             ...nextMapDocument,
@@ -624,6 +640,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      useOverlayStore.getState().reset();
       set({
         mapDocument: null,
         updated: {metadata: false, comments: false},
@@ -721,6 +738,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       });
       return Array.from(zones).sort((a, b) => a - b);
     },
+
+    hoveredPublicZones: [],
+    setHoveredPublicZones: zones => set({hoveredPublicZones: zones}),
 
     mapStatus: null,
     setMapStatus: mapStatus => {
@@ -1220,10 +1240,16 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
-      const mapBbox =
-        featureBbox?.length && featureBbox?.length >= 4
-          ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
-          : undefined;
+      // Pad the unit's bbox so the fitted block view has breathing room around
+      // the broken unit. Generous: the geometry is a queried tile feature, so
+      // it's clipped at tile boundaries and the bbox can undershoot the unit.
+      let mapBbox: maplibregl.LngLatBoundsLike | undefined = undefined;
+      if (featureBbox?.length && featureBbox.length >= 4) {
+        const [west, south, east, north] = featureBbox as [number, number, number, number];
+        const padX = (east - west) * 0.3;
+        const padY = (north - south) * 0.3;
+        mapBbox = [west - padX, south - padY, east + padX, north + padY];
+      }
 
       set({
         mapLock: null,
@@ -1237,6 +1263,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         ],
       });
       useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // County painting makes no sense inside a broken unit. Dynamic import:
+      // getFeaturesInBbox imports this store, so a static import would cycle.
+      if (useMapControlsStore.getState().mapOptions.paintByCounty) {
+        const {getFeaturesInBbox} = await import('@utils/map/getFeaturesInBbox');
+        useMapControlsStore.getState().setPaintFunction(getFeaturesInBbox);
+        setMapOptions({paintByCounty: false});
+      }
       setMapOptions({
         mode: 'break',
         bounds: mapBbox,

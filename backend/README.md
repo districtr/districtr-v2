@@ -193,8 +193,6 @@ python cli.py create-districtr-map \
     --tiles-s3-path path/to/my/joined/tiles.pmtiles
 ```
 
-5. Create parent child edges by running `python cli.py create-parent-child-edges --districtr-map gerrydb_layer_name`
-
 You're done! (Assuming you also created your tilesets. See pipelines CLI for that.)
 
 ### Batch loading shatterable districtr maps
@@ -305,28 +303,21 @@ For now, @raphaellaude is the only maintainer that can add tilesets to the produ
 
 ## Security and Authentication
 
-### Authetication
+### Authentication
 
-This app uses Auth0 for user management and authentication needs. This is only for administrator management and CMS purposes.
-
-The auth0 configuration should have three roles / sets of scopes:
-
-```
-default: 'openid profile email'
-editor: 'openid profile email read:content update:content create:content delete:content'
-admin: 'openid profile email read:content read:read-all update:content update:update-all update:publish create:content delete:content delete:delete-all'
-```
-
-See `.env.docker.example` for expected environment variables.
+The Wagtail CMS issues every token, and the backend verifies them against the CMS's JWKS (`AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`). Roles, scopes and team scoping are described in [`docs/overview.md`](../docs/overview.md#auth-and-sharing). See `.env.docker.example` for the expected environment variables.
 
 ### Captcha 
 
 Forthcoming survey and form submissions will require captcha. 
 
-To set up captcha:
-1. Go to https://www.google.com/recaptcha/admin
-2. Register your site and choose reCAPTCHA v2 ("I'm not a robot" checkbox)
-3. Get your Site Key and Secret Key
-4. Add environment variables
+To set up captcha (Cloudflare Turnstile):
+1. Go to the Cloudflare dashboard → Turnstile
+2. Create two Managed widgets: one for the comment form, one for silent
+   session tokens (rendered with appearance interaction-only, so it stays
+   hidden unless Cloudflare requires a manual challenge)
+3. Get each widget's Site Key and Secret Key
+4. Set `TURNSTILE_SECRET_KEY` (form) and `TURNSTILE_SESSION_SECRET_KEY`
+   (session) here; the site keys go in the frontend env
 
-See more at https://developers.google.com/recaptcha/docs/verify
+See more at https://developers.cloudflare.com/turnstile/

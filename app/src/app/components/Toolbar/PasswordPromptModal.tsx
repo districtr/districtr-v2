@@ -5,7 +5,9 @@ import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '
 import {useRouter, useSearchParams} from 'next/navigation';
 import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 import {routeManager} from '@/app/utils/map/mapUrlRoute';
+import {editPath} from '@/app/utils/map/editUrl';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -32,8 +34,12 @@ export const PasswordPromptModal = () => {
   const handleProceed = async (editAccess: boolean) => {
     if (!editAccess) {
       setPasswordPrompt(false);
-      // remove pw from url
-      router.replace(window.location.pathname);
+      // A cancelled unlock abandons any requested draw mode.
+      useToolbarStore.getState().setPendingSuperDraw(null);
+      // remove pw from url, keeping other params (e.g. private_edit_id)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pw');
+      router.replace(url.pathname + url.search);
     } else if (mapDocument?.public_id && password) {
       setIsLoading(true);
       setError(null);
@@ -42,7 +48,16 @@ export const PasswordPromptModal = () => {
         if (res.ok) {
           setPasswordPrompt(false);
           setDialogOpen(false);
-          router.push(`/${routeManager.mapUrlRoute}/edit/${res.response.document_id}`);
+          // Land in the draw mode the view switcher asked for (e.g. Super
+          // Draw), now that the unlock actually succeeded.
+          const {pendingSuperDraw, setPendingSuperDraw, setSuperDraw} = useToolbarStore.getState();
+          if (pendingSuperDraw !== null) {
+            setSuperDraw(pendingSuperDraw);
+            setPendingSuperDraw(null);
+          }
+          router.push(
+            editPath(routeManager.mapUrlRoute, res.response.document_id, mapDocument.public_id)
+          );
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');
         }

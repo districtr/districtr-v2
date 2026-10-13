@@ -8,8 +8,11 @@ import {ColorMultiDropdown} from './ColorMultiDropdown';
 import {ColorCheckbox} from './ColorCheckbox';
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
+import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 
 const MAX_INLINE_DISTRICT_PIPS = 25;
+// Swatch grids get cramped in the mobile dock; collapse to the dropdown sooner.
+const MAX_INLINE_DISTRICT_PIPS_MOBILE = 10;
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
       defaultValue: number[];
@@ -18,6 +21,11 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple: true;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
+      /** Suppresses the digit-key hotkey alongside the caller's own visual
+       * disabling (e.g. pointer-events/opacity) — the two must travel
+       * together, or a keyboard digit can still reassign the selection
+       * through a picker that reads as inert. */
+      disabled?: boolean;
     }
   : {
       defaultValue: number;
@@ -26,6 +34,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       multiple?: false;
       disabledValues?: NullableZone[];
       _colorScheme?: string[];
+      disabled?: boolean;
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -35,10 +44,13 @@ export const ColorPicker = <T extends boolean>({
   multiple,
   disabledValues,
   _colorScheme,
+  disabled,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const _stateColorScheme = useColorScheme();
   const colorScheme = _colorScheme ?? _stateColorScheme;
+  const isDesktop = useIsDesktop();
+  const maxInlinePips = isDesktop ? MAX_INLINE_DISTRICT_PIPS : MAX_INLINE_DISTRICT_PIPS_MOBILE;
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,6 +71,7 @@ export const ColorPicker = <T extends boolean>({
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (disabled) return;
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
@@ -71,7 +84,11 @@ export const ColorPicker = <T extends boolean>({
       const numDistricts =
         useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       const numDigits = numDistricts.toString().length;
-      if (numDistricts >= MAX_INLINE_DISTRICT_PIPS) {
+      // Accumulate digits whenever district numbers have more than one, so
+      // "1" then "4" selects 14 on any 10+ district map. A single digit
+      // submits after the 250ms window (or immediately once the full digit
+      // width is typed).
+      if (numDigits > 1) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         if (hotkeyRef?.current?.length === numDigits) {
@@ -92,10 +109,10 @@ export const ColorPicker = <T extends boolean>({
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, []);
+  }, [disabled]);
 
   if (multiple) {
-    if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
+    if (mapDocument?.num_districts! > maxInlinePips) {
       return (
         <ColorMultiDropdown
           colorScheme={colorScheme}
@@ -120,7 +137,7 @@ export const ColorPicker = <T extends boolean>({
     }
   }
 
-  if (mapDocument?.num_districts! > MAX_INLINE_DISTRICT_PIPS) {
+  if (mapDocument?.num_districts! > maxInlinePips) {
     return (
       <ColorDropdown
         colorScheme={colorScheme}

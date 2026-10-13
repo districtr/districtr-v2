@@ -43,10 +43,18 @@ export const putUpdateAssignmentsAndVerify = async ({
   );
   // Build comments payload from document_comments
   const comments = (mapDocument.document_comments || []).map(c => {
-    // Only send comment_id if it's a server-assigned integer
-    const parsedId = c.comment_id ? parseInt(String(c.comment_id), 10) : NaN;
+    // Only send comment_id when it is a server-assigned integer. Unsaved notes
+    // carry crypto.randomUUID() ids; parseInt("3f25…") would yield 3, a real
+    // row id, and overwrite another zone's note (same guard as the COI twin).
+    const raw = c.comment_id;
+    const parsedId =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && /^\d+$/.test(raw)
+          ? parseInt(raw, 10)
+          : undefined;
     return {
-      comment_id: Number.isFinite(parsedId) ? parsedId : undefined,
+      comment_id: parsedId,
       zone: c.zone ?? undefined,
       text: c.text,
     };
@@ -98,9 +106,9 @@ export const putUpdateAssignmentsAndVerify = async ({
   const document_comments = freshDoc.ok ? freshDoc.response.document_comments : undefined;
 
   // Verify comment metadata (zone, text) matches expected before updating idb. The
-  // server may trim or moderate comments; we record those mismatches so the caller
+  // server may trim or drop comments (per-map limits); we record those mismatches so the caller
   // can surface a toast rather than leaving users guessing why their text changed.
-  let commentsModerated = false;
+  let commentsAdjusted = false;
   if (document_comments) {
     const expectedComments = mapDocument.document_comments || [];
     const expectedByZone = new Map<number, {text: string}[]>();
@@ -125,7 +133,7 @@ export const putUpdateAssignmentsAndVerify = async ({
         console.warn(
           `Comment count mismatch for zone ${zone}: expected ${expectedList.length}, got ${freshList.length}`
         );
-        commentsModerated = true;
+        commentsAdjusted = true;
       }
       expectedList.forEach((exp, i) => {
         const fresh = freshList[i];
@@ -133,17 +141,17 @@ export const putUpdateAssignmentsAndVerify = async ({
           console.warn(
             `Comment text mismatch for zone ${zone} index ${i}: expected "${exp.text}", got "${fresh.text}"`
           );
-          commentsModerated = true;
+          commentsAdjusted = true;
         }
       });
     }
   }
-  if (commentsModerated) {
+  if (commentsAdjusted) {
     useMapStore.getState().setNotification({
       importance: 2,
       message:
-        'Some district descriptions were adjusted during moderation. Latest versions shown below.',
-      id: `comment-moderated-${assignmentsPostResponse.response.updated_at}`,
+        "Some district descriptions were adjusted to fit this map's limits. Latest versions shown below.",
+      id: `comment-adjusted-${assignmentsPostResponse.response.updated_at}`,
     });
   }
 

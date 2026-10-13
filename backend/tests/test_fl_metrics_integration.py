@@ -11,43 +11,51 @@ metrics code changes:
 
 Data sources
 ------------
-All files live in the project's S3 bucket and must be downloaded manually before
-running this test suite (set $S3_BUCKET to the bucket name):
+Uses the v2 gerrydb modules (v1's VTD/block layers are retired — never needed locally
+again). All files live in the project's S3 bucket and must be downloaded manually
+before running this test suite (set $S3_BUCKET to the bucket name):
 
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid.txt \
+    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_cong2026_hybrid_v2.txt \
         backend/tests/fixtures/fl/fl_cong2026_hybrid.txt
-    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_vtd_districtr_view.gpkg \
-        data/gerrydb/fl_vtd_districtr_view.gpkg
-    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_block_districtr_view.gpkg \
-        data/gerrydb/fl_block_districtr_view.gpkg
-    aws s3 cp s3://$S3_BUCKET/test-fixtures/fl/fl_districtr_view.pkl \
-        data/graphs/fl_districtr_view.pkl
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_districtr_vtd_view_v2.gpkg \
+        data/gerrydb/fl_districtr_vtd_view_v2.gpkg
+    aws s3 cp s3://$S3_BUCKET/gerrydb/fl_districtr_block_view_v2.gpkg \
+        data/gerrydb/fl_districtr_block_view_v2.gpkg
+    aws s3 cp s3://$S3_BUCKET/graphs/fl_districtr_view_v2.npz \
+        data/graphs/fl_districtr_view_v2.npz
 
-    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt  (29 417 lines, ~550 KB)
-    parent layer: data/gerrydb/fl_vtd_districtr_view.gpkg   (38 MB)
-    child layer : data/gerrydb/fl_block_districtr_view.gpkg (576 MB)
-    graph       : data/graphs/fl_districtr_view.pkl          (59 MB)
+    assignments : tests/fixtures/fl/fl_cong2026_hybrid.txt      (~29 000 lines, ~550 KB)
+    parent layer: data/gerrydb/fl_districtr_vtd_view_v2.gpkg    (41 MB)
+    child layer : data/gerrydb/fl_districtr_block_view_v2.gpkg  (610 MB)
+    graph       : data/graphs/fl_districtr_view_v2.npz
+
+The assignment file (uploaded to S3 as ``fl_cong2026_hybrid_v2.txt``, distinct from
+the retired v1-era ``fl_cong2026_hybrid.txt``) is derived from the raw Cong2026
+block-equivalency release (``EOGPCRP2026.txt``, 390 066 lines) against this v2
+graph's parent units — v1 and v2 group blocks into a different set of VTDs (8 209
+vs. 7 211), so a graph-version bump requires regenerating it; see "To regenerate
+this file" below.
 
 Hybrid assignment file
 -----------------------
 ``fl_cong2026_hybrid.txt`` contains mixed VTD- and block-level assignments for the
-Cong2026 plan, derived from the full 390 066-block EOGPCRP2026.txt release file:
+Cong2026 plan, derived from the full 390 066-block EOGPCRP2026.txt release file,
+grouped against the v2 graph's VTDs:
 
-  • Intact VTDs (all blocks map to the same district) → one line per VTD (6 950 VTDs).
-  • Split VTDs  (blocks span multiple districts)      → one line per block (22 467 blocks
-    across 261 VTDs).
+  • Intact VTDs (all blocks map to the same district) → one line per VTD (7 959 VTDs).
+  • Split VTDs  (blocks span multiple districts)      → one line per block (across 250
+    VTDs).
 
 To regenerate this file from scratch:
 
     from pathlib import Path
-    import pickle
+    from app.evaluation.graph_loader import from_npz
 
-    GRAPH_PKL   = Path("data/graphs/fl_districtr_view.pkl")
+    GRAPH_NPZ   = Path("data/graphs/fl_districtr_view_v2.npz")
     BLOCK_ASSIGN = Path("PATH_TO_EOGPCRP2026").expanduser()  # raw release file
     OUTPUT       = Path("backend/tests/fixtures/fl/fl_cong2026_hybrid.txt")
 
-    with GRAPH_PKL.open("rb") as fh:
-        g = pickle.load(fh)
+    g = from_npz(GRAPH_NPZ)
 
     block_to_district: dict[str, int] = {}
     with BLOCK_ASSIGN.open() as fh:
@@ -55,14 +63,12 @@ To regenerate this file from scratch:
             geoid, district = line.strip().split(",", 1)
             block_to_district[geoid] = int(district)
 
+    block_ids = list(block_to_district)
     vtd_blocks: dict[str, dict[str, int]] = {}
-    for block_id, district in block_to_district.items():
-        if block_id not in g.nodes:
+    for block_id, parent in zip(block_ids, g.parents_of(block_ids)):
+        if parent is None:  # unknown id, or a block with no parent
             continue
-        parent = g.nodes[block_id].get("parent")
-        if parent is None:
-            continue
-        vtd_blocks.setdefault(parent, {})[block_id] = district
+        vtd_blocks.setdefault(parent, {})[block_id] = block_to_district[block_id]
 
     lines: list[str] = []
     for vtd, blocks in sorted(vtd_blocks.items()):
@@ -88,7 +94,6 @@ to build parent–child edges.  This may take some time.  Subsequent runs on a
 tables and skip the setup entirely.
 """
 
-import pickle
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -100,7 +105,8 @@ from tests.conftest import MsgpackAwareTestClient
 from sqlalchemy import text
 from sqlmodel import Session
 
-import app.evaluation.graph as eval_graph_module
+import app.evaluation.graph_loader as eval_graph_module
+from app.evaluation.graph_loader import from_npz
 from app.constants import GERRY_DB_SCHEMA
 from app.core.db import get_session
 from app.core.security import auth
@@ -119,7 +125,6 @@ from app.evaluation.splits import county_pieces
 from app.main import app
 from app.utils import (
     create_districtr_map,
-    create_parent_child_edges,
     create_shatterable_gerrydb_view,
 )
 from tests.constants import ACCOUNT_AUTH0_ID, INTEGRATION_OGR2OGR_PG_CONNECTION_STRING
@@ -131,12 +136,12 @@ REPO_ROOT = TESTS_DIR.parent.parent  # …/districtr-v2/
 DATA_DIR = REPO_ROOT / "data"
 
 HYBRID_ASSIGNMENT_FILE = TESTS_DIR / "fixtures" / "fl" / "fl_cong2026_hybrid.txt"
-VTD_GPKG = DATA_DIR / "gerrydb" / "fl_vtd_districtr_view.gpkg"
-BLOCK_GPKG = DATA_DIR / "gerrydb" / "fl_block_districtr_view.gpkg"
-GRAPH_PKL = DATA_DIR / "graphs" / "fl_districtr_view.pkl"
+VTD_GPKG = DATA_DIR / "gerrydb" / "fl_districtr_vtd_view_v2.gpkg"
+BLOCK_GPKG = DATA_DIR / "gerrydb" / "fl_districtr_block_view_v2.gpkg"
+GRAPH_NPZ = DATA_DIR / "graphs" / "fl_districtr_view_v2.npz"
 
 FL_DATA_AVAILABLE = all(
-    p.exists() for p in [HYBRID_ASSIGNMENT_FILE, VTD_GPKG, BLOCK_GPKG, GRAPH_PKL]
+    p.exists() for p in [HYBRID_ASSIGNMENT_FILE, VTD_GPKG, BLOCK_GPKG, GRAPH_NPZ]
 )
 
 pytestmark = pytest.mark.skipif(
@@ -147,10 +152,10 @@ pytestmark = pytest.mark.skipif(
     ),
 )
 
-FL_MAP_SLUG = "fl_districtr_view"
-FL_VTD_TABLE = "fl_vtd_districtr_view"
-FL_BLOCK_TABLE = "fl_block_districtr_view"
-FL_VIEW_NAME = "fl_districtr_view"
+FL_MAP_SLUG = "fl_districtr_view_v2"
+FL_VTD_TABLE = "fl_districtr_vtd_view_v2"
+FL_BLOCK_TABLE = "fl_districtr_block_view_v2"
+FL_VIEW_NAME = "fl_districtr_view_v2"
 
 # ── report-validated expected values ─────────────────────────────────────────
 # Partisan metrics are in **Democratic POV** (positive = Dem advantage),
@@ -333,8 +338,7 @@ VOTE_SHARE_TOLERANCE = 0.005  # ±0.5 pp for statewide vote shares
 @pytest.fixture(scope="module")
 def fl_graph():
     """Load the combined block+VTD dual graph."""
-    with open(GRAPH_PKL, "rb") as f:
-        return pickle.load(f)
+    return from_npz(GRAPH_NPZ)
 
 
 @pytest.fixture(scope="module")
@@ -519,25 +523,16 @@ def fl_map(integration_engine, fl_view) -> str:
         )
         session.commit()
 
-    # Spatial join to build parent–child edges (PostGIS ST_Contains).
-    # This is slow for 390 K blocks but only runs once per database.
-    with Session(integration_engine) as session:
-        create_parent_child_edges(session, map_uuid)
-        session.commit()
-
     return map_uuid
 
 
 def _count_document_assignments(engine, document_id: str) -> int:
-    """Count rows in the per-document assignment partition table."""
-    partition = f"document.assignments_{document_id}"
+    """Count rows in the document assignments table."""
     with Session(engine) as session:
-        try:
-            return session.execute(
-                text(f'SELECT COUNT(*) FROM public."{partition}"')
-            ).scalar_one()
-        except Exception:
-            return 0
+        return session.execute(
+            text("SELECT COUNT(*) FROM document.assignments WHERE document_id = :d"),
+            {"d": document_id},
+        ).scalar_one()
 
 
 @pytest.fixture(scope="module")
@@ -590,7 +585,7 @@ def fl_document_id(integration_engine, fl_client, fl_map, fl_assignments) -> str
 def fl_ctx(integration_engine, fl_document_id, fl_graph):
     """DocumentEvaluationContext for the FL Cong2026 document.
 
-    ``get_graph`` is patched to serve the pre-loaded pickle so that
+    ``get_graph`` is patched to serve the pre-loaded graph so that
     graph-dependent metrics (cut_edges, contiguous) work without requiring
     the graph file to be placed under VOLUME_PATH.  This is a filesystem shim,
     not a database mock.

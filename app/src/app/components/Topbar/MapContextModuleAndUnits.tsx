@@ -1,49 +1,30 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {Flex, Text, Tooltip} from '@radix-ui/themes';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {sanitizeCommunityModuleName} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
-export const MapContextModuleAndUnits = () => {
+/**
+ * The map module name and a one-line units sentence for the topbar title's
+ * tooltip: the module shows inline until the map is named, then moves into
+ * the hover along with the unit info.
+ */
+export const useMapModuleInfo = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const parentGeoUnitType = mapDocument?.parent_geo_unit_type;
   const childGeoUnitType = mapDocument?.child_geo_unit_type;
   const dataSourceName = mapDocument?.data_source_name;
-  const mapMode = useMapControlsStore(state => state.mapMode);
-  const sanitizedMapName =
-    mapMode === MAP_MODES.COI
+  const moduleName =
+    (mapMode === MAP_MODES.COI
       ? sanitizeCommunityModuleName(mapDocument?.map_module)
-      : mapDocument?.map_module;
+      : mapDocument?.map_module) ?? '';
 
-  const mapModuleDisplay = (
-    <Text size="2" className="text-gray-500">
-      {sanitizedMapName}
-    </Text>
-  );
-  if (!parentGeoUnitType && !childGeoUnitType) {
-    return mapModuleDisplay;
-  }
-  return (
-    <Tooltip
-      content={
-        <Text>
-          {!!dataSourceName && (
-            <>
-              {' '}
-              Using data from <b>{dataSourceName}</b>.{' '}
-            </>
-          )}
-          Building on <b>{parentGeoUnitType}</b>
-          {!!childGeoUnitType && (
-            <>
-              , which can be broken down into <b>{childGeoUnitType}</b>
-            </>
-          )}
-          .
-        </Text>
-      }
-    >
-      {mapModuleDisplay}
-    </Tooltip>
-  );
+  const unitsSentence = parentGeoUnitType
+    ? `You are drawing ${parentGeoUnitType}s${
+        childGeoUnitType ? `, which can be broken into ${childGeoUnitType}s` : ''
+      }.`
+    : null;
+  const dataSourceSentence = dataSourceName ? `Using data from ${dataSourceName}.` : null;
+
+  return {moduleName, unitsSentence, dataSourceSentence};
 };

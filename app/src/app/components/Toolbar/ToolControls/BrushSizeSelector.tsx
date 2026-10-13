@@ -1,7 +1,6 @@
-import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
+import {Slider, Flex, Heading, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
 import {useEffect} from 'react';
 import {ACCESS_STATES} from '@constants/document/state';
 const BRUSH_MIN_SIZE = 1;
@@ -24,7 +23,9 @@ export function BrushSizeSelector() {
     setBrushSize(value.length ? value[0] : 0);
   };
   const handlePlusMinus = (change: number) => {
-    let newValue = brushSize + change;
+    // Read fresh state: the keydown effect below binds once ([] deps), so a
+    // closure over the `brushSize` prop would be stale after the first press.
+    let newValue = useMapControlsStore.getState().brushSize + change;
     if (newValue > BRUSH_MAX_SIZE) {
       newValue = BRUSH_MAX_SIZE;
     } else if (newValue < BRUSH_MIN_SIZE) {
@@ -34,8 +35,7 @@ export function BrushSizeSelector() {
   };
 
   useEffect(() => {
-    // listen for [ or - and reduce brush size
-    // listen for ] or + and increase brush size
+    // [ reduces the brush size, ] increases it
     const handleKeyDown = (e: KeyboardEvent) => {
       // if alt shift or ctrl are pressed, ignore
       if (e.altKey || e.shiftKey || e.ctrlKey) return;
@@ -62,20 +62,20 @@ export function BrushSizeSelector() {
       style={access === ACCESS_STATES.READ ? {pointerEvents: 'none', opacity: 0.5} : {}}
     >
       <Flex direction="column" width="100%" gap="1">
-        <Text size="1">Brush Size</Text>
+        <Text size="2">Brush Size</Text>
         <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
           <Slider
             defaultValue={[brushSize]}
-            size="2"
+            size="3"
             value={[brushSize]}
             onValueChange={access === ACCESS_STATES.READ ? () => {} : handleChangeEnd}
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
             disabled={access === ACCESS_STATES.READ}
+            style={
+              {'--gray-a3': 'var(--gray-a6)', '--gray-a5': 'var(--gray-a8)'} as React.CSSProperties
+            }
           />
-          <Text size="1" as="span" color="gray">
-            {brushSize}
-          </Text>
         </Flex>
       </Flex>
     </Flex>

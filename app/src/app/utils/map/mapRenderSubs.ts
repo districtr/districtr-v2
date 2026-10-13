@@ -8,6 +8,8 @@ import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectin
 import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
+import {setHoverFeatures} from '@utils/map/hoverFeatures';
+import {useTooltipStore} from '@store/tooltipStore';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {demographyService} from '../demography/demographyService';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from '@/app/store/demography/constants';
@@ -189,13 +191,14 @@ export class MapRenderSubscriber {
     const isDemographic = this.mapType === RENDERER_TYPES.DEMOGRAPHIC;
 
     if (isDemographic) return;
+    const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       if (isHover && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic)
+          getLayerFill(captiveIds.size ? captiveIds : undefined, isDemographic, zonesOpacity)
         );
       }
     });
@@ -212,6 +215,11 @@ export class MapRenderSubscriber {
     );
   }
   renderCursor(activeTool: ActiveTool) {
+    // The outgoing tool's hover highlight and tooltip are stale for the
+    // incoming one (a hotkey switch moves no mouse); clear both and let the
+    // next mousemove repaint them.
+    setHoverFeatures();
+    useTooltipStore.getState().setTooltip(null);
     const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
@@ -220,6 +228,7 @@ export class MapRenderSubscriber {
       case ACTIVE_TOOLS.PAN:
       case ACTIVE_TOOLS.BRUSH:
       case ACTIVE_TOOLS.ERASER:
+      case ACTIVE_TOOLS.INSPECTOR:
         setPaintFunction(defaultPaintFunction);
         break;
       case ACTIVE_TOOLS.SHATTER:
@@ -284,12 +293,17 @@ export class MapRenderSubscriber {
   ) {
     // Keep hover-layer opacity aligned with focus/break mode and overlay mode.
     // Color rendering can run independently of focus updates, so we re-assert this here.
+    const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       if (!layerId.includes('hover') || !this.mapRef.getLayer(layerId)) return;
       this.mapRef.setPaintProperty(
         layerId,
         'fill-opacity',
-        getLayerFill(captiveIds.size ? captiveIds : undefined, showDemographicMap === 'overlay')
+        getLayerFill(
+          captiveIds.size ? captiveIds : undefined,
+          showDemographicMap === 'overlay',
+          zonesOpacity
+        )
       );
     });
   }
@@ -599,7 +613,8 @@ export class MapRenderSubscriber {
 
     const demographyEnabled =
       this.mapType === RENDERER_TYPES.DEMOGRAPHIC ||
-      controlsState.mapOptions.demographicDisplayMode === 'overlay';
+      controlsState.mapOptions.demographicDisplayMode === 'overlay' ||
+      controlsState.mapOptions.demographicDisplayMode === 'sized-circles';
     if (!demographyEnabled || !mapState.mapDocument) return;
 
     const mapScale = demographyService.calculateDemographyColorScale({

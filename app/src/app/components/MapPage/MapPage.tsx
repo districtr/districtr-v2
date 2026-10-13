@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
 import {MobileMapLegend} from '@components/Map/MobileMapLegend';
@@ -7,23 +7,29 @@ import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
 import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
+import {DraftStatusHelper} from '@components/sidebar/DraftStatusHelper';
 import {EvalPanel} from '@components/EvalPanel/EvalPanel';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {Topbar} from '@/app/components/Topbar/Topbar';
+import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {RepairAssignmentsModal} from '../RepairAssignmentsModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
+import {expandUUID, PRIVATE_EDIT_ID_PARAM} from '@/app/utils/map/editUrl';
+import {useRouter, useSearchParams} from 'next/navigation';
 import {useInitializeMapMode} from '@/app/hooks/useInitializeMapMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {MAP_ROUTES} from '@constants/document/routes';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {BASEMAP_IDS} from '@constants/map/layerStyle';
 
@@ -34,11 +40,11 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
+  const router = useRouter();
   const isMapModeReady = useInitializeMapMode(MAP_MODES.DISTRICTS);
   const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
   );
-  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const setIsEval = useMapControlsStore(state => state.setIsEval);
   const setEditableDocId = useMapControlsStore(state => state.setEditableDocId);
@@ -53,11 +59,26 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     migrateUserMapsFromLocalStorage();
   }, []);
 
+  // Edit URLs show the public id in the path; the editable UUID travels in the
+  // private_edit_id query param (treat it like a password). An edit route
+  // visited without a valid token (e.g. a share link with the param
+  // stripped) carries no real edit capability — bounce to the plain display
+  // route rather than rendering the editor against a document we can't edit.
+  const privateEditId = useSearchParams().get(PRIVATE_EDIT_ID_PARAM);
+  const documentId = (isEditing && privateEditId && expandUUID(privateEditId)) || mapId;
+  const hasEditCapability = isEditing && !!documentId && isUUID(documentId);
+  const needsRedirect = isEditing && !!mapId && !hasEditCapability;
+  const isPublicPage = !isEditing && !!mapId && !isUUID(mapId);
+
+  useEffect(() => {
+    if (needsRedirect) router.replace(`/${MAP_ROUTES.DISTRICTS}/${mapId}`);
+  }, [needsRedirect, mapId, router]);
+
   // Load document with sync support
   const {error: documentError, conflictModal} = useDocumentWithSync({
-    document_id: mapId || undefined,
+    document_id: documentId || undefined,
     isPublicPage,
-    enabled: isMapModeReady && !!mapId,
+    enabled: isMapModeReady && !!documentId && !needsRedirect,
   });
 
   // Handle document loading errors
@@ -81,8 +102,8 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   // back to edit mode after navigating to a read-only display/eval view (which
   // loads the doc by public_id and surfaces document_id as "anonymous").
   useEffect(() => {
-    if (isEditing && mapId && isUUID(mapId)) setEditableDocId(mapId);
-  }, [isEditing, mapId, setEditableDocId]);
+    if (hasEditCapability) setEditableDocId(documentId);
+  }, [hasEditCapability, documentId, setEditableDocId]);
 
   useEffect(() => {
     setIsEval(isEval ?? false);
@@ -103,18 +124,18 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     };
   }, [isPublicPage]);
 
-  if (!isMapModeReady) {
+  if (!isMapModeReady || needsRedirect) {
     return null;
   }
 
   // TODO: refactor into a cleaner wrapper component and simplify child template logic
   return (
     <div
-      className={`h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse${isEval ? ' eval-page-root' : ''}`}
+      className={`h-screen h-dvh w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse${isEval ? ' eval-page-root' : ''}`}
     >
       {isPublicPage && isEval ? <EvalPanel /> : <SidebarComponent />}
       <div
-        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen${isEval ? ' eval-map-wrapper' : ''}`}
+        className={`h-full relative w-full flex-1 flex flex-col lg:h-screen lg:h-dvh landscape:h-screen landscape:h-dvh${isEval ? ' eval-map-wrapper' : ''}`}
       >
         {isEval ? (
           <div className="eval-topbar-wrapper">
@@ -123,17 +144,25 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         ) : (
           <Topbar />
         )}
-        <Flex direction="row" height="100%">
+        <Flex direction="row" className="flex-1 min-h-0 relative">
           {isPublicPage ? <PublicMap /> : <MainMap />}
           {showDemographicMap && (isPublicPage ? <PublicDemographicMap /> : <DemographicMap />)}
+          {/* Draft-status helper, top-right of the map. Hidden below lg (the
+              mobile "View hints" modal serves it); the card sizes itself
+              so the right anchor keeps the collapsed header in the corner. */}
+          <div className="absolute top-3 right-3 z-10 hidden lg:flex justify-end max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] overflow-y-auto rounded-[10px]">
+            <DraftStatusHelper />
+          </div>
         </Flex>
         <MobileMapLegend />
+        <MobileToolbar />
         <MapTooltip />
       </div>
       <MapContextMenu />
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
+      <RepairAssignmentsModal />
       <ZoneDescriptionModal />
     </div>
   );
@@ -143,7 +172,9 @@ export default function MapPage({isEditing, isEval, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        <Suspense fallback={null}>
+          <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+        </Suspense>
       </QueryClientProvider>
     );
   }

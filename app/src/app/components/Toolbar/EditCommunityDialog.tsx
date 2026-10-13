@@ -82,7 +82,7 @@ export const EditCommunityDialog: React.FC<EditCommunityDialogProps> = ({
     if (nameValidation.empty) return 'Community name cannot be empty.';
     if (nameValidation.tooLong)
       return `Name must be ${communityNameLengthLimit} characters or fewer (after cleanup).`;
-    if (nameValidation.wasModified) return `Will be saved as "${nameValidation.sanitized}".`;
+    if (nameValidation.wasModified) return `Will be saved as "${nameValidation.sanitized}."`;
     return null;
   }, [nameValidation]);
 

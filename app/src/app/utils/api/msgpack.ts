@@ -1,5 +1,6 @@
 import {decode, encode} from '@msgpack/msgpack';
 import {API_URL} from './constants';
+import {fetchWithSession} from './session';
 
 type ApiResult<T> = {ok: true; response: T} | {ok: false; error: {detail: string}};
 
@@ -37,7 +38,7 @@ export async function getMsgpack<T>(
   queryParams?: QueryParams
 ): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(buildUrl(path, queryParams), {
+    const response = await fetchWithSession(buildUrl(path, queryParams), {
       headers: {Accept: 'application/msgpack'},
     });
     if (!response.ok) return {ok: false, error: await readError(response)};
@@ -54,7 +55,7 @@ export async function putMsgpack<TBody, TResponse>(
 ): Promise<ApiResult<TResponse>> {
   try {
     const encoded = encode(body);
-    const response = await fetch(buildUrl(path), {
+    const response = await fetchWithSession(buildUrl(path), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/msgpack',

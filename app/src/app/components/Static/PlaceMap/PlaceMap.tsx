@@ -14,7 +14,6 @@ export const HOVER_COLOR = '#006b9c';
 export const colors: string[] = ['#744DCA', '#3D009C', '#9020FF', '#C630FD'];
 export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onChange}) => {
   const hovered = usePlaceMapStore(state => state.hovered);
-  const mapsBySlug = usePlaceMapStore(state => state.mapsBySlug);
   return (
     <Select.Root size="3" onValueChange={onChange} value="">
       <Select.Trigger
@@ -25,12 +24,11 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
         {US_STATE_META.sort((a, b) => a.NAME.localeCompare(b.NAME))
           .map(place => ({
             ...place,
-            slug: place.NAME.toLowerCase().replaceAll(' ', '-'),
+            slug: place.SLUG ?? place.NAME.toLowerCase().replaceAll(' ', '-'),
           }))
           .map((place: (typeof US_STATE_META)[number] & {slug: string}, i: number) => (
             <Select.Item value={place.slug} key={i}>
-              {place.NAME}{' '}
-              {`${place.NAME && mapsBySlug?.[place.slug] ? `(${mapsBySlug?.[place.slug]} map${mapsBySlug?.[place.slug] > 1 ? 's' : ''})` : ``}`}
+              {place.NAME}
             </Select.Item>
           ))}
       </Select.Content>

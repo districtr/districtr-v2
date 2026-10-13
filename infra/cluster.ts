@@ -23,6 +23,8 @@ export function createCluster() {
   const logGroups = {
     backend: logGroup("backend"),
     frontend: logGroup("frontend"),
+    cms: logGroup("cms"),
+    cmsMigrate: logGroup("cms-migrate"),
     migrate: logGroup("migrate"),
     graphCheck: logGroup("graph-check"),
   };

@@ -55,6 +55,13 @@ export const filterFeatures = ({
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
+    if (
+      activeTool === ACTIVE_TOOLS.BRUSH &&
+      mapMode === MAP_MODES.DISTRICTS &&
+      mapOptions.disallowPaintOver
+    ) {
+      filterFunctions.push(f => !zoneAssignments.get(f.id?.toString() || ''));
+    }
     if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
     } else if (mapOptions.lockPaintedAreas.length) {
