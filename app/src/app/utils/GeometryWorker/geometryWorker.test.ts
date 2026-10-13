@@ -8,9 +8,9 @@ const pt = (path: string, x: number, y: number, total_pop_20 = 1000) => ({
   properties: {path, total_pop_20},
 });
 const fc = (features: ReturnType<typeof pt>[]) => ({type: 'FeatureCollection' as const, features});
-const labels = async (bounds: [number, number, number, number]) =>
+const labels = async (bounds: [number, number, number, number], settled = true) =>
   Object.fromEntries(
-    (await GeometryWorker.getMedianPoint(bounds, [1, 2, 3])).centroids.features.map(f => [
+    (await GeometryWorker.getMedianPoint(bounds, [1, 2, 3], settled)).centroids.features.map(f => [
       f.properties!.zone,
       f.geometry.coordinates,
     ])
@@ -39,6 +39,10 @@ test('one label per zone, inside the view, sticky across pans', async () => {
   // Small pan: label stays put. Pan until it nears the edge: re-placed.
   expect((await labels([0.5, 0.5, 3.5, 3.5]))[1]).toEqual([2, 2]);
   expect((await labels([1.9, 1.9, 4.9, 4.9]))[1]).toEqual([3, 3]);
+
+  // Zooming out mid-motion keeps the label; once settled it re-centers.
+  expect((await labels([-2, -2, 8, 8], false))[1]).toEqual([3, 3]);
+  expect((await labels([-2, -2, 8, 8]))[1]).toEqual([4, 4]);
 
   // A repaint invalidates kept labels.
   GeometryWorker.updateZones(grid.map(f => [f.properties.path, 1] as [string, number]));

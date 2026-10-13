@@ -31,8 +31,6 @@ export type GeometryWorkerClass = {
   setMaxParentZoom: (zoom: number) => void;
   zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
-  /** Longitude span of the view the previous labels were placed for. */
-  previousSpan: number;
   /**
    * Flat typed-array copy of pointData + childPointData, rebuilt when either is
    * replaced; `zones` is refreshed when zoneAssignments is replaced.
@@ -102,12 +100,14 @@ export type GeometryWorkerClass = {
    * Finds the median point for each zone.
    * @param bounds - The view bounds [minLon, minLat, maxLon, maxLat]
    * @param activeZones - List of current drawn zones
+   * @param settled - False while the map moves: labels then only re-place near the view edge
    * @returns CentroidReturn
    * @see getCentroidsFromView
    */
   getMedianPoint: (
     bounds: [number, number, number, number],
-    activeZones: number[]
+    activeZones: number[],
+    settled?: boolean
   ) => Promise<CentroidReturn>;
   /**
    * Parses point data within a specified view and returns their centroids.
@@ -121,6 +121,7 @@ export type GeometryWorkerClass = {
     bounds: [number, number, number, number];
     activeZones: number[];
     strategy: 'median-point';
+    settled?: boolean;
   }) => Promise<CentroidReturn>;
   /**
    * Retrieves the centroids of the geometries with the given IDs.

@@ -66,7 +66,6 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   maxParentZoom: 0,
   previousCentroids: {},
-  previousSpan: 0,
   setPointData(pointData: GeoJSON.FeatureCollection<GeoJSON.Point>) {
     this.pointData = pointData;
   },
@@ -208,7 +207,11 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     return index;
   },
-  async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
+  async getMedianPoint(
+    bounds: [number, number, number, number],
+    activeZones: number[],
+    settled = true
+  ) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     const {x, y, pop, zones} = this.getPointIndex();
     const [minLon, minLat, maxLon, maxLat] = bounds;
@@ -229,17 +232,17 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     }
 
-    // Panning or zooming in keeps a label where it is while it stays clear of the
-    // view edge, so labels ride along with the map instead of hopping each update.
+    // A label stays put while it is clear of the view edge, so it rides along with
+    // the map; every re-place forces MapLibre to re-place all symbols. Once motion
+    // settles, labels placed at a closer zoom are re-centered for the wider view.
     const span = maxLon - minLon;
-    const keepPrevious = span <= this.previousSpan * 1.01;
     const insetX = span * STICKY_INSET;
     const insetY = (maxLat - minLat) * STICKY_INSET;
     const median = (values: number[]) => Float64Array.from(values).sort()[values.length >> 1];
 
     new Set([...populated.keys(), ...fallback.keys()]).forEach(zone => {
       const previous = this.previousCentroids[zone];
-      if (keepPrevious && previous) {
+      if (previous && (!settled || span <= previous.properties!.span * 1.01)) {
         const [px, py] = previous.geometry.coordinates;
         if (
           px > minLon + insetX &&
@@ -268,7 +271,7 @@ const GeometryWorker: GeometryWorkerClass = {
       });
       centroids.features.push({
         type: 'Feature',
-        properties: {zone},
+        properties: {zone, span},
         geometry: {type: 'Point', coordinates: [x[best], y[best]]},
       });
     });
@@ -276,18 +279,17 @@ const GeometryWorker: GeometryWorkerClass = {
     this.previousCentroids = Object.fromEntries(
       centroids.features.map(f => [f.properties!.zone, f])
     );
-    this.previousSpan = span;
     return {
       centroids,
       dissolved,
     };
   },
-  async getCentroidsFromView({bounds, activeZones, strategy = 'median-point'}) {
+  async getCentroidsFromView({bounds, activeZones, strategy = 'median-point', settled}) {
     switch (strategy) {
       case 'median-point':
-        return await this.getMedianPoint(bounds, activeZones);
+        return await this.getMedianPoint(bounds, activeZones, settled);
       default:
-        return await this.getMedianPoint(bounds, activeZones);
+        return await this.getMedianPoint(bounds, activeZones, settled);
     }
   },
   getCentroidsByIds(ids) {
