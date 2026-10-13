@@ -50,9 +50,11 @@ export const ENSEMBLE_MODAL_TEXT = {
   axisLabel: 'Percent of plans',
 
   loading: 'Loading the demonstration plans…',
-  loadFailed: 'The demonstration plans are unavailable right now. The rest of this page still works.',
+  loadFailed:
+    'The demonstration plans are unavailable right now. The rest of this page still works.',
   summaryFailed: 'The ensemble statistics are unavailable right now. Try again in a moment.',
-  noPlanValue: 'Your plan’s own value for this metric is unavailable, so the chart shows the ensemble alone.',
+  noPlanValue:
+    'Your plan’s own value for this metric is unavailable, so the chart shows the ensemble alone.',
   close: 'Close',
 } as const;
 

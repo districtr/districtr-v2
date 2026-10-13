@@ -27,10 +27,7 @@ interface CountySplitsSectionProps {
   ensemble: EnsembleReference;
 }
 
-export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({
-  evaluation,
-  ensemble,
-}) => {
+export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluation, ensemble}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);

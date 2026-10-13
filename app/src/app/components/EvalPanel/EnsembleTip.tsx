@@ -84,8 +84,7 @@ export const EnsembleTip: React.FC<EnsembleTipProps> = ({
         onPointerDownOutside={onPointerDownOutside}
       >
         <Text size="2">
-          The median of the ensemble of randomly generated plans is{' '}
-          {formatNumber(median, format)} (
+          The median of the ensemble of randomly generated plans is {formatNumber(median, format)} (
           <Link
             size="2"
             href="#"

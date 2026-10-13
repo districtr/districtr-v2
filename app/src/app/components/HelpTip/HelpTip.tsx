@@ -120,8 +120,10 @@ export const HelpTip: React.FC<{
   side?: 'top' | 'right' | 'bottom' | 'left';
 }> = ({tip, children, openDelay = HELP_TIP_HOVER_DELAY, text, hideLink, side}) => {
   const [videoOpen, setVideoOpen] = useState(false);
-  const {open, setOpen, triggerRef, triggerProps, alignOffset, onPointerDownOutside} =
-    useHoverCard(openDelay, side);
+  const {open, setOpen, triggerRef, triggerProps, alignOffset, onPointerDownOutside} = useHoverCard(
+    openDelay,
+    side
+  );
 
   // Widened to the interface: `helpTipContent`'s `satisfies` (see helpTipContent.ts)
   // preserves each entry's own literal shape for HelpTipKey's sake, so indexing by a

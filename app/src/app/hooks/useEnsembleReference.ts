@@ -1,5 +1,6 @@
 'use client';
 import {useQuery} from '@tanstack/react-query';
+import {ensembleQueryKeys} from '@components/EnsembleModal';
 import {useMapStore} from '@store/mapStore';
 import {useEnsembleStore} from '@store/ensembleStore';
 import {
@@ -52,7 +53,9 @@ const planDistrictCount = (evaluation: DocumentEvaluation): number | null => {
  *
  * The panel calls this once and hands the result to its sections. Both fetches
  * are react-query cached by module and preset, so switching preset and back
- * costs nothing, and a module with no package is asked for only once.
+ * costs nothing, and a module with no package is asked for only once. The keys
+ * are the package's shared ones, so the panel and the dialog read each file
+ * once between them.
  */
 export const useEnsembleReference = (evaluation: DocumentEvaluation): EnsembleReference => {
   const moduleSlug = useMapStore(state => state.mapDocument?.districtr_map_slug) ?? null;
@@ -62,7 +65,7 @@ export const useEnsembleReference = (evaluation: DocumentEvaluation): EnsembleRe
   const setPreset = useEnsembleStore(state => state.setPreset);
 
   const {data: index = null} = useQuery({
-    queryKey: ['ensemble-index', moduleSlug],
+    queryKey: ensembleQueryKeys.index(moduleSlug ?? ''),
     queryFn: () => getEnsembleIndex(moduleSlug!),
     enabled: !!moduleSlug,
     staleTime: Infinity,
@@ -74,7 +77,7 @@ export const useEnsembleReference = (evaluation: DocumentEvaluation): EnsembleRe
     presets.find(p => p.key === storedPreset) ?? presets.find(p => p.default) ?? presets[0] ?? null;
 
   const {data: summary = null} = useQuery({
-    queryKey: ['ensemble-summary', moduleSlug, preset?.key],
+    queryKey: ensembleQueryKeys.summary(moduleSlug ?? '', preset?.key ?? ''),
     queryFn: () => getEnsembleSummary(moduleSlug!, preset!.key),
     enabled: !!moduleSlug && !!preset,
     staleTime: Infinity,

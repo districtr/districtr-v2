@@ -118,6 +118,7 @@ export const EvalPanel: React.FC = () => {
           preset={ensemble.preset}
           summary={ensemble.summary}
           metric={modalMetric}
+          evaluation={evaluation}
         />
       )}
     </div>

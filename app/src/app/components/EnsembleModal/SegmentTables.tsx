@@ -126,9 +126,7 @@ export const SegmentTables: React.FC<SegmentTablesProps> = ({step, focus, onSele
         aria-pressed={selected}
         title={`Chart ${metric.label} below`}
         style={{cursor: 'pointer', ...selectedStyle(selected)}}
-        onClick={() =>
-          onSelectMetric({category: metric.category, metric: metric.id, election})
-        }
+        onClick={() => onSelectMetric({category: metric.category, metric: metric.id, election})}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();

@@ -40,7 +40,7 @@ export const ensembleQueryKeys = {
     ['ensemble', 'segment', moduleSlug, preset] as const,
 };
 
-const fetchJson = async <T,>(url: string): Promise<T> => {
+const fetchJson = async <T>(url: string): Promise<T> => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
   return (await response.json()) as T;
