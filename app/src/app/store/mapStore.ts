@@ -13,7 +13,7 @@ import {
   StatusObject,
   DocumentComment,
 } from '@utils/api/apiHandlers/types';
-import maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {ContextMenuState} from '@utils/map/types';
