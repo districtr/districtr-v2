@@ -43,10 +43,10 @@ export const ENSEMBLE_MODAL_TEXT = {
   scoreColumn: 'Score',
   valueColumn: 'Value',
 
-  histogramHeading: 'Where this plan sits',
+  histogramHeading: 'Where the evaluated plan sits',
   histogramIntro:
-    'Each bar is the percent of the {plans} ensemble plans whose score falls in that range.',
-  thisPlanMarker: 'This plan',
+    'Pick a metric here, or click any value in the tables above, to see where the evaluated plan sits. Each bar is the percent of the {plans} ensemble plans whose score falls in that range.',
+  thisPlanMarker: 'Evaluated plan',
   axisLabel: 'Percent of plans',
 
   loading: 'Loading the demonstration plans…',

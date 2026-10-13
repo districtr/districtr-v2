@@ -179,15 +179,22 @@ manifest records the definitions, gerrytools version, CRS and wall time.
 
 `package` (run by `run`; also standalone, `--ensemble-dir`, `--module-slug`,
 `--vtd-gpkg`) reads only the npz files and their manifests and writes the
-static package the app reads, under `<ensemble dir>/package/`:
+static package the app reads, under `<ensemble dir>/package/`. For a
+shatterable module pass `--graph-npz` (the combined block/VTD graph from
+`transforms create-graph`): cut edges are then counted between blocks, summing
+the graph's block-adjacency weights over each plan's cut VTD edges, which is
+the unit the app scores such a module in. Without it, cut edges are the chain's
+VTD-level counts. The unit is recorded as `unit_type` on the `cut_edges`
+distribution and on every segment step.
 
 - `index.json` — `module_slug` and the packaged presets: `key`, `label`,
   `default` (`recom_b`), `n_plans`, `generated_at`.
 - `<preset>/summary.json` — one distribution per series: `kind`, `edges`,
   `counts`, `median`, `min`, `max`. Integer series (seats, district counts,
-  splits, cut edges) have one bucket per integer from min to max; continuous
-  series have 100 equal-width buckets over min..max and a 201-point
-  `quantiles` table (q = 0, 0.005, …, 1). Per-election metrics nest by election
+  splits, cut edges) have one bucket per integer from min to max; a float
+  series with at most 32 distinct values is `discrete`, its `edges` being
+  those exact values; continuous series have 100 equal-width buckets over
+  min..max and a 201-point `quantiles` table (q = 0, 0.005, …, 1). Per-election metrics nest by election
   key; compactness nests by `mean`, `min`, `max` and `districts` (every
   district of every plan). `ftv` holds the Freedom to Vote Act test as the
   evaluation panel applies it: its four elections, the threshold

@@ -133,9 +133,10 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
   const {cut_edges, polsby_popper, reock} = evaluation;
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const parentUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
-  // An ensemble is drawn in the module's own units, so its cut-edge counts
-  // describe a different graph than a plan scored on shattered children.
-  const cutEdgesComparable = !!cut_edges && cut_edges.unit_type === parentUnitType;
+  // The package states the unit its cut edges were counted between; a plan's
+  // count compares only against a count in the same unit.
+  const ensembleCutEdgesUnit = ensemble.summary?.cut_edges?.unit_type ?? parentUnitType;
+  const cutEdgesComparable = !!cut_edges && cut_edges.unit_type === ensembleCutEdgesUnit;
   const zoomToDistrict = useZoomToDistrict();
   const zones = useMemo(
     () => (polsby_popper ? Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b)) : []),

@@ -68,6 +68,11 @@ def build_graph(vtd_gpkg: str, block_gpkg: str, seed_csv: str, out: str) -> None
     help="Ensemble directory: chain, score and package outputs go here",
 )
 @click.option("--keep-jsonl", is_flag=True, help="Keep rustrecom's raw jsonl output")
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
 def run(
     graph_json: str,
     vtd_gpkg: str,
@@ -78,6 +83,7 @@ def run(
     tol: float,
     out_dir: str,
     keep_jsonl: bool,
+    graph_npz: str | None,
 ) -> None:
     """Run, score and package each preset.
 
@@ -123,7 +129,7 @@ def run(
         _score(out / f"{key}.npz", vtd_gpkg, None, out / f"{key}.scores.npz")
         logger.info("%s score: %.1fs", key, time.monotonic() - started)
         started = time.monotonic()
-        package.write_preset(out, key, vtd_gpkg)
+        package.write_preset(out, key, vtd_gpkg, graph_npz=graph_npz)
         logger.info("%s package: %.1fs", key, time.monotonic() - started)
     package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
 
@@ -177,17 +183,23 @@ def _score(npz: Path, vtd_gpkg: str, n_plans: int | None, out: Path) -> None:
     show_default=True,
     help="Plan index of the segment's first step",
 )
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
 def package_cmd(
     ensemble_dir: str,
     module_slug: str,
     vtd_gpkg: str,
     presets: tuple[str, ...],
     segment_start: int,
+    graph_npz: str | None,
 ) -> None:
     """Build the app's static package (<ensemble-dir>/package/) from scored presets."""
     out = Path(ensemble_dir)
     for key in presets:
-        folder = package.write_preset(out, key, vtd_gpkg, segment_start)
+        folder = package.write_preset(out, key, vtd_gpkg, segment_start, graph_npz)
         logger.info("Wrote %s", folder)
     package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
 

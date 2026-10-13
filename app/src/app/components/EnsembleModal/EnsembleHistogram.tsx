@@ -8,7 +8,15 @@ import {Text as ThemeText} from '@radix-ui/themes';
 import {formatEnsembleValue, type EnsembleValueFormat} from './ensembleMetrics';
 import type {EnsembleDistribution} from './ensembleTypes';
 
-const MARGIN = {top: 34, right: 18, bottom: 40, left: 56};
+const MARGIN = {top: 12, right: 18, bottom: 40, left: 56};
+/** Below this many occupied buckets the series reads as a handful of discrete
+ * values: the axis is labelled at those values, and a continuous series' slivers
+ * are widened into bars. Integer series already fill their unit-wide slots. */
+const SPARSE_BUCKETS = 24;
+const SPARSE_BAR_MIN_WIDTH = 8;
+/** Two markers closer than this are nudged apart so both stay visible. */
+const MARKER_MIN_GAP = 4;
+const LEGEND_HEIGHT = 20;
 const DEFAULT_HEIGHT = 280;
 /** Bar fills recede; the two markers carry the color weight. */
 const BAR_FILL = 'var(--gray-a7)';
@@ -30,7 +38,7 @@ interface Bucket {
 export interface EnsembleHistogramProps {
   dist: EnsembleDistribution;
   format: EnsembleValueFormat;
-  /** Value for the plan being edited; drawn as the labelled "This plan" marker. */
+  /** Value for the plan being evaluated; drawn as the "Evaluated plan" marker. */
   planValue?: number;
   planLabel: string;
   /** Value for the segment step selected in the demonstration section. */
@@ -44,14 +52,24 @@ export interface EnsembleHistogramProps {
   metricLabel: string;
 }
 
+/** Half the span a discrete value's bar covers: a third of the smallest gap
+ * between neighbouring values, so bars never touch. */
+const discreteHalfSpan = (values: number[]): number => {
+  let gap = Infinity;
+  for (let i = 1; i < values.length; i++) gap = Math.min(gap, values[i] - values[i - 1]);
+  return Number.isFinite(gap) && gap > 0 ? gap / 3 : Math.max(Math.abs(values[0] ?? 1), 1) / 10;
+};
+
 /** Bucket spans: one unit wide and centered on the value for an integer series,
- * the bucket's own edges for a continuous one. */
+ * a fixed span centered on each exact value for a discrete one, the bucket's
+ * own edges for a continuous one. */
 const buildBuckets = (dist: EnsembleDistribution): Bucket[] => {
   const total = dist.counts.reduce((sum, count) => sum + count, 0) || 1;
-  if (dist.kind === 'integer') {
+  if (dist.kind === 'integer' || dist.kind === 'discrete') {
+    const half = dist.kind === 'integer' ? 0.5 : discreteHalfSpan(dist.edges);
     return dist.edges.map((value, index) => ({
-      from: value - 0.5,
-      to: value + 0.5,
+      from: value - half,
+      to: value + half,
       count: dist.counts[index] ?? 0,
       percent: ((dist.counts[index] ?? 0) / total) * 100,
     }));
@@ -66,9 +84,14 @@ const buildBuckets = (dist: EnsembleDistribution): Bucket[] => {
 
 /** Label for the span a bar covers: the integer itself, or the bucket's range. */
 const bucketLabel = (bucket: Bucket, dist: EnsembleDistribution, format: EnsembleValueFormat) =>
-  dist.kind === 'integer'
-    ? formatEnsembleValue(Math.round((bucket.from + bucket.to) / 2), format)
-    : `${formatEnsembleValue(bucket.from, format)} to ${formatEnsembleValue(bucket.to, format)}`;
+  dist.kind === 'continuous'
+    ? `${formatEnsembleValue(bucket.from, format)} to ${formatEnsembleValue(bucket.to, format)}`
+    : formatEnsembleValue(
+        dist.kind === 'integer'
+          ? Math.round((bucket.from + bucket.to) / 2)
+          : (bucket.from + bucket.to) / 2,
+        format
+      );
 
 /**
  * The ensemble's distribution for one metric, with the current plan and the
@@ -111,50 +134,74 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
     if (domainMax <= domainMin) domainMax = domainMin + 1;
     const maxPercent = buckets.reduce((max, bucket) => Math.max(max, bucket.percent), 0);
     const xScale = scaleLinear<number>({domain: [domainMin, domainMax], range: [0, innerWidth]});
-    const yScale = scaleLinear<number>({
-      domain: [0, maxPercent || 1],
-      range: [innerHeight, 0],
-      nice: true,
-    });
-    const tickValues = dist.kind === 'integer' && dist.edges.length <= 24 ? dist.edges : undefined;
-    // A metric spread over a hundred buckets peaks at a percent or two, where
-    // whole-number ticks would repeat themselves.
+    // The tallest bar reaches two thirds of the plot, so a full-height marker
+    // line cannot be mistaken for a bar: bars encode share, markers position.
+    const yMax = Math.min(100, Math.max(1, maxPercent * 1.5));
+    const yScale = scaleLinear<number>({domain: [0, yMax], range: [innerHeight, 0], nice: true});
+    const occupied = buckets.filter(bucket => bucket.count > 0);
+    const sparse = occupied.length <= SPARSE_BUCKETS;
+    // Discrete values draw their own bars at the computed span; only a sparse
+    // continuous series has slivers worth widening.
+    const widen = sparse && dist.kind === 'continuous';
+    const tickValues = sparse
+      ? occupied.map(bucket =>
+          dist.kind === 'integer'
+            ? Math.round((bucket.from + bucket.to) / 2)
+            : (bucket.from + bucket.to) / 2
+        )
+      : undefined;
     const percentDigits = maxPercent < 5 ? 1 : 0;
-    return {buckets, xScale, yScale, tickValues, percentDigits};
+    return {buckets, xScale, yScale, tickValues, percentDigits, widen};
   }, [dist, planValue, stepValue, innerWidth, innerHeight]);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
-  const {buckets, xScale, yScale, tickValues, percentDigits} = layout;
+  const {buckets, xScale, yScale, tickValues, percentDigits, widen} = layout;
 
-  const marker = (value: number | undefined, label: string, color: string, dashed: boolean) => {
-    if (value === undefined || !Number.isFinite(value)) return null;
-    const x = xScale(value);
-    const text = `${label} · ${formatEnsembleValue(value, format)}`;
-    // Keep the label inside the plot: it flips to the other side of its line
-    // near the right edge rather than being clipped.
-    const flip = x > innerWidth - text.length * 6;
+  // Coinciding values (both markers on the same seat count, say) would hide one
+  // line under the other; nudge them symmetrically apart instead.
+  const markerX = (value: number | undefined) =>
+    value === undefined || !Number.isFinite(value) ? undefined : xScale(value);
+  let planX = markerX(planValue);
+  let stepX = markerX(stepValue);
+  if (planX !== undefined && stepX !== undefined && Math.abs(planX - stepX) < MARKER_MIN_GAP) {
+    const centre = (planX + stepX) / 2;
+    planX = centre - MARKER_MIN_GAP / 2;
+    stepX = centre + MARKER_MIN_GAP / 2;
+  }
+
+  const marker = (x: number | undefined, label: string, color: string, dashed: boolean) => {
+    if (x === undefined) return null;
     return (
-      <Group key={label}>
-        <Line
-          from={{x, y: 0}}
-          to={{x, y: innerHeight}}
-          stroke={color}
-          strokeWidth={2}
-          strokeDasharray={dashed ? '4 3' : undefined}
-        />
-        <text
-          x={flip ? x - 6 : x + 6}
-          y={-10}
-          textAnchor={flip ? 'end' : 'start'}
-          fontSize={12}
-          fontWeight={600}
-          fill={color}
-        >
-          {text}
-        </text>
-      </Group>
+      <Line
+        key={label}
+        from={{x, y: 0}}
+        to={{x, y: innerHeight}}
+        stroke={color}
+        strokeWidth={1}
+        strokeDasharray={dashed ? '4 3' : undefined}
+      />
     );
   };
+
+  const legendItem = (value: number | undefined, label: string, color: string, dashed: boolean) =>
+    value === undefined || !Number.isFinite(value) ? null : (
+      <span key={label} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+        <svg width={22} height={10} aria-hidden="true">
+          <line
+            x1={1}
+            y1={5}
+            x2={21}
+            y2={5}
+            stroke={color}
+            strokeWidth={2}
+            strokeDasharray={dashed ? '4 3' : undefined}
+          />
+        </svg>
+        <ThemeText size="1" style={{color: INK}}>
+          {label}
+        </ThemeText>
+      </span>
+    );
 
   const hoveredBucket = hovered === null ? null : buckets[hovered];
 
@@ -174,12 +221,20 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
             // A 2px gap between neighbouring bars, dropped once bars get so thin
             // that the gap would eat them.
             const gap = span > 4 ? 2 : 0;
-            const barWidth = Math.max(1, span - gap);
+            // A sparse series gets bars at least twice as wide as its slivers,
+            // centred on the bucket, so each value reads as a bar of its own.
+            const barWidth = widen
+              ? Math.max(SPARSE_BAR_MIN_WIDTH, 2 * (span - gap))
+              : Math.max(1, span - gap);
+            // A widened bar stays inside the plot rather than crossing the axis.
+            const barX = widen
+              ? Math.min(innerWidth - barWidth, Math.max(0, (left + right) / 2 - barWidth / 2))
+              : left + gap / 2;
             const barHeight = innerHeight - yScale(bucket.percent);
             return (
               <Bar
                 key={index}
-                x={left + gap / 2}
+                x={barX}
                 y={yScale(bucket.percent)}
                 width={barWidth}
                 height={Math.max(barHeight, bucket.count > 0 ? 1 : 0)}
@@ -190,11 +245,11 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
               />
             );
           })}
-          {marker(stepValue, stepLabel, STEP_COLOR, true)}
-          {marker(planValue, planLabel, PLAN_COLOR, false)}
+          {marker(stepX, stepLabel, STEP_COLOR, true)}
+          {marker(planX, planLabel, PLAN_COLOR, false)}
           <AxisLeft
             scale={yScale}
-            numTicks={4}
+            numTicks={5}
             label={percentAxisLabel}
             labelProps={{fill: MUTED_INK, fontSize: 11, textAnchor: 'middle'}}
             labelOffset={28}
@@ -215,6 +270,20 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
           />
         </Group>
       </svg>
+      <div
+        style={{
+          display: 'flex',
+          gap: 16,
+          height: LEGEND_HEIGHT,
+          alignItems: 'center',
+          paddingLeft: MARGIN.left,
+          marginTop: 4,
+          marginBottom: 12,
+        }}
+      >
+        {legendItem(planValue, planLabel, PLAN_COLOR, false)}
+        {legendItem(stepValue, stepLabel, STEP_COLOR, true)}
+      </div>
       {hoveredBucket && (
         <div
           style={{

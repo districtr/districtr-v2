@@ -30,7 +30,8 @@ export interface EnsembleIndex {
  * `quantiles` is 201 points at q = 0, 0.005, …, 1, continuous series only.
  */
 export interface EnsembleDistribution {
-  kind: 'integer' | 'continuous';
+  /** `integer` and `discrete` list exact values in `edges`; `continuous` lists bucket edges. */
+  kind: 'integer' | 'discrete' | 'continuous';
   edges: number[];
   counts: number[];
   median: number;
@@ -73,7 +74,9 @@ export interface EnsembleSummary {
   n_competitive_contests: EnsembleDistribution;
   county_splits: EnsembleDistribution;
   county_pieces: EnsembleDistribution;
-  cut_edges: EnsembleDistribution;
+  /** Cut edges carry the unit they were counted between (`block` for a
+   * shatterable module's package, else the module's own unit). */
+  cut_edges: EnsembleDistribution & {unit_type?: string};
   polsby_popper: EnsembleCompactnessSummary;
   reock: EnsembleCompactnessSummary;
   ftv: EnsembleFtvSummary;

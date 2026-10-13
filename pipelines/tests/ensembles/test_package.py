@@ -22,7 +22,7 @@ def test_distribution_of_an_integer_series_has_one_bucket_per_integer():
 
 
 def test_distribution_of_a_continuous_series_has_equal_width_buckets_and_quantiles():
-    values = np.linspace(0.0, 1.0, 11)
+    values = np.linspace(0.0, 1.0, 401)
 
     result = package.distribution(values)
 
@@ -30,8 +30,8 @@ def test_distribution_of_a_continuous_series_has_equal_width_buckets_and_quantil
     assert len(result["edges"]) == package.CONTINUOUS_BUCKETS + 1
     assert result["edges"][0] == 0.0 and result["edges"][-1] == 1.0
     assert len(result["counts"]) == package.CONTINUOUS_BUCKETS
-    assert sum(result["counts"]) == 11
-    assert result["counts"][-1] == 1  # the last bucket includes max
+    assert sum(result["counts"]) == 401
+    assert result["counts"][-1] >= 1  # the last bucket includes max
     assert len(result["quantiles"]) == 201
     assert result["quantiles"][0] == 0.0
     assert result["quantiles"][100] == 0.5
@@ -39,10 +39,11 @@ def test_distribution_of_a_continuous_series_has_equal_width_buckets_and_quantil
     assert result["median"] == 0.5
 
 
-def test_distribution_of_a_constant_continuous_series_is_one_bucket():
+def test_distribution_of_a_constant_float_series_is_one_discrete_value():
     result = package.distribution(np.full(5, 0.25))
 
-    assert result["edges"] == [0.25, 0.25]
+    assert result["kind"] == "discrete"
+    assert result["edges"] == [0.25]
     assert result["counts"] == [5]
 
 
@@ -302,3 +303,51 @@ def test_public_manifest_reduces_local_paths_to_file_names():
         "output_file": "recom_b.jsonl",
         "n_steps": 10,
     }
+
+
+def test_block_cut_edges_sums_block_adjacencies_across_cut_vtd_edges(tmp_path):
+    # Path a-b-c with 3, 5 and 7 block adjacencies between neighbours; the
+    # graph lists VTDs in a different order from the ensemble.
+    graph = tmp_path / "graph.npz"
+    np.savez(
+        graph,
+        node_ids=np.array(["c", "a", "b"]),
+        has_weighted_edges=np.bool_(True),
+        we_keys=np.array([[1, 2], [2, 0]], dtype=np.int32),
+        we_vals=np.array([3, 5], dtype=np.int32),
+    )
+    node_ids = np.array(["a", "b", "c"])
+    assignments = np.array([[0, 0, 0], [0, 1, 1], [0, 0, 1], [0, 1, 0]], dtype=np.uint8)
+    counts = package.block_cut_edges(assignments, node_ids, graph)
+    assert counts.tolist() == [0, 3, 5, 8]
+
+
+def test_block_cut_edges_refuses_graph_without_weights(tmp_path):
+    graph = tmp_path / "graph.npz"
+    np.savez(
+        graph,
+        node_ids=np.array(["a"]),
+        has_weighted_edges=np.bool_(False),
+        we_keys=np.empty((0, 2), dtype=np.int32),
+        we_vals=np.empty(0, dtype=np.int32),
+    )
+    with pytest.raises(ValueError, match="no block-edge weights"):
+        package.block_cut_edges(
+            np.zeros((1, 1), dtype=np.uint8), np.array(["a"]), graph
+        )
+
+
+def test_distribution_stores_few_valued_float_series_as_exact_values():
+    values = np.array([-0.0565, 0.0685, 0.0685, 0.1935, 0.0685, -0.0565])
+    dist = package.distribution(values)
+    assert dist["kind"] == "discrete"
+    assert dist["edges"] == [-0.0565, 0.0685, 0.1935]
+    assert dist["counts"] == [2, 3, 1]
+    assert "quantiles" not in dist
+    assert dist["median"] == 0.0685
+
+
+def test_distribution_keeps_many_valued_float_series_continuous():
+    dist = package.distribution(np.linspace(0, 1, 500))
+    assert dist["kind"] == "continuous"
+    assert len(dist["counts"]) == package.CONTINUOUS_BUCKETS

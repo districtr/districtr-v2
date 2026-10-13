@@ -2,6 +2,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import {
+  Box,
   Callout,
   Dialog,
   Flex,
@@ -19,21 +20,28 @@ import {formatElectionKey} from '@utils/elections';
 import {useEnsembleSegment, useEnsembleSummary} from './ensembleData';
 import {
   CATEGORY_LABELS,
-  ensembleComparisonSentence,
   findEnsembleMetric,
+  formatEnsembleValue,
   metricsInCategory,
   resolveFocus,
   type EnsembleCategory,
   type EnsembleMetricFocus,
 } from './ensembleMetrics';
+import {compareToEnsemble} from '@utils/ensembleStats';
+import {EnsembleComparisonText} from './EnsembleComparisonText';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
 import {EnsembleHistogram} from './EnsembleHistogram';
 import {SegmentTables} from './SegmentTables';
 import {SegmentThumbnail} from './SegmentThumbnail';
 
 /** Matches the help-tip demonstration modal, the app's other wide explainer. */
-const MODAL_MAX_WIDTH = 720;
-const CHART_HEIGHT = 280;
+/** The dialog takes three quarters of the viewport in both directions. */
+const MODAL_SIZE = '75vw';
+const MODAL_HEIGHT = '75vh';
+const CHART_HEIGHT = 320;
+/** The histogram stops short of the dialog's full width; wider bars than this
+ * read as blocks rather than a distribution. */
+const CHART_MAX_WIDTH = 760;
 /** Which of the two collapsible sections are open, remembered per browser. */
 const SECTIONS_KEY = 'districtr-ensemble-modal-sections';
 const DEFAULT_SECTIONS = ['demonstration'];
@@ -83,7 +91,7 @@ export interface EnsembleModalProps {
   nPlans?: number;
   /** Opens the histogram on one metric — the "more info" path out of a popup. */
   focus?: EnsembleMetricFocus | null;
-  /** The reader's own plan, for the "This plan" marker. */
+  /** The reader's own plan, for the "Evaluated plan" marker. */
   evaluation?: DocumentEvaluation;
 }
 
@@ -170,7 +178,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content style={{maxWidth: MODAL_MAX_WIDTH}}>
+      <Dialog.Content style={{maxWidth: MODAL_SIZE, width: MODAL_SIZE, maxHeight: MODAL_HEIGHT}}>
         <Flex align="start" justify="between">
           <Dialog.Title className="m-0 flex-1">
             <Heading size="4">{ENSEMBLE_MODAL_TEXT.title}</Heading>
@@ -186,7 +194,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
           {fillEnsembleText(ENSEMBLE_MODAL_TEXT.subtitle, substitutions)}
         </Dialog.Description>
 
-        <Flex direction="column" style={{maxHeight: '70vh', overflowY: 'auto'}} pr="2">
+        <Flex direction="column" pr="2">
           <Accordion.Root type="multiple" value={openSections} onValueChange={handleSectionsChange}>
             <CollapsibleSection
               value="methodology"
@@ -241,7 +249,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                     })}
                   </Text>
                   <Flex gap="4" align="start" wrap="wrap">
-                    <div style={{flex: '0 0 30%', minWidth: 180}}>
+                    <div style={{flex: '0 0 28%', minWidth: 200}}>
                       <SegmentThumbnail
                         moduleSlug={moduleSlug}
                         presetKey={presetKey}
@@ -353,7 +361,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
               <Text size="1" color="gray" mb="1">
                 {fillEnsembleText(ENSEMBLE_MODAL_TEXT.histogramIntro, substitutions)}
               </Text>
-              <div style={{width: '100%', height: CHART_HEIGHT}}>
+              <div style={{width: '100%', maxWidth: CHART_MAX_WIDTH, margin: '0 auto'}}>
                 <ParentSize>
                   {({width}) => (
                     <EnsembleHistogram
@@ -373,9 +381,20 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                   )}
                 </ParentSize>
               </div>
-              <Text size="2" as="p" mt="2" mb="2">
-                {ensembleComparisonSentence({dist, value: planValue, format: metric.format})}
-              </Text>
+              <Box mt="4" mb="2">
+                {planValue === undefined ? (
+                  <Text size="2">
+                    The median of the ensemble of randomly generated plans is{' '}
+                    {formatEnsembleValue(dist.median, metric.format)}.
+                  </Text>
+                ) : (
+                  <EnsembleComparisonText
+                    median={formatEnsembleValue(dist.median, metric.format)}
+                    extreme={compareToEnsemble(dist, planValue).extreme}
+                    subject="the evaluated plan"
+                  />
+                )}
+              </Box>
               {planValue === undefined && (
                 <Text size="1" color="gray" mb="2">
                   {ENSEMBLE_MODAL_TEXT.noPlanValue}

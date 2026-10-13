@@ -34,6 +34,11 @@ SEGMENT_LENGTH = 100
 CONTINUOUS_BUCKETS = 100
 QUANTILES = np.linspace(0.0, 1.0, 201)
 SIGNIFICANT_DIGITS = 6
+# A float series taking at most this many distinct values is stored as those
+# exact values with counts (``kind: discrete``) rather than as equal-width
+# buckets: a seat share minus a fixed vote share, say, lands on a handful of
+# points, and bucket centres would misstate them.
+DISCRETE_MAX_VALUES = 32
 
 PER_ELECTION_SUMMARY = (
     "seats",
@@ -138,10 +143,12 @@ def distribution(values: np.ndarray) -> dict:
 
     Integer-dtype series get one bucket per integer from min to max: bucket ``i``
     counts plans whose value is ``edges[i]`` (``edges[i + 1] = edges[i] + 1``).
-    Other series get ``CONTINUOUS_BUCKETS`` equal-width buckets over min..max, each
-    half-open except the last, which includes max; a constant series gets a single
-    bucket. Continuous series also carry ``quantiles`` at ``QUANTILES`` (linear
-    interpolation). Non-finite values are excluded and counted in ``n_missing``.
+    A float series with at most ``DISCRETE_MAX_VALUES`` distinct values is
+    ``discrete``: ``edges`` lists those values in order and ``counts[i]`` the plans
+    at ``edges[i]``. Other series get ``CONTINUOUS_BUCKETS`` equal-width buckets
+    over min..max, each half-open except the last, which includes max, plus
+    ``quantiles`` at ``QUANTILES`` (linear interpolation). Non-finite values are
+    excluded and counted in ``n_missing``.
     """
     values = np.asarray(values)
     finite = values[np.isfinite(values)] if values.dtype.kind == "f" else values
@@ -156,6 +163,13 @@ def distribution(values: np.ndarray) -> dict:
         result["median"] = _round(np.median(finite))
         result["min"] = int(lo)
         result["max"] = int(hi)
+    elif len(distinct := np.unique(finite)) <= DISCRETE_MAX_VALUES:
+        result["kind"] = "discrete"
+        result["edges"] = _rounded(distinct)
+        result["counts"] = [int((finite == v).sum()) for v in distinct]
+        result["median"] = _round(np.median(finite))
+        result["min"] = _round(lo)
+        result["max"] = _round(hi)
     else:
         result["kind"] = "continuous"
         if lo == hi:
@@ -212,8 +226,8 @@ def ftv_summary(
     }
 
 
-def summary(scores: dict, cut_edges: np.ndarray) -> dict:
-    """``summary.json`` for one preset from its scores and the chain's cut edges."""
+def summary(scores: dict, cut_edges: np.ndarray, cut_edges_unit: str = "vtd") -> dict:
+    """``summary.json`` for one preset from its scores and per-plan cut edges."""
     arrays, elections = scores["arrays"], scores["elections"]
     out: dict = {
         "n_plans": scores["n_plans"],
@@ -225,6 +239,7 @@ def summary(scores: dict, cut_edges: np.ndarray) -> dict:
     plan_arrays = {**arrays, "cut_edges": cut_edges[: scores["n_plans"]]}
     for metric in PLAN_SUMMARY:
         out[metric] = distribution(plan_arrays[metric])
+    out["cut_edges"]["unit_type"] = cut_edges_unit
     for metric in COMPACTNESS:
         out[metric] = {
             agg: distribution(arrays[f"{metric}_{agg}"])
@@ -241,6 +256,37 @@ def summary(scores: dict, cut_edges: np.ndarray) -> dict:
     return out
 
 
+# ── Cut edges ─────────────────────────────────────────────────────────────────
+
+
+def block_cut_edges(
+    assignments: np.ndarray, node_ids: np.ndarray, graph_npz: str | Path
+) -> np.ndarray:
+    """Block-level cut edges of VTD-level plans, from the combined graph's
+    ``weighted_edges`` (the number of block adjacencies between each pair of
+    adjacent VTDs; see ``transforms/graph.py``). A block edge is cut exactly
+    when its two VTDs sit in different districts, so the count is the weight
+    sum over the plan's cut VTD edges. This is the count the app reports for a
+    shatterable module (``block_cut_edges`` in backend/app/evaluation)."""
+    graph = np.load(graph_npz, allow_pickle=False)
+    if not bool(graph["has_weighted_edges"]):
+        raise ValueError(f"{graph_npz} carries no block-edge weights")
+    graph_ids = graph["node_ids"]
+    column = {node: i for i, node in enumerate(node_ids.tolist())}
+    keys, weights = graph["we_keys"], graph["we_vals"].astype(np.int64)
+    try:
+        left = np.array([column[graph_ids[a]] for a in keys[:, 0]])
+        right = np.array([column[graph_ids[b]] for b in keys[:, 1]])
+    except KeyError as missing:
+        raise ValueError(f"Graph VTD {missing} is not an ensemble node") from None
+    counts = np.empty(len(assignments), dtype=np.int64)
+    for start in range(0, len(assignments), 10_000):
+        block = assignments[start : start + 10_000]
+        cut = block[:, left] != block[:, right]
+        counts[start : start + len(block)] = cut @ weights
+    return counts
+
+
 # ── Segment ───────────────────────────────────────────────────────────────────
 
 
@@ -252,7 +298,9 @@ def segment_start(n_plans: int, start: int = SEGMENT_START) -> int:
     return clamped
 
 
-def segment_step(scores: dict, cut_edges: np.ndarray, plan: int) -> dict:
+def segment_step(
+    scores: dict, cut_edges: np.ndarray, plan: int, cut_edges_unit: str = "vtd"
+) -> dict:
     """Every metric of one plan, keyed and shaped like the app's evaluation payload
     (``DocumentEvaluation`` in app/src/app/utils/api/apiHandlers/getEvaluation.ts)."""
     arrays, elections = scores["arrays"], scores["elections"]
@@ -276,7 +324,7 @@ def segment_step(scores: dict, cut_edges: np.ndarray, plan: int) -> dict:
         step[metric] = {
             str(z): _round(v) for z, v in zip(zones, arrays[metric][plan], strict=True)
         }
-    step["cut_edges"] = {"cut_count": int(cut_edges[plan]), "unit_type": "vtd"}
+    step["cut_edges"] = {"cut_count": int(cut_edges[plan]), "unit_type": cut_edges_unit}
     step["county_splits"] = {
         "splits": int(arrays["county_splits"][plan]),
         "pieces": int(arrays["county_pieces"][plan]),
@@ -312,11 +360,13 @@ def _competitiveness(
     }
 
 
-def segment(scores: dict, cut_edges: np.ndarray, start: int) -> dict:
+def segment(
+    scores: dict, cut_edges: np.ndarray, start: int, cut_edges_unit: str = "vtd"
+) -> dict:
     return {
         "start": start,
         "steps": [
-            segment_step(scores, cut_edges, plan)
+            segment_step(scores, cut_edges, plan, cut_edges_unit)
             for plan in range(start, start + SEGMENT_LENGTH)
         ],
     }
@@ -434,21 +484,33 @@ def write_preset(
     preset_key: str,
     vtd_gpkg: str | Path,
     start: int = SEGMENT_START,
+    graph_npz: str | Path | None = None,
 ) -> Path:
     """Write ``package/<preset>/`` from ``<preset>.npz``, ``<preset>.scores.npz``
-    and their manifests in ``ensemble_dir``; returns the preset folder."""
+    and their manifests in ``ensemble_dir``; returns the preset folder.
+
+    With ``graph_npz`` (the module's combined block/VTD graph) cut edges are
+    counted between blocks, the unit the app scores a shatterable module in;
+    without it they are the chain's VTD-level counts."""
     ensemble_dir = Path(ensemble_dir)
     out = ensemble_dir / PACKAGE_DIRNAME / preset_key
     (out / "thumbs").mkdir(parents=True, exist_ok=True)
 
     chain_npz = np.load(ensemble_dir / f"{preset_key}.npz")
     scores = load_scores(ensemble_dir / f"{preset_key}.scores.npz")
-    cut_edges = chain_npz["cut_edges"]
+    if graph_npz is not None:
+        cut_edges = block_cut_edges(
+            chain_npz["assignments"], chain_npz["node_ids"], graph_npz
+        )
+        cut_edges_unit = "block"
+    else:
+        cut_edges = chain_npz["cut_edges"]
+        cut_edges_unit = "vtd"
 
-    _write_json(out / "summary.json", summary(scores, cut_edges))
+    _write_json(out / "summary.json", summary(scores, cut_edges, cut_edges_unit))
 
     start = segment_start(scores["n_plans"], start)
-    _write_json(out / "segment.json", segment(scores, cut_edges, start))
+    _write_json(out / "segment.json", segment(scores, cut_edges, start, cut_edges_unit))
 
     coverage = load_coverage(vtd_gpkg, chain_npz["node_ids"])
     bounds = tuple(shapely.total_bounds(coverage))
@@ -468,6 +530,7 @@ def write_preset(
             "package_version": PACKAGE_VERSION,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "segment": {"start": start, "length": SEGMENT_LENGTH},
+            "cut_edges_unit_type": cut_edges_unit,
             "chain": _public_manifest(chain_manifest, ("graph_json",)),
             "scoring": _public_manifest(score_manifest, ("source_npz", "vtd_gpkg")),
         },

@@ -62,9 +62,15 @@ const total = (distribution: EnsembleDistribution) =>
  * share is interpolated; where several entries hold the same value — a metric
  * that is continuous in dtype but lands on a few values in practice, such as
  * partisan bias — the plans sharing that value are counted as neither above nor
- * below, so the two shares deliberately sum to less than 1. A constant series
- * carries no table, and the buckets answer instead.
+ * below, so the two shares deliberately sum to less than 1. Integer and
+ * discrete series answer from their exact values, where a value within rounding
+ * tolerance of the plan's counts as equal: the package keeps six significant
+ * digits while the plan's value is unrounded.
  */
+const EQUAL_TOLERANCE = 1e-5;
+const sameValue = (a: number, b: number) =>
+  Math.abs(a - b) <= EQUAL_TOLERANCE * Math.max(1, Math.abs(a), Math.abs(b));
+
 export const sharesAround = (
   distribution: EnsembleDistribution,
   value: number
@@ -94,6 +100,7 @@ export const sharesAround = (
   let above = 0;
   distribution.counts.forEach((plans, index) => {
     const bucketValue = distribution.edges[index];
+    if (sameValue(bucketValue, value)) return;
     if (bucketValue < value) below += plans;
     else if (bucketValue > value) above += plans;
   });
@@ -104,32 +111,37 @@ export const sharesAround = (
 export interface EnsembleComparison {
   /** The ensemble's median, in the orientation the panel displays. */
   median: number;
-  /** Whether the plan's value reads as above or below the ensemble. */
-  direction: 'greater' | 'less';
-  /** Share of ensemble plans the plan's value is `direction` than, 0 to 1. */
-  share: number;
+  /**
+   * Share of ensemble plans at least as far from the median as the plan, on the
+   * plan's side of it, 0 to 1. Plans sharing the plan's value count. Near zero
+   * means the plan is out in a tail few random plans reach.
+   */
+  extreme: number;
 }
 
 /**
  * `value` and the distribution are both in the package's own orientation
- * (Democratic point of view for partisan metrics). `decreasing` says the panel
- * displays the metric through an order-reversing transform — a Republican-POV
- * sign flip, or a Republican seat count — so the comparison and the median are
- * reported the other way round; `display` is that transform, applied to the
- * median alone.
+ * (Democratic point of view for partisan metrics); `display` is the panel's
+ * transform for the median alone (a Republican-POV sign flip, or a Republican
+ * seat count). The tail share is symmetric, so it needs no transform.
  */
 export const compareToEnsemble = (
   distribution: EnsembleDistribution,
   value: number,
-  options: {decreasing?: boolean; display?: (value: number) => number} = {}
+  options: {display?: (value: number) => number} = {}
 ): EnsembleComparison => {
   const {below, above} = sharesAround(distribution, value);
   const display = options.display ?? ((x: number) => x);
-  const greater = options.decreasing ? above : below;
-  const less = options.decreasing ? below : above;
-  return greater >= less
-    ? {median: display(distribution.median), direction: 'greater', share: greater}
-    : {median: display(distribution.median), direction: 'less', share: less};
+  const extreme = value <= distribution.median ? 1 - above : 1 - below;
+  return {median: display(distribution.median), extreme};
+};
+
+/** Text colour for a tail share: the rarer the plan's position, the redder. */
+export const extremeShareColor = (extreme: number): string | undefined => {
+  if (extreme <= 0.05) return 'var(--red-11)';
+  if (extreme <= 0.15) return 'var(--red-9)';
+  if (extreme <= 0.3) return 'var(--orange-9)';
+  return undefined;
 };
 
 /** A share of plans as a percentage, keeping a decimal where rounding would read as 0 or 100. */

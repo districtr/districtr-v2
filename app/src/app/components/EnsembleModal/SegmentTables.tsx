@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import {Heading, Table, Text} from '@radix-ui/themes';
+import {Flex, Heading, Table, Text} from '@radix-ui/themes';
 import {formatElectionKey, parseElectionKey} from '@utils/elections';
 import {
   findEnsembleMetric,
@@ -140,83 +140,87 @@ export const SegmentTables: React.FC<SegmentTablesProps> = ({step, focus, onSele
   };
 
   return (
-    <>
-      <Heading size="3" mb="2">
-        {ENSEMBLE_MODAL_TEXT.partisanTableHeading}
-      </Heading>
-      <div style={{overflowX: 'auto', maxWidth: '100%'}}>
-        <Table.Root size="1" mb="3" variant="surface" style={{tableLayout: 'fixed'}}>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
-                Election
-              </Table.ColumnHeaderCell>
-              {PARTISAN_COLUMNS.map(column => (
-                <Table.ColumnHeaderCell
-                  key={column.metric}
-                  justify="center"
-                  style={{width: column.width}}
-                >
-                  {column.header}
+    <Flex gap="4" align="start" wrap="wrap">
+      <div style={{flex: '1 1 0', minWidth: 360}}>
+        <Heading size="3" mb="2">
+          {ENSEMBLE_MODAL_TEXT.partisanTableHeading}
+        </Heading>
+        <div style={{overflowX: 'auto', maxWidth: '100%'}}>
+          <Table.Root size="1" variant="surface" style={{tableLayout: 'fixed'}}>
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
+                  Election
                 </Table.ColumnHeaderCell>
-              ))}
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {elections.map(election => (
-              <Table.Row key={election}>
-                <Table.Cell justify="center">
-                  <Text size="2" weight="bold">
-                    {formatElectionKey(election)}
-                  </Text>
-                </Table.Cell>
-                {PARTISAN_COLUMNS.map(column => {
-                  const metric = findEnsembleMetric(column.metric)!;
-                  return valueCell(metric, election, `${election}-${column.metric}`);
-                })}
+                {PARTISAN_COLUMNS.map(column => (
+                  <Table.ColumnHeaderCell
+                    key={column.metric}
+                    justify="center"
+                    style={{width: column.width}}
+                  >
+                    {column.header}
+                  </Table.ColumnHeaderCell>
+                ))}
               </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
-      </div>
-
-      <Heading size="3" mb="2">
-        {ENSEMBLE_MODAL_TEXT.otherTableHeading}
-      </Heading>
-      <div style={{overflowX: 'auto', maxWidth: '100%'}}>
-        <Table.Root size="1" variant="surface">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell>{ENSEMBLE_MODAL_TEXT.typeColumn}</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>{ENSEMBLE_MODAL_TEXT.scoreColumn}</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell justify="center">
-                {ENSEMBLE_MODAL_TEXT.valueColumn}
-              </Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {OTHER_ROWS.map((row, index) => {
-              const metric = findEnsembleMetric(row.metric)!;
-              // The type is named once per group, so the eye reads three blocks
-              // rather than thirteen repetitions of the same word.
-              const firstOfType = index === 0 || OTHER_ROWS[index - 1].type !== row.type;
-              return (
-                <Table.Row key={row.metric}>
-                  <Table.Cell>
-                    <Text size="2" weight={firstOfType ? 'bold' : 'regular'}>
-                      {firstOfType ? row.type : ''}
+            </Table.Header>
+            <Table.Body>
+              {elections.map(election => (
+                <Table.Row key={election}>
+                  <Table.Cell justify="center">
+                    <Text size="2" weight="bold">
+                      {formatElectionKey(election)}
                     </Text>
                   </Table.Cell>
-                  <Table.Cell>
-                    <Text size="2">{row.label ?? metric.label}</Text>
-                  </Table.Cell>
-                  {valueCell(metric, undefined, row.metric)}
+                  {PARTISAN_COLUMNS.map(column => {
+                    const metric = findEnsembleMetric(column.metric)!;
+                    return valueCell(metric, election, `${election}-${column.metric}`);
+                  })}
                 </Table.Row>
-              );
-            })}
-          </Table.Body>
-        </Table.Root>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </div>
       </div>
-    </>
+
+      <div style={{flex: '1 1 0', minWidth: 280}}>
+        <Heading size="3" mb="2">
+          {ENSEMBLE_MODAL_TEXT.otherTableHeading}
+        </Heading>
+        <div style={{overflowX: 'auto', maxWidth: '100%'}}>
+          <Table.Root size="1" variant="surface">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell>{ENSEMBLE_MODAL_TEXT.typeColumn}</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>{ENSEMBLE_MODAL_TEXT.scoreColumn}</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell justify="center">
+                  {ENSEMBLE_MODAL_TEXT.valueColumn}
+                </Table.ColumnHeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {OTHER_ROWS.map((row, index) => {
+                const metric = findEnsembleMetric(row.metric)!;
+                // The type is named once per group, so the eye reads three blocks
+                // rather than thirteen repetitions of the same word.
+                const firstOfType = index === 0 || OTHER_ROWS[index - 1].type !== row.type;
+                return (
+                  <Table.Row key={row.metric}>
+                    <Table.Cell>
+                      <Text size="2" weight={firstOfType ? 'bold' : 'regular'}>
+                        {firstOfType ? row.type : ''}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text size="2">{row.label ?? metric.label}</Text>
+                    </Table.Cell>
+                    {valueCell(metric, undefined, row.metric)}
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table.Root>
+        </div>
+      </div>
+    </Flex>
   );
 };
