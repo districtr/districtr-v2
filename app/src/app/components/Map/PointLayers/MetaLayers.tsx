@@ -192,8 +192,9 @@ const ZoneNumbersLayer = () => {
     const {showZoneNumbers, showPaintedDistricts, showBlockPopulationNumbers} =
       useMapControlsStore.getState().mapOptions;
     const map = useMapStore.getState().getMapRef();
-    if (!map) return;
-    const moving = map.isMoving();
+    // No label work mid-motion: a re-place forces MapLibre to re-place every
+    // symbol. The 'idle' after the motion picks it up.
+    if (!map || map.isMoving()) return;
     const currentView = map.getBounds();
     const bounds = [
       currentView.getWest(),
@@ -211,7 +212,6 @@ const ZoneNumbersLayer = () => {
         activeZones,
         bounds,
         strategy: 'median-point',
-        settled: !moving,
       });
       if (geoms) {
         // Add hasComments property to each feature (used by map layer filters)
@@ -234,9 +234,7 @@ const ZoneNumbersLayer = () => {
         }
         const badgesShown =
           showPaintedDistricts && !(showBlockPopulationNumbers && mapState.focusFeatures.length);
-        // Mid-motion the old set stays close enough (badges and labels pan together);
-        // skip the queries and repaints until the map settles.
-        if (!moving || !badgesShown) hidePopulationLabelsUnder(badgesShown ? enrichedFeatures : []);
+        hidePopulationLabelsUnder(badgesShown ? enrichedFeatures : []);
       }
     } else {
       lastLabelData.current = '';
@@ -272,17 +270,12 @@ const ZoneNumbersLayer = () => {
           map.addImage('lock', image.data);
         }
       });
-      // 'move' also fires for zooms and resizes; 'moveend' settles labels without
-      // waiting on tiles; 'idle' catches late tile loads.
-      map.on('move', handleUpdate);
-      map.on('moveend', handleUpdate);
+      // 'idle' follows every pan, zoom and resize once tiles have loaded.
       map.on('idle', handleUpdate);
     }
     return () => {
       handleUpdate.cancel();
       if (map) {
-        map.off('move', handleUpdate);
-        map.off('moveend', handleUpdate);
         map.off('idle', handleUpdate);
       }
     };

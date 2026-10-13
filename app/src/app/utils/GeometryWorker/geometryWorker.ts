@@ -207,11 +207,7 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     return index;
   },
-  async getMedianPoint(
-    bounds: [number, number, number, number],
-    activeZones: number[],
-    settled = true
-  ) {
+  async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     const {x, y, pop, zones} = this.getPointIndex();
     const [minLon, minLat, maxLon, maxLat] = bounds;
@@ -232,9 +228,8 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     }
 
-    // A label stays put while it is clear of the view edge, so it rides along with
-    // the map; every re-place forces MapLibre to re-place all symbols. Once motion
-    // settles, labels placed at a closer zoom are re-centered for the wider view.
+    // After a pan or zoom-in, a label still clear of the view edge stays put rather
+    // than hopping to a new median; labels placed at a closer zoom re-center.
     const span = maxLon - minLon;
     const insetX = span * STICKY_INSET;
     const insetY = (maxLat - minLat) * STICKY_INSET;
@@ -242,7 +237,7 @@ const GeometryWorker: GeometryWorkerClass = {
 
     new Set([...populated.keys(), ...fallback.keys()]).forEach(zone => {
       const previous = this.previousCentroids[zone];
-      if (previous && (!settled || span <= previous.properties!.span * 1.01)) {
+      if (previous && span <= previous.properties!.span * 1.01) {
         const [px, py] = previous.geometry.coordinates;
         if (
           px > minLon + insetX &&
@@ -284,12 +279,12 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  async getCentroidsFromView({bounds, activeZones, strategy = 'median-point', settled}) {
+  async getCentroidsFromView({bounds, activeZones, strategy = 'median-point'}) {
     switch (strategy) {
       case 'median-point':
-        return await this.getMedianPoint(bounds, activeZones, settled);
+        return await this.getMedianPoint(bounds, activeZones);
       default:
-        return await this.getMedianPoint(bounds, activeZones, settled);
+        return await this.getMedianPoint(bounds, activeZones);
     }
   },
   getCentroidsByIds(ids) {

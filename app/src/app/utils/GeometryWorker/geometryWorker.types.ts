@@ -100,14 +100,12 @@ export type GeometryWorkerClass = {
    * Finds the median point for each zone.
    * @param bounds - The view bounds [minLon, minLat, maxLon, maxLat]
    * @param activeZones - List of current drawn zones
-   * @param settled - False while the map moves: labels then only re-place near the view edge
    * @returns CentroidReturn
    * @see getCentroidsFromView
    */
   getMedianPoint: (
     bounds: [number, number, number, number],
-    activeZones: number[],
-    settled?: boolean
+    activeZones: number[]
   ) => Promise<CentroidReturn>;
   /**
    * Parses point data within a specified view and returns their centroids.
@@ -121,7 +119,6 @@ export type GeometryWorkerClass = {
     bounds: [number, number, number, number];
     activeZones: number[];
     strategy: 'median-point';
-    settled?: boolean;
   }) => Promise<CentroidReturn>;
   /**
    * Retrieves the centroids of the geometries with the given IDs.
