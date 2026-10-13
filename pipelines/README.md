@@ -76,10 +76,22 @@ Commands:
 ## Ensembles
 
 `ensembles` generates ReCom ensembles for a map module: a set of computer-drawn
-plans the evaluation panel uses as a reference distribution for partisan
-metrics. The chain itself runs in [rustrecom](https://github.com/mggg/frcw.rs)
-(the Rust ReCom implementation behind Cannon, Duchin, Randall & Rule 2025);
-this package builds its input graph, drives it, and packs its output.
+plans the evaluation panel uses as a reference distribution for its metrics.
+The chain itself runs in [rustrecom](https://github.com/mggg/frcw.rs) (the Rust
+ReCom implementation behind Cannon, Duchin, Randall & Rule 2025); this package
+builds its input graph, drives it, scores every plan with
+[gerrytools](https://gerrytools.readthedocs.io/), and builds the static data
+package the app reads from S3.
+
+Scoring pins gerrytools 2.0.1 and its newer pandas, geopandas and pyarrow, so
+the ensembles commands run in their own venv, built from
+`requirements-ensembles.txt` instead of `requirements.txt`:
+
+```sh
+uv venv ~/.venvs/districtr-ensembles
+source ~/.venvs/districtr-ensembles/bin/activate
+uv pip install -r requirements-ensembles.txt
+```
 
 Build rustrecom once (needs a Rust toolchain, `rustup.rs`):
 
@@ -101,9 +113,12 @@ python cli.py ensembles build-graph \
     -o ../data/ensembles/co_congressional_districts_v2/graph.json
 python cli.py ensembles run \
     --graph-json ../data/ensembles/co_congressional_districts_v2/graph.json \
+    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
     --module-slug co_congressional_districts_v2 \
     --n-steps 100000 --rng-seed 20261008 \
     -o ../data/ensembles/co_congressional_districts_v2
+python cli.py ensembles publish \
+    --module-slug co_congressional_districts_v2 --dry-run
 ```
 
 `build-graph` takes adjacency from the GeoPackage's GerryDB edge layer, attaches
@@ -114,38 +129,81 @@ population. Where that leaves a district in pieces, the seed is repaired
 are logged in `graph.seed.json`.
 
 `run` executes every preset in `ensembles/presets.py` (ReCom-B and county-aware
-ReCom-B; population tolerance 1%) and writes per preset:
+ReCom-B; population tolerance 1%), then scores and packages each one. Per
+preset it writes:
 
 - `<preset>.npz` — `assignments` (plans × VTDs, uint8 district index),
   `node_ids`, `populations` and `sum_<column>` (plans × districts), `cut_edges`
 - `<preset>.json` — manifest: module, preset, chain parameters as rustrecom
   echoed them, seed source and repairs, plan counts
 - `<preset>.config.json` — the rustrecom config that was run
+- `<preset>.scores.npz` and `<preset>.scores.json` — see `score` below
+- `package/<preset>/` — see `package` below
 
 Each step of a non-reversible rustrecom chain is an accepted proposal, so
-`--n-steps` is the number of stored plans. A 100,000-step run on Colorado's
-3,158 VTDs takes about 35 seconds and packs to roughly 30 MB.
+`--n-steps` is the number of stored plans. On Colorado's 3,158 VTDs and 8
+districts, a 100,000-step preset takes about 35 seconds to run, 15 seconds to
+pack (roughly 30 MB), 100 seconds to score and 10 to 30 seconds to package.
 
-`score` evaluates a packed ensemble's plans for compactness and county splits,
-using [gerrytools](https://gerrytools.readthedocs.io/)' engine-backed
-`PlanEvaluator`, which prepares VTD geometry once (reprojected to EPSG:5070,
-the equal-area projection the app's evaluation panel uses) and then scores
-every plan with its compiled Rust engine:
+### Scoring
 
-```sh
-python cli.py ensembles score \
-    --npz ../data/ensembles/co_congressional_districts_v2/recom_b.npz \
-    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
-    --n-plans 10000 \
-    -o ../data/ensembles/co_congressional_districts_v2/recom_b.scores.npz
-```
+`score` (run by `run`; also standalone, with `--n-plans N` to score only the
+first N plans) evaluates every plan with gerrytools' engine-backed
+`PlanEvaluator`, which prepares VTD geometry and columns once (reprojected to
+EPSG:5070, the equal-area projection the app's evaluation panel uses) and then
+scores plans with its compiled Rust engine, at roughly 1 ms per plan. Every
+series is a gerrytools metric class, from the Democratic point of view:
 
-It writes, next to the npz:
+| Series in `<preset>.scores.npz` | gerrytools class | Shape |
+| --- | --- | --- |
+| `seats__<e>`, `rep_seats__<e>` | `Seats` (Democratic, Republican) | plans |
+| `efficiency_gap__<e>` | `EfficiencyGap` | plans |
+| `mean_median__<e>` | `MeanMedian` | plans |
+| `partisan_bias__<e>` | `PartisanBias` | plans |
+| `disproportionality__<e>` | `Disproportionality` | plans |
+| `eguia__<e>` | `Eguia` (region county, population `total_pop_20`) | plans |
+| `district_vote_shares__<e>` | `DistrictVoteShares` | plans × districts |
+| `n_dem_districts` | `PartyDistricts` (all elections) | plans |
+| `n_rep_districts` | `OppositionPartyDistricts` (all elections) | plans |
+| `n_swing_districts` | `SwingDistricts` (all elections) | plans |
+| `n_competitive_contests` | `CompetitiveContests` (margin 0.03) | plans |
+| `county_splits`, `county_pieces` | `RegionSplits`, `RegionPieces` | plans |
+| `polsby_popper`, `reock` | `PolsbyPopper`, `Reock` | plans × districts |
+| `<compactness>_mean`, `_min`, `_max` | across districts | plans |
 
-- `<preset>.scores.npz` — `reock` and `polsby_popper` (plans × districts),
-  `county_splits` and `county_pieces` (plans)
-- `<preset>.scores.json` — manifest: source npz and GeoPackage, plan count,
-  gerrytools version, the metric definitions used, CRS, wall time
+`<e>` is every election key with `<e>_dem` and `<e>_rep` columns. District
+columns follow the 0-based district ids of `assignments`. The `.scores.json`
+manifest records the definitions, gerrytools version, CRS and wall time.
 
-`--n-plans` scores only the first N plans of the npz (default: every plan).
-Scoring Colorado's 3,158-VTD, 8-district ensemble runs at roughly 1 ms/plan.
+### Package
+
+`package` (run by `run`; also standalone, `--ensemble-dir`, `--module-slug`,
+`--vtd-gpkg`) reads only the npz files and their manifests and writes the
+static package the app reads, under `<ensemble dir>/package/`:
+
+- `index.json` — `module_slug` and the packaged presets: `key`, `label`,
+  `default` (`recom_b`), `n_plans`, `generated_at`.
+- `<preset>/summary.json` — one distribution per series: `kind`, `edges`,
+  `counts`, `median`, `min`, `max`. Integer series (seats, district counts,
+  splits, cut edges) have one bucket per integer from min to max; continuous
+  series have 100 equal-width buckets over min..max and a 201-point
+  `quantiles` table (q = 0, 0.005, …, 1). Per-election metrics nest by election
+  key; compactness nests by `mean`, `min`, `max` and `districts` (every
+  district of every plan). `ftv` holds the Freedom to Vote Act test as the
+  evaluation panel applies it: its four elections, the threshold
+  max(0.07, 1/districts), and the share of plans within it in at least three.
+- `<preset>/segment.json` — `start` (plan 50,000) and 100 consecutive `steps`,
+  each holding one plan's metrics keyed and shaped like the app's evaluation
+  payload (`seats`, `efficiency_gap`, `mean_median`, `partisan_bias`,
+  `disproportionality`, `eguia`, `competitiveness`, `polsby_popper`, `reock`,
+  `cut_edges`), plus `county_splits` as `{splits, pieces}`. District keys are
+  the app's 1-based zone numbers.
+- `<preset>/thumbs/000.svg` … `099.svg` — each segment step's districts,
+  dissolved from the VTDs in EPSG:5070, filled with the app's zone palette and
+  simplified to at most 10 KB.
+- `<preset>/manifest.json` — package version, segment, and the chain and
+  scoring manifests.
+
+`publish --module-slug <slug>` uploads `package/` to
+`s3://<S3_BUCKET>/ensembles/<slug>/` with the credentials in `.env`;
+`--dry-run` lists the files and keys without uploading.
