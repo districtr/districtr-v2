@@ -26,19 +26,27 @@ export const ZoneHighlightLayer: React.FC<{
     },
     paint: {
       'line-opacity': 1,
+      // `tune` holds the destination district's color for a population-tuning
+      // preview (PopulationTuner); unset falls through to the usual cases.
       'line-color': [
-        'case',
-        ['boolean', ['feature-state', 'focused'], false],
-        '#000000',
-        ['boolean', ['feature-state', 'highlighted'], false],
-        '#e5ff00',
-        // @ts-ignore right behavior, wrong types
-        ['==', ['feature-state', 'zone'], null],
-        '#FF0000',
-        '#000000',
+        'to-color',
+        ['feature-state', 'tune'],
+        [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          '#000000',
+          ['boolean', ['feature-state', 'highlighted'], false],
+          '#e5ff00',
+          // @ts-ignore right behavior, wrong types
+          ['==', ['feature-state', 'zone'], null],
+          '#FF0000',
+          '#000000',
+        ],
       ],
       'line-width': [
         'case',
+        ['to-boolean', ['feature-state', 'tune']],
+        4,
         [
           'any',
           ['boolean', ['feature-state', 'focused'], false],

@@ -87,7 +87,7 @@ const COL_LABEL_STYLE: React.CSSProperties = {
 };
 
 // Unicode minus to match the tabular figures.
-const signedNumber = (value: number) =>
+export const signedNumber = (value: number) =>
   `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value), NUMBER_FORMATS.STRING)}`;
 const signedPercent = (value: number, ideal: number) =>
   `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value / ideal), NUMBER_FORMATS.PERCENT)}`;

@@ -15,6 +15,8 @@ import {
   getChartHeight,
 } from './PopulationChart/PopulationChart';
 import {DistrictMeters} from './DistrictMeters';
+import {PopulationTuner} from './PopulationTuner';
+import {useToolbarStore} from '@store/toolbarStore';
 import {ExclamationTriangleIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {openRepair, useCurrentRepairIssues} from '@/app/components/RepairAssignmentsModal';
@@ -58,6 +60,7 @@ export const PopulationPanel = () => {
   const updateCommunity = useMapStore(state => state.updateCommunity);
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
+  const superDraw = useToolbarStore(state => state.superDraw);
   const repairIssues = useCurrentRepairIssues();
   const shouldUseScrollableRows = populationData.length > 10;
   const selectCommunity = useSelectCommunity();
@@ -148,7 +151,7 @@ export const PopulationPanel = () => {
       </Callout.Root>
     );
   }
-  return (
+  const panel = (
     <Flex
       gap="0"
       direction="column"
@@ -293,5 +296,14 @@ export const PopulationPanel = () => {
         />
       )}
     </Flex>
+  );
+  // Outside the 80vh-capped column so long plans can't clip it.
+  return superDraw && isEditing && access === ACCESS_STATES.EDIT && !isCommunityMode ? (
+    <>
+      {panel}
+      <PopulationTuner />
+    </>
+  ) : (
+    panel
   );
 };
