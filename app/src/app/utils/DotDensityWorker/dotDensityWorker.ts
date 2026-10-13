@@ -16,6 +16,39 @@ const signedArea = (ring: Ring) => {
   return sum / 2;
 };
 
+/**
+ * Ring clipped to the tile square [0, extent]² (Sutherland–Hodgman). The
+ * shader discards the tippecanoe buffer, so density must divide by the
+ * in-tile area only; buffered area double-counts features near tile edges.
+ */
+const clipRingToTile = (ring: Ring, extent: number): Ring => {
+  let out = ring;
+  // signed distance inside each half-plane of the square
+  const edges: Array<(p: {x: number; y: number}) => number> = [
+    p => p.x,
+    p => extent - p.x,
+    p => p.y,
+    p => extent - p.y,
+  ];
+  for (const inside of edges) {
+    const input = out;
+    out = [];
+    for (let i = 0; i < input.length; i++) {
+      const a = input[i];
+      const b = input[(i + 1) % input.length];
+      const da = inside(a);
+      const db = inside(b);
+      if (da >= 0) out.push(a);
+      if (da >= 0 !== db >= 0) {
+        const t = da / (da - db);
+        out.push({x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t});
+      }
+    }
+    if (!out.length) break;
+  }
+  return out;
+};
+
 class DotDensityWorker implements DotDensityWorkerClass {
   private pmtiles: PMTiles | null = null;
   private tilesetUrl = '';
@@ -72,7 +105,7 @@ class DotDensityWorker implements DotDensityWorkerClass {
       for (const rings of polygons) {
         for (const ring of rings) {
           // exteriors dominate and holes carry the opposite sign
-          tileLocalArea += signedArea(ring) / (extent * extent);
+          tileLocalArea += signedArea(clipRingToTile(ring, extent)) / (extent * extent);
         }
         const {vertices, holes, dimensions} = flatten(
           rings.map(ring => ring.map(p => [p.x / extent, p.y / extent]))
