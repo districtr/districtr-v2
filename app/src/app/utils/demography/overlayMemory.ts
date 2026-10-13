@@ -4,6 +4,7 @@ import {useDemographyStore} from '@store/demography/demographyStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import {DEMOGRAPHIC_MODES, type DemographicMode} from '@constants/map/demographicMode';
+import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 
 /** Every variable available on this map for an overlay group's universe(s). */
 export const overlayGroupVariables = (group: OverlayGroup) =>
@@ -66,4 +67,24 @@ export const activateOverlayGroup = (group: OverlayGroup): boolean => {
     }),
   });
   return true;
+};
+
+/**
+ * Turn the choropleth overlay off. Remembers the display mode and overlay
+ * preset so the next activateOverlayGroup restores them, then backs out of
+ * "Show Thematic Map" (which hides painted districts) — turning the overlay
+ * off must never leave a blank map.
+ */
+export const deactivateOverlay = () => {
+  const {mapOptions, setMapOptions} = useMapControlsStore.getState();
+  if (mapOptions.demographicDisplayMode) {
+    overlayMemory.displayMode = mapOptions.demographicDisplayMode;
+  }
+  overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
+  overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
+  setMapOptions({
+    demographicDisplayMode: undefined,
+    showPaintedDistricts: true,
+    overlayOpacity: OVERLAY_OPACITY,
+  });
 };
