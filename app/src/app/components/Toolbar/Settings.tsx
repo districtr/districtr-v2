@@ -13,9 +13,9 @@ import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
-import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {
   activateOverlayGroup,
+  deactivateOverlay,
   overlayGroupVariables,
   overlayMemory,
 } from '@utils/demography/overlayMemory';
@@ -63,19 +63,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
 
   const handleOverlayChange = (value: string) => {
     if (value === 'none') {
-      // Remember the display mode and overlay preset so re-enabling restores
-      // them, then back out of "Show Thematic Map" (which hides painted
-      // districts) — turning the overlay off must never leave a blank map.
-      if (mapOptions.demographicDisplayMode) {
-        overlayMemory.displayMode = mapOptions.demographicDisplayMode;
-      }
-      overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
-      overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
-      setMapOptions({
-        demographicDisplayMode: undefined,
-        showPaintedDistricts: true,
-        overlayOpacity: OVERLAY_OPACITY,
-      });
+      deactivateOverlay();
       return;
     }
     activateOverlayGroup(value as OverlayGroup);
