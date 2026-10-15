@@ -2,11 +2,11 @@
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {formatNumber} from '@/app/utils/numbers';
 import {GearIcon, MinusIcon, PlusIcon} from '@radix-ui/react-icons';
+import {DotDensityLegend} from './DotDensityLegend';
+import {ChoroplethLegend} from './ChoroplethLegend';
 import {
   Blockquote,
-  Box,
   Checkbox,
   Flex,
   Heading,
@@ -17,7 +17,6 @@ import {
   Text,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useMemo} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {isAcsColumn} from '@utils/api/summaryStats';
@@ -34,10 +33,12 @@ import {
 import {COALITION_VARIABLE_BY_UNIVERSE, DemographyVariable} from '@constants/demography/coalition';
 import {useCoalitionsEnabled} from '@/app/hooks/useCoalitionsEnabled';
 import {getCoalitionLabel, getSelectedCoalitionColumns} from '@/app/utils/demography/coalition';
-import {NUMBER_FORMATS} from '@constants/demography/format';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {overlayMemory} from '@utils/demography/overlayMemory';
 import {DataSourceCitation} from './DataSourceCitation';
+import {useMapStore} from '@/app/store/mapStore';
+import {ACCESS_STATES} from '@constants/document/state';
+import {MAP_MODES} from '@constants/map/mode';
 
 type MapPanelProps = {
   columnGroup: keyof typeof choroplethMapVariables;
@@ -64,6 +65,10 @@ const mapDisplayModes: Array<{
     label: 'Sized circles',
     value: DEMOGRAPHIC_MODES.SIZED_CIRCLES,
   },
+  {
+    label: 'Dot density',
+    value: DEMOGRAPHIC_MODES.DOT_DENSITY,
+  },
 ];
 
 export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
@@ -76,9 +81,17 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const coalitionsEnabled = useCoalitionsEnabled();
   const isOverlay = demographicDisplayMode === DEMOGRAPHIC_MODES.OVERLAY;
   // Draw mode keeps the choropleth simple: overlay only, no side-by-side view.
-  const displayModes = superDraw
-    ? mapDisplayModes
-    : mapDisplayModes.filter(m => m.value !== DEMOGRAPHIC_MODES.SIDE_BY_SIDE);
+  const mapMode = useMapControlsStore(state => state.mapMode);
+  const isReadOnlyDoc = useMapStore(state => state.mapDocument?.access === ACCESS_STATES.READ);
+  // The dot density renderer only mounts in MainMap (district edit maps);
+  // public pages render PublicMap and COI pages render CoiMap, so hide the
+  // option where selecting it could not draw anything.
+  const supportsDotDensity = mapMode !== MAP_MODES.COI && !isReadOnlyDoc;
+  const displayModes = mapDisplayModes.filter(
+    m =>
+      (superDraw || m.value !== DEMOGRAPHIC_MODES.SIDE_BY_SIDE) &&
+      (supportsDotDensity || m.value !== DEMOGRAPHIC_MODES.DOT_DENSITY)
+  );
 
   const variable = useDemographyStore(state => state.variable);
   const variant = useDemographyStore(state => state.variant);
@@ -87,7 +100,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   useDemographyStore(state => state.coalitionHash);
 
-  const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
   const dataHash = useDemographyStore(state => state.dataHash);
@@ -184,25 +196,6 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
     !mapVariableConfig?.fixedScale &&
     !!mapVariableConfig?.variants &&
     !(canBePercent && variant === 'percent');
-  const labelFormat =
-    canBePercent && variant === 'percent' ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.COMPACT;
-  const isContinuousScale = !!scale && !('invertExtent' in scale);
-  const colors = scale && !isContinuousScale ? scale.range() : [];
-  const scaleDomain = isContinuousScale && scale ? scale.domain() : [0, 1];
-  const [domainMin, domainMax] = [scaleDomain[0], scaleDomain[scaleDomain.length - 1]];
-  const continuousLegendLabels =
-    mapVariableConfig?.customLegendLabels ??
-    Array.from(
-      {length: 5},
-      (_, i) => formatNumber(domainMin + ((domainMax - domainMin) * i) / 4, labelFormat) ?? ''
-    );
-  const continuousLegendColors = useMemo(() => {
-    if (!isContinuousScale || !scale) return [];
-    return Array.from(
-      {length: 11},
-      (_, i) => scale(domainMin + ((domainMax - domainMin) * i) / 10) as string
-    );
-  }, [isContinuousScale, scale, domainMin, domainMax]);
 
   const handleChangeVariable = (newVariable: DemographyVariable) => {
     setVariable(newVariable);
@@ -250,7 +243,8 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
           ))}
         </RadioCards.Root>
       </Flex>
-      {displayedMode !== undefined && (
+      {displayedMode === DEMOGRAPHIC_MODES.DOT_DENSITY && <DotDensityLegend />}
+      {displayedMode !== undefined && displayedMode !== DEMOGRAPHIC_MODES.DOT_DENSITY && (
         <>
           <Flex direction="column" gap="2">
             <Flex direction="row" gap="3" align="center" wrap="wrap">
@@ -356,60 +350,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
             )}
           </Flex>
 
-          {!!mapVariableConfig && scale && 'invertExtent' in scale ? (
-            <Flex direction={'row'} justify="center" gapX="2">
-              <LegendThreshold
-                scale={scale}
-                labelFormat={label => formatNumber(label as number, labelFormat)}
-                className="w-full"
-              >
-                {labels => {
-                  return (
-                    <Flex direction={'column'} width="100%">
-                      <Flex direction="row" width="100%">
-                        {labels.map((label, i) => (
-                          <Box
-                            width={'100%'}
-                            style={{
-                              display: 'inline-block',
-                              height: '1rem',
-                              backgroundColor: colors[i] as string,
-                              opacity: isOverlay ? mapOptions.overlayOpacity : 0.9,
-                            }}
-                            key={`legend-bar-${i}`}
-                          ></Box>
-                        ))}
-                      </Flex>
-
-                      <Flex
-                        direction="row"
-                        width={`${100 - 100 / colors.length / 2}%`}
-                        style={{paddingLeft: `${100 / colors.length / 2}%`}}
-                      >
-                        {labels.slice(1).map((label, i) => (
-                          <LegendLabel align="center" key={`legend-label-text-${i}`}>
-                            {formatNumber(label.datum as number, labelFormat)}
-                          </LegendLabel>
-                        ))}
-                      </Flex>
-                    </Flex>
-                  );
-                }}
-              </LegendThreshold>
-            </Flex>
-          ) : !!mapVariableConfig && isContinuousScale ? (
-            <Flex direction={'column'} justify="center" gapX="2" width="100%">
-              <LinearGradient
-                colors={continuousLegendColors}
-                numTicks={continuousLegendLabels.length}
-              />
-              <Flex direction={'row'} width="100%" justify="between">
-                {continuousLegendLabels.map((label: string, i: number) => (
-                  <Text key={`legend-label-${i}`}>{label}</Text>
-                ))}
-              </Flex>
-            </Flex>
-          ) : null}
+          {!!mapVariableConfig && <ChoroplethLegend />}
           {!!mapVariableConfig && demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE && (
             <Text size="1" color="gray" align="center">
               Gray = zero population
@@ -429,38 +370,5 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
         </>
       )}
     </Flex>
-  );
-};
-
-const LinearGradient: React.FC<{
-  colors: string[];
-  numTicks: number;
-}> = ({colors, numTicks}) => {
-  return (
-    <Box width="100%" height="1rem" position="relative" px="2">
-      <Box
-        width="100%"
-        height="100%"
-        position="absolute"
-        top="0"
-        left="0"
-        style={{
-          background: `linear-gradient(to right, ${colors.join(',')})`,
-        }}
-      />
-      <Flex
-        direction="row"
-        width="100%"
-        height="100%"
-        position="absolute"
-        top="0"
-        left="0"
-        justify="between"
-      >
-        {Array.from({length: numTicks}).map((_, i) => (
-          <Box key={`legend-bar-${i}`} height="100%" className="border-r border-black" />
-        ))}
-      </Flex>
-    </Box>
   );
 };
