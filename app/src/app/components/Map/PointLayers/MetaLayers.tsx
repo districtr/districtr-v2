@@ -309,8 +309,30 @@ const ZoneNumbersLayer = () => {
   }
   return (
     <Source id={ZONE_LABEL_SOURCE_ID} type="geojson" data={zoneNumberData}>
+      {/* Invisible, badge-sized collision box. Rendered first so it exists when the
+          badge layers below anchor to it (beforeId), keeping it topmost: MapLibre
+          places it first with 'never', so population labels ('never' / 'cooperative')
+          yield to it; the visible badge layers stay 'always' so crowded districts all
+          keep a number. */}
+      <Layer
+        id={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
+        type="symbol"
+        source={ZONE_LABEL_SOURCE_ID}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': ['to-string', ['get', 'zone']],
+          'text-font': ['Barlow Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
+          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
+          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
+          'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
+          'text-overlap': 'never',
+        }}
+        paint={{'text-opacity': 0}}
+      />
       <Layer
         id={ZONE_LABEL_LAYER_IDS.BACKGROUND}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="circle"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -326,6 +348,7 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.TEXT}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -347,6 +370,7 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.LOCK}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -363,6 +387,7 @@ const ZoneNumbersLayer = () => {
       {/* Simple circle indicator for zones with comments */}
       <Layer
         id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="circle"
         source={ZONE_LABEL_SOURCE_ID}
         paint={{
@@ -398,25 +423,6 @@ const ZoneNumbersLayer = () => {
           visibility: shouldHide ? 'none' : 'visible',
         }}
         filter={['==', ['get', 'hasComments'], true]}
-      />
-      {/* Invisible, badge-sized collision box. Placed first (topmost) with 'never',
-          so population labels ('never' / 'cooperative') yield to it; the visible
-          badge layers below stay 'always' so crowded districts all keep a number. */}
-      <Layer
-        id={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
-        type="symbol"
-        source={ZONE_LABEL_SOURCE_ID}
-        layout={{
-          visibility: shouldHide ? 'none' : 'visible',
-          'text-field': ['to-string', ['get', 'zone']],
-          'text-font': ['Barlow Bold'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
-          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
-          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
-          'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
-          'text-overlap': 'never',
-        }}
-        paint={{'text-opacity': 0}}
       />
     </Source>
   );
