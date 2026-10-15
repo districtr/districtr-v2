@@ -1,13 +1,12 @@
 import {DocumentObject} from '../api/apiHandlers/types';
 import {AsyncBuffer, FileMetaData} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
-import {EnhancedAsyncBuffer} from './parquetWorkerUtils';
 
 export type MetaInfo = {
   metadata: FileMetaData;
   url: string;
   byteLength: number;
-  file: AsyncBuffer | EnhancedAsyncBuffer;
+  file: AsyncBuffer;
 };
 
 export type DemographyParquetData = {
@@ -41,13 +40,12 @@ export type ParquetWorkerClass = {
   _idRgCache: Record<string, [number, number]>;
 
   /**
-   * Get the metadata for a given parquet file. Creates an enhanced buffer with
-   * prefetch capabilities. Results are cached, so subsequent calls resolve instantly.
+   * Get the metadata for a given parquet file. Results are cached, so subsequent
+   * calls resolve instantly.
    * @param url - The full URL to the parquet file.
-   * @param enablePrefetch - Whether to enable multi-range prefetch (default: true)
-   * @returns The metadata and enhanced file buffer.
+   * @returns The metadata and file buffer.
    */
-  getMetaData: (url: string, enablePrefetch?: boolean) => Promise<MetaInfo>;
+  getMetaData: (url: string) => Promise<MetaInfo>;
 
   /**
    * Get the row groups indices that contain a given parent value.
@@ -61,19 +59,6 @@ export type ParquetWorkerClass = {
     meta: MetaInfo,
     value: string,
     value_col?: string
-  ) => [number, number];
-
-  /**
-   * Get the row groups indices that contain given child values.
-   * @param meta - The metadata.
-   * @param values - The values to search for.
-   * @param values_col - The column name to search in.
-   * @returns The row range [start, end] covering matching row groups.
-   */
-  getRowGroupsFromChildValue: (
-    meta: MetaInfo,
-    values: string[],
-    values_col?: string
   ) => [number, number];
 
   /**
@@ -103,24 +88,18 @@ export type ParquetWorkerClass = {
   ) => Array<[number, number]>;
 
   /**
-   * Prefetch byte ranges into the cache for efficient subsequent reads.
-   * Only works if the file buffer supports prefetch (enhanced buffer).
-   * @param meta - The metadata with enhanced file buffer.
-   * @param byteRanges - Byte ranges to prefetch.
-   */
-  prefetchByteRanges: (meta: MetaInfo, byteRanges: Array<[number, number]>) => Promise<void>;
-
-  /**
    * Get the data for a given range of rows.
    * @param url - The URL to the parquet file.
    * @param range - The range of rows to get.
    * @param columns - The columns to select.
+   * @param file - Buffer to read from, e.g. a prefetched one (default: the url's file).
    * @returns Promise<T[]> array of row objects
    */
   getRowRange: <T = object>(
     url: string,
     range: [number, number] | undefined,
-    columns?: string[]
+    columns?: string[],
+    file?: AsyncBuffer
   ) => Promise<T[]>;
 
   /**
