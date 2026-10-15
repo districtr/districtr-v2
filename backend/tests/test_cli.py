@@ -1,32 +1,25 @@
+import logging
 import pytest
+import cli
 from app.models import DistrictrMap, Overlay
+from click.testing import CliRunner, Result
 from sqlmodel import Session
-from tests.constants import (
-    POSTGRES_TEST_DB,
-    POSTGRES_USER,
-    POSTGRES_PASSWORD,
-    POSTGRES_SERVER,
-    POSTGRES_PORT,
-    POSTGRES_SCHEME,
-)
-from pathlib import Path
-import subprocess
-import os
 from sqlalchemy import select, text
 from uuid import uuid4
 import json
 
-test_env = os.environ.copy()
-test_env["POSTGRES_DB"] = POSTGRES_TEST_DB
-test_env["POSTGRES_USER"] = POSTGRES_USER
-test_env["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
-test_env["POSTGRES_SERVER"] = POSTGRES_SERVER
-test_env["POSTGRES_PORT"] = str(POSTGRES_PORT)
-# Set DATABASE_URL to ensure the CLI uses the test database
-test_env["DATABASE_URL"] = (
-    f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_TEST_DB}"
-)
-backend_dir = Path(__file__).parent.parent
+
+@pytest.fixture(autouse=True)
+def cli_test_engine(engine, monkeypatch):
+    """Point the CLI's sessions at the test database."""
+    monkeypatch.setattr(cli, "engine", engine)
+
+
+def run_cli(*args: str) -> Result:
+    # In-process: a `python cli.py` subprocess costs seconds of interpreter
+    # and import startup per call. Usage errors still exit 2; anything else
+    # raises with its traceback instead of passing an `exit_code != 0` check.
+    return CliRunner().invoke(cli.cli, args, catch_exceptions=False)
 
 
 def cleanup_overlay(session: Session, overlay_name: str):
@@ -39,11 +32,8 @@ def cleanup_overlay(session: Session, overlay_name: str):
 
 def test_create_overlay(session: Session):
     """Test creating an overlay via CLI"""
-    # Configure environment variables for test database
     # Construct arguments as would be passed to the CLI
     cli_args = [
-        "python",
-        "cli.py",
         "create-overlay",
         "--name",
         "Test Overlay",
@@ -57,20 +47,13 @@ def test_create_overlay(session: Session):
         "https://example.com/data.geojson",
     ]
 
-    # Run the CLI as a subprocess from the backend directory where cli.py is located
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
+    result_proc = run_cli(*cli_args)
 
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
-    # Refresh the session to ensure we can see committed data from the subprocess
+    # Refresh the session to ensure we can see data committed by the CLI's session
     session.commit()
 
     # Verify overlay was created using session.exec() which returns model instances directly
@@ -89,8 +72,6 @@ def test_create_overlay(session: Session):
 def test_create_overlay_with_pmtiles(session: Session):
     """Test creating a pmtiles overlay via CLI"""
     cli_args = [
-        "python",
-        "cli.py",
         "create-overlay",
         "--name",
         "PMTiles Overlay",
@@ -103,17 +84,11 @@ def test_create_overlay_with_pmtiles(session: Session):
         "--source-layer",
         "counties",
     ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
+    result_proc = run_cli(*cli_args)
 
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "PMTiles Overlay")
@@ -133,8 +108,6 @@ def test_create_overlay_with_custom_style(session: Session):
     custom_style_json = '{"paint": {"fill-color": "#ff0000", "fill-opacity": 0.5}}'
 
     cli_args = [
-        "python",
-        "cli.py",
         "create-overlay",
         "--name",
         "Styled Overlay",
@@ -145,17 +118,11 @@ def test_create_overlay_with_custom_style(session: Session):
         "--custom-style",
         custom_style_json,
     ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
+    result_proc = run_cli(*cli_args)
 
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     # Verify overlay was created with custom style
     stmt = select(Overlay).where(Overlay.name == "Styled Overlay")
@@ -176,8 +143,6 @@ def test_create_overlay_and_add_to_map(
 ):
     """Test creating an overlay and adding it to a map via CLI"""
     cli_args = [
-        "python",
-        "cli.py",
         "create-overlay",
         "--name",
         "Map Overlay",
@@ -189,17 +154,11 @@ def test_create_overlay_and_add_to_map(
         "ks_demo_view_census_blocks_summary_stats",
     ]
 
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
+    result_proc = run_cli(*cli_args)
 
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "Map Overlay")
@@ -214,11 +173,9 @@ def test_create_overlay_and_add_to_map(
     cleanup_overlay(session, "Map Overlay")
 
 
-def test_update_overlay(session: Session):
+def test_update_overlay(session: Session, caplog):
     """Test updating an overlay via CLI"""
     cli_args = [
-        "python",
-        "cli.py",
         "create-overlay",
         "--name",
         "Original Overlay",
@@ -231,16 +188,10 @@ def test_update_overlay(session: Session):
     ]
 
     # First create an overlay
-    create_result = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
+    create_result = run_cli(*cli_args)
     assert (
-        create_result.returncode == 0
-    ), f"CLI command failed: {create_result.stderr or create_result.stdout}"
+        create_result.exit_code == 0
+    ), f"CLI command failed: {create_result.output or create_result.exception}"
 
     # Get the overlay ID
     original_overlay_stmt = select(Overlay).where(Overlay.name == "Original Overlay")
@@ -249,8 +200,6 @@ def test_update_overlay(session: Session):
     original_overlay_id = str(original_overlay.overlay_id)
 
     update_cli_args = [
-        "python",
-        "cli.py",
         "update-overlay",
         "--overlay-id",
         original_overlay_id,
@@ -258,16 +207,10 @@ def test_update_overlay(session: Session):
         "Updated Overlay",
     ]
     # Update the overlay
-    update_result = subprocess.run(
-        update_cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
-    result_output = update_result.stderr or update_result.stdout
+    caplog.set_level(logging.INFO, logger="cli")
+    run_cli(*update_cli_args)
     assert (
-        f"Updated overlay {original_overlay_id}" in result_output
+        f"Updated overlay {original_overlay_id}" in caplog.text
     ), "Overlay not updated"
     cleanup_overlay(session, "Updated Overlay")
 
@@ -275,16 +218,6 @@ def test_update_overlay(session: Session):
 LINK_TEST_OVERLAY_NAME = "Link Overlays Test Overlay"
 LINK_TEST_PARENT_LAYER = "link_overlays_test_layer"
 LINK_TEST_MAP_SLUGS = ("link_overlays_test_map_ks", "link_overlays_test_map_mo")
-
-
-def run_cli(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["python", "cli.py", *args],
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
 
 
 def purge_link_test_rows(session: Session):
@@ -314,9 +247,9 @@ def purge_link_test_rows(session: Session):
 def link_test_maps_fixture(engine):
     """Two committed districtrmap rows (statefps ['20'] and ['29']).
 
-    The CLI runs as a subprocess with its own database connection, so these
-    rows must be committed with a real Session(engine) — the rollback-session
-    fixture used elsewhere is invisible to subprocesses.
+    The CLI opens its own Session(engine), so these rows must be committed
+    with a real Session(engine) — the rollback-session fixture used
+    elsewhere is invisible to it.
     """
     with Session(engine) as setup_session:
         purge_link_test_rows(setup_session)
@@ -353,7 +286,7 @@ def link_test_maps_fixture(engine):
 
 
 def create_link_test_overlay(engine, source: str | None = None) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row visible to the CLI's own session."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -388,8 +321,8 @@ def test_link_overlays_to_maps_by_name(engine, link_test_maps):
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -408,8 +341,8 @@ def test_link_overlays_to_maps_statefps_filter(engine, link_test_maps):
         "20",
     )
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -435,8 +368,8 @@ def test_link_overlays_to_maps_by_source(engine, link_test_maps):
         "20",
     )
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     ks_linked_map_ids = get_linked_map_ids(engine, ks_overlay_id)
     assert (
@@ -458,16 +391,16 @@ def test_link_overlays_to_maps_idempotent(engine, link_test_maps):
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
     assert (
-        first_proc.returncode == 0
-    ), f"CLI command failed: {first_proc.stderr or first_proc.stdout}"
+        first_proc.exit_code == 0
+    ), f"CLI command failed: {first_proc.output or first_proc.exception}"
     first_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     second_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
     assert (
-        second_proc.returncode == 0
-    ), f"CLI command failed: {second_proc.stderr or second_proc.stdout}"
+        second_proc.exit_code == 0
+    ), f"CLI command failed: {second_proc.output or second_proc.exception}"
     second_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     assert (
@@ -480,23 +413,23 @@ def test_link_overlays_to_maps_invalid_selectors(engine, link_test_maps):
     unknown_name_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", "No Such Overlay Name"
     )
-    assert unknown_name_proc.returncode != 0, "Unknown overlay name did not fail"
+    assert unknown_name_proc.exit_code != 0, "Unknown overlay name did not fail"
 
     unknown_source_proc = run_cli(
         "link-overlays-to-maps",
         "--overlay-source",
         "s3://bucket/no-such-source.geojson",
     )
-    assert unknown_source_proc.returncode != 0, "Unknown overlay source did not fail"
+    assert unknown_source_proc.exit_code != 0, "Unknown overlay source did not fail"
 
     invalid_uuid_proc = run_cli("link-overlays-to-maps", "--overlay-id", "not-a-uuid")
-    assert invalid_uuid_proc.returncode != 0, "Invalid UUID format did not fail"
+    assert invalid_uuid_proc.exit_code != 0, "Invalid UUID format did not fail"
 
     unknown_uuid_proc = run_cli("link-overlays-to-maps", "--overlay-id", str(uuid4()))
-    assert unknown_uuid_proc.returncode != 0, "Unknown overlay UUID did not fail"
+    assert unknown_uuid_proc.exit_code != 0, "Unknown overlay UUID did not fail"
 
     no_selector_proc = run_cli("link-overlays-to-maps")
-    assert no_selector_proc.returncode != 0, "Missing selectors did not fail"
+    assert no_selector_proc.exit_code != 0, "Missing selectors did not fail"
 
 
 SYNC_TEST_SOURCE = "https://x/overlays/al_cd.geojson"
@@ -523,7 +456,7 @@ def create_sync_test_overlay(
     name: str = SYNC_TEST_STALE_NAME,
     description: str = SYNC_TEST_STALE_DESCRIPTION,
 ) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row visible to the CLI's own session."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -585,8 +518,8 @@ def test_sync_overlay_metadata_updates_all_matching(
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     for overlay_id in (line_overlay_id, text_overlay_id):
         name, description = get_overlay_name_description(engine, overlay_id)
@@ -616,8 +549,8 @@ def test_sync_overlay_metadata_dry_run_no_changes(engine, tmp_path, sync_test_cl
         "sync-overlay-metadata", "--metadata", str(metadata_path), "--dry-run"
     )
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Dry run changed overlay name"
@@ -646,8 +579,8 @@ def test_sync_overlay_metadata_absent_key_unchanged(
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
     assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+        result_proc.exit_code == 0
+    ), f"CLI command failed: {result_proc.output or result_proc.exception}"
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Absent-key overlay name changed"
@@ -660,4 +593,4 @@ def test_sync_overlay_metadata_missing_file_fails(engine, tmp_path):
     """A nonexistent metadata file exits non-zero"""
     missing_path = tmp_path / "does_not_exist.json"
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(missing_path))
-    assert result_proc.returncode != 0, "Nonexistent metadata file did not fail"
+    assert result_proc.exit_code != 0, "Nonexistent metadata file did not fail"

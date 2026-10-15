@@ -1,7 +1,10 @@
 name: Test CMS
 
 on:
+  # Feature branches run via pull_request; a push trigger there would run
+  # each suite twice.
   push:
+    branches: [dev, main]
     paths: &paths
       - "cms/**"
       - ".github/workflows/test-cms.yml"
@@ -16,6 +19,12 @@ on:
   pull_request:
     paths: *paths
 
+# One group per PR, so a new commit cancels its stale run; one per SHA on
+# dev/main, so a queued post-merge run is never cancelled by the next push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   container-job:
     runs-on: ubuntu-latest
@@ -24,7 +33,7 @@ jobs:
 
     services:
       postgres:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:16-3.5-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -52,8 +61,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt --no-cache-dir
+          pip install uv==0.12.23
+          uv pip install --system -r requirements.txt
         working-directory: cms
 
       - name: Django system checks
@@ -79,7 +88,7 @@ jobs:
       # database, then verify the mirrors still match the live schema.
       - name: Install backend dependencies (for Alembic)
         run: |
-          pip install -r requirements.txt --no-cache-dir
+          uv pip install --system -r requirements.txt
         working-directory: backend
 
       - name: Run backend (Alembic) migrations
