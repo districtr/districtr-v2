@@ -20,7 +20,61 @@ import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
 import {FilterSpecification} from 'maplibre-gl';
 
+// Basemap place-name source layers: protomaps (minimal/streets) and MapTiler (satellite).
+const PLACE_LABEL_SOURCE_LAYERS = new Set([
+  'places',
+  'place_label',
+  'town_label',
+  'city_label',
+  'state_label',
+  'country_label',
+  'country_disputed_label',
+  'continent_label',
+]);
+
+/**
+ * Population numbers yield to every 'never' label placed before them (that is how
+ * they yield to district badges), and basemap place names are placed first. While
+ * the numbers are on, tuning is fine-grained, so hide place names instead.
+ * Re-applied on 'style.load', since a basemap switch brings them back.
+ */
+const useHidePlaceLabels = (hide: boolean) => {
+  const getMapRef = useMapStore(state => state.getMapRef);
+  useEffect(() => {
+    const map = getMapRef();
+    if (!map || !hide) return;
+    let hidden: string[] = [];
+    const apply = () => {
+      // Skip layers the style itself hides, so restoring doesn't reveal them.
+      hidden = (map.getStyle()?.layers ?? [])
+        .filter(
+          l =>
+            l.type === 'symbol' &&
+            PLACE_LABEL_SOURCE_LAYERS.has(l['source-layer'] ?? '') &&
+            l.layout?.visibility !== 'none'
+        )
+        .map(l => l.id);
+      hidden.forEach(id => map.setLayoutProperty(id, 'visibility', 'none'));
+    };
+    apply();
+    map.on('style.load', apply);
+    return () => {
+      map.off('style.load', apply);
+      hidden.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible'));
+    };
+  }, [hide, getMapRef]);
+};
+
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
+  const showPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showPopulationNumbers
+  );
+  const showBlockPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showBlockPopulationNumbers
+  );
+  const hasCaptiveBlocks = useMapStore(state => state.captiveIds.size > 0);
+  // Same condition under which PopulationTextLayer renders any numbers.
+  useHidePlaceLabels(!!(showPopulationNumbers || (showBlockPopulationNumbers && hasCaptiveBlocks)));
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
@@ -109,7 +163,8 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
         // padding
         'text-padding': 0,
         // From z12 labels may overlap each other ('cooperative') but still yield to
-        // 'never' symbols placed before them, i.e. the district badge collider.
+        // 'never' symbols placed before them: the district badge collider (and basemap
+        // place names, which useHidePlaceLabels hides while these numbers show).
         'text-overlap': ['step', ['zoom'], 'never', 12, 'cooperative'],
       }}
       paint={{
