@@ -206,9 +206,10 @@ const ZoneNumbersLayer = () => {
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const map = useMapStore.getState().getMapRef();
-    // No label work mid-motion: a re-place forces MapLibre to re-place every
-    // symbol. The 'moveend' after the motion picks it up.
-    if (!map || map.isMoving()) return;
+    // No label work mid-motion or mid-stroke (the camera is still while painting):
+    // a re-place forces MapLibre to re-place every symbol. The 'moveend' after a
+    // motion, or the assignment change / 'idle' after a stroke, picks it up.
+    if (!map || map.isMoving() || useMapControlsStore.getState().isPainting) return;
     const currentView = map.getBounds();
     const bounds = [
       currentView.getWest(),
