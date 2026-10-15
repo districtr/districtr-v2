@@ -96,14 +96,24 @@ const GeometryWorker: GeometryWorkerClass = {
     };
   },
   updateZones(entries) {
-    this.previousCentroids = {};
-    this.zoneAssignments = entries.reduce(
-      (acc, [id, zone]) => {
-        acc[id] = zone as number;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    // Only zones that gained or lost a unit re-place their label; untouched
+    // districts keep theirs (see the sticky rule in getMedianPoint).
+    const previous = this.zoneAssignments;
+    const next: Record<string, number> = {};
+    const changed = new Set<number>();
+    entries.forEach(([id, value]) => {
+      const zone = value as number;
+      next[id] = zone;
+      if (previous[id] !== zone) {
+        changed.add(zone);
+        if (previous[id] !== undefined) changed.add(previous[id]);
+      }
+    });
+    for (const id in previous) {
+      if (!(id in next)) changed.add(previous[id]);
+    }
+    changed.forEach(zone => delete this.previousCentroids[zone]);
+    this.zoneAssignments = next;
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [

@@ -43,7 +43,27 @@ test('one label per zone, inside the view, sticky across pans', async () => {
   // Zooming out re-centers a label placed at a closer zoom.
   expect((await labels([-2, -2, 8, 8]))[1]).toEqual([4, 4]);
 
-  // A repaint invalidates kept labels.
+  // Unassigning zones 2 and 3 drops their labels.
   GeometryWorker.updateZones(grid.map(f => [f.properties.path, 1] as [string, number]));
   expect(await labels([-1, -1, 40, 10])).toEqual({1: [5, 5]});
+});
+
+test('a repaint only re-places the zones it touched', async () => {
+  // Two 10x2 blocks side by side: zone 1 at x 0..9, zone 2 at x 10..19.
+  const pts = Array.from({length: 40}, (_, i) => pt(`p${i}`, i % 20, Math.floor(i / 20)));
+  const zoneOf = (f: ReturnType<typeof pt>) => (f.geometry.coordinates[0] < 10 ? 1 : 2);
+  GeometryWorker.clear();
+  GeometryWorker.setPointData(fc(pts));
+  GeometryWorker.setChildPointData(fc([]));
+  GeometryWorker.updateZones(pts.map(f => [f.properties.path, zoneOf(f)] as [string, number]));
+  expect(await labels([-1, -1, 20, 2])).toEqual({1: [5, 1], 2: [15, 1]});
+
+  // Unassign zone 2's x=19 column, then pan: zone 1 keeps its label (a fresh
+  // placement over this view would be [6, 1]); zone 2 re-places without that column.
+  GeometryWorker.updateZones(
+    pts
+      .filter(f => f.geometry.coordinates[0] !== 19)
+      .map(f => [f.properties.path, zoneOf(f)] as [string, number])
+  );
+  expect(await labels([2, -1, 22, 2.5])).toEqual({1: [5, 1], 2: [14, 1]});
 });
