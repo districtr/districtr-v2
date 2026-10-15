@@ -143,11 +143,14 @@ def test_concurrent_cold_evaluations_compute_once(
         ).all()
         assert len(rows) == 1
         # A leaked session-level lock would stall every later cold eval of
-        # this document for the full poll timeout.
+        # this document for the full poll timeout. pg_locks splits a bigint
+        # advisory key into classid (high 32 bits) and objid (low 32 bits).
         assert not session.execute(
             text(
                 "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' "
-                "AND database = (SELECT oid FROM pg_database "
-                "WHERE datname = current_database())"
-            )
+                "AND objsubid = 1 "
+                "AND classid::bigint = (hashtextextended(:d, 0) >> 32) & 4294967295 "
+                "AND objid::bigint = hashtextextended(:d, 0) & 4294967295"
+            ),
+            {"d": str(committed_document_id)},
         ).scalar_one(), "evaluation lock leaked"

@@ -67,8 +67,9 @@ def update_or_select_document_evaluation(
     across all backend tasks so a thundering herd of cache-cold requests runs
     one compute instead of N. Losers poll instead of blocking on the lock:
     a parked waiter holds its pooled connection for the whole compute, so
-    ~60 cache-cold requests on one document would exhaust a task's pool
-    (40 + 20 overflow) and starve unrelated endpoints. The lock is held for the
+    ~60 cache-cold requests on one document would exhaust a worker process's
+    pool (40 + 20 overflow; see app/core/db.py) and starve unrelated
+    endpoints. The lock is held for the
     whole compute, across any commits compute_metrics makes (see
     `_try_eval_lock`).
 
@@ -153,10 +154,10 @@ def _try_eval_lock(engine: Engine, doc_id: str) -> Connection | None:
     its connection back to the pool on commit, so it can't own a session-level
     lock either.
     """
-    # ponytail: each winner holds two pooled connections (lock, then request
-    # session) for its compute, so ~30 concurrent cold evals on distinct
-    # documents fill a 60/task pool; give the lock its own small engine if
-    # that becomes real.
+    # Each winner holds two pooled connections (lock, then request session)
+    # for its compute, so ~30 concurrent cold evals on distinct documents in
+    # one worker process fill its 60-connection pool; give the lock its own
+    # small engine if that becomes real.
     conn = engine.connect()
     try:
         acquired = conn.execute(
