@@ -225,6 +225,11 @@ const ZoneNumbersLayer = () => {
           map.addImage('lock', image.data);
         }
       });
+    }
+    // Not behind hasImage: when the document lands after the map (mapDocumentId
+    // changes, so handleUpdate is rebuilt) the cleanup detaches these and 'lock'
+    // already exists, which used to leave labels frozen until a refresh.
+    if (map) {
       // 'moveend' covers pans, zooms and resizes without waiting on tiles; 'idle' is
       // a backstop (e.g. point data landing after load) and a no-op when unchanged.
       map.on('moveend', handleUpdate);
