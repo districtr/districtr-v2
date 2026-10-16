@@ -8,13 +8,11 @@ from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.documents import urls as wagtaildocs_urls
 
 from authapi.views import jwks
-from core.views import health
 
 urlpatterns = [
     # The CMS domain has no public site of its own (the Next.js app renders
     # content) — send visitors to the admin.
     path("", RedirectView.as_view(url="/admin/")),
-    path("health", health),
     path(".well-known/jwks.json", jwks),
     # Public content compat API (replaces the legacy FastAPI /api/cms/content).
     path("api/content/", include("content.urls")),

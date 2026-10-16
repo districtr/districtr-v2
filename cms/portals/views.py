@@ -5,11 +5,12 @@ One index (your portals, with everything a portal needs one click away), a
 per-portal GALLERY that doubles as the takedown surface (there is no review
 workflow — submissions are public on arrival; admins can hide abusive
 material or toggle the nsfw blur), and a per-portal METRICS table over the
-backend's evaluation endpoint.
+backend's evaluation endpoint. Also the admin-only frontend site-settings
+page (Settings > Frontend settings).
 
 All data round-trips through the FastAPI backend with a token minted for the
 acting user, so scope and teams×admin_teams enforcement stays there
-(moderation/services.py). Registered under /admin/ via register_admin_urls
+(portals/backend.py). Registered under /admin/ via register_admin_urls
 (portals/wagtail_hooks.py), so Wagtail's require_admin_access gates anonymous
 users; the group gates below only control access to the pages — the backend
 re-checks everything.
@@ -36,12 +37,13 @@ from wagtail.admin.auth import permission_denied
 
 from authapi.teams import portal_slugs_for_user, user_is_unscoped_admin
 from core.menu import group_required
-from moderation import services
-from moderation.services import BackendAPIError
+from portals import backend
+from portals.backend import BackendAPIError
 
 logger = logging.getLogger(__name__)
 
 PORTAL_EDITOR_GROUPS = frozenset({"admin", "partner", "super_partner"})
+SITE_SETTINGS_GROUPS = frozenset({"admin"})
 
 PAGE_SIZE = 20
 
@@ -77,7 +79,7 @@ def _is_portal_member(user, slug: str, public_id: int) -> bool:
     if cached and time.monotonic() - cached[0] < _METRICS_CACHE_TTL:
         return cached[1]
     member = bool(
-        services.list_submissions(
+        backend.list_submissions(
             user,
             portal_id=slug,
             status="submitted",
@@ -210,7 +212,7 @@ def portal_gallery(request, slug):
 
     entries, error = [], None
     try:
-        entries = services.list_submissions(request.user, **params)
+        entries = backend.list_submissions(request.user, **params)
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Portal gallery fetch failed")
         error = str(exc)
@@ -223,9 +225,7 @@ def portal_gallery(request, slug):
     map_ids = [e["map_public_id"] for e in entries if e.get("map_public_id")]
     if map_ids:
         try:
-            documents = {
-                d["public_id"]: d for d in services.get_documents_list(map_ids)
-            }
+            documents = {d["public_id"]: d for d in backend.get_documents_list(map_ids)}
         except (BackendAPIError, RequestException):
             logger.exception("Document metadata fetch failed (gallery still renders)")
     for entry in entries:
@@ -267,7 +267,7 @@ def portal_metrics(request, slug):
     page = _page_number(request)
     entries, error = [], None
     try:
-        entries = services.list_submissions(
+        entries = backend.list_submissions(
             request.user,
             portal_id=slug,
             status="submitted",
@@ -285,9 +285,7 @@ def portal_metrics(request, slug):
     map_ids = [e["map_public_id"] for e in entries if e.get("map_public_id")]
     if map_ids:
         try:
-            documents = {
-                d["public_id"]: d for d in services.get_documents_list(map_ids)
-            }
+            documents = {d["public_id"]: d for d in backend.get_documents_list(map_ids)}
         except (BackendAPIError, RequestException):
             logger.exception("Document metadata fetch failed (metrics still render)")
 
@@ -340,8 +338,8 @@ def portal_metrics_row(request, slug, public_id: int):
         return JsonResponse(cached[1])
 
     try:
-        envelope = services.get_document_evaluation(
-            public_id, services.mint_backend_session(request.user)
+        envelope = backend.get_document_evaluation(
+            public_id, backend.mint_backend_session(request.user)
         )
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Evaluation fetch failed for %s", public_id)
@@ -431,7 +429,7 @@ def portal_add_map(request, slug):
         )
         return redirect(reverse("portals_gallery", args=[slug]))
     try:
-        services.add_submission(request.user, slug, public_id)
+        backend.add_submission(request.user, slug, public_id)
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Add map to portal failed")
         messages.error(request, f"Add failed: {exc}")
@@ -460,9 +458,9 @@ def submission_action(request):
         return HttpResponseBadRequest("Invalid submission action")
 
     setter = (
-        services.set_submission_nsfw
+        backend.set_submission_nsfw
         if action == "nsfw"
-        else services.set_submission_hidden
+        else backend.set_submission_hidden
     )
     try:
         setter(request.user, submission_id, value == "1")
@@ -479,3 +477,35 @@ def submission_action(request):
         messages.success(request, f"Submission #{submission_id} {described}.")
 
     return redirect(_next_url(request))
+
+
+@group_required(SITE_SETTINGS_GROUPS)
+def site_settings(request):
+    """Frontend settings (the under-construction switch) — admin only."""
+    if request.method == "POST":
+        try:
+            backend.update_site_settings(
+                request.user, "under_construction" in request.POST
+            )
+        except (BackendAPIError, RequestException) as exc:
+            logger.exception("Site settings update failed")
+            messages.error(request, f"Saving failed: {exc}")
+        else:
+            messages.success(
+                request,
+                "Site settings saved. The frontend picks the change up "
+                "within about a minute.",
+            )
+        return redirect("site_settings")
+
+    under_construction, error = False, None
+    try:
+        under_construction = backend.get_site_settings().get("under_construction")
+    except (BackendAPIError, RequestException) as exc:
+        logger.exception("Site settings fetch failed")
+        error = str(exc)
+    return render(
+        request,
+        "portals/site_settings.html",
+        {"under_construction": under_construction, "error": error},
+    )

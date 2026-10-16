@@ -185,14 +185,12 @@ def require_portal_admin(auth_result: dict, config: FormConfig) -> None:
     Every admin handler MUST resolve the submission's portal config and call
     this before acting — the scope check alone does not carry the team
     restriction. Semantics: `review:review-all` scope → unrestricted (the
-    explicit moderation-reach bypass; read:read-all deliberately does NOT
-    widen moderation, see TokenScope); otherwise the token MUST carry a
-    `teams` claim that intersects the portal's admin_teams. An ABSENT claim
-    fails closed: until the CMS mints `teams` for every reviewer, treating
-    absence as "service token, unrestricted" would make every partner token
-    unrestricted (they carry review scope but, pre-cutover, no claim) —
-    the exact fail-open bypass this repo's history warns about. Service
-    callers that need cross-portal access get review:review-all instead.
+    only moderation-reach bypass); otherwise the token MUST carry a `teams`
+    claim that intersects the portal's admin_teams. An ABSENT claim fails
+    closed: treating absence as "service token, unrestricted" would make any
+    review-scoped token without a claim unrestricted — the exact fail-open
+    bypass this repo's history warns about. Service callers that need
+    cross-portal access get review:review-all instead.
     """
     token_scopes = (auth_result.get("scope") or "").split()
     if TokenScope.review_all_content in token_scopes:

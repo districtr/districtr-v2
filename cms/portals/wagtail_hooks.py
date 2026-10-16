@@ -1,7 +1,8 @@
 """Admin registration for the Portals hub: /admin/portals/* and the top-level
 "Portals" menu item. This is the portal-first surface — make a portal
 (wizard), see its gallery (which doubles as the takedown surface; there is no
-review workflow for submissions), and its map metrics."""
+review workflow for submissions), and its map metrics. Also the admin-only
+"Frontend settings" page under Settings."""
 
 from django.urls import path, reverse
 from django.views.generic import RedirectView
@@ -10,7 +11,7 @@ from wagtail import hooks
 from content.portal_wizard import portal_wizard
 from core.menu import GroupMenuItem, group_required
 from portals import views
-from portals.views import PORTAL_EDITOR_GROUPS
+from portals.views import PORTAL_EDITOR_GROUPS, SITE_SETTINGS_GROUPS
 
 
 @hooks.register("register_admin_urls")
@@ -47,6 +48,7 @@ def register_portals_admin_urls():
             views.submission_action,
             name="portals_submission_action",
         ),
+        path("site-settings/", views.site_settings, name="site_settings"),
         # The retired review queue's bookmark-friendly redirect.
         path(
             "moderation/portals/",
@@ -72,4 +74,15 @@ def register_portals_menu_item():
         icon_name="tag",
         order=100,
         groups=PORTAL_EDITOR_GROUPS,
+    )
+
+
+@hooks.register("register_settings_menu_item")
+def register_site_settings_menu_item():
+    return GroupMenuItem(
+        "Frontend settings",
+        reverse("site_settings"),
+        icon_name="cog",
+        order=900,
+        groups=SITE_SETTINGS_GROUPS,
     )

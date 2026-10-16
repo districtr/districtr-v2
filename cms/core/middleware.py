@@ -12,8 +12,7 @@ class HealthCheckMiddleware:
     """Answer /healthz before host validation: the ALB probes tasks by IP,
     which ALLOWED_HOSTS rejects for real requests. Static 200, no DB — a DB
     blip must not make ECS cycle otherwise-healthy tasks (mirrors the
-    backend target group's health-check choice in infra/alb.ts). /health
-    (with DB check) remains for monitoring."""
+    backend target group's health-check choice in infra/alb.ts)."""
 
     def __init__(self, get_response):
         self.get_response = get_response

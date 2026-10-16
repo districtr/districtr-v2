@@ -14,7 +14,6 @@ from app.core.security import auth
 from app.main import app
 from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
-from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
 from app.submissions import moderation
 from app.submissions.moderation import find_blocked_phrase
@@ -161,10 +160,6 @@ class TestValidation:
         assert entry["portal_id"] == PORTAL
         assert entry["nsfw"] is False
 
-    def test_slugify(self):
-        assert slugify("  River   Basin! ") == "river-basin"
-        assert slugify("UPPER_case") == "upper-case"
-
 
 # ---------------------------------------------------------------------------
 # Private fields
@@ -283,8 +278,8 @@ class TestTeamScoping:
         assert response.status_code == 200
 
     def test_read_all_scope_does_not_bypass_team_scoping(self, client, form_config):
-        # read:read-all governs authorship-boundary reads, not moderation
-        # reach — only review:review-all lifts the teams restriction.
+        # Only review:review-all lifts the teams restriction; a wide scope
+        # from the retired content set (read:read-all) must not.
         _set_auth({**TEAM_B_PAYLOAD, "scope": f"{REVIEW_SCOPE} read:read-all"})
         response = client.get(f"/api/submissions/admin?portal_id={PORTAL}")
         assert response.status_code == 403

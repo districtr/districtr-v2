@@ -1,5 +1,3 @@
-from typing import TypedDict
-
 from fastapi import (
     status,
     HTTPException,
@@ -12,12 +10,6 @@ from app.models import (
     MAX_COMMUNITY_NAME_LENGTH,
     sanitize_community_name,
 )
-
-
-class CommentDict(TypedDict):
-    zone: int | None
-    text: str | None
-    comment_id: int | None
 
 
 def _load_existing_community_metadata(

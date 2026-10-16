@@ -40,8 +40,6 @@ districtr_map_slug_validator = RegexValidator(
 # cap it so a stray upload cannot fill the disk.
 MAX_OVERLAY_BYTES = 1024**3  # 1 GB
 
-OVERLAY_EXTENSIONS = (".geojson", ".pmtiles")
-
 
 def overlay_data_type(source: str) -> str | None:
     """Infer the Overlay data_type from a filename/URL suffix."""

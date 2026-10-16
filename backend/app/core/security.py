@@ -14,26 +14,12 @@ logger = logging.getLogger(__name__)
 
 class TokenScope:
     create_districtr_maps = "create:districtr_maps"
-    read_districtr_maps = "read:districtr_maps"
-    update_districtr_maps = "update:districtr_maps"
-    delete_districtr_maps = "delete:districtr_maps"
-
     create_content = "create:content"
-    read_content = "read:content"
-    read_all_content = "read:read-all"
-
-    update_content = "update:content"
     update_all_content = "update:update-all"
-    publish_content = "update:publish"
-    delete_content = "delete:content"
-    delete_all_content = "delete:delete-all"
 
     review_content = "create:content_review"
-    # Explicit bypass of per-reviewer scoping (the `teams` claim; formerly
-    # the review_tags claim).
-    # Deliberately separate from read:read-all: the *-all read/update/delete
-    # scopes govern access across CMS authorship boundaries, while this one
-    # widens moderation reach.
+    # Explicit bypass of per-team scoping (the `teams` claim): widens
+    # moderation reach to every portal.
     review_all_content = "review:review-all"
 
 
@@ -41,13 +27,6 @@ class UnauthorizedException(HTTPException):
     def __init__(self, detail: str, **kwargs):
         """Returns HTTP 403"""
         super().__init__(status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-class UnauthenticatedException(HTTPException):
-    def __init__(self):
-        super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Requires authentication"
-        )
 
 
 class VerifyToken:
@@ -63,11 +42,8 @@ class VerifyToken:
     def verify(
         self,
         security_scopes: SecurityScopes,
-        token: HTTPAuthorizationCredentials | None = Depends(HTTPBearer()),
+        token: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     ) -> dict:
-        if token is None:
-            raise UnauthenticatedException
-
         try:
             signing_key = self.jwks_client.get_signing_key_from_jwt(
                 token.credentials
@@ -127,7 +103,7 @@ async def _turnstile_siteverify(secret: str | None, token: str, ip: str | None) 
 
 
 class VerifyTurnstile:
-    """Verifies Cloudflare Turnstile tokens from the comment-form widget"""
+    """Verifies Cloudflare Turnstile tokens from the submission-form widget"""
 
     def __init__(self):
         self.config = get_settings()
@@ -146,7 +122,7 @@ turnstile = VerifyTurnstile()
 async def verify_session_turnstile(token: str, ip: str | None) -> None:
     """Verify a token from the invisible session Turnstile widget.
 
-    Separate widget/secret from the comment form, so a token minted for one
+    Separate widget/secret from the submission form, so a token minted for one
     can't be replayed against the other. Raises HTTPException 400 on failure.
     """
     if not await _turnstile_siteverify(

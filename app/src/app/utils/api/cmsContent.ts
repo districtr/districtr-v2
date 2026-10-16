@@ -1,7 +1,7 @@
 import {LANG_MAPPING} from '../language';
-import type {PlanGalleryProps} from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
-import type {CommentGalleryProps} from '@/app/components/Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
-import type {MapCreateButtonsProps} from '@/app/components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
+import type {PlanGalleryProps} from '@/app/components/Cms/blocks/PlanGallery/PlanGallery';
+import type {CommentGalleryProps} from '@/app/components/Cms/blocks/CommentGallery/CommentGallery';
+import type {MapCreateButtonsProps} from '@/app/components/Cms/blocks/MapCreateButtons/MapCreateButtons';
 
 /**
  * Public content client for the Wagtail CMS service.
@@ -47,7 +47,7 @@ export interface PlanGalleryBlock {
 
 export interface CommentGalleryBlock {
   type: 'comment_gallery';
-  /** camelCase props matching COMMENT_GALLERY_ATTRIBUTES; ids/tags may be null (no
+  /** camelCase CommentGalleryProps; ids/tags may be null (no
    * filter). `tags` is the CMS block's name for the portal slugs whose gallery this is. */
   value: CommentGalleryProps;
   id: string;

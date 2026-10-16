@@ -17,7 +17,6 @@ export interface CustomFieldSpec {
 }
 
 export interface SubmissionFormProps {
-  disabled?: boolean;
   /** The portal this form submits to (injected by the CMS content API). */
   portalId?: string | null;
   /** Registry field names this portal's form shows; null = no form config. */
@@ -35,7 +34,6 @@ export interface SubmissionFormProps {
  * renders nothing — the wizard always creates one.
  */
 export const SubmissionForm: React.FC<SubmissionFormProps> = ({
-  disabled,
   portalId,
   fields,
   requiredFields,
@@ -100,7 +98,6 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
   const renderCustomField = (spec: CustomFieldSpec) => (
     <Box key={spec.key} flexGrow="1">
       <FormField
-        disabled={disabled}
         name={spec.key}
         label={`${spec.label}${spec.required ? ' *' : ''}`}
         type="text"
@@ -116,7 +113,6 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
     return (
       <Box key={name} flexGrow="1">
         <FormField
-          disabled={disabled}
           name={name}
           label={`${spec.label}${required.has(name) ? ' *' : ''}`}
           type={spec.type}
@@ -132,7 +128,6 @@ export const SubmissionForm: React.FC<SubmissionFormProps> = ({
         {name === 'email' && requireEmailConfirm && (
           <Box mt="2">
             <FormField
-              disabled={disabled}
               name="email_confirm"
               label={`Confirm Email${required.has('email') ? ' *' : ''}`}
               type="text"

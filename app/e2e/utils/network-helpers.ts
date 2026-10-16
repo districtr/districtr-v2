@@ -12,12 +12,8 @@ import {Page, Request, Response} from '@playwright/test';
 export const API_ENDPOINTS = {
   createDocument: '**/api/create_document',
   getDocument: '**/api/document/*',
-  updateAssignments: '**/api/update_assignments',
   getAssignments: '**/api/get_assignments/*',
-  patchShatter: '**/api/shatter/*',
-  patchUnshatter: '**/api/unshatter/*',
   root: '**/', // Returns {"message":"Hello World"}
-  districtrMaps: '**/api/districtr_maps',
 } as const;
 
 function globToRegExp(glob: string): RegExp {
@@ -77,16 +73,6 @@ export async function waitForDocumentCreation(
     documentId: json.document_id,
     response,
   };
-}
-
-/**
- * Wait for assignment updates to complete
- */
-export async function waitForAssignmentUpdate(page: Page, timeout = 10000): Promise<Response> {
-  return await waitForApiRequest(page, API_ENDPOINTS.updateAssignments, {
-    timeout,
-    method: 'PATCH',
-  });
 }
 
 /**

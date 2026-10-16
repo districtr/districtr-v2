@@ -50,10 +50,9 @@ jobs:
             echo "cms_url=${{ vars.CMS_URL_PROD }}" >> "$GITHUB_OUTPUT"
             echo "environment=production" >> "$GITHUB_OUTPUT"
           fi
-      # NEXT_PUBLIC_* values are baked into the bundle at build time; this
-      # mirrors the Fly deploy workflow (the CI-written file wins over the
-      # Dockerfile ARG-derived one). Quoted delimiter: secret values must not
-      # be shell-expanded.
+      # NEXT_PUBLIC_* values are baked into the bundle at build time (the
+      # CI-written file wins over the Dockerfile ARG-derived one). Quoted
+      # delimiter: secret values must not be shell-expanded.
       - name: Write .env.production
         working-directory: app
         run: |

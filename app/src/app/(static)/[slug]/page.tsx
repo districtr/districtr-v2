@@ -1,5 +1,5 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
-import StreamRenderer from '@/app/components/RichTextRenderer/StreamRenderer';
+import StreamRenderer from '@/app/components/Cms/StreamRenderer';
 import {getCMSContent} from '@/app/utils/api/cmsContent';
 import {Flex, Heading} from '@radix-ui/themes';
 import {cookies} from 'next/headers';

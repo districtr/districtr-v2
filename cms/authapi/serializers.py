@@ -40,7 +40,7 @@ def set_user_claims(token, user) -> None:
 def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:
     """Short-lived access token for `user`, minted in-process.
 
-    Used by Wagtail admin views (moderation) that call the FastAPI backend
+    Used by Wagtail admin views (portals/backend.py) that call the FastAPI backend
     on the acting user's behalf, so the backend enforces the caller's own
     scopes and teams claim.
     """

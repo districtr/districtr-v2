@@ -29,7 +29,6 @@ if _bucket:
             "bucket_name": _bucket,
             "location": "cms-media",
             "endpoint_url": os.environ.get("AWS_S3_ENDPOINT") or None,  # noqa: F405
-            "custom_domain": os.environ.get("CDN_DOMAIN") or None,  # noqa: F405
             "file_overwrite": False,
             "default_acl": None,
         },

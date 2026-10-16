@@ -1,8 +1,8 @@
 """
 Tests for the Portals hub: index scoping, the gallery-as-takedown-surface,
-and the metrics proxy.
+the metrics proxy, and the site-settings view.
 
-The backend is never called: moderation.services' HTTP layer is mocked, with
+The backend is never called: portals.backend's HTTP layer is mocked, with
 a URL router so the gallery's two backend calls (submissions + batched
 document metadata) get distinct payloads.
 """
@@ -12,6 +12,7 @@ from unittest import mock
 from django.test import TestCase
 from django.urls import reverse
 
+from authapi.tests import fastapi_style_verify
 from core.testing import (
     PASSWORD,
     create_mirror_tables,
@@ -149,7 +150,7 @@ class PortalGalleryViewTests(TestCase):
         self.assertRedirects(response, reverse("wagtailadmin_home"))
 
     def test_filters_pass_through_to_backend(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(json_body=[])
             self.client.get(
                 self.url, {"status": "submitted", "flagged": "1", "nsfw": "0", "p": "2"}
@@ -168,7 +169,7 @@ class PortalGalleryViewTests(TestCase):
         )
 
     def test_renders_entries_actions_and_badges(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router(
                 {"/api/submissions/admin": [make_entry()]}
             )
@@ -183,7 +184,7 @@ class PortalGalleryViewTests(TestCase):
         self.assertContains(response, "pat@example.com")
 
     def test_map_entries_render_thumbnail_and_metadata(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router(
                 {
                     "/api/submissions/admin": [make_entry(map_public_id=42)],
@@ -195,7 +196,7 @@ class PortalGalleryViewTests(TestCase):
         self.assertContains(response, "Plan 42")
 
     def test_backend_403_detail_surfaces(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(
                 status_code=403, json_body={"detail": "do not administer"}
             )
@@ -204,7 +205,7 @@ class PortalGalleryViewTests(TestCase):
 
     def test_pagination_next_link_from_extra_row(self):
         entries = [make_entry(id=i) for i in range(21)]
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router({"/api/submissions/admin": entries})
             response = self.client.get(self.url)
         self.assertContains(response, "?p=2")
@@ -219,7 +220,7 @@ class SubmissionActionTests(TestCase):
         self.client.login(username="reviewer@districtr.org", password=PASSWORD)
 
     def post(self, data, **kwargs):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(json_body={"id": 11})
             response = self.client.post(self.url, data, **kwargs)
         return response, request
@@ -255,7 +256,7 @@ class SubmissionActionTests(TestCase):
             request.assert_not_called()
 
     def test_backend_error_message_surfaces(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(
                 status_code=403, json_body={"detail": "do not administer"}
             )
@@ -331,7 +332,7 @@ class MetricsProxyTests(TestCase):
     def test_foreign_public_id_is_404(self):
         # Membership guard: only maps belonging to this portal's submissions
         # can be queried — no metric-fishing by URL.
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router({"/api/submissions/admin": []})
             response = self.client.get(self._row_url(999))
         self.assertEqual(response.status_code, 404)
@@ -348,7 +349,7 @@ class MetricsProxyTests(TestCase):
                 return mock_response(json_body=self.ENVELOPE)
             return mock_response(json_body={"token": "session-token"})
 
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = respond
             response = self.client.get(self._row_url(4242))
         self.assertEqual(response.status_code, 200)
@@ -356,7 +357,7 @@ class MetricsProxyTests(TestCase):
         self.assertEqual(admin_calls[0]["map_public_id"], 4242)
 
     def test_derived_row_shape(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router(
                 {
                     "/api/submissions/admin": [make_entry(map_public_id=42)],
@@ -388,7 +389,7 @@ class MetricsProxyTests(TestCase):
                 },
             },
         }
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router(
                 {
                     "/api/submissions/admin": [make_entry(map_public_id=43)],
@@ -402,7 +403,7 @@ class MetricsProxyTests(TestCase):
     def test_draft_submissions_never_authorize_metric_rows(self):
         # The guard must align with the page (status=submitted) — a draft's
         # map_public_id is the author's LIVE, pre-consent map.
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.side_effect = backend_router(
                 {
                     "/api/submissions/admin": [],
@@ -420,7 +421,7 @@ class MetricsProxyTests(TestCase):
             self.assertEqual(list_call.kwargs["params"].get("status"), "submitted")
 
     def test_backend_failure_is_502_not_500(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
 
             def _route(method, url, **kwargs):
                 if "/api/submissions/admin" in url:
@@ -452,7 +453,7 @@ class PortalAddMapTests(TestCase):
         self.assertEqual(self.client.get(self.url).status_code, 405)
 
     def test_posts_public_id_to_backend(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(
                 status_code=201, json_body={"id": 5, "submission_id": "u"}
             )
@@ -470,7 +471,7 @@ class PortalAddMapTests(TestCase):
         )
 
     def test_pasted_link_resolves_to_trailing_id(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(
                 status_code=201, json_body={"id": 5, "submission_id": "u"}
             )
@@ -510,7 +511,7 @@ class PortalAddMapTests(TestCase):
             self.assertEqual(parse_public_id(ref), expected, ref)
 
     def test_unparseable_ref_never_reaches_backend(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             # The follow-through gallery render calls the backend list —
             # only the ADD endpoint must not have been hit.
             request.return_value = mock_response(json_body=[])
@@ -521,7 +522,7 @@ class PortalAddMapTests(TestCase):
         self.assertContains(response, "public ID")
 
     def test_backend_conflict_detail_surfaces(self):
-        with mock.patch("moderation.services.requests.request") as request:
+        with mock.patch("portals.backend.requests.request") as request:
             request.return_value = mock_response(
                 status_code=409, json_body={"detail": "already has a submission"}
             )
@@ -533,3 +534,45 @@ class PortalAddMapTests(TestCase):
             reverse("portals_add_map", args=["not-a-portal"]), {"map_ref": "123"}
         )
         self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+
+class SiteSettingsViewTests(TestCase):
+    def setUp(self):
+        self.url = reverse("site_settings")
+        self.admin = make_admin_user(email="admin@districtr.org", group_name="admin")
+        self.client.login(username="admin@districtr.org", password=PASSWORD)
+
+    def test_non_admin_denied(self):
+        user = make_admin_user(email="partner@districtr.org", group_name="partner")
+        self.client.force_login(user)
+        response = self.client.get(self.url)
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+    def test_get_renders_current_value(self):
+        with mock.patch("portals.backend.requests.request") as request:
+            request.return_value = mock_response(json_body={"under_construction": True})
+            response = self.client.get(self.url)
+        self.assertContains(response, "checked")
+        # The public GET goes out unauthenticated.
+        _, kwargs = request.call_args
+        self.assertEqual(kwargs["headers"], {})
+
+    def test_post_patches_with_admin_token(self):
+        with mock.patch("portals.backend.requests.request") as request:
+            request.return_value = mock_response(json_body={"under_construction": True})
+            response = self.client.post(self.url, {"under_construction": "on"})
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+        args, kwargs = request.call_args
+        self.assertEqual(args[0], "PATCH")
+        self.assertEqual(kwargs["json"], {"under_construction": True})
+        token = kwargs["headers"]["Authorization"].removeprefix("Bearer ")
+        self.assertEqual(fastapi_style_verify(token)["sub"], str(self.admin.pk))
+
+    def test_post_unchecked_disables(self):
+        with mock.patch("portals.backend.requests.request") as request:
+            request.return_value = mock_response(
+                json_body={"under_construction": False}
+            )
+            self.client.post(self.url, {})
+        _, kwargs = request.call_args
+        self.assertEqual(kwargs["json"], {"under_construction": False})
