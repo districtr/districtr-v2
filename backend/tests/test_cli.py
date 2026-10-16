@@ -1,32 +1,75 @@
-import pytest
-from app.models import DistrictrMap, Overlay
-from sqlmodel import Session
-from tests.constants import (
-    POSTGRES_TEST_DB,
-    POSTGRES_USER,
-    POSTGRES_PASSWORD,
-    POSTGRES_SERVER,
-    POSTGRES_PORT,
-    POSTGRES_SCHEME,
-)
 from pathlib import Path
-import subprocess
-import os
-from sqlalchemy import select, text
+from types import SimpleNamespace
 from uuid import uuid4
 import json
 
-test_env = os.environ.copy()
-test_env["POSTGRES_DB"] = POSTGRES_TEST_DB
-test_env["POSTGRES_USER"] = POSTGRES_USER
-test_env["POSTGRES_PASSWORD"] = POSTGRES_PASSWORD
-test_env["POSTGRES_SERVER"] = POSTGRES_SERVER
-test_env["POSTGRES_PORT"] = str(POSTGRES_PORT)
-# Set DATABASE_URL to ensure the CLI uses the test database
-test_env["DATABASE_URL"] = (
-    f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_TEST_DB}"
-)
-backend_dir = Path(__file__).parent.parent
+import cli
+import pytest
+from click.testing import CliRunner
+from sqlmodel import Session
+from sqlalchemy import select, text
+
+import app.core.db
+from app.core.config import settings
+from app.models import DistrictrMap, Overlay
+from tests.constants import POSTGRES_TEST_DB
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures" / "gerrydb"
+
+
+@pytest.fixture(autouse=True)
+def _patch_cli_engine(engine, monkeypatch):
+    """Point every DB reference cli.py's commands can reach at the test database.
+
+    cli.py's session_scope() resolves `engine` from cli.py's own module
+    globals at call time, so patching that redirects commands using the
+    @with_session decorator. Commands that shell out to management/load_data.py
+    (e.g. batch-create-districtr-maps) instead call app.core.db.get_session(),
+    which resolves its own `engine` from app.core.db's globals -- a separate
+    frozen reference `cli.py`'s `from app.core.db import engine` doesn't cover,
+    so that needs patching too. A third path (import-gerrydb-view's ogr2ogr
+    call) builds its Postgres connection string directly from settings.POSTGRES_*
+    rather than through any SQLAlchemy engine, so that needs its own patch --
+    under the old subprocess-per-test design this came from process env vars
+    at cli.py's startup; in-process, `settings` is a session-wide singleton
+    already loaded from the container's real (non-test) config.
+    """
+    monkeypatch.setattr(cli, "engine", engine)
+    monkeypatch.setattr(app.core.db, "engine", engine)
+    monkeypatch.setattr(settings, "POSTGRES_DB", POSTGRES_TEST_DB)
+
+
+def run_cli(*args: str) -> SimpleNamespace:
+    """Invoke a cli.py command in-process via Click's CliRunner.
+
+    Returns a subprocess.CompletedProcess-shaped object (returncode/stdout/
+    stderr) so assertions below read the same as when this ran cli.py as a
+    subprocess.
+    """
+    result = CliRunner().invoke(cli.cli, list(args))
+    return SimpleNamespace(
+        returncode=result.exit_code, stdout=result.output, stderr=result.output
+    )
+
+
+def assert_ok(result: SimpleNamespace) -> None:
+    assert (
+        result.returncode == 0
+    ), f"CLI command failed: {result.stderr or result.stdout}"
+
+
+def purge_only_fixture(purge_fn):
+    """A pytest fixture factory for the common case of purging rows before
+    and after a test, with no setup data to insert in between."""
+
+    def _fixture(engine):
+        with Session(engine) as setup_session:
+            purge_fn(setup_session)
+        yield
+        with Session(engine) as teardown_session:
+            purge_fn(teardown_session)
+
+    return _fixture
 
 
 def cleanup_overlay(session: Session, overlay_name: str):
@@ -37,13 +80,73 @@ def cleanup_overlay(session: Session, overlay_name: str):
         session.commit()
 
 
+def upsert_gerrydbtable(session: Session, name: str) -> None:
+    """Upsert a gerrydbtable catalog row, on the caller's session/transaction."""
+    session.execute(
+        text(
+            """INSERT INTO gerrydbtable (uuid, name, updated_at)
+            VALUES (gen_random_uuid(), :name, now())
+            ON CONFLICT (name)
+            DO UPDATE SET updated_at = now()"""
+        ),
+        {"name": name},
+    )
+
+
+def make_districtr_map(**overrides) -> DistrictrMap:
+    """A DistrictrMap with the fields nearly every CLI test fixture sets the
+    same way (a fresh uuid, visible, default map type, modifiable district
+    count) -- pass anything else, or override these, as keyword arguments."""
+    fields = dict(
+        uuid=str(uuid4()),
+        visible=True,
+        map_type="default",
+        num_districts_modifiable=True,
+    )
+    fields.update(overrides)
+    return DistrictrMap(**fields)
+
+
+def purge_test_rows(
+    session: Session,
+    *,
+    map_slug: str | None = None,
+    map_slugs: tuple[str, ...] = (),
+    gerrydbtable_name: str | None = None,
+    map_group_slugs: tuple[str, ...] = (),
+    extra_statements: tuple[tuple[str, dict], ...] = (),
+):
+    """Delete test rows from the tables CLI tests commonly touch, by slug or
+    name. extra_statements run first, for anything this doesn't cover
+    directly -- a junction-table cleanup, an overlay delete, a DROP TABLE/VIEW."""
+    for stmt, params in extra_statements:
+        session.execute(text(stmt), params)
+    if map_slug is not None:
+        session.execute(
+            text("DELETE FROM districtrmap WHERE districtr_map_slug = :slug"),
+            {"slug": map_slug},
+        )
+    if map_slugs:
+        session.execute(
+            text("DELETE FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)"),
+            {"slugs": list(map_slugs)},
+        )
+    if gerrydbtable_name is not None:
+        session.execute(
+            text("DELETE FROM gerrydbtable WHERE name = :name"),
+            {"name": gerrydbtable_name},
+        )
+    if map_group_slugs:
+        session.execute(
+            text("DELETE FROM map_group WHERE slug = ANY(:group_slugs)"),
+            {"group_slugs": list(map_group_slugs)},
+        )
+    session.commit()
+
+
 def test_create_overlay(session: Session):
     """Test creating an overlay via CLI"""
-    # Configure environment variables for test database
-    # Construct arguments as would be passed to the CLI
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Test Overlay",
@@ -55,22 +158,11 @@ def test_create_overlay(session: Session):
         "fill",
         "--source",
         "https://example.com/data.geojson",
-    ]
-
-    # Run the CLI as a subprocess from the backend directory where cli.py is located
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
-    # Refresh the session to ensure we can see committed data from the subprocess
+    # Refresh the session to ensure we can see committed data from the CLI call
     session.commit()
 
     # Verify overlay was created using session.exec() which returns model instances directly
@@ -88,9 +180,7 @@ def test_create_overlay(session: Session):
 
 def test_create_overlay_with_pmtiles(session: Session):
     """Test creating a pmtiles overlay via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "PMTiles Overlay",
@@ -102,18 +192,9 @@ def test_create_overlay_with_pmtiles(session: Session):
         "s3://bucket/data.pmtiles",
         "--source-layer",
         "counties",
-    ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "PMTiles Overlay")
@@ -132,9 +213,7 @@ def test_create_overlay_with_custom_style(session: Session):
     """Test creating an overlay with custom style via CLI"""
     custom_style_json = '{"paint": {"fill-color": "#ff0000", "fill-opacity": 0.5}}'
 
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Styled Overlay",
@@ -144,18 +223,9 @@ def test_create_overlay_with_custom_style(session: Session):
         "fill",
         "--custom-style",
         custom_style_json,
-    ]
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created with custom style
     stmt = select(Overlay).where(Overlay.name == "Styled Overlay")
@@ -175,9 +245,7 @@ def test_create_overlay_and_add_to_map(
     session: Session, ks_demo_view_census_blocks_districtrmap
 ):
     """Test creating an overlay and adding it to a map via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    result_proc = run_cli(
         "create-overlay",
         "--name",
         "Map Overlay",
@@ -187,19 +255,9 @@ def test_create_overlay_and_add_to_map(
         "fill",
         "--districtr-map-slugs",
         "ks_demo_view_census_blocks_summary_stats",
-    ]
-
-    result_proc = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
 
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     # Verify overlay was created
     stmt = select(Overlay).where(Overlay.name == "Map Overlay")
@@ -216,9 +274,8 @@ def test_create_overlay_and_add_to_map(
 
 def test_update_overlay(session: Session):
     """Test updating an overlay via CLI"""
-    cli_args = [
-        "python",
-        "cli.py",
+    # First create an overlay
+    create_result = run_cli(
         "create-overlay",
         "--name",
         "Original Overlay",
@@ -228,19 +285,8 @@ def test_update_overlay(session: Session):
         "geojson",
         "--layer-type",
         "fill",
-    ]
-
-    # First create an overlay
-    create_result = subprocess.run(
-        cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
-    assert (
-        create_result.returncode == 0
-    ), f"CLI command failed: {create_result.stderr or create_result.stdout}"
+    assert_ok(create_result)
 
     # Get the overlay ID
     original_overlay_stmt = select(Overlay).where(Overlay.name == "Original Overlay")
@@ -248,27 +294,29 @@ def test_update_overlay(session: Session):
     assert original_overlay is not None, "Original overlay not found in database"
     original_overlay_id = str(original_overlay.overlay_id)
 
-    update_cli_args = [
-        "python",
-        "cli.py",
+    # Update the overlay
+    update_result = run_cli(
         "update-overlay",
         "--overlay-id",
         original_overlay_id,
         "--name",
         "Updated Overlay",
-    ]
-    # Update the overlay
-    update_result = subprocess.run(
-        update_cli_args,
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
     )
-    result_output = update_result.stderr or update_result.stdout
-    assert (
-        f"Updated overlay {original_overlay_id}" in result_output
-    ), "Overlay not updated"
+    assert_ok(update_result)
+
+    # Query the DB directly rather than parsing log output: the CLI logs via
+    # Python's logging module, which cli.py configures once at import time --
+    # its handler holds a stale stderr reference under CliRunner's per-call
+    # stdout/stderr swap, so log text isn't reliably present in result.output.
+    # expire_all() clears the identity map so this re-fetches the row's
+    # current data rather than returning the already-loaded original_overlay.
+    session.expire_all()
+    updated_stmt = select(Overlay).where(
+        Overlay.overlay_id == original_overlay.overlay_id
+    )
+    (updated_overlay,) = session.exec(updated_stmt).one_or_none()
+    assert updated_overlay is not None, "Overlay not found after update"
+    assert updated_overlay.name == "Updated Overlay"
     cleanup_overlay(session, "Updated Overlay")
 
 
@@ -277,69 +325,46 @@ LINK_TEST_PARENT_LAYER = "link_overlays_test_layer"
 LINK_TEST_MAP_SLUGS = ("link_overlays_test_map_ks", "link_overlays_test_map_mo")
 
 
-def run_cli(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["python", "cli.py", *args],
-        cwd=str(backend_dir),
-        env=test_env,
-        capture_output=True,
-        text=True,
-    )
-
-
 def purge_link_test_rows(session: Session):
     """Delete committed rows from the link-overlays tests, including leftovers from killed runs."""
-    session.execute(
-        text(
-            """DELETE FROM districtrmap_overlays
-            WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
-            OR districtr_map_id IN (
-                SELECT uuid FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)
-            )"""
+    purge_test_rows(
+        session,
+        map_slugs=LINK_TEST_MAP_SLUGS,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmap_overlays
+                WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
+                OR districtr_map_id IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)
+                )""",
+                {"name": LINK_TEST_OVERLAY_NAME, "slugs": list(LINK_TEST_MAP_SLUGS)},
+            ),
+            (
+                "DELETE FROM overlay WHERE name = :name",
+                {"name": LINK_TEST_OVERLAY_NAME},
+            ),
         ),
-        {"name": LINK_TEST_OVERLAY_NAME, "slugs": list(LINK_TEST_MAP_SLUGS)},
     )
-    session.execute(
-        text("DELETE FROM overlay WHERE name = :name"),
-        {"name": LINK_TEST_OVERLAY_NAME},
-    )
-    session.execute(
-        text("DELETE FROM districtrmap WHERE districtr_map_slug = ANY(:slugs)"),
-        {"slugs": list(LINK_TEST_MAP_SLUGS)},
-    )
-    session.commit()
 
 
 @pytest.fixture(name="link_test_maps")
 def link_test_maps_fixture(engine):
     """Two committed districtrmap rows (statefps ['20'] and ['29']).
 
-    The CLI runs as a subprocess with its own database connection, so these
-    rows must be committed with a real Session(engine) — the rollback-session
-    fixture used elsewhere is invisible to subprocesses.
+    Committed with a real Session(engine) -- the rollback-session fixture
+    used elsewhere is invisible outside its own transaction, and the CLI
+    (in-process via CliRunner, but on its own DB session per call) needs
+    these rows actually committed to see them.
     """
     with Session(engine) as setup_session:
         purge_link_test_rows(setup_session)
-        setup_session.execute(
-            text(
-                """INSERT INTO gerrydbtable (uuid, name, updated_at)
-                VALUES (gen_random_uuid(), :name, now())
-                ON CONFLICT (name)
-                DO UPDATE SET
-                    updated_at = now()"""
-            ),
-            {"name": LINK_TEST_PARENT_LAYER},
-        )
+        upsert_gerrydbtable(setup_session, LINK_TEST_PARENT_LAYER)
         map_uuids: dict[str, str] = {}
         for statefp, districtr_map_slug in zip(("20", "29"), LINK_TEST_MAP_SLUGS):
-            districtr_map = DistrictrMap(
-                uuid=str(uuid4()),
+            districtr_map = make_districtr_map(
                 name=f"Link overlays test map {statefp}",
                 districtr_map_slug=districtr_map_slug,
                 parent_layer=LINK_TEST_PARENT_LAYER,
-                visible=True,
-                map_type="default",
-                num_districts_modifiable=True,
                 statefps=[statefp],
             )
             setup_session.add(districtr_map)
@@ -353,7 +378,7 @@ def link_test_maps_fixture(engine):
 
 
 def create_link_test_overlay(engine, source: str | None = None) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -387,9 +412,7 @@ def test_link_overlays_to_maps_by_name(engine, link_test_maps):
     result_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -407,9 +430,7 @@ def test_link_overlays_to_maps_statefps_filter(engine, link_test_maps):
         "--statefps",
         "20",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     linked_map_ids = get_linked_map_ids(engine, overlay_id)
     assert link_test_maps["20"] in linked_map_ids, "Overlay not linked to KS map"
@@ -434,9 +455,7 @@ def test_link_overlays_to_maps_by_source(engine, link_test_maps):
         "--statefps",
         "20",
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     ks_linked_map_ids = get_linked_map_ids(engine, ks_overlay_id)
     assert (
@@ -457,17 +476,13 @@ def test_link_overlays_to_maps_idempotent(engine, link_test_maps):
     first_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        first_proc.returncode == 0
-    ), f"CLI command failed: {first_proc.stderr or first_proc.stdout}"
+    assert_ok(first_proc)
     first_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     second_proc = run_cli(
         "link-overlays-to-maps", "--overlay-name", LINK_TEST_OVERLAY_NAME
     )
-    assert (
-        second_proc.returncode == 0
-    ), f"CLI command failed: {second_proc.stderr or second_proc.stdout}"
+    assert_ok(second_proc)
     second_linked_map_ids = get_linked_map_ids(engine, overlay_id)
 
     assert (
@@ -509,11 +524,15 @@ SYNC_TEST_ABSENT_SOURCE = "https://x/overlays/zz_none.geojson"
 
 def purge_sync_test_rows(session: Session):
     """Delete committed overlays created by the sync-overlay-metadata tests."""
-    session.execute(
-        text("DELETE FROM overlay WHERE source = ANY(:sources)"),
-        {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+    purge_test_rows(
+        session,
+        extra_statements=(
+            (
+                "DELETE FROM overlay WHERE source = ANY(:sources)",
+                {"sources": [SYNC_TEST_SOURCE, SYNC_TEST_ABSENT_SOURCE]},
+            ),
+        ),
     )
-    session.commit()
 
 
 def create_sync_test_overlay(
@@ -523,7 +542,7 @@ def create_sync_test_overlay(
     name: str = SYNC_TEST_STALE_NAME,
     description: str = SYNC_TEST_STALE_DESCRIPTION,
 ) -> str:
-    """Create a committed overlay row visible to CLI subprocesses."""
+    """Create a committed overlay row."""
     overlay_id = str(uuid4())
     with Session(engine) as overlay_session:
         overlay_session.add(
@@ -551,14 +570,9 @@ def get_overlay_name_description(engine, overlay_id: str) -> tuple[str, str]:
     return row.name, row.description
 
 
-@pytest.fixture(name="sync_test_cleanup")
-def sync_test_cleanup_fixture(engine):
-    """Purge sync-overlay-metadata test overlays before and after each test."""
-    with Session(engine) as setup_session:
-        purge_sync_test_rows(setup_session)
-    yield
-    with Session(engine) as teardown_session:
-        purge_sync_test_rows(teardown_session)
+sync_test_cleanup = pytest.fixture(name="sync_test_cleanup")(
+    purge_only_fixture(purge_sync_test_rows)
+)
 
 
 def test_sync_overlay_metadata_updates_all_matching(
@@ -584,9 +598,7 @@ def test_sync_overlay_metadata_updates_all_matching(
     )
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     for overlay_id in (line_overlay_id, text_overlay_id):
         name, description = get_overlay_name_description(engine, overlay_id)
@@ -615,9 +627,7 @@ def test_sync_overlay_metadata_dry_run_no_changes(engine, tmp_path, sync_test_cl
     result_proc = run_cli(
         "sync-overlay-metadata", "--metadata", str(metadata_path), "--dry-run"
     )
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Dry run changed overlay name"
@@ -645,9 +655,7 @@ def test_sync_overlay_metadata_absent_key_unchanged(
     )
 
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(metadata_path))
-    assert (
-        result_proc.returncode == 0
-    ), f"CLI command failed: {result_proc.stderr or result_proc.stdout}"
+    assert_ok(result_proc)
 
     name, description = get_overlay_name_description(engine, overlay_id)
     assert name == SYNC_TEST_STALE_NAME, "Absent-key overlay name changed"
@@ -661,3 +669,659 @@ def test_sync_overlay_metadata_missing_file_fails(engine, tmp_path):
     missing_path = tmp_path / "does_not_exist.json"
     result_proc = run_cli("sync-overlay-metadata", "--metadata", str(missing_path))
     assert result_proc.returncode != 0, "Nonexistent metadata file did not fail"
+
+
+# ---------------------------------------------------------------------------
+# add-overlay-to-map / remove-overlay-from-map / delete-overlay
+# ---------------------------------------------------------------------------
+
+ADD_OVERLAY_TEST_OVERLAY_NAME = "Add Overlay To Map Test Overlay"
+ADD_OVERLAY_TEST_MAP_SLUG = "cli_add_overlay_to_map_test_map"
+ADD_OVERLAY_TEST_PARENT_LAYER = "cli_add_overlay_to_map_test_layer"
+
+
+def purge_add_overlay_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=ADD_OVERLAY_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_OVERLAY_TEST_PARENT_LAYER,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmap_overlays
+                WHERE overlay_id IN (SELECT overlay_id FROM overlay WHERE name = :name)
+                OR districtr_map_id IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
+                )""",
+                {
+                    "name": ADD_OVERLAY_TEST_OVERLAY_NAME,
+                    "slug": ADD_OVERLAY_TEST_MAP_SLUG,
+                },
+            ),
+            (
+                "DELETE FROM overlay WHERE name = :name",
+                {"name": ADD_OVERLAY_TEST_OVERLAY_NAME},
+            ),
+        ),
+    )
+
+
+@pytest.fixture(name="add_overlay_test_setup")
+def add_overlay_test_setup_fixture(engine):
+    """A committed Overlay + DistrictrMap, unlinked."""
+    with Session(engine) as setup_session:
+        purge_add_overlay_test_rows(setup_session)
+        upsert_gerrydbtable(setup_session, ADD_OVERLAY_TEST_PARENT_LAYER)
+        map_uuid = str(uuid4())
+        setup_session.add(
+            make_districtr_map(
+                uuid=map_uuid,
+                name="Add overlay to map test map",
+                districtr_map_slug=ADD_OVERLAY_TEST_MAP_SLUG,
+                parent_layer=ADD_OVERLAY_TEST_PARENT_LAYER,
+            )
+        )
+        overlay_id = str(uuid4())
+        setup_session.add(
+            Overlay(
+                overlay_id=overlay_id,
+                name=ADD_OVERLAY_TEST_OVERLAY_NAME,
+                data_type="geojson",
+                layer_type="fill",
+            )
+        )
+        setup_session.commit()
+
+    yield {"map_uuid": map_uuid, "overlay_id": overlay_id}
+
+    with Session(engine) as teardown_session:
+        purge_add_overlay_test_rows(teardown_session)
+
+
+def test_add_overlay_to_map(engine, add_overlay_test_setup):
+    """add-overlay-to-map inserts a districtrmap_overlays row"""
+    result_proc = run_cli(
+        "add-overlay-to-map",
+        "--districtr-map-slug",
+        ADD_OVERLAY_TEST_MAP_SLUG,
+        "--overlay-id",
+        add_overlay_test_setup["overlay_id"],
+    )
+    assert_ok(result_proc)
+
+    linked_map_ids = get_linked_map_ids(engine, add_overlay_test_setup["overlay_id"])
+    assert add_overlay_test_setup["map_uuid"] in linked_map_ids
+
+
+def test_remove_overlay_from_map(engine, add_overlay_test_setup):
+    """remove-overlay-from-map deletes an existing districtrmap_overlays row"""
+    with Session(engine) as link_session:
+        link_session.execute(
+            text(
+                """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+                VALUES (:map_uuid, :overlay_id)"""
+            ),
+            {
+                "map_uuid": add_overlay_test_setup["map_uuid"],
+                "overlay_id": add_overlay_test_setup["overlay_id"],
+            },
+        )
+        link_session.commit()
+
+    result_proc = run_cli(
+        "remove-overlay-from-map",
+        "--districtr-map-slug",
+        ADD_OVERLAY_TEST_MAP_SLUG,
+        "--overlay-id",
+        add_overlay_test_setup["overlay_id"],
+    )
+    assert_ok(result_proc)
+
+    linked_map_ids = get_linked_map_ids(engine, add_overlay_test_setup["overlay_id"])
+    assert add_overlay_test_setup["map_uuid"] not in linked_map_ids
+
+
+def test_delete_overlay(engine, add_overlay_test_setup):
+    """delete-overlay removes the overlay and cascades to the junction table"""
+    with Session(engine) as link_session:
+        link_session.execute(
+            text(
+                """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+                VALUES (:map_uuid, :overlay_id)"""
+            ),
+            {
+                "map_uuid": add_overlay_test_setup["map_uuid"],
+                "overlay_id": add_overlay_test_setup["overlay_id"],
+            },
+        )
+        link_session.commit()
+
+    result_proc = run_cli(
+        "delete-overlay", "--overlay-id", add_overlay_test_setup["overlay_id"]
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        overlay_row = query_session.execute(
+            text("SELECT 1 FROM overlay WHERE overlay_id = :overlay_id"),
+            {"overlay_id": add_overlay_test_setup["overlay_id"]},
+        ).one_or_none()
+        junction_row = query_session.execute(
+            text("SELECT 1 FROM districtrmap_overlays WHERE overlay_id = :overlay_id"),
+            {"overlay_id": add_overlay_test_setup["overlay_id"]},
+        ).one_or_none()
+
+    assert overlay_row is None, "Overlay row was not deleted"
+    assert junction_row is None, "Junction row was not cascade-deleted"
+
+
+# ---------------------------------------------------------------------------
+# create-group / add-districtr-map-to-map-group
+# ---------------------------------------------------------------------------
+
+CREATE_GROUP_TEST_NAME = "CLI Test Group"
+CREATE_GROUP_TEST_SLUG = "clitestgroup"
+
+
+def purge_create_group_test_rows(session: Session):
+    purge_test_rows(session, map_group_slugs=(CREATE_GROUP_TEST_SLUG,))
+
+
+create_group_test_cleanup = pytest.fixture(name="create_group_test_cleanup")(
+    purge_only_fixture(purge_create_group_test_rows)
+)
+
+
+def test_create_group_auto_slug(engine, create_group_test_cleanup):
+    """create-group without --map-group-slug slugifies the name to lowercase a-z"""
+    result_proc = run_cli("create-group", "--name", CREATE_GROUP_TEST_NAME)
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        row = query_session.execute(
+            text("SELECT name, slug FROM map_group WHERE slug = :slug"),
+            {"slug": CREATE_GROUP_TEST_SLUG},
+        ).one_or_none()
+
+    assert row is not None, "Map group not found"
+    assert row.name == CREATE_GROUP_TEST_NAME
+    assert row.slug == CREATE_GROUP_TEST_SLUG
+
+
+ADD_MAP_TO_GROUP_TEST_MAP_SLUG = "cli_add_map_to_group_test_map"
+ADD_MAP_TO_GROUP_TEST_PARENT_LAYER = "cli_add_map_to_group_test_layer"
+ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS = (
+    "cli_add_map_to_group_test_group_one",
+    "cli_add_map_to_group_test_group_two",
+)
+
+
+def purge_add_map_to_group_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_MAP_TO_GROUP_TEST_PARENT_LAYER,
+        map_group_slugs=ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS,
+        extra_statements=(
+            (
+                """DELETE FROM districtrmaps_to_groups
+                WHERE districtrmap_uuid IN (
+                    SELECT uuid FROM districtrmap WHERE districtr_map_slug = :slug
+                )
+                OR group_slug = ANY(:group_slugs)""",
+                {
+                    "slug": ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+                    "group_slugs": list(ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS),
+                },
+            ),
+        ),
+    )
+
+
+@pytest.fixture(name="add_map_to_group_test_setup")
+def add_map_to_group_test_setup_fixture(engine):
+    with Session(engine) as setup_session:
+        purge_add_map_to_group_test_rows(setup_session)
+        upsert_gerrydbtable(setup_session, ADD_MAP_TO_GROUP_TEST_PARENT_LAYER)
+        map_uuid = str(uuid4())
+        setup_session.add(
+            make_districtr_map(
+                uuid=map_uuid,
+                name="Add map to group test map",
+                districtr_map_slug=ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+                parent_layer=ADD_MAP_TO_GROUP_TEST_PARENT_LAYER,
+            )
+        )
+        for group_slug in ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS:
+            setup_session.execute(
+                text("INSERT INTO map_group (name, slug) VALUES (:name, :slug)"),
+                {"name": group_slug, "slug": group_slug},
+            )
+        setup_session.commit()
+
+    yield map_uuid
+
+    with Session(engine) as teardown_session:
+        purge_add_map_to_group_test_rows(teardown_session)
+
+
+def group_membership_count(engine, map_uuid: str) -> int:
+    with Session(engine) as query_session:
+        return query_session.execute(
+            text(
+                "SELECT count(*) FROM districtrmaps_to_groups WHERE districtrmap_uuid = :map_uuid"
+            ),
+            {"map_uuid": map_uuid},
+        ).scalar_one()
+
+
+def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
+    """add-districtr-map-to-map-group adds fresh memberships and no-ops when already a member"""
+    map_uuid = add_map_to_group_test_setup
+    group_one, group_two = ADD_MAP_TO_GROUP_TEST_GROUP_SLUGS
+
+    first_proc = run_cli(
+        "add-districtr-map-to-map-group",
+        "--districtr-map-slug",
+        ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+        "--map-group-slug",
+        group_one,
+    )
+    assert_ok(first_proc)
+    assert group_membership_count(engine, map_uuid) == 1
+
+    # Already-in-group re-run is a no-op, not an error
+    second_proc = run_cli(
+        "add-districtr-map-to-map-group",
+        "--districtr-map-slug",
+        ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+        "--map-group-slug",
+        group_one,
+    )
+    assert_ok(second_proc)
+    assert group_membership_count(engine, map_uuid) == 1
+
+    third_proc = run_cli(
+        "add-districtr-map-to-map-group",
+        "--districtr-map-slug",
+        ADD_MAP_TO_GROUP_TEST_MAP_SLUG,
+        "--map-group-slug",
+        group_two,
+    )
+    assert_ok(third_proc)
+    assert group_membership_count(engine, map_uuid) == 2
+
+
+# ---------------------------------------------------------------------------
+# create-spatial-index
+# ---------------------------------------------------------------------------
+
+
+def test_create_spatial_index(engine, simple_parent_geos_gerrydb):
+    """create-spatial-index creates a GIST index on the given gerrydb table"""
+    result_proc = run_cli("create-spatial-index", "--table-name", "simple_parent_geos")
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        # ogr2ogr already creates its own GIST index on import, so this command's
+        # index is expected to be the second one -- assert presence, not uniqueness.
+        index_rows = query_session.execute(
+            text(
+                """SELECT indexdef FROM pg_indexes
+                WHERE schemaname = 'gerrydb' AND tablename = 'simple_parent_geos'
+                AND indexdef ILIKE '%USING gist%'"""
+            )
+        ).all()
+
+    assert len(index_rows) > 0, "GIST spatial index was not created"
+
+
+# ---------------------------------------------------------------------------
+# add-extent-to-districtr-map
+# ---------------------------------------------------------------------------
+
+ADD_EXTENT_TEST_MAP_SLUG = "cli_add_extent_test_map"
+ADD_EXTENT_TEST_PARENT_LAYER = "cli_add_extent_test_layer"
+
+
+def purge_add_extent_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=ADD_EXTENT_TEST_MAP_SLUG,
+        gerrydbtable_name=ADD_EXTENT_TEST_PARENT_LAYER,
+    )
+
+
+@pytest.fixture(name="add_extent_test_setup")
+def add_extent_test_setup_fixture(engine):
+    with Session(engine) as setup_session:
+        purge_add_extent_test_rows(setup_session)
+        upsert_gerrydbtable(setup_session, ADD_EXTENT_TEST_PARENT_LAYER)
+        setup_session.add(
+            make_districtr_map(
+                name="Add extent test map",
+                districtr_map_slug=ADD_EXTENT_TEST_MAP_SLUG,
+                parent_layer=ADD_EXTENT_TEST_PARENT_LAYER,
+            )
+        )
+        setup_session.commit()
+
+    yield
+
+    with Session(engine) as teardown_session:
+        purge_add_extent_test_rows(teardown_session)
+
+
+def test_add_extent_to_districtr_map_manual_bounds(engine, add_extent_test_setup):
+    """--bounds sets DistrictrMap.extent to the given values without needing real geometry"""
+    result_proc = run_cli(
+        "add-extent-to-districtr-map",
+        "--districtr-map-slug",
+        ADD_EXTENT_TEST_MAP_SLUG,
+        "--bounds",
+        "-100.0",
+        "30.0",
+        "-90.0",
+        "40.0",
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        extent = query_session.execute(
+            text("SELECT extent FROM districtrmap WHERE districtr_map_slug = :slug"),
+            {"slug": ADD_EXTENT_TEST_MAP_SLUG},
+        ).scalar_one()
+
+    assert extent == [-100.0, 30.0, -90.0, 40.0]
+
+
+# ---------------------------------------------------------------------------
+# batch-create-districtr-maps
+# ---------------------------------------------------------------------------
+
+BATCH_CREATE_TEST_MAP_SLUG = "cli_batch_create_test_map"
+
+
+def purge_batch_create_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=BATCH_CREATE_TEST_MAP_SLUG,
+        gerrydbtable_name="simple_parent_geos",
+    )
+
+
+batch_create_test_cleanup = pytest.fixture(name="batch_create_test_cleanup")(
+    purge_only_fixture(purge_batch_create_test_rows)
+)
+
+
+def test_batch_create_districtr_maps(
+    engine, tmp_path, simple_parent_geos, batch_create_test_cleanup
+):
+    """batch-create-districtr-maps with --skip-gerrydb-loads creates the configured map
+    against the already-imported gerrydb table"""
+    # simple_parent_geos (ogr2ogr only) rather than simple_parent_geos_gerrydb: the
+    # latter's gerrydbtable insert rides the rollback-session transaction and holds a
+    # row lock the CLI's own real commit below would deadlock against.
+    with Session(engine) as setup_session:
+        upsert_gerrydbtable(setup_session, "simple_parent_geos")
+        setup_session.commit()
+
+    config_path = tmp_path / "batch_config.yaml"
+    config_path.write_text(
+        f"""
+districtr_maps:
+  - name: "Batch Create Test Map"
+    districtr_map_slug: "{BATCH_CREATE_TEST_MAP_SLUG}"
+    gerrydb_table_name: "simple_parent_geos"
+    parent_layer: "simple_parent_geos"
+"""
+    )
+
+    result_proc = run_cli(
+        "batch-create-districtr-maps",
+        "--config-file",
+        str(config_path),
+        "--skip-gerrydb-loads",
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        row = query_session.execute(
+            text(
+                """SELECT parent_layer, child_layer FROM districtrmap
+                WHERE districtr_map_slug = :slug"""
+            ),
+            {"slug": BATCH_CREATE_TEST_MAP_SLUG},
+        ).one_or_none()
+
+    assert row is not None, "Districtr map was not created"
+    assert row.parent_layer == "simple_parent_geos"
+    assert row.child_layer is None
+
+
+# ---------------------------------------------------------------------------
+# import-gerrydb-view
+# ---------------------------------------------------------------------------
+
+IMPORT_GERRYDB_VIEW_LAYER = "ks_ellis_county_vap_data_vtd"
+
+
+def purge_import_gerrydb_view_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        gerrydbtable_name=IMPORT_GERRYDB_VIEW_LAYER,
+        extra_statements=(
+            ("DROP TABLE IF EXISTS gerrydb.ks_ellis_county_vap_data_vtd", {}),
+        ),
+    )
+
+
+import_gerrydb_view_test_cleanup = pytest.fixture(
+    name="import_gerrydb_view_test_cleanup"
+)(purge_only_fixture(purge_import_gerrydb_view_test_rows))
+
+
+def test_import_gerrydb_view(engine, import_gerrydb_view_test_cleanup):
+    """import-gerrydb-view loads the gpkg fixture into gerrydb.<layer> and upserts
+    the gerrydbtable catalog row"""
+    gpkg_path = FIXTURES_DIR / "ks_ellis_county_vtd.gpkg"
+
+    result_proc = run_cli(
+        "import-gerrydb-view",
+        "--layer",
+        IMPORT_GERRYDB_VIEW_LAYER,
+        "--gpkg",
+        str(gpkg_path),
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        table_row = query_session.execute(
+            text("SELECT 1 FROM gerrydb.ks_ellis_county_vap_data_vtd LIMIT 1")
+        ).one_or_none()
+        catalog_row = query_session.execute(
+            text("SELECT 1 FROM gerrydbtable WHERE name = :name"),
+            {"name": IMPORT_GERRYDB_VIEW_LAYER},
+        ).one_or_none()
+
+    assert table_row is not None, "gerrydb.ks_ellis_county_vap_data_vtd was not created"
+    assert catalog_row is not None, "gerrydbtable row was not upserted"
+
+
+# ---------------------------------------------------------------------------
+# create-districtr-map / update-districtr-map
+# ---------------------------------------------------------------------------
+
+CREATE_MAP_TEST_SLUG = "cli_create_districtr_map_test_map"
+
+
+def purge_create_map_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=CREATE_MAP_TEST_SLUG,
+        gerrydbtable_name="simple_parent_geos",
+    )
+
+
+create_map_test_cleanup = pytest.fixture(name="create_map_test_cleanup")(
+    purge_only_fixture(purge_create_map_test_rows)
+)
+
+
+def test_create_districtr_map(engine, simple_parent_geos, create_map_test_cleanup):
+    """create-districtr-map creates the row and infers parent_geo_unit_type from
+    the gerrydb layer's path column"""
+    # simple_parent_geos (ogr2ogr only) rather than simple_parent_geos_gerrydb: the
+    # latter's gerrydbtable insert rides the rollback-session transaction and holds a
+    # row lock the CLI's own real commit below would deadlock against.
+    with Session(engine) as setup_session:
+        upsert_gerrydbtable(setup_session, "simple_parent_geos")
+        setup_session.commit()
+
+    result_proc = run_cli(
+        "create-districtr-map",
+        "--name",
+        "CLI Create Districtr Map Test",
+        "--parent-layer-name",
+        "simple_parent_geos",
+        "--districtr-map-slug",
+        CREATE_MAP_TEST_SLUG,
+        "--gerrydb-table-name",
+        "simple_parent_geos",
+        "--no-extent",
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        row = query_session.execute(
+            text(
+                """SELECT parent_geo_unit_type FROM districtrmap
+                WHERE districtr_map_slug = :slug"""
+            ),
+            {"slug": CREATE_MAP_TEST_SLUG},
+        ).one_or_none()
+
+    assert row is not None, "Districtr map was not created"
+    assert row.parent_geo_unit_type == "vtd"
+
+
+UPDATE_MAP_TEST_SLUG = "cli_update_districtr_map_test_map"
+UPDATE_MAP_TEST_PARENT_LAYER = "cli_update_districtr_map_test_layer"
+
+
+def purge_update_map_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        map_slug=UPDATE_MAP_TEST_SLUG,
+        gerrydbtable_name=UPDATE_MAP_TEST_PARENT_LAYER,
+    )
+
+
+@pytest.fixture(name="update_map_test_setup")
+def update_map_test_setup_fixture(engine):
+    with Session(engine) as setup_session:
+        purge_update_map_test_rows(setup_session)
+        upsert_gerrydbtable(setup_session, UPDATE_MAP_TEST_PARENT_LAYER)
+        setup_session.add(
+            make_districtr_map(
+                name="Update districtr map test map",
+                districtr_map_slug=UPDATE_MAP_TEST_SLUG,
+                gerrydb_table_name=UPDATE_MAP_TEST_PARENT_LAYER,
+                parent_layer=UPDATE_MAP_TEST_PARENT_LAYER,
+                comment="Original comment",
+            )
+        )
+        setup_session.commit()
+
+    yield
+
+    with Session(engine) as teardown_session:
+        purge_update_map_test_rows(teardown_session)
+
+
+def test_update_districtr_map(engine, update_map_test_setup):
+    """update-districtr-map updates the requested field on the existing row"""
+    result_proc = run_cli(
+        "update-districtr-map",
+        "--districtr-map-slug",
+        UPDATE_MAP_TEST_SLUG,
+        "--gerrydb-table-name",
+        UPDATE_MAP_TEST_PARENT_LAYER,
+        "--comment",
+        "Updated comment",
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        comment = query_session.execute(
+            text("SELECT comment FROM districtrmap WHERE districtr_map_slug = :slug"),
+            {"slug": UPDATE_MAP_TEST_SLUG},
+        ).scalar_one()
+
+    assert comment == "Updated comment"
+
+
+# ---------------------------------------------------------------------------
+# create-shatterable-districtr-view
+# ---------------------------------------------------------------------------
+
+SHATTERABLE_VIEW_TEST_TABLE_NAME = "cli_shatterable_view_test_table"
+
+
+def purge_shatterable_view_test_rows(session: Session):
+    purge_test_rows(
+        session,
+        gerrydbtable_name=SHATTERABLE_VIEW_TEST_TABLE_NAME,
+        extra_statements=(
+            (
+                f"DROP MATERIALIZED VIEW IF EXISTS gerrydb.{SHATTERABLE_VIEW_TEST_TABLE_NAME}",
+                {},
+            ),
+        ),
+    )
+
+
+shatterable_view_test_cleanup = pytest.fixture(name="shatterable_view_test_cleanup")(
+    purge_only_fixture(purge_shatterable_view_test_rows)
+)
+
+
+def test_create_shatterable_districtr_view(
+    engine,
+    simple_parent_geos,
+    simple_child_geos,
+    shatterable_view_test_cleanup,
+):
+    """create-shatterable-districtr-view creates the materialized view and the
+    gerrydbtable catalog row for it"""
+    # simple_parent_geos/simple_child_geos (ogr2ogr only): the underlying stored
+    # procedure operates on the real gerrydb.<table> geometry tables directly, so no
+    # gerrydbtable catalog row is needed for the parent/child layer names here -- and
+    # the _gerrydb fixture variants would add one that rides the rollback-session
+    # transaction, an unnecessary lock this test doesn't need to risk.
+    result_proc = run_cli(
+        "create-shatterable-districtr-view",
+        "--parent-layer-name",
+        "simple_parent_geos",
+        "--child-layer-name",
+        "simple_child_geos",
+        "--gerrydb-table-name",
+        SHATTERABLE_VIEW_TEST_TABLE_NAME,
+    )
+    assert_ok(result_proc)
+
+    with Session(engine) as query_session:
+        matview_row = query_session.execute(
+            text(
+                """SELECT 1 FROM pg_matviews
+                WHERE schemaname = 'gerrydb' AND matviewname = :name"""
+            ),
+            {"name": SHATTERABLE_VIEW_TEST_TABLE_NAME},
+        ).one_or_none()
+        catalog_row = query_session.execute(
+            text("SELECT 1 FROM gerrydbtable WHERE name = :name"),
+            {"name": SHATTERABLE_VIEW_TEST_TABLE_NAME},
+        ).one_or_none()
+
+    assert matview_row is not None, "Materialized view was not created"
+    assert catalog_row is not None, "gerrydbtable row was not created"
