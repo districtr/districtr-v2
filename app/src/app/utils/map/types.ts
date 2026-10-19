@@ -31,23 +31,6 @@ export type PaintEventHandler = (
   filterLocked?: boolean
 ) => MapGeoJSONFeature[] | undefined;
 
-/**
- * ContextMenuState
- * Represents the state of the context menu.
- * @typedef {Object} ContextMenuState
- * @property {number} x - The x-coordinate of the context menu.
- * @property {number} y - The y-coordinate of the context menu.
- * @property {Object} data - The data associated with the context menu.
- * @property {string} data.geoid - The geographic ID.
- * @property {string} data.name - The name associated with the geographic ID.
- */
-export type ContextMenuState = {
-  x: number;
-  y: number;
-  data: MapGeoJSONFeature;
-  close: () => void;
-};
-
 export type TooltipState = {
   x: number;
   y: number;

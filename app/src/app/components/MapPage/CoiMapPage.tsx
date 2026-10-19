@@ -1,6 +1,5 @@
 'use client';
 import React, {Suspense, useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
 import {CoiMap} from '@components/Map/CoiMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
@@ -118,7 +117,6 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
         <MobileToolbar />
         <MapTooltip />
       </div>
-      <MapContextMenu />
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
