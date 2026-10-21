@@ -21,17 +21,7 @@ Four key changes:
 3. Utilize mmap (memory map) to allow shared memory space between workers.
 4. Bump up to 2 workers on each backend container.
 
-**Data model.** The heavier `networkx.Graph` contained a set of nodes with parent, children, weighted_edges and other attributes. networkx in general bakes in a lot of functionality, and stores everything as nested Python dicts, so every node and edge carries object overhead. This was stripped down to numpy arrays sorted by ID with a separate `parent_of` array, plus a CSR adjacency built from the edges, stored as npz. For two VTDs where A is shattered into blocks A1 and A2:
-
-```
-node_ids     ['blk:A1', 'blk:A2', 'vtd:A', 'vtd:B']
-edges        [[0, 1], [1, 3], [2, 3]]       # A1-A2, A2-B, A-B
-parent_of    [2, 2, -1, -1]                 # A1 and A2 belong to vtd:A, -1 = no parent
-adj          [1, 3, 0, 3, 1, 2]             # neighbors grouped by source node
-adj_offsets  [0, 1, 3, 4, 6]                # node i's neighbors are adj[off[i]:off[i+1]]
-```
-
-Same information as the previous pickles, at ~5-10x less memory.
+**Data model.** The heavier `networkx.Graph` contained a set of nodes with parent, children, weighted_edges and other attributes. networkx in general bakes in a lot of functionality, and stores everything as nested Python dicts, so every node and edge carries object overhead. This was stripped down to a set of numpy arrays, stored as npz, which together describe the parent graph, the child graph, and the relation between the two. Same information as the previous pickles, at ~5-10x less memory.
 
 **Runtime.** Contiguity runs `scipy.sparse.csgraph.connected_components` over the sparse adjacency, in compiled code instead of NetworkX's pure-Python BFS. Technically, the runtime lookup complexity has increased (O(1) dict lookup to O(log N) binary search), which sounds bad, but it is batched and log2 of 350K nodes is only ~18 comparisons. Every hot path resolves all its IDs in one vectorized `searchsorted` call instead of one Python call per ID, and the cut-edges loop then works entirely on integer indices without touching a string until the end. Net result is contiguity checks are 5 to 9x faster than before, not slower.
 
