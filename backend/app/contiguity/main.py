@@ -65,9 +65,7 @@ def get_assigned_nodes(
     results = []
     for row in session.execute(sql, params):
         if G:
-            nodes = set(row.nodes)
-            G.expand_non_contiguous(nodes)
-            nodes = sorted(nodes)
+            nodes = sorted(G.expand_non_contiguous(set(row.nodes)))
         else:
             nodes = row.nodes
         results.append(ZoneContiguousNodes(zone=row.zone, nodes=nodes))
@@ -132,9 +130,7 @@ def get_assigned_nodes_bboxes(
             """).bindparams(*binds),
             params,
         ).scalars()
-        geo_ids_set = set(assigned)
-        G.expand_non_contiguous(geo_ids_set)
-        geo_ids = sorted(geo_ids_set)
+        geo_ids = sorted(G.expand_non_contiguous(set(assigned)))
         if not geo_ids:
             return None
 

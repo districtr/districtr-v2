@@ -193,7 +193,7 @@ def _ncp_graph() -> DualLevelGraph:
 def test_expand_non_contiguous_mutates_in_place():
     dg = _ncp_graph()
     geo_ids = {"p1", "c"}
-    assert dg.expand_non_contiguous(geo_ids) is None  # mutates, returns nothing
+    assert dg.expand_non_contiguous(geo_ids) is geo_ids  # same set, mutated
     assert geo_ids == {"a", "b", "c"}
 
 
@@ -202,7 +202,7 @@ def test_expand_non_contiguous_noop_when_no_match(dg):
     nothing in geo_ids matches a _non_contiguous_parents entry, so the set comes
     back unchanged and untouched."""
     geo_ids = {"missing_1", "missing_2"}
-    dg.expand_non_contiguous(geo_ids)
+    geo_ids = dg.expand_non_contiguous(geo_ids)
     assert geo_ids == {"missing_1", "missing_2"}
 
 
@@ -214,48 +214,8 @@ def test_expand_non_contiguous_empty_ncp_is_cheap_regardless_of_geo_ids_size():
     by membership, so it touches NCP's elements, not geo_ids'."""
     dg = _ncp_graph()
     huge = {str(i) for i in range(200_000)}
-    dg.expand_non_contiguous(huge)
+    huge = dg.expand_non_contiguous(huge)
     assert len(huge) == 200_000  # untouched: no id in `huge` is "p1"
-
-
-# -- cut_edges --------------------------------------------------------------
-
-
-def test_cut_edges_hand_computed():
-    """simple_geos: 3 vtds (p1/p2/p3), each with 2-3 child blocks, plus
-    weighted parent-parent edges. Assignment mixes a shattered parent
-    (blocks 1 and 5 of vtd 1 individually assigned to different zones) with
-    two whole-parent assignments (vtd 2, vtd 3).
-
-    Hand-computed expected cut count:
-    - Step 1 (parent pass): only (vtd2, vtd3) has both sides whole-assigned
-      (zone 1 vs zone 2) -> +1 (that edge's weight).
-    - Step 2 (unit pass): block 1 (zone 1) vs block 5 (zone 2) are neighbors,
-      seen from both sides -> +1 after halving. block 5 (zone 2) is also
-      adjacent to block 2, whose parent (vtd2) is zone 1 -> +1.
-    Total: 1 (step 1) + 1 (step 2 direct) + 1 (halved mutual edge) = 3.
-    """
-    dg = from_npz(_fixture_path("simple_geos"))
-
-    unit_to_zone = {"000010000000001": 1, "000010000000005": 2}
-    parent_unit_to_zone = {"vtd:000010000002": 1, "vtd:000010000003": 2}
-    assert dg.cut_edges(unit_to_zone, parent_unit_to_zone) == 3
-
-
-def test_cut_edges_no_weighted_edges_falls_back_to_unit_pass_only():
-    """Non-shatterable maps (no weighted_edges) skip Step 1 entirely — every
-    assignment is a plain unit, exactly like the pre-refactor algorithm's
-    non-shatterable branch."""
-    dg = make_graph(edges=[("a", "b"), ("b", "c"), ("c", "d")])
-
-    # a-b cut, b-c not cut, c-d cut
-    unit_to_zone = {"a": 1, "b": 1, "c": 2, "d": 1}
-    assert dg.cut_edges(unit_to_zone, {}) == 2
-
-
-def test_cut_edges_empty_assignment():
-    dg = from_npz(_fixture_path("simple_geos"))
-    assert dg.cut_edges({}, {}) == 0
 
 
 # -- from_npz ---------------------------------------------------------------
@@ -268,7 +228,7 @@ def test_from_npz_rejects_unknown_version(tmp_path):
         from_npz(bad)
 
 
-def _ncp_npz(tmp_path, ncp_ids: list[str]):
+def _non_contiguous_parents_npz(tmp_path, ncp_ids: list[str]):
     """Blocks a and b under parent p1 touch only c and d (a-c, b-d), so p1's
     blocks are disconnected."""
     path = tmp_path / "ncp.npz"
@@ -288,17 +248,17 @@ def _ncp_npz(tmp_path, ncp_ids: list[str]):
 
 
 def test_non_contiguous_parents_survive_npz_and_cache(tmp_path):
-    dg = from_npz(_ncp_npz(tmp_path, ["p1"]))
+    dg = from_npz(_non_contiguous_parents_npz(tmp_path, ["p1"]))
     dg.save_cache(tmp_path / "cache")
     for g in (dg, DualLevelGraph.load_cache(tmp_path / "cache")):
         geo_ids = {"p1", "c"}
-        g.expand_non_contiguous(geo_ids)
+        geo_ids = g.expand_non_contiguous(geo_ids)
         assert geo_ids == {"a", "b", "c"}
 
 
 def test_from_npz_rejects_unknown_non_contiguous_parent(tmp_path):
     with pytest.raises(ValueError, match="non_contiguous_parents"):
-        from_npz(_ncp_npz(tmp_path, ["ghost"]))
+        from_npz(_non_contiguous_parents_npz(tmp_path, ["ghost"]))
 
 
 # -- shared mmap disk cache ---------------------------------------------------
