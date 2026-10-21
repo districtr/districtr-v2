@@ -98,6 +98,11 @@ export type MetricsEnvelope = {
   failed: MetricFailure[];
 };
 
+/** Shared React Query key for a plan's evaluation; build keys through this. */
+export const EVALUATION_QUERY_PREFIX = ['evaluation'] as const;
+export const evaluationQueryKey = (publicId?: string | number | null) =>
+  [...EVALUATION_QUERY_PREFIX, publicId] as const;
+
 export const getEvaluation = async (document_id?: string) => {
   if (!document_id) {
     return {

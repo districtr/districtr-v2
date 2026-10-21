@@ -520,6 +520,7 @@ def fl_map(integration_engine, fl_view) -> str:
             parent_layer=FL_VTD_TABLE,
             child_layer=FL_BLOCK_TABLE,
             num_districts=28,
+            statefps=["12"],
         )
         session.commit()
 
