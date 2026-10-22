@@ -4,19 +4,26 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useAssignmentsStore} from '@store/assignmentsStore';
 import {demographyService} from '@utils/demography/demographyService';
-import {ACTIVE_TOOLS} from '@constants/map/tools';
-import {ACCESS_STATES} from '@constants/document/state';
+import {ACTIVE_TOOLS, DISTRICT_EDIT_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {ACCESS_STATES, APP_LOADING_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {filterFeatures} from '@utils/map/filterFeatures';
 
 /**
  * WebMCP tools for the map editor (https://webmachinelearning.github.io/webmcp/).
  *
  * Lets a browser agent (Gemini in Chrome, an extension, Playwright's page.webmcp)
  * read map state and paint by GEOID without driving the WebGL canvas. A no-op
- * unless the browser exposes document.modelContext (Chrome 149+ with the WebMCP
- * origin trial or chrome://flags/#enable-webmcp-testing).
+ * unless the browser exposes document.modelContext. districtr registers no
+ * origin-trial token, so today that means chrome://flags/#enable-webmcp-testing
+ * (or Playwright's --enable-features=WebMCP).
  *
  * Never return document_id: it is the edit capability. public_id only.
+ *
+ * Browsers don't enforce inputSchema, so every tool validates its own arguments,
+ * and mutating tools apply the same rules the toolbar does (edit access, map lock,
+ * hidden districts #814, district locks, Forbid paint-over, paint mask).
  */
 
 type ModelContextTool = {
@@ -36,12 +43,31 @@ const getModelContext = (): ModelContext | undefined =>
 
 const canEdit = () => useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
 
+const isDistrict = (zone: unknown): zone is number => {
+  const max = useMapStore.getState().mapDocument?.num_districts ?? 0;
+  return Number.isInteger(zone) && (zone as number) >= 1 && (zone as number) <= max;
+};
+
+const AGENT_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.PAN, ACTIVE_TOOLS.BRUSH, ACTIVE_TOOLS.ERASER];
+
+/** Why the map can't be edited right now, or null. The UI blocks these states for people. */
+const editBlocker = (): string | null => {
+  if (!canEdit()) return 'This map is view-only.';
+  const {mapLock, appLoadingState} = useMapStore.getState();
+  if (mapLock) return `The map is busy${mapLock.reason ? ` (${mapLock.reason})` : ''}; try again.`;
+  if (appLoadingState !== APP_LOADING_STATES.LOADED) return 'The map is still loading.';
+  if (useMapControlsStore.getState().mapOptions.showPaintedDistricts === false) {
+    return 'Painted districts are hidden; show them before editing.';
+  }
+  return null;
+};
+
 const isSettled = () => {
   const {appLoadingState, mapRenderingState, getMapRef} = useMapStore.getState();
   const map = getMapRef();
   return (
-    appLoadingState === 'loaded' &&
-    mapRenderingState === 'loaded' &&
+    appLoadingState === APP_LOADING_STATES.LOADED &&
+    mapRenderingState === RENDERING_STATES.LOADED &&
     !!map?.loaded() &&
     map.getContainer().dataset.idle === 'true'
   );
@@ -58,7 +84,8 @@ const waitUntilSettled = async (timeoutMs: number) => {
 };
 
 const mapState = () => {
-  const {mapDocument, mapStatus, appLoadingState, mapRenderingState} = useMapStore.getState();
+  const {mapDocument, mapStatus, appLoadingState, mapRenderingState, getMapRef} =
+    useMapStore.getState();
   const {selectedZone, activeTool} = useMapControlsStore.getState();
   const {zoneAssignments} = useAssignmentsStore.getState();
   let assigned = 0;
@@ -67,6 +94,7 @@ const mapState = () => {
     settled: isSettled(),
     app_state: appLoadingState,
     render_state: mapRenderingState,
+    zoom: Math.round((getMapRef()?.getZoom() ?? 0) * 100) / 100,
     map: mapDocument && {
       public_id: mapDocument.public_id,
       map_slug: mapDocument.districtr_map_slug,
@@ -83,7 +111,7 @@ const tools: ModelContextTool[] = [
   {
     name: 'get_map_state',
     description:
-      'Current state of the open districting map: loading state, selected district, active tool, and how many areas are assigned. Pass wait_until_settled to wait for tiles and repaints to finish first.',
+      'Current state of the open districting map: loading state, zoom level, selected district, active tool, and how many areas are assigned. Pass wait_until_settled to wait for tiles and repaints to finish first.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -169,6 +197,9 @@ const tools: ModelContextTool[] = [
       required: ['tool'],
     },
     execute: async ({tool}) => {
+      if (!AGENT_TOOLS.includes(tool)) return {error: `tool must be one of ${AGENT_TOOLS}.`};
+      const blocker = DISTRICT_EDIT_TOOLS.includes(tool) ? editBlocker() : null;
+      if (blocker) return {error: blocker};
       if (!canEdit()) return {error: 'This map is view-only.'};
       useMapControlsStore.getState().setActiveTool(tool);
       return {active_tool: useMapControlsStore.getState().activeTool};
@@ -183,8 +214,10 @@ const tools: ModelContextTool[] = [
       required: ['zone'],
     },
     execute: async ({zone}) => {
-      const max = useMapStore.getState().mapDocument?.num_districts ?? Infinity;
-      if (zone > max) return {error: `This map has ${max} districts.`};
+      if (!isDistrict(zone)) {
+        const max = useMapStore.getState().mapDocument?.num_districts;
+        return {error: `zone must be a whole number from 1 to ${max}.`};
+      }
       useMapControlsStore.getState().setSelectedZone(zone);
       return {selected_zone: useMapControlsStore.getState().selectedZone};
     },
@@ -192,7 +225,7 @@ const tools: ModelContextTool[] = [
   {
     name: 'assign_areas',
     description:
-      'Assign map areas (by GEOID, as shown in the map tooltip or inspector) to a district, or unassign them with zone null. Works like painting, so undo reverts it. Only areas in currently loaded map tiles can be assigned (others come back in not_loaded), and blocks only inside precincts already broken into blocks (others come back in not_shattered). unchanged counts locked areas, broken precincts, and areas already in that district.',
+      'Assign map areas (by GEOID, as shown in the map tooltip or inspector) to a district, or unassign them with zone null. Works like painting, so undo reverts it, and follows the same rules: areas in a locked district, already-painted areas when Forbid paint-over is on, and areas outside the paint mask or focused area, and precincts already broken into blocks (assign their blocks instead) come back in refused. Only areas in currently loaded map tiles can be assigned (others come back in not_loaded), and blocks only inside precincts already broken into blocks (others come back in not_shattered). unchanged counts areas already in that district.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -201,13 +234,31 @@ const tools: ModelContextTool[] = [
       },
       required: ['ids', 'zone'],
     },
-    execute: async ({ids, zone}: {ids: string[]; zone: number | null}) => {
-      if (!canEdit()) return {error: 'This map is view-only.'};
+    annotations: {consequentialHint: true},
+    execute: async ({ids, zone}: {ids: unknown; zone: unknown}) => {
+      if (
+        !Array.isArray(ids) ||
+        ids.length < 1 ||
+        ids.length > 5000 ||
+        !ids.every(id => typeof id === 'string')
+      ) {
+        return {error: 'ids must be an array of 1 to 5000 GEOID strings.'};
+      }
+      if (zone !== null && !isDistrict(zone)) {
+        const max = useMapStore.getState().mapDocument?.num_districts;
+        return {error: `zone must be null or a whole number from 1 to ${max}.`};
+      }
+      const blocker = editBlocker();
+      if (blocker) return {error: blocker};
+      const {lockPaintedAreas, disallowPaintOver} = useMapControlsStore.getState().mapOptions;
+      if (zone !== null && lockPaintedAreas.includes(zone)) {
+        return {error: `District ${zone} is locked.`};
+      }
       const {getMapRef, mapDocument} = useMapStore.getState();
       const map = getMapRef();
       const sourceLayer = mapDocument?.parent_layer;
       if (!map || !sourceLayer) return {error: 'Map is not loaded yet.'};
-      const {mutateZoneAssignments, ingestAccumulatedAssignments, shatterIds} =
+      const {mutateZoneAssignments, ingestAccumulatedAssignments, shatterIds, zoneAssignments} =
         useAssignmentsStore.getState();
       const wanted = new Set(ids.map(String));
       // querySourceFeatures ignores layer filters, so it also returns blocks of unshattered
@@ -232,13 +283,26 @@ const tools: ModelContextTool[] = [
           found.set(id, Object.assign(f, {sourceLayer: layer}) as MapGeoJSONFeature);
         })
       );
-      mutateZoneAssignments(map, [...found.values()], zone);
-      // The paint path skips locked areas, broken precincts, and areas already in the zone.
-      const assigned = useAssignmentsStore.getState().accumulatedAssignments.size;
+      // Paint mask, focused area (captive ids) and broken precincts, as in the paint path.
+      // Locks and paint-over are applied here instead: filterFeatures keys them on the
+      // brush's selected district, and this tool targets `zone`.
+      const allowed = filterFeatures({_features: [...found.values()], filterLocked: false}).filter(
+        f => {
+          const current = zoneAssignments.get(f.id!.toString()) ?? null;
+          if (current !== null && lockPaintedAreas.includes(current)) return false;
+          return !(disallowPaintOver && zone !== null && current !== null);
+        }
+      );
+      const allowedIds = new Set(allowed.map(f => f.id!.toString()));
+      // Count only this call's areas: a stroke in progress may already be buffered.
+      const before = useAssignmentsStore.getState().accumulatedAssignments.size;
+      mutateZoneAssignments(map, allowed, zone);
+      const assigned = useAssignmentsStore.getState().accumulatedAssignments.size - before;
       ingestAccumulatedAssignments();
       return {
         assigned,
-        unchanged: found.size - assigned,
+        unchanged: allowed.length - assigned,
+        refused: [...found.keys()].filter(id => !allowedIds.has(id)),
         not_shattered: [...notShattered],
         not_loaded: [...wanted].filter(id => !found.has(id) && !notShattered.has(id)),
       };

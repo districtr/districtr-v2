@@ -1,7 +1,7 @@
 import {test, expect, type Browser, type Page} from '@playwright/test';
 import {skipConditions} from '../../fixtures/test-data';
 import {createMapDocument, navigateToMap, waitForMapSettled} from '../../fixtures/map-fixture';
-import {mapTools, assignedIn, skipWithoutWebMcp} from '../../utils/webmcp';
+import {mapTools, assignedIn, skipWithoutWebMcp, type Area} from '../../utils/webmcp';
 
 /**
  * Two browsers editing one map. Each browser context has its own IndexedDB copy, so
@@ -14,10 +14,16 @@ const VIEWPORT = {width: 1280, height: 720};
 
 // ponytail: local helpers; promote to e2e/utils if other specs need multi-device setups.
 
-async function openTab(browser: Browser, documentId: string): Promise<Page> {
+/** A fresh browser on a document id, or on a full edit URL (clones use a private edit token). */
+async function openTab(browser: Browser, documentIdOrUrl: string): Promise<Page> {
   const context = await browser.newContext({viewport: VIEWPORT});
   const page = await context.newPage();
-  await navigateToMap(page, documentId);
+  if (documentIdOrUrl.startsWith('http')) {
+    await page.goto(documentIdOrUrl);
+    await waitForMapSettled(page);
+  } else {
+    await navigateToMap(page, documentIdOrUrl);
+  }
   await skipWithoutWebMcp(page);
   return page;
 }
@@ -44,13 +50,20 @@ const conflictModal = (page: Page) => page.getByRole('dialog', {name: 'Save Conf
 
 /** Zone of each area as the page currently holds it. */
 async function zonesOf(page: Page, ids: string[]) {
-  const areas = await mapTools.loadedAreas(page, 5000);
-  return ids.map(id => areas.find(a => a.id === id)?.zone ?? null);
+  const areas: unknown = await mapTools.loadedAreas(page, 5000);
+  // Right after a reload the tool answers {error: 'Map is not loaded yet.'}; report
+  // "unknown" so expect.poll keeps waiting instead of crashing.
+  if (!Array.isArray(areas)) return ids.map(() => 'not loaded');
+  return ids.map(id => {
+    const area = (areas as Area[]).find(a => a.id === id);
+    // Distinguish "not in the loaded tiles" from "unassigned" (null).
+    return area ? area.zone : 'not loaded';
+  });
 }
 
 /** What the server kept: a fresh context has no IndexedDB copy to merge. */
-async function serverZones(browser: Browser, documentId: string, ids: string[]) {
-  const page = await openTab(browser, documentId);
+async function serverZones(browser: Browser, documentIdOrUrl: string, ids: string[]) {
+  const page = await openTab(browser, documentIdOrUrl);
   const zones = await zonesOf(page, ids);
   await page.context().close();
   return zones;
@@ -83,6 +96,8 @@ async function waitForLocalEdit(page: Page, documentId: string) {
 
 test.describe('Sync conflicts between two browsers', () => {
   test.skip(skipConditions.requiresWriteAccess(), 'Requires write access');
+  // Each test drives two to four browser contexts against one map.
+  test.slow();
 
   let documentId: string;
   let a: Page;
@@ -155,10 +170,12 @@ test.describe('Sync conflicts between two browsers', () => {
       .click();
     await expect(conflictModal(b)).toBeHidden();
     await expect.poll(() => b.url()).not.toBe(originalUrl);
-    await waitForMapSettled(b); // the clone is a new page load
-
-    // ponytail: clone = copy_from_doc (server copy, x=1) + B's local assignments (y=2).
-    await expect.poll(() => zonesOf(b, [y])).toEqual([2]);
+    // Client-side navigation: the page still shows B's in-memory copy, so check the clone
+    // on the server from a fresh context. The fork uploads B's local assignments with
+    // overwrite, so x (only in the cloud copy) is dropped.
+    // The clone's edit URL carries its private edit token; open it as-is.
+    expect(b.url()).not.toContain(documentId);
+    expect(await serverZones(browser, b.url(), [x, y])).toEqual([null, 2]);
     expect(await serverZones(browser, documentId, [x, y])).toEqual([1, null]);
   });
 

@@ -72,7 +72,7 @@ test.describe('View switcher', () => {
     await page.getByRole('menuitem', {name: 'Evaluate', exact: true}).click();
 
     // A short "preparation" speed bump appears before navigating.
-    await expect(page.getByText('Preparing evaluation')).toBeVisible({
+    await expect(page.getByRole('heading', {name: 'Preparing evaluation'})).toBeVisible({
       timeout: testTimeouts.medium,
     });
 

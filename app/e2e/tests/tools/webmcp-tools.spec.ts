@@ -69,7 +69,7 @@ test.describe('WebMCP map tools', () => {
     );
     const {map} = await mapTools.state(page, false);
     const tooHigh = (await mapTools.setDistrict(page, map.num_districts! + 1)) as ToolError;
-    expect(tooHigh.error).toContain(`${map.num_districts} districts`);
+    expect(tooHigh.error).toContain(`1 to ${map.num_districts}`);
     expect((await mapTools.state(page, false)).selected_zone).toBe(3);
   });
 
@@ -80,6 +80,7 @@ test.describe('WebMCP map tools', () => {
     expect(await mapTools.assign(page, ids, 2)).toEqual({
       assigned: 3,
       unchanged: 0,
+      refused: [],
       not_shattered: [],
       not_loaded: [],
     });
@@ -91,10 +92,122 @@ test.describe('WebMCP map tools', () => {
     expect(await mapTools.assign(page, [...ids, 'vtd:not-a-real-id'], null)).toEqual({
       assigned: 3,
       unchanged: 0,
+      refused: [],
       not_shattered: [],
       not_loaded: ['vtd:not-a-real-id'],
     });
     await expect.poll(async () => (await mapTools.state(page)).assigned_feature_count).toBe(0);
+  });
+
+  test('rejects malformed arguments, and the map still saves', async ({page}) => {
+    // Browsers don't enforce inputSchema; each of these once reached the paint path and
+    // either saved a phantom district, broke every later save (422), or crashed the editor.
+    const [area] = await mapTools.loadedAreas(page, 1);
+    const {map} = await mapTools.state(page, false);
+    const badAssign: object[] = [
+      {ids: [area.id], zone: map.num_districts! + 1},
+      {ids: [area.id], zone: 0},
+      {ids: [area.id], zone: -3},
+      {ids: [area.id], zone: 1.5},
+      {ids: [area.id], zone: '2'},
+      {ids: [area.id], zone: {x: 1}},
+      {ids: area.id, zone: 1},
+      {ids: [123], zone: 1},
+      {ids: [], zone: 1},
+      {ids: [area.id]},
+    ];
+    for (const input of badAssign) {
+      expect(await mapTools.assignRaw(page, input), JSON.stringify(input)).toHaveProperty('error');
+    }
+    for (const zone of [0, -1, 1.5, 'abc', map.num_districts! + 1]) {
+      expect(await mapTools.setDistrict(page, zone), String(zone)).toHaveProperty('error');
+    }
+    for (const tool of ['shatter', 'bogus']) {
+      expect(await mapTools.setTool(page, tool), tool).toHaveProperty('error');
+    }
+    const state = await mapTools.state(page);
+    expect(state).toMatchObject({
+      assigned_feature_count: 0,
+      selected_zone: 1,
+      active_tool: 'brush',
+    });
+
+    // Nothing bad was buffered: a real assignment saves cleanly.
+    expect(await mapTools.assign(page, [area.id], 1)).toMatchObject({assigned: 1});
+    const save = page.locator('[data-testid="save-button"]');
+    await save.click();
+    await expect(save).toHaveAttribute('aria-label', 'All changes saved');
+  });
+
+  test('respects district locks and Forbid paint-over', async ({page}) => {
+    await enableSuperDraw(page); // per-district locks are a Super Draw feature
+    await page.reload();
+    await waitForMapSettled(page);
+    const [a, b, c] = (await mapTools.loadedAreas(page, 3)).map(x => x.id);
+    await mapTools.assign(page, [a, b], 1);
+    await page.getByRole('button', {name: 'Lock district 1'}).click();
+
+    // A locked district can't be painted over, erased, or painted into.
+    expect(await mapTools.assign(page, [a], 2)).toMatchObject({assigned: 0, refused: [a]});
+    expect(await mapTools.assign(page, [b], null)).toMatchObject({assigned: 0, refused: [b]});
+    expect(await mapTools.assign(page, [c], 1)).toEqual({error: 'District 1 is locked.'});
+    expect(await assignedIn(page, 1)).toBe(2);
+
+    await page.getByRole('button', {name: 'Unlock district 1'}).click();
+    await page.getByLabel('Forbid paint-over').check();
+    // Paint-over refused, painting empty areas and erasing still allowed.
+    expect(await mapTools.assign(page, [a, c], 2)).toMatchObject({assigned: 1, refused: [a]});
+    expect(await mapTools.assign(page, [a], null)).toMatchObject({assigned: 1, refused: []});
+  });
+
+  test('refuses to edit while painted districts are hidden (#814)', async ({page}) => {
+    const [area] = await mapTools.loadedAreas(page, 1);
+    // In the tabbed sidebar the visual settings live on the Map Layers tab.
+    await page
+      .getByRole('navigation', {name: 'Sidebar panels'})
+      .getByRole('button', {name: 'Map Layers'})
+      .click();
+    const paintedDistricts = page.getByRole('checkbox', {name: 'Painted districts'});
+    await paintedDistricts.click();
+    await expect.poll(async () => (await mapTools.state(page, false)).active_tool).toBe('pan');
+
+    expect(await mapTools.setTool(page, 'brush')).toHaveProperty('error');
+    expect(await mapTools.assign(page, [area.id], 1)).toHaveProperty('error');
+    // The store enforces it for every caller, hotkeys included.
+    await page.locator('.maplibregl-canvas').first().hover();
+    await page.keyboard.press('p');
+    expect((await mapTools.state(page, false)).active_tool).toBe('pan');
+
+    await paintedDistricts.click();
+    expect(await mapTools.setTool(page, 'brush')).toEqual({active_tool: 'brush'});
+  });
+
+  test('refuses to edit while the map is locked', async ({page}) => {
+    // Hold the break request so the map stays locked ("Breaking districts").
+    let release!: () => void;
+    const held = new Promise<void>(r => (release = r));
+    await page.route('**/api/gerrydb/edges/**', async route => {
+      await held;
+      await route.continue();
+    });
+    await enableSuperDraw(page);
+    await page.reload();
+    await waitForMapSettled(page);
+    const [area] = await mapTools.loadedAreas(page, 1);
+    await selectTool(page, testSelectors.shatterTool);
+    const center = await getMapCenter(page);
+    await page.mouse.click(center.x, center.y);
+    await expect(page.locator('[data-testid="map-container"]')).toHaveClass(/pointer-events-none/);
+
+    const busy = (await mapTools.assign(page, [area.id], 1)) as unknown as ToolError;
+    expect(busy.error).toContain('busy');
+    release();
+    await expect(page.locator('[data-testid="map-container"]')).not.toHaveClass(
+      /pointer-events-none/
+    );
+    // Unlocked: edits go through again (the clicked precinct may now be blocks, so
+    // only check the tool no longer refuses).
+    await expect.poll(async () => mapTools.assign(page, [area.id], 1)).not.toHaveProperty('error');
   });
 
   test('refuses blocks of a precinct that is not broken into blocks', async ({page, request}) => {
@@ -146,11 +259,13 @@ test.describe('WebMCP map tools on a view-only map', () => {
   // ponytail: read-only tools for viewers (e.g. district populations) would help screen-reader
   // users; add them to PublicMap if wanted, and change this test to check they can't edit.
   test('registers no tools for a viewer with only the public_id', async ({page, request}) => {
-    const {public_id} = await createMapDocumentRecord(request);
+    const {document_id, public_id} = await createMapDocumentRecord(request);
+    // Positive control: the same browser does get tools on the edit page.
+    await navigateToMap(page, document_id);
+    await skipWithoutWebMcp(page);
+
     await page.goto(testUrls.mapView(String(public_id)));
     await waitForMapSettled(page);
-    const tools = await page.webmcp.tools().catch(() => null);
-    test.skip(tools === null, 'Browser has no WebMCP support');
-    expect(tools).toEqual([]);
+    expect(await page.webmcp.tools()).toEqual([]);
   });
 });

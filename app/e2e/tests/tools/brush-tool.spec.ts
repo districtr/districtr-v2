@@ -69,7 +69,13 @@ test.describe('Brush Tool', () => {
     test.skip(!area, 'No unassigned area loaded');
     const before = await assignedIn(page, 3);
     const result = await mapTools.assign(page, [area!.id], 3);
-    expect(result).toEqual({assigned: 1, unchanged: 0, not_shattered: [], not_loaded: []});
+    expect(result).toEqual({
+      assigned: 1,
+      unchanged: 0,
+      refused: [],
+      not_shattered: [],
+      not_loaded: [],
+    });
     // Ingest into the store is async (worker round-trip).
     await expect.poll(() => assignedIn(page, 3)).toBe(before + 1);
 
