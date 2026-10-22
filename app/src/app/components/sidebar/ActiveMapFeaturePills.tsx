@@ -7,8 +7,11 @@ import {useOverlayStore} from '@store/overlayStore';
 import {useAssignmentsStore} from '@store/assignmentsStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {SUMMARY_TYPES, TOTAL_COLUMN, type SummaryType} from '@constants/demography/summary';
+import {COALITION_VARIABLE_BY_UNIVERSE} from '@constants/demography/coalition';
 import {INSPECTOR_TITLE} from '@constants/demography/inspectorLabels';
 import {deactivateOverlay} from '@utils/demography/overlayMemory';
+import {demographyService} from '@utils/demography/demographyService';
+import {getCoalitionLabel} from '@utils/demography/coalition';
 
 /** One pill per map-altering option switched on from the settings panels.
  * Clicking a pill turns that option off, which also removes the pill; turning
@@ -21,6 +24,7 @@ export const ActiveMapFeaturePills = () => {
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
   const variable = useDemographyStore(state => state.variable);
+  const coalitionGroups = useDemographyStore(state => state.coalitionGroups);
   const variableType = useDemographyStore(
     state =>
       Object.entries(state.availableColumnSets.map).find(([, vars]) =>
@@ -33,9 +37,20 @@ export const ActiveMapFeaturePills = () => {
         .flat()
         .find(v => v.value === state.variable)?.label
   );
+  const coalitionUniverse = (
+    Object.keys(COALITION_VARIABLE_BY_UNIVERSE) as Array<
+      keyof typeof COALITION_VARIABLE_BY_UNIVERSE
+    >
+  ).find(universe => COALITION_VARIABLE_BY_UNIVERSE[universe] === variable);
+  // Coalitions aren't in the column sets; label them as the variable picker does.
   // A bare "Total" / "VAP Total" means nothing out of the picker's context.
-  const overlayName =
-    variableType && TOTAL_COLUMN[variableType] === variable
+  const overlayName = coalitionUniverse
+    ? `${coalitionUniverse === SUMMARY_TYPES.VAP ? 'VAP ' : ''}${getCoalitionLabel({
+        selectedGroups: coalitionGroups,
+        availableColumns: demographyService.availableColumns,
+        universe: coalitionUniverse,
+      })}`
+    : variableType && TOTAL_COLUMN[variableType] === variable
       ? INSPECTOR_TITLE[variableType]
       : (variableLabel ?? 'On');
 

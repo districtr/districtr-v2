@@ -19,18 +19,15 @@ export const overlayGroupVariables = (group: OverlayGroup) =>
  */
 export const overlayMemory: {
   variables: Record<OverlayGroup, DemographyVariable | null>;
-  /** Overlay-mode preset captured when the overlay is toggled off from Visual
-   * settings, restored on the next activation — so the toggles round-trip the
-   * same opacity/painted-districts state the panel controls set. */
+  /** Overlay opacity captured when the overlay is turned off, restored on the
+   * next activation. */
   overlayOpacity: number | null;
-  showPaintedDistricts: boolean | null;
   /** The most recently used display mode (overlay vs. side-by-side comparison),
    * so activating a choropleth layer reuses the user's last choice. */
   displayMode: DemographicMode | null;
 } = {
   variables: {demography: null, election: null},
   overlayOpacity: null,
-  showPaintedDistricts: null,
   displayMode: null,
 };
 
@@ -62,18 +59,14 @@ export const activateOverlayGroup = (group: OverlayGroup): boolean => {
   useMapControlsStore.getState().setMapOptions({
     demographicDisplayMode: displayMode,
     ...(overlayMemory.overlayOpacity !== null && {overlayOpacity: overlayMemory.overlayOpacity}),
-    ...(overlayMemory.showPaintedDistricts !== null && {
-      showPaintedDistricts: overlayMemory.showPaintedDistricts,
-    }),
   });
   return true;
 };
 
 /**
- * Turn the choropleth overlay off. Remembers the display mode and overlay
- * preset so the next activateOverlayGroup restores them, then backs out of
- * "Show Thematic Map" (which hides painted districts) — turning the overlay
- * off must never leave a blank map.
+ * Turn the choropleth overlay off. Remembers the display mode and opacity so
+ * the next activateOverlayGroup restores them. Leaves "Show painted districts"
+ * alone: it's a separate choice with its own pill.
  */
 export const deactivateOverlay = () => {
   const {mapOptions, setMapOptions} = useMapControlsStore.getState();
@@ -81,10 +74,8 @@ export const deactivateOverlay = () => {
     overlayMemory.displayMode = mapOptions.demographicDisplayMode;
   }
   overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
-  overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
   setMapOptions({
     demographicDisplayMode: undefined,
-    showPaintedDistricts: true,
     overlayOpacity: OVERLAY_OPACITY,
   });
 };

@@ -23,9 +23,8 @@ export interface OverlayStore {
   enabledOverlayIds: Set<string>;
   paintConstraint: OverlayPaintConstraint | null;
   selectingLayerId: string | null;
-  toggleOverlay: (overlayId: string) => void;
-  enableOverlay: (overlayId: string) => void;
-  disableOverlay: (overlayId: string) => void;
+  /** Overlays are enabled by name: same-named layers toggle together. */
+  toggleOverlay: (name: string) => void;
   setPaintConstraint: (overlayId: string, featureId: string) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
@@ -39,40 +38,20 @@ export const useOverlayStore = create(
     paintConstraint: null,
     selectingLayerId: null,
 
-    toggleOverlay: (overlayId: string) => {
+    toggleOverlay: (name: string) => {
       const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
       const newEnabledIds = new Set(enabledOverlayIds);
-      if (newEnabledIds.has(overlayId)) {
-        newEnabledIds.delete(overlayId);
-        // Clear constraint if its overlay is disabled
-        if (paintConstraint?.overlayId === overlayId) {
-          set({enabledOverlayIds: newEnabledIds});
-          clearPaintConstraint();
-          return;
-        }
+      if (newEnabledIds.delete(name)) {
+        // Release a mask picked on this overlay. Overlays toggle by name, but
+        // the mask keeps the overlay_id of the layer it was picked on.
+        const maskOverlay = useMapStore
+          .getState()
+          .mapDocument?.overlays?.find(o => o.overlay_id === paintConstraint?.overlayId);
+        if (maskOverlay?.name === name) clearPaintConstraint();
       } else {
-        newEnabledIds.add(overlayId);
+        newEnabledIds.add(name);
       }
       set({enabledOverlayIds: newEnabledIds});
-    },
-
-    enableOverlay: (overlayId: string) => {
-      const {enabledOverlayIds} = get();
-      const newEnabledIds = new Set(enabledOverlayIds);
-      newEnabledIds.add(overlayId);
-      set({enabledOverlayIds: newEnabledIds});
-    },
-
-    disableOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
-      const newEnabledIds = new Set(enabledOverlayIds);
-      newEnabledIds.delete(overlayId);
-      // Clear constraint if its overlay is disabled
-      if (paintConstraint?.overlayId === overlayId) {
-        clearPaintConstraint();
-      } else {
-        set({enabledOverlayIds: newEnabledIds});
-      }
     },
 
     setPaintConstraint: (overlayId: string, featureId: string) => {
