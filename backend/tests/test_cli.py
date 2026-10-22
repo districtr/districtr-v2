@@ -1,6 +1,10 @@
 import logging
 import pytest
 import cli
+import app.core.db
+import app.utils
+import app.thumbnails.main
+from tests.constants import POSTGRES_TEST_DB, TEST_SQLALCHEMY_DATABASE_URI
 from app.models import DistrictrMap, Overlay
 from click.testing import CliRunner, Result
 from sqlmodel import Session
@@ -11,8 +15,14 @@ import json
 
 @pytest.fixture(autouse=True)
 def cli_test_engine(engine, monkeypatch):
-    """Point the CLI's sessions at the test database."""
-    monkeypatch.setattr(cli, "engine", engine)
+    """Point the CLI at the test database. Patch every module that binds its
+    own `engine` (app.core.db covers get_session), and set the env the old
+    subprocess form inherited, for anything that reads it at call time
+    (e.g. alembic/env.py prefers DATABASE_URL)."""
+    for module in (cli, app.core.db, app.utils, app.thumbnails.main):
+        monkeypatch.setattr(module, "engine", engine)
+    monkeypatch.setenv("POSTGRES_DB", POSTGRES_TEST_DB)
+    monkeypatch.setenv("DATABASE_URL", str(TEST_SQLALCHEMY_DATABASE_URI))
 
 
 def run_cli(*args: str) -> Result:
