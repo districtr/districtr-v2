@@ -15,7 +15,9 @@ import {getCoalitionLabel} from '@utils/demography/coalition';
 
 /** One pill per map-altering option switched on from the settings panels.
  * Clicking a pill turns that option off, which also removes the pill; turning
- * an option back on happens only in the panels. */
+ * an option back on happens only in the panels. The county boundary options
+ * ("County boundaries", "Emphasize county names") are left out on purpose:
+ * both default to on, so they'd put pills on every fresh map. */
 export const ActiveMapFeaturePills = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -57,7 +59,7 @@ export const ActiveMapFeaturePills = () => {
   // kind says what the map is doing, name says to what.
   const pills = [
     {
-      kind: variableType === SUMMARY_TYPES.VOTERHISTORY ? 'Election map' : 'Demographic map',
+      kind: variableType === SUMMARY_TYPES.VOTERHISTORY ? 'Election' : 'Demographic',
       name: overlayName,
       on: !!mapOptions.demographicDisplayMode,
       off: deactivateOverlay,
@@ -70,7 +72,7 @@ export const ActiveMapFeaturePills = () => {
     },
     {
       kind: 'Labels',
-      name: 'Population (all units)',
+      name: 'Population on map (all units)',
       on: !!mapOptions.showPopulationNumbers,
       off: () => setMapOptions({showPopulationNumbers: false}),
     },
