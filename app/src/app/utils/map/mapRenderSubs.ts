@@ -193,8 +193,8 @@ export class MapRenderSubscriber {
     if (isDemographic) return;
     const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-      const isHover = layerId.includes('hover');
-      if (isHover && this.mapRef.getLayer(layerId)) {
+      const isAssignment = layerId.includes('assignment');
+      if (isAssignment && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
@@ -204,7 +204,7 @@ export class MapRenderSubscriber {
     });
 
     CHILD_LAYERS.forEach(layerId => {
-      if (!layerId.includes('hover') && this.mapRef.getLayer(layerId)) {
+      if (!layerId.includes('assignment') && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(layerId, 'line-opacity', 1);
       }
     });
@@ -295,7 +295,7 @@ export class MapRenderSubscriber {
     // Color rendering can run independently of focus updates, so we re-assert this here.
     const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-      if (!layerId.includes('hover') || !this.mapRef.getLayer(layerId)) return;
+      if (!layerId.includes('assignment') || !this.mapRef.getLayer(layerId)) return;
       this.mapRef.setPaintProperty(
         layerId,
         'fill-opacity',
