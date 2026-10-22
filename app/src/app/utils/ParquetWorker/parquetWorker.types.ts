@@ -35,9 +35,11 @@ export type ColumnarTableData = {
  */
 export type ParquetFileType = 'tabular' | 'points';
 
-export type ParquetWorkerClass = {
+/** What the worker exposes to the app. Only these cross the worker boundary. */
+export type ParquetWorkerClass = Pick<ParquetWorkerInternals, 'getDemography' | 'getPointData'>;
+
+export type ParquetWorkerInternals = {
   _metaCache: Record<string, MetaInfo>;
-  _idRgCache: Record<string, [number, number]>;
 
   /**
    * Get the metadata for a given parquet file. Results are cached, so subsequent
@@ -46,33 +48,6 @@ export type ParquetWorkerClass = {
    * @returns The metadata and file buffer.
    */
   getMetaData: (url: string) => Promise<MetaInfo>;
-
-  /**
-   * Get the row groups indices that contain a given parent value.
-   * Uses statistics to efficiently skip irrelevant row groups.
-   * @param meta - The metadata.
-   * @param value - The value to search for.
-   * @param value_col - The column name to search in.
-   * @returns The row range [start, end] covering matching row groups.
-   */
-  getRowGroupsFromParentValue: (
-    meta: MetaInfo,
-    value: string,
-    value_col?: string
-  ) => [number, number];
-
-  /**
-   * Get row group indices for a given parent value (for prefetch computation).
-   * @param meta - The metadata.
-   * @param value - The value to search for.
-   * @param value_col - The column name to search in.
-   * @returns Array of row group indices.
-   */
-  getRowGroupIndicesFromParentValue: (
-    meta: MetaInfo,
-    value: string,
-    value_col?: string
-  ) => number[];
 
   /**
    * Get byte ranges for specified row groups and columns for prefetching.
@@ -86,28 +61,6 @@ export type ParquetWorkerClass = {
     rowGroupIndices: number[],
     columnNames?: string[]
   ) => Array<[number, number]>;
-
-  /**
-   * Get the data for a given range of rows.
-   * @param url - The URL to the parquet file.
-   * @param range - The range of rows to get.
-   * @param columns - The columns to select.
-   * @param file - Buffer to read from, e.g. a prefetched one (default: the url's file).
-   * @returns Promise<T[]> array of row objects
-   */
-  getRowRange: <T = object>(
-    url: string,
-    range: [number, number] | undefined,
-    columns?: string[],
-    file?: AsyncBuffer
-  ) => Promise<T[]>;
-
-  /**
-   * Optimize requests for row ranges by merging overlapping ranges.
-   * @param ranges - The ranges to merge.
-   * @returns The merged ranges.
-   */
-  mergeRanges: (ranges: [number, number][]) => [number, number][];
 
   /**
    * Parse the demography data into a columnar table data.

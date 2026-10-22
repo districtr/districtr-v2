@@ -12,8 +12,8 @@ interface Part {
 // each multipart response, which is held whole until the read finishes.
 const MAX_BATCH_BYTES = 1 << 21; // 2mb
 
-/** Urls whose server refused or ignored a multi-range request */
-const singleRangeUrls = new Set<string>();
+/** Urls whose server refused or ignored a multi-range request. Exported for tests. */
+export const singleRangeUrls = new Set<string>();
 
 /**
  * Fetch byte ranges up front, batched into multi-range requests, and return an
@@ -22,8 +22,8 @@ const singleRangeUrls = new Set<string>();
  * sequential round trips into a few parallel ones.
  *
  * Use the result for one read and drop it, it holds every fetched byte.
- * ponytail: replace with hyparquet's asyncBufferFromUrl maxRanges option once
- * it is released and we upgrade, its planner fetches row groups in parallel.
+ * TODO: replace with hyparquet's asyncBufferFromUrl maxRanges option once it
+ * is released and we upgrade, its planner fetches row groups in parallel.
  *
  * @param file - Single range AsyncBuffer for url
  * @param url - The file url, for multi-range requests
@@ -85,26 +85,23 @@ async function fetchBatch(
 ): Promise<Part[]> {
   const res = await fetch(url, {
     headers: {Range: `bytes=${batch.map(([start, end]) => `${start}-${end - 1}`).join(',')}`},
-  });
-  const contentType = res.headers.get('Content-Type') ?? '';
-  const contentRange = res.headers.get('Content-Range')?.match(/bytes (\d+)-(\d+)\//);
+  }).catch(() => undefined);
   let parts: Part[] = [];
-  if (res.status === 206 && /^multipart\/byteranges/i.test(contentType)) {
+  if (
+    res?.status === 206 &&
+    /^multipart\/byteranges/i.test(res.headers.get('Content-Type') ?? '')
+  ) {
     parts = parseMultipartRanges(await res.arrayBuffer());
-  } else if (res.status === 206 && contentRange) {
-    // server merged the ranges into one
-    const start = Number(contentRange[1]);
-    const end = Number(contentRange[2]) + 1;
-    parts = [{start, end, offset: 0, buffer: await res.arrayBuffer()}];
   } else {
-    // server refused the ranges (416, 400) or ignored them (200 with the
-    // whole file), don't download the body
-    res.body?.cancel();
+    // Don't download the body: it's the whole file (200), or an error.
+    res?.body?.cancel();
+    // Only these mean the server can't do multi-range; other failures
+    // (network, 5xx, 403) may be transient, so the next read tries again.
+    if (res && [200, 400, 416].includes(res.status)) singleRangeUrls.add(url);
   }
   const missing = batch.filter(
     ([start, end]) => !parts.some(p => p.start <= start && end <= p.end)
   );
-  if (missing.length) singleRangeUrls.add(url);
   return parts.concat(await Promise.all(missing.map(range => slicePart(file, range))));
 }
 
@@ -145,9 +142,8 @@ export function parseMultipartRanges(buffer: ArrayBuffer): Part[] {
 
 /**
  * Indices of the row groups whose min/max statistics for column contain at
- * least one of values.
- * ponytail: O(row groups × values), fine for the ~50 row groups of a state's
- * block points; sort values and binary search if it shows up in a profile.
+ * least one of values. O(row groups × values), fine for the row group counts
+ * of our files.
  */
 export function rowGroupsContaining(
   metadata: FileMetaData,

@@ -4,7 +4,12 @@
  */
 import {afterEach, describe, expect, test} from 'bun:test';
 import {FileMetaData} from 'hyparquet';
-import {prefetchAsyncBuffer, rowGroupsContaining} from './parquetWorkerUtils';
+import {
+  mergeByteRanges,
+  prefetchAsyncBuffer,
+  rowGroupsContaining,
+  singleRangeUrls,
+} from './parquetWorkerUtils';
 
 const bytes = new Uint8Array(300_000).map((_, i) => i);
 bytes.set([13, 10, 13, 10], 100_010); // header terminator inside a payload
@@ -16,6 +21,7 @@ const ranges: Array<[number, number]> = [
 const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
+  singleRangeUrls.clear();
 });
 
 /** Fake server: multiple ranges get a multipart body, or the whole file like S3 */
@@ -91,6 +97,46 @@ describe('prefetchAsyncBuffer', () => {
     // and stops trying multi-range for that url
     await prefetchAsyncBuffer(file, url, ranges);
     expect(server.headers.length).toBe(1);
+  });
+
+  test('keeps trying multi-range after a transient error', async () => {
+    const statuses = [500, 206];
+    const server = serve(true);
+    const multipart = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      if (statuses.shift() === 500) {
+        server.headers.push(new Headers(init.headers).get('Range')!);
+        return new Response('oops', {status: 500});
+      }
+      return multipart(url, init);
+    }) as typeof fetch;
+    const {file, reads} = singleRangeFile();
+    const url = 'https://a.test/flaky.parquet';
+    await expectSlices(await prefetchAsyncBuffer(file, url, ranges));
+    expect(reads.length).toBe(3);
+    await expectSlices(await prefetchAsyncBuffer(file, url, ranges));
+    expect(server.headers.length).toBe(2);
+    expect(reads.length).toBe(3);
+  });
+});
+
+describe('mergeByteRanges', () => {
+  test('merges overlapping ranges and gaps up to maxGap, keeps the rest apart', () => {
+    expect(
+      mergeByteRanges(
+        [
+          [200, 300],
+          [0, 100],
+          [50, 120],
+          [401, 500],
+        ],
+        100
+      )
+    ).toEqual([
+      [0, 300],
+      [401, 500],
+    ]);
+    expect(mergeByteRanges([])).toEqual([]);
   });
 });
 
