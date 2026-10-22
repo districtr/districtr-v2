@@ -62,7 +62,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv==0.12.23
-          uv pip install --system -r requirements.txt
+          # Same constraints as the image build, so CI tests the versions that ship.
+          uv pip install --system -r requirements.txt -c requirements.lock
         working-directory: cms
 
       - name: Django system checks
@@ -88,7 +89,8 @@ jobs:
       # database, then verify the mirrors still match the live schema.
       - name: Install backend dependencies (for Alembic)
         run: |
-          uv pip install --system -r requirements.txt
+          # Same constraints as the image build, so CI tests the versions that ship.
+          uv pip install --system -r requirements.txt -c requirements.lock
         working-directory: backend
 
       - name: Run backend (Alembic) migrations
