@@ -139,16 +139,16 @@ export const useOverlayStore = create(
     },
 
     selectOverlayFeature: overlayId => {
-      // Show the layer being masked to, so its areas are there to click
-      if (overlayId === COUNTY_SOURCE_ID) {
-        useMapControlsStore
-          .getState()
-          .setMapOptions({showCountyBoundaries: true, prominentCountyNames: true});
-      } else {
-        const name = getOverlayName(overlayId);
-        if (name) get().enableOverlay(name);
-      }
-      set({selectingLayerId: overlayId});
+      // Show only the layer being masked to: its areas need to be there to
+      // click, and other boundaries drawn on top of it are just clutter.
+      // Arming a new mask also releases the current one.
+      const isCounty = overlayId === COUNTY_SOURCE_ID;
+      const name = getOverlayName(overlayId);
+      useMapControlsStore
+        .getState()
+        .setMapOptions({showCountyBoundaries: isCounty, prominentCountyNames: isCounty});
+      get().clearPaintConstraint();
+      set({selectingLayerId: overlayId, enabledOverlayIds: new Set(name ? [name] : [])});
     },
 
     reset: () => {

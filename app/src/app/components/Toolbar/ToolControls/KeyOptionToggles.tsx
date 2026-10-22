@@ -7,12 +7,10 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
-import {PaintMaskControl} from '@components/Toolbar/ToolControls/PaintMaskControl';
 
 /** The map-display toggles surfaced in the right column of
  * ToolControlsScaffold — the toolbar's only home for these now, not
- * duplicated in the Visual Settings popover or the Map Layers tab — plus
- * the paint-mask entry point. */
+ * duplicated in the Visual Settings popover or the Map Layers tab. */
 export const KeyOptionToggles: React.FC = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -79,7 +77,6 @@ export const KeyOptionToggles: React.FC = () => {
           </Flex>
         </Text>
       </HelpTip>
-      <PaintMaskControl />
     </Flex>
   );
 };

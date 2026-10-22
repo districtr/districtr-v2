@@ -31,7 +31,6 @@ const OverlayLayer = ({
   const layerId = `${OVERLAY_LAYER_ID_PREFIXES.layer}${overlay.overlay_id}`;
   const clickLayerId = `${OVERLAY_LAYER_ID_PREFIXES.click}${overlay.overlay_id}`;
   const selectedLayerId = `${OVERLAY_LAYER_ID_PREFIXES.selected}${overlay.overlay_id}`;
-  const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const idProperty = overlay.id_property || 'id';
 
@@ -121,13 +120,15 @@ const OverlayLayer = ({
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
       baseProps['source-layer'] = overlay.source_layer;
     }
-    if (paintConstraint?.featureId) {
-      baseProps.filter = ['!', ['==', ['get', idProperty], paintConstraint.featureId]];
+    // Dim everything but the masked area, on the masked overlay only: on any
+    // other overlay no feature matches, so every one of them would be dimmed.
+    if (isConstraintOverlay && selectedFeatureId) {
+      baseProps.filter = ['!', ['==', ['get', idProperty], selectedFeatureId]];
       baseProps.paint['fill-opacity'] = 0.75;
     }
 
     return baseProps;
-  }, [clickLayerId, layerId, overlay, paintConstraint?.featureId]);
+  }, [clickLayerId, layerId, overlay, isConstraintOverlay, selectedFeatureId]);
 
   // Selected constraint outline layer (for emphasis)
   const selectedOutlineProps = useMemo(() => {
