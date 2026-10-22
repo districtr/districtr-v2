@@ -9,6 +9,7 @@ import {editPath} from '@/app/utils/map/editUrl';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {MAP_TYPES} from '@constants/document/types';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
+import {formatErrorDetail} from '@/app/utils/api/factory';
 
 const MAX_FILES = 10;
 
@@ -40,12 +41,12 @@ export const Uploader: React.FC<{
       if (custom.ok) {
         setAvailableMaps(custom.response);
       } else {
-        setMapsError(custom.error.detail);
+        setMapsError(formatErrorDetail(custom.error.detail) || 'request failed');
       }
     });
   }, []);
 
-  const pendingIndex = uploads.findIndex(u => !u.mapLink && !u.error);
+  const pendingIndex = uploads.findIndex(u => u.mapLink === undefined && u.error === undefined);
   const isProcessing = pendingIndex !== -1;
   const canUpload = availableMaps !== undefined && !isProcessing;
 

@@ -1,6 +1,9 @@
 import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
+import {getDocument} from './apiHandlers/getDocument';
+import {formatErrorDetail} from './factory';
+import {idb} from '@/app/utils/idb/idb';
 import {type MapType} from '@constants/document/types';
 import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
 
@@ -172,11 +175,15 @@ export const processFile = async ({
     map_type: documentMapType,
   });
   if (!uploadResult.ok) {
-    throw new Error(uploadResult.error.detail);
+    throw new Error(
+      formatErrorDetail(uploadResult.error.detail) ||
+        `Upload failed${uploadResult.error.status ? ` (HTTP ${uploadResult.error.status})` : ''}`
+    );
   }
   if (!uploadResult.response?.document_id) {
     throw new Error('Unknown error encountered while uploading assignments');
   }
+  await saveToMyMaps(uploadResult.response.document_id);
   const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
   const remapping = uploadResult.response.zone_label_remapping;
   return {
@@ -187,4 +194,25 @@ export const processFile = async ({
     skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
     zone_label_remapping: remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
   };
+};
+
+/**
+ * List an uploaded document in "My maps" before it's opened, so closing the
+ * uploader doesn't lose it. Stores a stub; the editor fetches the assignments
+ * on first load. Best effort: the document is already safe on the server.
+ */
+const saveToMyMaps = async (document_id: string) => {
+  try {
+    const doc = await getDocument(document_id);
+    if (!doc.ok) return;
+    await idb.updateDocument({
+      id: document_id,
+      document_metadata: doc.response,
+      assignments: [],
+      clientLastUpdated: doc.response.updated_at,
+      shouldFetchAssignments: true,
+    });
+  } catch (e) {
+    console.error('Failed to save uploaded map to My maps', e);
+  }
 };
