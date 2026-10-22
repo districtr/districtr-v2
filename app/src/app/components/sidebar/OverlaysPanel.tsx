@@ -1,7 +1,7 @@
 'use client';
-import {Flex, Text, Switch, IconButton, Tooltip, Separator} from '@radix-ui/themes';
+import {Button, Flex, Text, Switch, Separator} from '@radix-ui/themes';
 import {MaskOffIcon, MaskOnIcon} from '@radix-ui/react-icons';
-import {useOverlayStore} from '@/app/store/overlayStore';
+import {getMaskOverlayId, useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {fastUniqBy} from '@/app/utils/arrays';
@@ -11,17 +11,38 @@ import {COUNTY_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {OverlayMetadataModal, isLegislativeOverlay} from './OverlayMetadataModal';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
+import {HelpTip} from '@/app/components/HelpTip/HelpTip';
+
+/** Masks painting to one area of a boundary layer, turning the layer on if
+ * needed; while armed or masked it cancels/releases instead. */
+const MaskButton = ({layerId}: {layerId: string}) => {
+  const masked = useOverlayStore(state => state.paintConstraint?.overlayId === layerId);
+  const selecting = useOverlayStore(state => state.selectingLayerId === layerId);
+  const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
+  const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
+  return (
+    <HelpTip tip="paintMask">
+      <Button
+        onClick={() =>
+          masked || selecting ? clearPaintConstraint() : selectOverlayFeature(layerId)
+        }
+        variant={masked ? 'solid' : 'soft'}
+        size="1"
+        className="cursor-pointer"
+      >
+        {masked ? <MaskOffIcon /> : <MaskOnIcon />}
+        {masked ? 'Unmask' : selecting ? 'Cancel' : 'Mask'}
+      </Button>
+    </HelpTip>
+  );
+};
 
 export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
-  const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
-  const handleLocateClick = (overlayId: string) => {
-    selectOverlayFeature(overlayId);
-  };
 
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
@@ -46,6 +67,8 @@ export const OverlaysPanel = () => {
   const legislativeOverlays = overlaysGroupedByName.filter(isLegislativeOverlay);
   const otherOverlays = overlaysGroupedByName.filter(o => !isLegislativeOverlay(o));
 
+  const maskOverlayId = (name: string) => getMaskOverlayId(availableOverlays, name);
+
   const renderOverlayRow = (overlay: Overlay) => (
     <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
       <Flex direction="column" gap="1">
@@ -63,23 +86,8 @@ export const OverlaysPanel = () => {
           checked={enabledOverlayIds.has(overlay.name)}
           onCheckedChange={() => toggleOverlay(overlay.name)}
         />
-        {superDraw && (
-          <Tooltip content="Choose an area to paint within.">
-            <IconButton
-              onClick={() => handleLocateClick(overlay.overlay_id)}
-              disabled={!enabledOverlayIds.has(overlay.name)}
-              variant="ghost"
-              color="blue"
-              size="1"
-              radius="full"
-              className="cursor-pointer"
-              style={{
-                opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
-              }}
-            >
-              {paintConstraint?.overlayId === overlay.overlay_id ? <MaskOffIcon /> : <MaskOnIcon />}
-            </IconButton>
-          </Tooltip>
+        {superDraw && maskOverlayId(overlay.name) && (
+          <MaskButton layerId={maskOverlayId(overlay.name)!} />
         )}
       </Flex>
     </Flex>
@@ -120,34 +128,17 @@ export const OverlaysPanel = () => {
                   showCountyBoundaries: checked,
                   prominentCountyNames: checked,
                 });
-                // Release the county paint mask when its layer is hidden
-                if (!checked && paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
+                // Release (or stop arming) the county paint mask when its layer is hidden
+                const {selectingLayerId} = useOverlayStore.getState();
+                if (
+                  !checked &&
+                  (paintConstraint?.overlayId ?? selectingLayerId) === COUNTY_SOURCE_ID
+                ) {
                   clearPaintConstraint();
                 }
               }}
             />
-            {superDraw && (
-              <Tooltip content="Choose an area to paint within.">
-                <IconButton
-                  onClick={() => handleLocateClick(COUNTY_SOURCE_ID)}
-                  disabled={!mapOptions.showCountyBoundaries}
-                  variant="ghost"
-                  color="blue"
-                  size="1"
-                  radius="full"
-                  className="cursor-pointer"
-                  style={{
-                    opacity: mapOptions.showCountyBoundaries ? 1 : 0.5,
-                  }}
-                >
-                  {paintConstraint?.overlayId === COUNTY_SOURCE_ID ? (
-                    <MaskOffIcon />
-                  ) : (
-                    <MaskOnIcon />
-                  )}
-                </IconButton>
-              </Tooltip>
-            )}
+            {superDraw && <MaskButton layerId={COUNTY_SOURCE_ID} />}
           </Flex>
         </Flex>
       )}

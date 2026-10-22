@@ -11,6 +11,15 @@ import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
 
 const COUNTY_SOURCE_LAYER = 'tl_2023_us_county';
 
+/** Overlay name for an overlay_id; overlays sharing a name toggle as one group. */
+export const getOverlayName = (overlayId: string) =>
+  useMapStore.getState().mapDocument?.overlays?.find(o => o.overlay_id === overlayId)?.name;
+
+/** The overlay a same-name group masks through: only line overlays get the
+ * invisible fill layer that mask selection clicks (see OverlayLayers). */
+export const getMaskOverlayId = (overlays: Overlay[], name: string) =>
+  overlays.find(o => o.name === name && o.layer_type === 'line')?.overlay_id;
+
 export interface OverlayPaintConstraint {
   overlayId: string;
   featureId: string;
@@ -40,20 +49,12 @@ export const useOverlayStore = create(
     selectingLayerId: null,
 
     toggleOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
-      const newEnabledIds = new Set(enabledOverlayIds);
-      if (newEnabledIds.has(overlayId)) {
-        newEnabledIds.delete(overlayId);
-        // Clear constraint if its overlay is disabled
-        if (paintConstraint?.overlayId === overlayId) {
-          set({enabledOverlayIds: newEnabledIds});
-          clearPaintConstraint();
-          return;
-        }
+      const {enabledOverlayIds, enableOverlay, disableOverlay} = get();
+      if (enabledOverlayIds.has(overlayId)) {
+        disableOverlay(overlayId);
       } else {
-        newEnabledIds.add(overlayId);
+        enableOverlay(overlayId);
       }
-      set({enabledOverlayIds: newEnabledIds});
     },
 
     enableOverlay: (overlayId: string) => {
@@ -64,14 +65,15 @@ export const useOverlayStore = create(
     },
 
     disableOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
+      const {enabledOverlayIds, paintConstraint, selectingLayerId, clearPaintConstraint} = get();
       const newEnabledIds = new Set(enabledOverlayIds);
       newEnabledIds.delete(overlayId);
-      // Clear constraint if its overlay is disabled
-      if (paintConstraint?.overlayId === overlayId) {
+      set({enabledOverlayIds: newEnabledIds});
+      // enabledOverlayIds holds overlay names, while the mask (and an armed
+      // selection) holds the overlay_id: release either when its overlay hides.
+      const maskLayerId = paintConstraint?.overlayId ?? selectingLayerId;
+      if (maskLayerId && getOverlayName(maskLayerId) === overlayId) {
         clearPaintConstraint();
-      } else {
-        set({enabledOverlayIds: newEnabledIds});
       }
     },
 
@@ -136,6 +138,15 @@ export const useOverlayStore = create(
     },
 
     selectOverlayFeature: overlayId => {
+      // Show the layer being masked to, so its areas are there to click
+      if (overlayId === COUNTY_SOURCE_ID) {
+        useMapControlsStore
+          .getState()
+          .setMapOptions({showCountyBoundaries: true, prominentCountyNames: true});
+      } else {
+        const name = getOverlayName(overlayId);
+        if (name) get().enableOverlay(name);
+      }
       set({selectingLayerId: overlayId});
     },
 

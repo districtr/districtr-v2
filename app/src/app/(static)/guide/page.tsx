@@ -369,10 +369,12 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/lock_district.webm`}
             />
             <Text size="3">
-              Under “Map Layers/Boundaries and areas,” Super Draw allows you to restrict your
-              painting to a county, a metro area, or any other area type available for the map.
-              Similar to the break tool&apos;s workflow, you mask an area by clicking the mask
-              button next to the toggle for its area type and selecting that area on the map.
+              Super Draw allows you to restrict your painting to a county, a metro area, or any
+              other area type available for the map. Similar to the break tool&apos;s workflow, you
+              mask an area by choosing its area type, then clicking that area on the map: use “Mask
+              painting to an area” under the paint tool&apos;s options, or the “Mask” button next to
+              an area type&apos;s toggle under “Map Layers/Boundaries and areas.” Click “Unmask” or
+              press Esc to paint everywhere again.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}
