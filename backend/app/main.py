@@ -9,6 +9,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any, Literal
+from collections import Counter
 import anyio
 import msgpack
 import psutil
@@ -1833,6 +1834,59 @@ def get_connected_component_bboxes(
         BBoxGeoJSONs(features=bboxes).model_dump(), use_bin_type=True
     )
     return Response(content=payload, media_type="application/msgpack")
+
+
+@app.get(
+    "/api/document/{document_id}/contiguity/{zone}/components",
+    dependencies=[Depends(require_session)],
+)
+def get_zone_connected_components(
+    zone: int,
+    document: Annotated[Document, Depends(get_protected_document)],
+    session: Session = Depends(get_session),
+):
+    """
+    Return the geo_ids of each connected component of `zone`, with the other
+    districts each component borders, so the client can reassign fragments.
+
+    Response: {"components": [{"geo_ids": [...], "neighbor_zones": {zone: n}}]}
+    sorted largest component (by unit count) first. `neighbor_zones` counts
+    graph edges from the component to units assigned to each other zone — a
+    proxy for shared boundary length. Unassigned neighbors are not counted.
+    Only supported for district maps — community maps return 400.
+    """
+    if document.map_type == "community":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contiguity checks are not supported for community maps",
+        )
+
+    districtr_map = get_districtr_map(
+        document_id=DocumentID(document_id=document.document_id), session=session
+    )
+    G = get_graph(districtr_map.gerrydb_table_name)
+    zone_of: dict[str, int] = {
+        node: zone_nodes.zone
+        for zone_nodes in contiguity.get_assigned_nodes(
+            session, document.document_id, districtr_map, G=G
+        )
+        for node in zone_nodes.nodes
+    }
+    zone_geo_ids = [node for node, z in zone_of.items() if z == zone]
+    if not zone_geo_ids:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
+    components = []
+    for component in sorted(
+        G.connected_components(zone_geo_ids), key=len, reverse=True
+    ):
+        neighbor_zones = Counter(
+            zone_of[n] for n in G.boundary_neighbors(component) if n in zone_of
+        )
+        components.append(
+            {"geo_ids": sorted(component), "neighbor_zones": dict(neighbor_zones)}
+        )
+    return {"components": components}
 
 
 @app.put(

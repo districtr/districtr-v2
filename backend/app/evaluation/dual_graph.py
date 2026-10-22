@@ -10,6 +10,8 @@ call site needs exactly that operation.
 - subset connectivity: ``connected_components`` / ``number_connected_components``
   / ``is_connected`` over an id subset, on the subgraph induced by that subset
   (unknown ids are silently dropped) — backed by ``scipy.sparse.csgraph``
+- ``G.boundary_neighbors(subset)`` — outside neighbors of a subset, one per
+  boundary edge (contiguity heal's target-district vote)
 - ``G.expand_non_contiguous(geo_ids)`` — in-place NCP-aware expansion for the
   contiguity endpoints
 
@@ -327,6 +329,22 @@ class DualLevelGraph:
         for label, node_id in zip(labels.tolist(), self._node_ids[idxs].tolist()):
             components.setdefault(label, set()).add(str(node_id))
         return list(components.values())
+
+    def boundary_neighbors(self, subset: Iterable[Hashable]) -> list[str]:
+        """Nodes adjacent to the subset but outside it, one entry per edge
+        crossing the subset's boundary (so a node sharing three edges with the
+        subset appears three times). Ids not in the graph are silently dropped.
+        """
+        idxs = self._subset_indices(subset)
+        if idxs.size == 0:
+            return []
+        starts = self._adj_offsets[idxs]
+        ends = self._adj_offsets[idxs + 1]
+        targets = np.concatenate(
+            [self._adj[s:e] for s, e in zip(starts.tolist(), ends.tolist())]
+        )
+        outside = targets[~np.isin(targets, idxs)]
+        return [str(n) for n in self._node_ids[outside].tolist()]
 
     def number_connected_components(self, subset: Iterable[Hashable]) -> int:
         idxs = self._subset_indices(subset)
