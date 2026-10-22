@@ -1,10 +1,11 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
-import {TwitterPicker, type ColorResult} from 'react-color';
+import {TwitterPicker} from 'react-color';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
+import {Box, Flex, Dialog, Heading, Button, Select, Text, TextField} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
-import {colorScheme as DefaultColorScheme} from '@constants/colors';
+import {colorScheme as DefaultColorScheme, DISTRICT_PALETTES} from '@constants/colors';
+import {extendColorArray, resolveColorInput} from '@/app/utils/colors';
 import {idb} from '@/app/utils/idb/idb';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
@@ -20,6 +21,8 @@ export const ColorChangeModal: React.FC<{
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
+  const [colorText, setColorText] = useState('');
+  const [colorTextError, setColorTextError] = useState(false);
   const setNotification = useMapStore(store => store.setNotification);
 
   useEffect(() => {
@@ -34,13 +37,32 @@ export const ColorChangeModal: React.FC<{
     return [...unused, ...DefaultColorScheme.filter(color => used.has(color))];
   }, [innerColorScheme, numDistricts]);
 
-  const handleColorPick = (idx: number, color: ColorResult) => {
+  const setDistrictColor = (hex: string) => {
     // Preserve the full scheme length — slicing to numDistricts here used to
     // truncate the saved color_scheme. Duplicates are allowed: with more
     // districts than palette colors they're unavoidable.
     const dupe = [...innerColorScheme];
-    dupe[colorSelectIndex] = color.hex;
+    dupe[colorSelectIndex] = hex;
     setInnerColorScheme(dupe);
+  };
+
+  const handleColorTextSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const hex = resolveColorInput(colorText);
+    setColorTextError(!hex);
+    if (!hex) return;
+    setDistrictColor(hex);
+    setColorText('');
+  };
+
+  const handleApplyPalette = (name: string) => {
+    const palette = DISTRICT_PALETTES.find(p => p.name === name);
+    if (!palette) return;
+    // A palette shorter than the scheme is extended with unused Districtr
+    // colors rather than cycled, so no two districts end up sharing a color.
+    setInnerColorScheme(
+      extendColorArray([...palette.colors], Math.max(innerColorScheme.length, numDistricts))
+    );
   };
 
   const handleSave = async () => {
@@ -80,6 +102,31 @@ export const ColorChangeModal: React.FC<{
           </Dialog.Close>
         </Flex>
         <Box className="max-h-[40vh] overflow-y-auto">
+          <Flex align="center" gapX="2" mb="3">
+            <Heading size="2">Apply a palette to all districts</Heading>
+            <Select.Root onValueChange={handleApplyPalette}>
+              <Select.Trigger placeholder="Choose a palette" />
+              <Select.Content>
+                {DISTRICT_PALETTES.map(palette => (
+                  <Select.Item key={palette.name} value={palette.name}>
+                    <Flex align="center" gapX="2">
+                      <Flex>
+                        {palette.colors.slice(0, 12).map(color => (
+                          <Box
+                            key={color}
+                            width="10px"
+                            height="10px"
+                            style={{backgroundColor: color}}
+                          />
+                        ))}
+                      </Flex>
+                      {palette.name}
+                    </Flex>
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </Flex>
           <Heading size="2" className="mb-1">
             Select a district to change its color
           </Heading>
@@ -100,10 +147,33 @@ export const ColorChangeModal: React.FC<{
               <TwitterPicker
                 color={innerColorScheme[colorSelectIndex]}
                 colors={swatchColors}
-                onChangeComplete={color => handleColorPick(colorSelectIndex, color)}
+                onChangeComplete={color => setDistrictColor(color.hex)}
                 triangle="hide"
                 className="!shadow-none !w-full"
               />
+              <form onSubmit={handleColorTextSubmit}>
+                <Flex gapX="2" align="center">
+                  <TextField.Root
+                    className="flex-1"
+                    value={colorText}
+                    onChange={event => {
+                      setColorText(event.target.value);
+                      setColorTextError(false);
+                    }}
+                    placeholder="Or type a color name (rebeccapurple, ForestGreen, #ff8800)"
+                    aria-label="Color name"
+                    aria-invalid={colorTextError}
+                  />
+                  <Button type="submit" variant="soft" disabled={!colorText.trim()}>
+                    Apply
+                  </Button>
+                </Flex>
+                {colorTextError && (
+                  <Text size="1" color="red">
+                    Unknown color. Use a CSS color name, a LaTeX dvipsnames name, or a hex code.
+                  </Text>
+                )}
+              </form>
             </Flex>
           )}
         </Box>

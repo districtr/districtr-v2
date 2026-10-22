@@ -37,6 +37,122 @@ function parseColorToRgb(color: string): [number, number, number] | null {
   }
   return null;
 }
+
+// LaTeX xcolor `dvipsnames` (the 68 CMYK colors in dvipsnam.def), converted
+// to RGB with xcolor's own rule, rgb = 1 - min(1, cmy + k). xcolor's base
+// names (red, lime, ...) and svgnames are CSS names, so the browser covers them.
+const LATEX_DVIPS_COLORS = new Map<string, string>(
+  Object.entries({
+    GreenYellow: '#d9ff4f',
+    Yellow: '#ffff00',
+    Goldenrod: '#ffe629',
+    Dandelion: '#ffb529',
+    Apricot: '#ffad7a',
+    Peach: '#ff804d',
+    Melon: '#ff8a80',
+    YellowOrange: '#ff9400',
+    Orange: '#ff6321',
+    BurntOrange: '#ff7d00',
+    Bittersweet: '#c20300',
+    RedOrange: '#ff3b21',
+    Mahogany: '#a60000',
+    Maroon: '#ad0000',
+    BrickRed: '#b80000',
+    Red: '#ff0000',
+    OrangeRed: '#ff0080',
+    RubineRed: '#ff00de',
+    WildStrawberry: '#ff0a9c',
+    Salmon: '#ff789e',
+    CarnationPink: '#ff5eff',
+    Magenta: '#ff00ff',
+    VioletRed: '#ff30ff',
+    Rhodamine: '#ff2eff',
+    Mulberry: '#a314fa',
+    RedViolet: '#9600a8',
+    Fuchsia: '#7303eb',
+    Lavender: '#ff85ff',
+    Thistle: '#e069ff',
+    Orchid: '#ad5cff',
+    DarkOrchid: '#9933cc',
+    Purple: '#8c24ff',
+    Plum: '#8000ff',
+    Violet: '#361fff',
+    RoyalPurple: '#4019ff',
+    BlueViolet: '#190df5',
+    Periwinkle: '#6e73ff',
+    CadetBlue: '#616ec4',
+    CornflowerBlue: '#59deff',
+    MidnightBlue: '#007091',
+    NavyBlue: '#0f75ff',
+    RoyalBlue: '#0080ff',
+    Blue: '#0000ff',
+    Cerulean: '#0fe3ff',
+    Cyan: '#00ffff',
+    ProcessBlue: '#0affff',
+    SkyBlue: '#61ffe0',
+    Turquoise: '#26ffcc',
+    TealBlue: '#1ffaa3',
+    Aquamarine: '#2effb2',
+    BlueGreen: '#26ffab',
+    Emerald: '#00ff80',
+    JungleGreen: '#03ff7a',
+    SeaGreen: '#4fff80',
+    Green: '#00ff00',
+    ForestGreen: '#00e000',
+    PineGreen: '#00bf29',
+    LimeGreen: '#80ff00',
+    YellowGreen: '#8fff42',
+    SpringGreen: '#bdff3d',
+    OliveGreen: '#009900',
+    RawSienna: '#8c0000',
+    Sepia: '#4d0000',
+    Brown: '#660000',
+    Tan: '#db9470',
+    Gray: '#808080',
+    Black: '#000000',
+    White: '#ffffff',
+  })
+);
+const LATEX_DVIPS_COLORS_LOWER = new Map(
+  [...LATEX_DVIPS_COLORS].map(([name, hex]) => [name.toLowerCase(), hex])
+);
+
+let colorContext: CanvasRenderingContext2D | null | undefined;
+
+/** Resolves any CSS color (name, hex, rgb(), hsl(), ...) to opaque #rrggbb via the browser. */
+function cssColorToHex(color: string): string | null {
+  if (typeof document === 'undefined') return null;
+  colorContext ??= document.createElement('canvas').getContext('2d');
+  if (!colorContext) return null;
+  // Canvas ignores invalid values, so only a real color gives the same result
+  // after two different starting values.
+  colorContext.fillStyle = '#000000';
+  colorContext.fillStyle = color;
+  const fromBlack = colorContext.fillStyle;
+  colorContext.fillStyle = '#ffffff';
+  colorContext.fillStyle = color;
+  // Translucent colors serialize as rgba(); district fills need opaque hex.
+  return fromBlack === colorContext.fillStyle && /^#[0-9a-f]{6}$/.test(fromBlack)
+    ? fromBlack
+    : null;
+}
+
+/**
+ * Resolves typed color text to #rrggbb, or null if unrecognized. An exact-case
+ * dvipsnames match wins (so `Orange` is LaTeX's, `orange` is CSS's); CSS comes
+ * next; then a case-insensitive dvipsnames match (`brickred`).
+ */
+export function resolveColorInput(input: string): string | null {
+  const color = input.trim();
+  if (!color) return null;
+  return (
+    LATEX_DVIPS_COLORS.get(color) ??
+    cssColorToHex(color) ??
+    LATEX_DVIPS_COLORS_LOWER.get(color.toLowerCase()) ??
+    null
+  );
+}
+
 export const extendColorArray = (
   colorArray: string[],
   numDistricts: number,
