@@ -42,6 +42,18 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
+def test_boundary_neighbors(connected_graph):
+    # One entry per boundary edge: a and c each touch b and d.
+    assert sorted(connected_graph.boundary_neighbors(["a", "c"])) == [
+        "b",
+        "b",
+        "d",
+        "d",
+    ]
+    # The internal a–b edge is not a boundary.
+    assert sorted(connected_graph.boundary_neighbors(["a", "b"])) == ["c", "d"]
+
+
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     client.put(
         "/api/assignments",

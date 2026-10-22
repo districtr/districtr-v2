@@ -1853,6 +1853,11 @@ def get_zone_connected_components(
     sorted largest component (by unit count) first. `neighbor_zones` counts
     graph edges from the component to units assigned to each other zone — a
     proxy for shared boundary length. Unassigned neighbors are not counted.
+    The proxy is only uniform within one level: two unbroken parents share a
+    single edge however long their border, while a border with shattered
+    blocks counts once per block, so shattered neighbors are over-weighted.
+    Components come from get_assigned_nodes, so a non-contiguous parent
+    appears as its blocks.
     Only supported for district maps — community maps return 400.
     """
     if document.map_type == "community":

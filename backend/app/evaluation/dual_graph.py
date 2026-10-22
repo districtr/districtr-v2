@@ -11,7 +11,7 @@ call site needs exactly that operation.
   / ``is_connected`` over an id subset, on the subgraph induced by that subset
   (unknown ids are silently dropped) — backed by ``scipy.sparse.csgraph``
 - ``G.boundary_neighbors(subset)`` — outside neighbors of a subset, one per
-  boundary edge (contiguity heal's target-district vote)
+  boundary edge (contiguity fragment moves' target-district vote)
 - ``G.expand_non_contiguous(geo_ids)`` — in-place NCP-aware expansion for the
   contiguity endpoints
 
@@ -338,11 +338,7 @@ class DualLevelGraph:
         idxs = self._subset_indices(subset)
         if idxs.size == 0:
             return []
-        starts = self._adj_offsets[idxs]
-        ends = self._adj_offsets[idxs + 1]
-        targets = np.concatenate(
-            [self._adj[s:e] for s, e in zip(starts.tolist(), ends.tolist())]
-        )
+        targets = self._csr[idxs].indices
         outside = targets[~np.isin(targets, idxs)]
         return [str(n) for n in self._node_ids[outside].tolist()]
 

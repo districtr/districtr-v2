@@ -25,7 +25,7 @@ import {
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {HealPlan, planHeal} from '@/app/utils/map/healFragments';
+import {FragmentMovePlan, planFragmentMoves} from '@/app/utils/map/fragmentMoves';
 import {ACCESS_STATES} from '@constants/document/state';
 
 interface ContiguityDetailProps {
@@ -101,7 +101,7 @@ export default function ContiguityDetail({
           </Tooltip>
         )}
         {contiguity > 1 && mapDocument?.access === ACCESS_STATES.EDIT && (
-          <HealFragments zone={zone} outOfSync={!!isOutOfSync} />
+          <MoveFragments zone={zone} />
         )}
       </Flex>
       {showZoom && !data && !error && <Spinner />}
@@ -160,7 +160,7 @@ function ComponentZoomList({
 const getPopLookup = () => {
   const table = demographyService.table;
   if (!table?.columnNames().includes('total_pop_20')) return () => undefined;
-  const paths = table.array('path');
+  const paths = table.array(demographyService.id_col);
   const pops = table.array('total_pop_20');
   const pop = new Map<string, number>();
   for (let i = 0; i < paths.length; i++) pop.set(paths[i], pops[i]);
@@ -171,10 +171,14 @@ const getPopLookup = () => {
  * "Heal": moves every unit outside the district's main body into the neighboring
  * district it borders most, as one paint (one undo step, autosaved like any edit).
  */
-function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
+function MoveFragments({zone}: {zone: number}) {
   const mapDocument = useMapStore(store => store.mapDocument);
   const mapLock = useMapStore(store => store.mapLock);
-  const [plan, setPlan] = useState<HealPlan | null>(null);
+  // Like Paint and Erase: nothing is edited out of sight.
+  const districtsHidden = useMapControlsStore(
+    state => state.mapOptions.showPaintedDistricts === false
+  );
+  const [plan, setPlan] = useState<FragmentMovePlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,6 +186,16 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
     if (!mapDocument) return;
     setLoading(true);
     setError(null);
+    // The server plans from the saved map, so save local edits (including undo/redo) first.
+    const {clientLastUpdated, handlePutAssignments} = useAssignmentsStore.getState();
+    if (clientLastUpdated !== '' && clientLastUpdated !== mapDocument.updated_at) {
+      const saved = await handlePutAssignments(false, {silent: true});
+      if (!saved.ok) {
+        setLoading(false);
+        setError(saved.error.detail);
+        return;
+      }
+    }
     const result = await getZoneConnectedComponents(mapDocument, zone);
     setLoading(false);
     if (!result.ok) {
@@ -189,7 +203,7 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
       return;
     }
     setPlan(
-      planHeal(
+      planFragmentMoves(
         zone,
         result.response.components,
         useAssignmentsStore.getState().zoneAssignments,
@@ -201,12 +215,11 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
 
   const apply = () => {
     if (!plan) return;
-    const timestamp = new Date().toISOString();
-    const zonesLastUpdated = new Map(useAssignmentsStore.getState().zonesLastUpdated);
-    [zone, ...plan.byTarget.map(t => t.zone)].forEach(z => zonesLastUpdated.set(z, timestamp));
-    // Same path as a brush stroke: stage, then ingest once (one undo entry, IDB, autosave).
-    useAssignmentsStore.setState({accumulatedAssignments: new Map(plan.moves), zonesLastUpdated});
-    useAssignmentsStore.getState().ingestAccumulatedAssignments();
+    const {setAccumulatedAssignments, ingestAccumulatedAssignments} =
+      useAssignmentsStore.getState();
+    // Stage, then ingest once, like a brush stroke: one undo entry, IDB, autosave.
+    setAccumulatedAssignments(plan.moves, new Set([zone, ...plan.byTarget.map(t => t.zone)]));
+    ingestAccumulatedAssignments();
     setPlan(null);
   };
 
@@ -220,8 +233,8 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
     <>
       <Tooltip
         content={
-          outOfSync
-            ? 'Waiting for the contiguity check to catch up with your edits'
+          districtsHidden
+            ? 'Show painted districts to heal'
             : 'Move every piece outside the main body into the district it borders most'
         }
       >
@@ -230,7 +243,7 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
           variant="soft"
           ml="auto"
           loading={loading}
-          disabled={outOfSync || !!mapLock}
+          disabled={districtsHidden || !!mapLock}
           onClick={preview}
         >
           Heal
@@ -265,9 +278,9 @@ function HealFragments({zone, outOfSync}: {zone: number; outOfSync: boolean}) {
                 Skipped {plural(plan.skippedNoNeighbor)}: no neighboring district.
               </Text>
             )}
-            {!!plan?.skippedStale && (
+            {!!plan?.skippedNotOnMap && (
               <Text size="1" color="gray">
-                Skipped {plural(plan.skippedStale)}: changed since the last check, or part of a
+                Skipped {plural(plan.skippedNotOnMap)}: changed since the last check, or part of a
                 larger unbroken unit.
               </Text>
             )}
