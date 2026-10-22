@@ -72,8 +72,14 @@ export const ColorChangeModal: React.FC<{
     onClose?.();
   };
 
-  const handleCancel = () => {
+  const resetDraft = () => {
     setInnerColorScheme(colorScheme);
+    setColorText('');
+    setColorTextError(false);
+  };
+
+  const handleCancel = () => {
+    resetDraft();
     onClose?.();
   };
 
@@ -84,9 +90,11 @@ export const ColorChangeModal: React.FC<{
   return (
     <Dialog.Root
       open={dialogOpen}
-      onOpenChange={isOpen =>
-        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
-      }
+      onOpenChange={isOpen => {
+        // X, Escape and overlay clicks discard the draft just like Cancel.
+        if (!isOpen) resetDraft();
+        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen);
+      }}
     >
       <Dialog.Content className="max-w-[600px] max-h-[80vw]">
         <Flex align="start">
@@ -104,7 +112,9 @@ export const ColorChangeModal: React.FC<{
         <Box className="max-h-[40vh] overflow-y-auto">
           <Flex align="center" gapX="2" mb="3">
             <Heading size="2">Apply a palette to all districts</Heading>
-            <Select.Root onValueChange={handleApplyPalette}>
+            {/* Controlled to the placeholder: this is an action, so re-picking the
+                same palette must fire again and no stale name should linger. */}
+            <Select.Root value="" onValueChange={handleApplyPalette}>
               <Select.Trigger placeholder="Choose a palette" />
               <Select.Content>
                 {DISTRICT_PALETTES.map(palette => (
@@ -135,6 +145,8 @@ export const ColorChangeModal: React.FC<{
             value={colorSelectIndex}
             onValueChange={(value: number) => {
               setColorSelectIndex(value);
+              setColorText('');
+              setColorTextError(false);
             }}
             _colorScheme={innerColorScheme}
           />
@@ -160,7 +172,7 @@ export const ColorChangeModal: React.FC<{
                       setColorText(event.target.value);
                       setColorTextError(false);
                     }}
-                    placeholder="Or type a color name (rebeccapurple, ForestGreen, #ff8800)"
+                    placeholder="Or type a color name (rebeccapurple, BrickRed, #ff8800)"
                     aria-label="Color name"
                     aria-invalid={colorTextError}
                   />
@@ -170,7 +182,8 @@ export const ColorChangeModal: React.FC<{
                 </Flex>
                 {colorTextError && (
                   <Text size="1" color="red">
-                    Unknown color. Use a CSS color name, a LaTeX dvipsnames name, or a hex code.
+                    Not a usable color. Use a CSS color name, a LaTeX dvipsnames name, or a hex code
+                    like #ff8800 (no transparency).
                   </Text>
                 )}
               </form>

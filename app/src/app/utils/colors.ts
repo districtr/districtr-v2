@@ -39,8 +39,11 @@ function parseColorToRgb(color: string): [number, number, number] | null {
 }
 
 // LaTeX xcolor `dvipsnames` (the 68 CMYK colors in dvipsnam.def), converted
-// to RGB with xcolor's own rule, rgb = 1 - min(1, cmy + k). xcolor's base
-// names (red, lime, ...) and svgnames are CSS names, so the browser covers them.
+// to RGB with xcolor's own rule, rgb = 1 - min(1, cmy + k). That rule runs more
+// saturated than PDF viewers render these (ForestGreen is #00e000 here). xcolor's
+// base names (red, lime, ...) and svgnames are CSS names, so the browser covers
+// them, except where a CamelCase svgname such as ForestGreen is also a
+// dvipsname: the exact-case dvipsnames match wins (see resolveColorInput).
 const LATEX_DVIPS_COLORS = new Map<string, string>(
   Object.entries({
     GreenYellow: '#d9ff4f',
