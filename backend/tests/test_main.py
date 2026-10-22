@@ -2046,6 +2046,12 @@ def test_put_assignments_with_zone_aliases(
     assert meta["zone_aliases"] == {"1": "North Shore"}
     assert meta["name"] == "My plan"
 
+    # A save without zone_aliases leaves them alone.
+    r = client.put("/api/assignments", json=base)
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"1": "North Shore"}
+
     r = client.put(
         "/api/assignments",
         json={**base, "metadata": {"zone_aliases": {"0": "Nope", "x": "Nope"}}},

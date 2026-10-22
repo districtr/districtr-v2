@@ -67,7 +67,7 @@ def clean_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
         return None
     cleaned: dict[str, str] = {}
     for zone, alias in aliases.items():
-        if not zone.isdigit() or int(zone) <= 0:
+        if not (zone.isascii() and zone.isdigit()) or int(zone) <= 0:
             continue
         alias = sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH]
         if alias:
@@ -204,7 +204,9 @@ class DocumentMetadata(BaseModel):
 
     @field_validator("zone_aliases")
     @classmethod
-    def clean_zone_aliases(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+    def sanitize_zone_aliases(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
         return clean_zone_aliases(value)
 
 
@@ -440,11 +442,14 @@ class AssignmentsMetadata(BaseModel):
     num_communities: int | None = None
     community_metadata_list: list[CommunityMetadata] | None = None
     # Stored in document.map_metadata; {} clears every alias, None leaves them.
+    # Sent with the assignments so a renumber's aliases save atomically with it.
     zone_aliases: dict[str, str] | None = None
 
     @field_validator("zone_aliases")
     @classmethod
-    def clean_zone_aliases(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+    def sanitize_zone_aliases(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
         return clean_zone_aliases(value)
 
 

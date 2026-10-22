@@ -5,12 +5,14 @@ import {ShuffleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {FALLBACK_NUM_DISTRICTS, ZONE_ALIAS_MAX_LENGTH} from '@/app/constants/document/limits';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/document/limits';
+import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
+import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 
 /** Name the selected district, or swap its number with another district's. */
 export const DistrictAliasControls: React.FC = () => {
   const selectedZone = useMapControlsStore(state => state.selectedZone);
-  const alias = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases?.[selectedZone]);
+  const alias = useZoneAlias(selectedZone);
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
@@ -57,7 +59,7 @@ export const DistrictAliasControls: React.FC = () => {
         placeholder="Add a name"
         aria-label={`Name for district ${selectedZone}`}
         value={draftAlias}
-        maxLength={ZONE_ALIAS_MAX_LENGTH}
+        maxLength={MAX_COMMUNITY_NAME_LENGTH}
         onChange={e => setDraftAlias(e.target.value)}
         onBlur={commitAlias}
         onKeyUp={e => e.key === 'Enter' && e.currentTarget.blur()}

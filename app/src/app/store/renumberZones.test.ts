@@ -5,7 +5,7 @@ import {useMapControlsStore} from './mapControlsStore';
 import {followZoneRenumber} from './temporalStore';
 
 describe('renumberZones', () => {
-  test('swaps zones, metadata follows, undo restores both', () => {
+  test('renumbers zones, metadata follows, undo restores both', () => {
     useMapStore.setState({
       mapDocument: {
         document_id: '',
@@ -26,13 +26,19 @@ describe('renumberZones', () => {
       selectedZone: 1,
       mapOptions: {...s.mapOptions, lockPaintedAreas: [2]},
     }));
-    useAssignmentsStore.getState().renumberZones(
+    const {renumberZones} = useAssignmentsStore.getState();
+    // A merge isn't a permutation: ignored.
+    renumberZones(new Map([[3, 2]]));
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBe(0);
+    // A 3-cycle, so an un-inverted undo would show.
+    renumberZones(
       new Map([
         [1, 2],
-        [2, 1],
+        [2, 3],
+        [3, 1],
       ])
     );
-    const swapped = () => ({
+    const state = () => ({
       zones: Array.from(useAssignmentsStore.getState().zoneAssignments.values()),
       colors: useMapStore.getState().mapDocument?.color_scheme,
       aliases: useMapStore.getState().mapDocument?.map_metadata.zone_aliases,
@@ -40,18 +46,31 @@ describe('renumberZones', () => {
       selected: useMapControlsStore.getState().selectedZone,
       locks: useMapControlsStore.getState().mapOptions.lockPaintedAreas,
     });
-    expect(swapped()).toEqual({
-      zones: [2, 1, 3],
-      colors: ['#222', '#111', '#333'],
+    const renumbered = {
+      zones: [2, 3, 1],
+      colors: ['#333', '#111', '#222'],
       aliases: {'2': 'North'},
-      comments: [1],
+      comments: [3],
       selected: 2,
-      locks: [1],
-    });
+      locks: [3],
+    };
+    expect(state()).toEqual(renumbered);
 
+    // An ordinary edit after the renumber: undoing it must leave the metadata alone.
+    useAssignmentsStore.setState({
+      zoneAssignments: new Map([
+        ['a', 2],
+        ['b', 3],
+        ['c', 3],
+      ]),
+      clientLastUpdated: '2020-01-02T00:00:00.000Z',
+    });
     const {undo, redo} = useAssignmentsStore.temporal.getState();
     followZoneRenumber(undo, 'undo');
-    expect(swapped()).toEqual({
+    expect(state()).toEqual(renumbered);
+
+    followZoneRenumber(undo, 'undo');
+    expect(state()).toEqual({
       zones: [1, 2, 3],
       colors: ['#111', '#222', '#333'],
       aliases: {'1': 'North'},
@@ -60,7 +79,6 @@ describe('renumberZones', () => {
       locks: [2],
     });
     followZoneRenumber(redo, 'redo');
-    expect(swapped().aliases).toEqual({'2': 'North'});
-    expect(swapped().zones).toEqual([2, 1, 3]);
+    expect(state()).toEqual(renumbered);
   });
 });

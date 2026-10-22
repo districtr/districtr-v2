@@ -89,7 +89,10 @@ export interface AssignmentsStore {
    * move the per-district metadata (colors, aliases, ...) with it. */
   lastZoneRenumber: Map<Zone, Zone> | null;
   /** Reassign district numbers: every unit (shattered children included) in a key
-   * zone moves to its mapped zone, and the per-district metadata follows. */
+   * zone moves to its mapped zone, and the per-district metadata follows. The
+   * mapping must be a permutation (every value is also a key, e.g. a swap); a
+   * merge or a move into an unused number is ignored, since colors and undo
+   * would have nothing to swap back. */
   renumberZones: (mapping: Map<Zone, Zone>) => void;
   setClientLastUpdated: (updated_at: string) => void;
 
@@ -389,6 +392,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // Locked while saving or breaking: an in-flight break would overwrite the result.
     const {mapDocument, mapLock} = useMapStore.getState();
     if (!mapping.size || !mapDocument || mapLock) return;
+    if (![...mapping.values()].every(zone => mapping.has(zone))) return;
     useMapStore.getState().permuteZoneMetadata(mapping);
     const nextAssignments = new Map(zoneAssignments);
     zoneAssignments.forEach((zone, geoid) => {
@@ -401,6 +405,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       nextZonesLastUpdated.set(from, timestamp);
       nextZonesLastUpdated.set(to, timestamp);
     });
+    // Re-read: permuteZoneMetadata replaced mapDocument, and IDB needs the permuted one.
     idb.updateIdbAssignments(useMapStore.getState().mapDocument!, nextAssignments, timestamp);
     // A break leaves tracking paused until the next edit; like a paint, this edit
     // resumes it and folds a pending break into its undo step.
@@ -529,6 +534,12 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       // Save immediately when loading from document (not during painting)
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
+      // The document's metadata just replaced whatever the renumber steps in history
+      // left behind, so undoing one would permute metadata that was never swapped.
+      if (get().lastZoneRenumber) {
+        set({lastZoneRenumber: null});
+        useAssignmentsStore.temporal.getState().clear();
+      }
     }
     demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,

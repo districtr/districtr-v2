@@ -19,7 +19,8 @@ import {QueryObserverResult} from '@tanstack/react-query';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_COMMUNITIES, ZONE_ALIAS_MAX_LENGTH} from '@/app/constants/document/limits';
+import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {MAX_COMMUNITY_NAME_LENGTH, sanitizeCommunityName} from '../utils/sanitize';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -249,7 +250,7 @@ export interface MapStore {
   /** Set (or clear, with a blank name) a district's display name. */
   setZoneAlias: (zone: number, alias: string) => void;
   /** Move per-district state (color, alias, description, lock, selection) from each
-   * key zone to its mapped zone. Assignments are permuted separately, by
+   * key zone to its mapped zone; the mapping must be a permutation. Assignments are permuted separately, by
    * assignmentsStore.renumberZones, so the renumber is one undo step. */
   permuteZoneMetadata: (mapping: Map<number, number>) => void;
 
@@ -748,7 +749,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {mapDocument, updated} = get();
       if (!mapDocument) return;
       const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
-      const trimmed = alias.trim().slice(0, ZONE_ALIAS_MAX_LENGTH);
+      // Same pipeline and cap the server applies, so the stored name is what's shown.
+      const trimmed = sanitizeCommunityName(alias).slice(0, MAX_COMMUNITY_NAME_LENGTH);
       if (trimmed) {
         zone_aliases[zone] = trimmed;
       } else {
