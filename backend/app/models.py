@@ -60,6 +60,21 @@ def sanitize_community_name(name: str) -> str:
     return without_format_chars.strip()
 
 
+def clean_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
+    """Sanitize user-set district display names; blank names and keys that
+    aren't a positive zone number are dropped."""
+    if aliases is None:
+        return None
+    cleaned: dict[str, str] = {}
+    for zone, alias in aliases.items():
+        if not (zone.isascii() and zone.isdigit()) or int(zone) <= 0:
+            continue
+        alias = sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH]
+        if alias:
+            cleaned[str(int(zone))] = alias
+    return cleaned
+
+
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -185,6 +200,14 @@ class DocumentMetadata(BaseModel):
     description: str | None = None
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
+    zone_aliases: dict[str, str] | None = None
+
+    @field_validator("zone_aliases")
+    @classmethod
+    def sanitize_zone_aliases(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        return clean_zone_aliases(value)
 
 
 class CommunityMetadata(BaseModel):
@@ -418,6 +441,16 @@ class AssignmentsMetadata(BaseModel):
     num_districts: int | None = None
     num_communities: int | None = None
     community_metadata_list: list[CommunityMetadata] | None = None
+    # Stored in document.map_metadata; {} clears every alias, None leaves them.
+    # Sent with the assignments so a renumber's aliases save atomically with it.
+    zone_aliases: dict[str, str] | None = None
+
+    @field_validator("zone_aliases")
+    @classmethod
+    def sanitize_zone_aliases(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        return clean_zone_aliases(value)
 
 
 class AssignmentsCreate(BaseModel):

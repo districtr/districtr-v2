@@ -3,6 +3,7 @@ import {Flex, Text, Button, TextArea, IconButton, Box} from '@radix-ui/themes';
 import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useState} from 'react';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
@@ -144,6 +145,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   const mapMode = useMapControlsStore(state => state.mapMode);
   const communities = useMapStore(state => state.communities);
   const {save} = useMapSaveStatus();
+  const alias = useZoneAlias(zone);
 
   if (!commentLengthLimit) {
     return null;
@@ -174,7 +176,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
             style={{backgroundColor: color}}
           />
           <Text size="2" weight="bold">
-            {zoneLabel} {displayZone} Description
+            {zoneLabel} {displayZone} {alias ? `· ${alias}` : 'Description'}
           </Text>
         </Flex>
         {showEditingControls && !isEditing && !description && (

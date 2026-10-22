@@ -1,5 +1,6 @@
 'use client';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 
 interface DistrictLabelProps {
   zone: number;
@@ -20,6 +21,7 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
 }) => {
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
+  const alias = useZoneAlias(zone);
 
   return (
     <div
@@ -33,6 +35,7 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
       onMouseLeave={onMouseLeave}
       onFocus={onFocus}
       onBlur={onBlur}
+      title={alias}
       style={{
         width: 30,
         height: 30,

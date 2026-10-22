@@ -34,6 +34,7 @@ export const putUpdateAssignmentsAndVerify = async ({
   childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
+  const clientLastUpdatedAtStart = useAssignmentsStore.getState().clientLastUpdated;
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
@@ -72,6 +73,7 @@ export const putUpdateAssignmentsAndVerify = async ({
         mapDocument.num_districts && mapDocument.num_districts_modifiable
           ? mapDocument.num_districts
           : undefined,
+      zone_aliases: mapDocument.map_metadata?.zone_aliases,
     },
     comments,
   });
@@ -153,6 +155,22 @@ export const putUpdateAssignmentsAndVerify = async ({
         "Some district descriptions were adjusted to fit this map's limits. Latest versions shown below.",
       id: `comment-adjusted-${assignmentsPostResponse.response.updated_at}`,
     });
+  }
+
+  // The sidebar stays live while a save is in flight (an alias, a description, an
+  // undo). If anything changed meanwhile, don't overwrite it with this save's
+  // snapshot or mark it clean: adopt the new server timestamp, re-stamp IDB with
+  // the current state as a local edit, and let the next save send it.
+  if (useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtStart) {
+    const updated_at = assignmentsPostResponse.response.updated_at;
+    useMapStore.getState().mutateMapDocument({updated_at});
+    idb.updateIdbAssignments(
+      useMapStore.getState().mapDocument!,
+      useAssignmentsStore.getState().zoneAssignments,
+      new Date().toISOString(),
+      true
+    );
+    return {ok: true, response: {updated_at}};
   }
 
   await idb.updateDocument({

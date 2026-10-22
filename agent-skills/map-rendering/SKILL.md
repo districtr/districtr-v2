@@ -12,6 +12,7 @@ user-invocable: false
   - Heavy geometry/tabular work (dissolve/centroid math, parquet range scans) runs in `GeometryWorker`/`ParquetWorker`, never on the `mousemove`-driven paint path.
   - The paint path writes MapLibre feature-state directly and synchronously from the store action (see the comment at `assignmentsStore.ts`'s paint path) — do not marshal paint updates through an async layer re-render.
   - A gesture coalesces to **one undo entry**: assignments buffer in `accumulatedAssignments` and ingest once at gesture end. Any *automatic* post-paint side effect (e.g. auto-heal) must fold into the triggering gesture's undo entry, not open its own — commit `07af68f6` fixed exactly this regression after PR #634 made undo per-gesture (detail in `docs/decisions.md`).
+  - Undo history (zundo) tracks assignments only. A renumber's metadata move (colors, aliases, notes, locks) is replayed by `followZoneRenumber` in `temporalStore.ts`, keyed on the identity of `lastZoneRenumber`: undo/redo must go through `useTemporalStore`, and snapshots copy that Map by reference, never clone it.
 
 ## Vocabulary at this surface
 
