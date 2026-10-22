@@ -11,7 +11,8 @@ import {PaintMaskControl} from '@components/Toolbar/ToolControls/PaintMaskContro
 
 /** The map-display toggles surfaced in the right column of
  * ToolControlsScaffold — the toolbar's only home for these now, not
- * duplicated in the Visual Settings popover or the Map Layers tab. */
+ * duplicated in the Visual Settings popover or the Map Layers tab — plus
+ * the paint-mask entry point. */
 export const KeyOptionToggles: React.FC = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);

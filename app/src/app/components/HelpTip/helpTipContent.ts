@@ -178,16 +178,16 @@ export const helpTipContent = {
     title: 'Boundaries and areas',
     text: 'Click here to see optional toggles for reference overlays relevant to redistricting, such as existing political boundaries.',
   },
-  // Text-only on purpose (no videoFile): this renders inside the Mode switcher's
-  // DropdownMenu.Item, whose own pointer handling closes the hover card before the
-  // cursor can reach an interactive link inside it. Without a video there's no
-  // link, so nothing ever needs to travel into the card.
   paintMask: {
     title: 'Masking painting to an area',
     text: 'Pick a boundary layer, then click one of its areas on the map (a county, a district, a metro area…). The brush and eraser then only change units inside that area until you unmask.',
     videoFile: 'mask_area.webm',
     guideAnchor: 'additional-controls',
   },
+  // Text-only on purpose (no videoFile): this renders inside the Mode switcher's
+  // DropdownMenu.Item, whose own pointer handling closes the hover card before the
+  // cursor can reach an interactive link inside it. Without a video there's no
+  // link, so nothing ever needs to travel into the card.
   superDraw: {
     title: 'Super Draw',
     text: 'Super Draw unlocks additional tools for fine-tuning your districts, including the break tool and a side-by-side view of demographic or election data next to your map.',

@@ -2,7 +2,7 @@
 import {useMemo} from 'react';
 import {Box, Button, DropdownMenu} from '@radix-ui/themes';
 import {MaskOffIcon, MaskOnIcon} from '@radix-ui/react-icons';
-import {getMaskOverlayId, getOverlayName, useOverlayStore} from '@store/overlayStore';
+import {getMaskOverlayId, useOverlayStore} from '@store/overlayStore';
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
@@ -40,7 +40,7 @@ export const PaintMaskControl = () => {
   const button = maskLayerId ? (
     <Button size="1" onClick={clearPaintConstraint} className="cursor-pointer">
       <MaskOffIcon />
-      Unmask ({maskLayerId === COUNTY_SOURCE_ID ? 'county' : getOverlayName(maskLayerId)})
+      Unmask ({layers.find(layer => layer.id === maskLayerId)?.name})
     </Button>
   ) : selecting ? (
     <Button size="1" variant="soft" onClick={clearPaintConstraint} className="cursor-pointer">

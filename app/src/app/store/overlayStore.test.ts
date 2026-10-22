@@ -1,23 +1,42 @@
-import {expect, test} from 'bun:test';
+import {beforeEach, expect, test} from 'bun:test';
 import {useOverlayStore} from './overlayStore';
 import {useMapStore} from './mapStore';
 
-// enabledOverlayIds holds overlay names; the mask holds an overlay_id (l05).
-test('hiding an overlay releases its paint mask and armed selection', () => {
+const mask = (overlayId: string) =>
+  useOverlayStore.setState({paintConstraint: {overlayId, featureId: 'f', features: []}});
+const state = () => useOverlayStore.getState();
+
+beforeEach(() => {
   useMapStore.setState({
-    mapDocument: {overlays: [{overlay_id: 'ov-1', name: 'Metro areas', layer_type: 'line'}]},
+    mapDocument: {
+      overlays: [
+        {overlay_id: 'metro', name: 'Metro areas', layer_type: 'line'},
+        {overlay_id: 'school', name: 'School districts', layer_type: 'line'},
+      ],
+    },
   } as any);
-  const store = useOverlayStore.getState();
+  state().reset();
+});
 
-  store.selectOverlayFeature('ov-1');
-  expect(useOverlayStore.getState().enabledOverlayIds.has('Metro areas')).toBe(true);
-  store.toggleOverlay('Metro areas');
-  expect(useOverlayStore.getState().selectingLayerId).toBeNull();
-  expect(useOverlayStore.getState().enabledOverlayIds.has('Metro areas')).toBe(false);
+// enabledOverlayIds holds overlay names; the mask holds an overlay_id.
+test('hiding an overlay releases its own mask or armed selection', () => {
+  state().selectOverlayFeature('metro');
+  expect(state().enabledOverlayIds.has('Metro areas')).toBe(true);
+  state().toggleOverlay('Metro areas');
+  expect(state().selectingLayerId).toBeNull();
+  expect(state().enabledOverlayIds.has('Metro areas')).toBe(false);
 
-  store.enableOverlay('Metro areas');
-  useOverlayStore.setState({paintConstraint: {overlayId: 'ov-1', featureId: 'f', features: []}});
-  store.toggleOverlay('Metro areas');
-  expect(useOverlayStore.getState().paintConstraint).toBeNull();
-  expect(useOverlayStore.getState().enabledOverlayIds.has('Metro areas')).toBe(false);
+  state().enableOverlay('Metro areas');
+  mask('metro');
+  state().toggleOverlay('Metro areas');
+  expect(state().paintConstraint).toBeNull();
+  expect(state().enabledOverlayIds.has('Metro areas')).toBe(false);
+});
+
+test('hiding another overlay leaves the mask, and cancels only its own armed selection', () => {
+  mask('metro');
+  state().selectOverlayFeature('school');
+  state().toggleOverlay('School districts');
+  expect(state().paintConstraint?.overlayId).toBe('metro');
+  expect(state().selectingLayerId).toBeNull();
 });

@@ -41,7 +41,6 @@ export const OverlaysPanel = () => {
   const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
-  const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
 
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -67,31 +66,30 @@ export const OverlaysPanel = () => {
   const legislativeOverlays = overlaysGroupedByName.filter(isLegislativeOverlay);
   const otherOverlays = overlaysGroupedByName.filter(o => !isLegislativeOverlay(o));
 
-  const maskOverlayId = (name: string) => getMaskOverlayId(availableOverlays, name);
-
-  const renderOverlayRow = (overlay: Overlay) => (
-    <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
-      <Flex direction="column" gap="1">
-        <Text size="2" weight="medium">
-          {overlay.name}
-        </Text>
-        {overlay.description && (
-          <Text size="1" color="gray">
-            {overlay.description}
+  const renderOverlayRow = (overlay: Overlay) => {
+    const maskOverlayId = getMaskOverlayId(availableOverlays, overlay.name);
+    return (
+      <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            {overlay.name}
           </Text>
-        )}
+          {overlay.description && (
+            <Text size="1" color="gray">
+              {overlay.description}
+            </Text>
+          )}
+        </Flex>
+        <Flex direction="row" gap="2" align="center" justify="center">
+          <Switch
+            checked={enabledOverlayIds.has(overlay.name)}
+            onCheckedChange={() => toggleOverlay(overlay.name)}
+          />
+          {superDraw && maskOverlayId && <MaskButton layerId={maskOverlayId} />}
+        </Flex>
       </Flex>
-      <Flex direction="row" gap="2" align="center" justify="center">
-        <Switch
-          checked={enabledOverlayIds.has(overlay.name)}
-          onCheckedChange={() => toggleOverlay(overlay.name)}
-        />
-        {superDraw && maskOverlayId(overlay.name) && (
-          <MaskButton layerId={maskOverlayId(overlay.name)!} />
-        )}
-      </Flex>
-    </Flex>
-  );
+    );
+  };
 
   return (
     <Flex gap="3" direction="column">
@@ -129,12 +127,13 @@ export const OverlaysPanel = () => {
                   prominentCountyNames: checked,
                 });
                 // Release (or stop arming) the county paint mask when its layer is hidden
-                const {selectingLayerId} = useOverlayStore.getState();
-                if (
-                  !checked &&
-                  (paintConstraint?.overlayId ?? selectingLayerId) === COUNTY_SOURCE_ID
-                ) {
-                  clearPaintConstraint();
+                if (!checked) {
+                  const {paintConstraint, selectingLayerId} = useOverlayStore.getState();
+                  if (paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
+                    clearPaintConstraint();
+                  } else if (selectingLayerId === COUNTY_SOURCE_ID) {
+                    useOverlayStore.setState({selectingLayerId: null});
+                  }
                 }
               }}
             />

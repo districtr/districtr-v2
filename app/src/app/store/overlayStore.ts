@@ -69,11 +69,12 @@ export const useOverlayStore = create(
       const newEnabledIds = new Set(enabledOverlayIds);
       newEnabledIds.delete(overlayId);
       set({enabledOverlayIds: newEnabledIds});
-      // enabledOverlayIds holds overlay names, while the mask (and an armed
-      // selection) holds the overlay_id: release either when its overlay hides.
-      const maskLayerId = paintConstraint?.overlayId ?? selectingLayerId;
-      if (maskLayerId && getOverlayName(maskLayerId) === overlayId) {
+      // enabledOverlayIds holds overlay names, while the mask and an armed
+      // selection hold an overlay_id: release whichever belongs to this overlay.
+      if (paintConstraint && getOverlayName(paintConstraint.overlayId) === overlayId) {
         clearPaintConstraint();
+      } else if (selectingLayerId && getOverlayName(selectingLayerId) === overlayId) {
+        set({selectingLayerId: null});
       }
     },
 
