@@ -71,6 +71,11 @@ Run backend/frontend with Docker, then execute Playwright on your host machine.
 > times out. `NEXT_PUBLIC_*` values are inlined at build time, so rebuild `frontend-prod` after
 > changing it.
 
+> **CORS:** `frontend-prod` serves on `localhost:3001`, so `BACKEND_CORS_ORIGINS` in
+> `backend/.env.docker` must include `http://localhost:3001` (the `.env.docker.example` does).
+> Without it the browser's preflight gets a 400 and every map shows "Failed to load document".
+> Recreate the backend after editing: `docker-compose up -d --force-recreate backend`.
+
 ```bash
 # Start app services (cms serves the static pages' content)
 docker-compose up -d db backend cms frontend-prod
