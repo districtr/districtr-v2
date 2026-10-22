@@ -1,13 +1,13 @@
 'use client';
 import React from 'react';
-import {Flex, IconButton, Table, Text} from '@radix-ui/themes';
+import {Flex, IconButton, Table, Text, Tooltip} from '@radix-ui/themes';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import {useQuery} from '@tanstack/react-query';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
-import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
+import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {formatDeviationPct, formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
@@ -41,11 +41,13 @@ export const DistrictTuningTable: React.FC<{
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
   const {data: contiguity, isFetching} = useQuery({
-    // Same key as MapValidation/Contiguity, so the two views share one fetch.
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryKey: contiguityQueryKey(mapDocument),
     queryFn: () => getContiguity(mapDocument),
-    enabled: !!mapDocument,
-    staleTime: 0,
+    // The endpoint resolves by public_id. staleTime Infinity (as in
+    // useDraftStatusCriteria): the key already encodes freshness, so toggling
+    // the view back on must not re-hit the endpoint.
+    enabled: !!mapDocument?.public_id,
+    staleTime: Infinity,
     retry: false,
     placeholderData: previousData => previousData,
     refetchOnWindowFocus: false,
@@ -143,17 +145,25 @@ export const DistrictTuningTable: React.FC<{
                   </Table.Cell>
                   {showLocks && (
                     <Table.Cell onClick={e => e.stopPropagation()}>
-                      <IconButton
-                        onClick={() => onToggleLock(d.zone)}
-                        variant="ghost"
-                        size="1"
-                        disabled={isReadOnly}
-                        aria-label={
-                          locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                      <Tooltip
+                        content={
+                          locked
+                            ? 'Unlock this district to allow painting over it'
+                            : "Lock this district so it can't be painted over"
                         }
                       >
-                        {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                      </IconButton>
+                        <IconButton
+                          onClick={() => onToggleLock(d.zone)}
+                          variant="ghost"
+                          size="1"
+                          disabled={isReadOnly}
+                          aria-label={
+                            locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                          }
+                        >
+                          {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
+                        </IconButton>
+                      </Tooltip>
                     </Table.Cell>
                   )}
                 </Table.Row>
@@ -162,6 +172,12 @@ export const DistrictTuningTable: React.FC<{
           </Table.Body>
         </Table.Root>
       </ConditionalScrollArea>
+      {/* Otherwise a failed check reads like a row of unstarted districts. */}
+      {contiguity?.ok === false && (
+        <Text size="1" color="red" mx="1" mt="1">
+          Contiguity unavailable: {contiguity.error.detail}
+        </Text>
+      )}
     </Flex>
   );
 };
