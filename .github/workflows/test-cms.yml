@@ -89,8 +89,7 @@ jobs:
       # database, then verify the mirrors still match the live schema.
       - name: Install backend dependencies (for Alembic)
         run: |
-          # Same constraints as the image build, so CI tests the versions that ship.
-          uv pip install --system -r requirements.txt -c requirements.lock
+          uv pip install --system -r requirements.txt
         working-directory: backend
 
       - name: Run backend (Alembic) migrations
