@@ -88,7 +88,7 @@ test.describe('Shatter Tool', () => {
     await expect(mapCanvas).toBeVisible();
   });
 
-  test('jumps to the clicked unit outside block view; Escape re-arms Break', async ({page}) => {
+  test('Break picks a different unit from block view; Paint stays inside it', async ({page}) => {
     test.setTimeout(120000);
     const shatterTool = page.locator(testSelectors.shatterTool);
     if (!(await shatterTool.isVisible())) {
@@ -111,7 +111,9 @@ test.describe('Shatter Tool', () => {
     await shatterTool.click();
     const center = await getMapCenter(page);
     await page.mouse.click(center.x, center.y);
-    await expect(pill).toContainText('Painting blocks', {timeout: 45000});
+    // Break stays armed in block view.
+    await expect(pill).toContainText('Choose Paint', {timeout: 45000});
+    expect(await getCurrentTool(page)).toBe('shatter');
     const firstId = await focusedId();
 
     // A screen point on an unbroken unit outside the captured blocks.
@@ -135,11 +137,22 @@ test.describe('Shatter Tool', () => {
       return null;
     });
     expect(outside).not.toBeNull();
+
+    // Paint never leaves the unit: a click outside it does nothing.
+    await page.locator(testSelectors.brushTool).click();
+    await expect(pill).toContainText('Painting blocks');
     await page.mouse.click(outside!.x, outside!.y);
-    await expect(page.getByText(/Switched to breaking a different/).first()).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(await focusedId()).toBe(firstId);
+
+    // Break jumps to the clicked unit.
+    await shatterTool.click();
+    await page.mouse.click(outside!.x, outside!.y);
     await expect.poll(focusedId, {timeout: 45000}).not.toBe(firstId);
     await expect.poll(focusedId).toBeTruthy();
+    await expect(pill).toContainText('Choose Paint');
 
+    // Exit keeps the active tool (Break here), and Escape again disarms it.
     await page.keyboard.press('Escape');
     await expect(pill).toContainText('to break down into blocks');
     expect(await getCurrentTool(page)).toBe('shatter');

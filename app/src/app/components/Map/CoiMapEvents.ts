@@ -21,7 +21,7 @@ import {
   POINT_SELECT_TOOLS,
   TOOLTIP_TOOLS,
   getSelectingClickLayer,
-  jumpToBreakUnderCursor,
+  breakUnit,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -60,8 +60,8 @@ const handleCoiFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER: {
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length) {
-        mapStore.handleShatter(selectedFeatures || []);
+      if (documentId && selectedFeatures?.length && mapRef) {
+        breakUnit(selectedFeatures, mapRef);
       }
       return;
     }
@@ -111,7 +111,6 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
     }
     return;
   }
-  if (jumpToBreakUnderCursor(e)) return;
 
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);

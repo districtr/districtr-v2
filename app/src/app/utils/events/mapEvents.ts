@@ -36,9 +36,6 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
-import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
-import {useToolbarStore} from '@/app/store/toolbarStore';
-import {filterFeatures} from '@utils/map/filterFeatures';
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
   ACTIVE_TOOLS.BRUSH,
@@ -118,45 +115,23 @@ if (typeof module !== 'undefined' && (module as any).hot) {
 }
 
 /**
- * Super Draw block view: a paint/erase click outside the broken unit jumps to
- * breaking the unit under the cursor instead of silently doing nothing.
- * Returns whether it jumped, so the click handler can skip painting.
+ * Break the clicked unit. From inside block view this jumps: the current unit
+ * is exited (healing if its blocks share one zone) and the clicked one broken.
  */
-export const jumpToBreakUnderCursor = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+export const breakUnit = (
+  features: MapGeoJSONFeature[],
+  mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target']
+) => {
   const mapStore = useMapStore.getState();
-  const {activeTool} = useMapControlsStore.getState();
-  if (
-    !mapStore.captiveIds.size ||
-    // handleShatter bails while locked; don't leave the current unit for nothing.
-    mapStore.mapLock ||
-    !useToolbarStore.getState().superDraw ||
-    (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
-    !canMutateAssignments()
-  ) {
-    return false;
-  }
-  // filterFeatures drops broken units (the current one included), so any hit
-  // is a different, unbroken unit.
-  const [target] = filterFeatures({
-    _features: e.target.queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID]}),
-    filterLocked: false,
-    allowOutsideCaptiveIds: true,
-  });
-  if (!target) return false;
-  const unitType = mapStore.mapDocument?.parent_geo_unit_type;
-  const unitName = (unitType && GEO_UNIT_SINGULAR_NAMES[unitType]) || 'precinct';
+  if (!mapStore.captiveIds.size) return mapStore.handleShatter(features);
+  // handleShatter bails while locked; don't leave the current unit for nothing.
+  if (mapStore.mapLock) return;
   mapStore.exitBlockView();
   // The heal in exitBlockView re-renders shatter state, and that render clears
   // mapLock (mapRenderSubs.renderShatter). Break the next unit after it so its
   // lock holds through the fetch — otherwise stray clicks paint whole units.
-  e.target.once('render', () => useMapStore.getState().handleShatter([target]));
-  e.target.triggerRepaint();
-  mapStore.setNotification({
-    importance: 2,
-    type: 'notification',
-    message: `Switched to breaking a different ${unitName}`,
-  });
-  return true;
+  mapRef.once('render', () => useMapStore.getState().handleShatter(features));
+  mapRef.triggerRepaint();
 };
 
 export const handleFeatureSelection = (
@@ -171,8 +146,8 @@ export const handleFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER:
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length) {
-        mapStore.handleShatter(selectedFeatures || []);
+      if (documentId && selectedFeatures?.length && mapRef) {
+        breakUnit(selectedFeatures, mapRef);
       }
       return;
     case ACTIVE_TOOLS.BRUSH:
@@ -237,7 +212,6 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
     return;
   }
-  if (jumpToBreakUnderCursor(e)) return;
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {

@@ -1262,7 +1262,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // Break stays armed so the user can pick a different unit; switching to
+      // Paint paints within this one. Other entry points (context menu) paint.
+      if (useMapControlsStore.getState().activeTool !== ACTIVE_TOOLS.SHATTER) {
+        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      }
       // County painting makes no sense inside a broken unit. Dynamic import:
       // getFeaturesInBbox imports this store, so a static import would cycle.
       if (useMapControlsStore.getState().mapOptions.paintByCounty) {
