@@ -1143,8 +1143,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
+      }).catch(err => {
+        console.error(err);
+        return undefined;
       });
       if (!edgesResult?.length) {
+        setMapLock(null);
+        temporalManager.resume(mapMode);
         set({
           notification: {
             importance: 2,
