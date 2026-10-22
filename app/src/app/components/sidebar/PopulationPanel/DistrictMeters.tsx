@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
@@ -17,7 +17,11 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
-import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
+import {
+  ConditionalScrollArea,
+  FlatRowsContext,
+  SCROLL_RESERVED_WIDTH,
+} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
@@ -227,7 +231,8 @@ export const DistrictMeters = () => {
   const showRowIcons = superDraw && isEditing;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
-  const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
+  const flatRows = useContext(FlatRowsContext);
+  const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD && !flatRows;
 
   // The target-deviation band brackets the ideal line; rendered per row (like
   // the tick) so it reads as one continuous band.
