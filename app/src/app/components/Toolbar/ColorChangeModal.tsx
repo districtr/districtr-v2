@@ -259,11 +259,14 @@ const ColorSwatch: React.FC<{
     aria-pressed={selected}
     title={label}
     onClick={onClick}
-    className={`shrink-0 border border-black/10 font-medium ${
+    className={`inline-flex shrink-0 items-center justify-center border border-black/10 font-medium ${
       round ? 'size-7 rounded-full text-[10px]' : 'size-8 rounded-md text-xs'
     } ${selected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:ring-2 hover:ring-gray-300'}`}
     style={{backgroundColor: color, color: getReadableTextColor(color) ?? '#111'}}
   >
-    {children}
+    {/* text-box trims the span to the digits' cap height, so flex centering
+        centers the ink, not an em box padded by descender space. It must sit
+        on the span: it isn't inherited by the button's anonymous flex item. */}
+    {children != null && <span className="[text-box:trim-both_cap_alphabetic]">{children}</span>}
   </button>
 );
