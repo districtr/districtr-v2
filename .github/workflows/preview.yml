@@ -23,12 +23,10 @@ name: AWS Preview
 #   - infra: corsOriginRegex on the dev stack (dev API accepts preview FE origins)
 #   - bootstrap.sh: `districtr-gha-preview` role (scoped; the main deploy role
 #     deliberately refuses pull_request tokens) + repo var AWS_PREVIEW_ROLE_ARN
-#   - Auth0 qa tenant: `https://*.dev.districtr.org` in Allowed Callback /
-#     Logout / Web Origins
 #   - the two PR labels
 #
-# Required repo SECRETS (frontend build): RECAPTCHA_SITE_KEY,
-#   RECAPTCHA_V3_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN.
+# Required repo SECRETS (frontend build): TURNSTILE_SITE_KEY,
+#   TURNSTILE_SESSION_SITE_KEY, NEXT_PUBLIC_MAPTILER_API_KEY, SENTRY_AUTH_TOKEN.
 
 on:
   pull_request:
@@ -352,8 +350,8 @@ jobs:
           LISTENER_ARN: ${{ steps.alb.outputs.listener_arn }}
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
-          RECAPTCHA_V3_SITE_KEY: ${{ secrets.RECAPTCHA_V3_SITE_KEY }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          TURNSTILE_SESSION_SITE_KEY: ${{ secrets.TURNSTILE_SESSION_SITE_KEY }}
           NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
         run: |
           set -euo pipefail
@@ -367,8 +365,8 @@ jobs:
             echo "Frontend image already pushed for this sha+mode; skipping build"
           else
             cat > app/.env.production <<EOF
-          NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
-          NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY=${RECAPTCHA_V3_SITE_KEY}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
+          NEXT_PUBLIC_TURNSTILE_SESSION_SITE_KEY=${TURNSTILE_SESSION_SITE_KEY}
           NEXT_PUBLIC_MAPTILER_API_KEY=${NEXT_PUBLIC_MAPTILER_API_KEY}
           NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
           NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
@@ -382,8 +380,7 @@ jobs:
           fi
 
           # Cloned dev frontend task def: PR image, preview base URL, and the
-          # mode's API for server-side fetches. Auth0/session secrets stay
-          # pointed at the same dev SSM params.
+          # mode's API for server-side fetches.
           FE_DEF=$(aws ecs describe-task-definition \
               --task-definition "$(aws ecs describe-services --cluster "$CLUSTER" --services frontend \
                 --query 'services[0].taskDefinition' --output text)" \

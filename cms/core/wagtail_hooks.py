@@ -129,7 +129,7 @@ class DistrictrShortcutsPanel(Component):
             cards.append(
                 {
                     "label": "Frontend settings",
-                    "url": reverse("moderation_site_settings"),
+                    "url": reverse("site_settings"),
                     "icon": "cog",
                 }
             )

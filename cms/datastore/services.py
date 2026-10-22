@@ -188,12 +188,3 @@ def regenerate_map_thumbnail(districtr_map_slug: str) -> dict:
         [auth_scopes.CREATE_CONTENT],
         what="thumbnail request",
     )
-
-
-def regenerate_document_thumbnail(document_id: str) -> dict:
-    """POST /api/document/{document_id}/thumbnail (scope create:content)."""
-    return _post_backend(
-        f"/api/document/{document_id}/thumbnail",
-        [auth_scopes.CREATE_CONTENT],
-        what="thumbnail request",
-    )

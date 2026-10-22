@@ -61,11 +61,6 @@ export const testUrls = {
 
   // Place pages
   place: (slug: string) => `/place/${slug}`,
-
-  // Admin routes (require auth)
-  admin: '/admin',
-  adminReview: '/admin/review',
-  adminCms: '/admin/cms',
 };
 
 /**

@@ -112,6 +112,3 @@ export const FIELD_ORDER = Object.keys(FIELD_REGISTRY);
  * from backend fields.py::CUSTOM_FIELD_MAX_LENGTHS so the input stops where
  * the server would reject. */
 export const CUSTOM_FIELD_MAX_LENGTHS = {text: 255, textarea: 5000} as const;
-
-/** Fields the public list never serves — mirrored from the backend. */
-export const PRIVATE_FIELDS = new Set(['email']);
