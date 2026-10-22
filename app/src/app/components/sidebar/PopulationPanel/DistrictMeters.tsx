@@ -149,6 +149,7 @@ export const DistrictMeters = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
   const documentComments = useMapStore(state => state.mapDocument?.document_comments);
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
   // comment_length_limit 0/null disables descriptions — gate the icon so it
   // can't open empty.
   const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
@@ -361,6 +362,7 @@ export const DistrictMeters = () => {
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
+                const alias = zoneAliases?.[d.zone];
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -442,7 +444,7 @@ export const DistrictMeters = () => {
                         so it needs no onClick of its own. */}
                     <button
                       type="button"
-                      aria-label={`Select district ${d.zone}`}
+                      aria-label={`Select district ${d.zone}${alias ? ` (${alias})` : ''}`}
                       className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
                       style={{
                         flexGrow: 1,
@@ -557,6 +559,15 @@ export const DistrictMeters = () => {
                             background: 'var(--gray-a6)',
                           }}
                         />
+                      )}
+                      {alias && (
+                        <Text
+                          size="1"
+                          weight="medium"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 max-w-[70%] truncate rounded-sm bg-white/80 px-1 pointer-events-none"
+                        >
+                          {alias}
+                        </Text>
                       )}
                     </button>
                     {showPopNumbers && (

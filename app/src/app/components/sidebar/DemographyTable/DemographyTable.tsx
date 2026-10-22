@@ -34,6 +34,7 @@ import {
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   SUMMARY_TYPES,
@@ -431,6 +432,7 @@ const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
+  const alias = useZoneAlias(mapMode === MAP_MODES.COI ? null : (row.zone as number));
   const zoneName = isUniverse ? (
     'Overall'
   ) : isUnassigned ? (
@@ -439,6 +441,10 @@ const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
     </Tooltip>
   ) : mapMode === MAP_MODES.COI ? (
     getCommunityDisplayNumber(communities, row.zone as number)
+  ) : alias ? (
+    <Tooltip content={alias}>
+      <span>{row.zone}</span>
+    </Tooltip>
   ) : (
     row.zone
   );

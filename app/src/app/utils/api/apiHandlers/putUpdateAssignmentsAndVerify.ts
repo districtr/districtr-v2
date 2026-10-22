@@ -72,6 +72,7 @@ export const putUpdateAssignmentsAndVerify = async ({
         mapDocument.num_districts && mapDocument.num_districts_modifiable
           ? mapDocument.num_districts
           : undefined,
+      zone_aliases: mapDocument.map_metadata?.zone_aliases,
     },
     comments,
   });

@@ -22,6 +22,7 @@ export const putUpdateDocument = async ({
       num_districts: metadata?.num_districts ?? null,
       num_communities: metadata?.num_communities ?? null,
       community_metadata_list: metadata?.community_metadata_list ?? null,
+      zone_aliases: metadata?.zone_aliases ?? null,
     },
     comments: comments ?? null,
   });

@@ -138,6 +138,7 @@ const ZoneNumbersLayer = () => {
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
   const zoneDescriptions = useMapStore(state => state.mapDocument?.document_comments);
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
   const getZonesWithDescriptions = useMapStore(state => state.getZonesWithDescriptions);
 
   // Get zones that have descriptions
@@ -161,6 +162,7 @@ const ZoneNumbersLayer = () => {
       .map(p => p.zone);
     const mapState = useMapStore.getState();
     const zonesWithDescriptionSet = new Set(mapState.getZonesWithDescriptions());
+    const aliases = mapState.mapDocument?.map_metadata?.zone_aliases ?? {};
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
@@ -174,6 +176,7 @@ const ZoneNumbersLayer = () => {
           properties: {
             ...feature.properties,
             hasComments: zonesWithDescriptionSet.has(feature.properties?.zone),
+            ...(aliases[feature.properties?.zone] && {alias: aliases[feature.properties?.zone]}),
           },
         }));
         setZoneNumberData({
@@ -200,6 +203,7 @@ const ZoneNumbersLayer = () => {
     appLoadingState,
     demogHash,
     zonesWithDescriptions,
+    zoneAliases,
   ]);
 
   useEffect(() => {
@@ -289,6 +293,36 @@ const ZoneNumbersLayer = () => {
           ['in', ['get', 'zone'], ['literal', lockedAreas]]
         }
       ></Layer>
+      <Layer
+        id={ZONE_LABEL_LAYER_IDS.ALIAS}
+        type="symbol"
+        source={ZONE_LABEL_SOURCE_ID}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': ['get', 'alias'],
+          'text-font': ['Barlow Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 12, 15, 14],
+          'text-anchor': 'top',
+          // Below the number's circle, whose radius grows from 10 to 18px.
+          'text-offset': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            ['literal', [0, 1.1]],
+            15,
+            ['literal', [0, 1.5]],
+          ],
+          // Like the numbers: always shown, never dropped for a basemap label.
+          'text-allow-overlap': true,
+        }}
+        paint={{
+          'text-color': '#000',
+          'text-halo-color': '#fff',
+          'text-halo-width': 1.5,
+        }}
+        filter={['has', 'alias']}
+      />
       {/* Simple circle indicator for zones with comments */}
       <Layer
         id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}

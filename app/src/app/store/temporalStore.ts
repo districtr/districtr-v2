@@ -32,6 +32,21 @@ const syncCoiIdbAfterUndoRedo = () => {
   idb.updateIdbCoiAssignments(mapDocument, communityAssignments, new Date().toISOString(), true);
 };
 
+// Undo/redo only restore assignments; when the step crossed a renumber, move the
+// per-district metadata (colors, aliases, notes, locks) back or forward with it.
+export const followZoneRenumber = (step: () => void, direction: 'undo' | 'redo') => {
+  const before = useAssignmentsStore.getState().lastZoneRenumber;
+  step();
+  const after = useAssignmentsStore.getState().lastZoneRenumber;
+  if (before === after) return;
+  if (direction === 'redo' && after) {
+    useMapStore.getState().permuteZoneMetadata(after);
+  } else if (direction === 'undo' && before) {
+    const inverse = new Map(Array.from(before, ([from, to]) => [to, from]));
+    useMapStore.getState().permuteZoneMetadata(inverse);
+  }
+};
+
 export const useTemporalStore = () => {
   const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
   void useAssignmentsStore(state => state.clientLastUpdated);
@@ -39,11 +54,11 @@ export const useTemporalStore = () => {
     futureStates,
     pastStates,
     redo: () => {
-      redo();
+      followZoneRenumber(redo, 'redo');
       syncIdbAfterUndoRedo();
     },
     undo: () => {
-      undo();
+      followZoneRenumber(undo, 'undo');
       syncIdbAfterUndoRedo();
     },
   };

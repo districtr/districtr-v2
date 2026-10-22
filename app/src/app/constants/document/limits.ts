@@ -6,3 +6,5 @@ export const ANONYMOUS_DOCUMENT_ID = 'anonymous';
 export const COI_MIN_COMMUNITIES = 1;
 export const COI_MAX_COMMUNITIES = 8;
 export const FALLBACK_NUM_COMMUNITIES = 1;
+/** Mirrors the backend cap on district aliases (MAX_COMMUNITY_NAME_LENGTH). */
+export const ZONE_ALIAS_MAX_LENGTH = 40;

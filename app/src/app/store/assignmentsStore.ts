@@ -84,6 +84,13 @@ export interface AssignmentsStore {
   clientLastUpdated: string;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
+  /** The zone mapping of the latest renumber. Tracked by undo; a new reference
+   * between two history states marks that step as a renumber, so undo/redo can
+   * move the per-district metadata (colors, aliases, ...) with it. */
+  lastZoneRenumber: Map<Zone, Zone> | null;
+  /** Reassign district numbers: every unit (shattered children included) in a key
+   * zone moves to its mapped zone, and the per-district metadata follows. */
+  renumberZones: (mapping: Map<Zone, Zone>) => void;
   setClientLastUpdated: (updated_at: string) => void;
 
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -376,6 +383,36 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
   pendingShatterUndoState: null,
+  lastZoneRenumber: null,
+  renumberZones: mapping => {
+    const {zoneAssignments, zonesLastUpdated} = get();
+    // Locked while saving or breaking: an in-flight break would overwrite the result.
+    const {mapDocument, mapLock} = useMapStore.getState();
+    if (!mapping.size || !mapDocument || mapLock) return;
+    useMapStore.getState().permuteZoneMetadata(mapping);
+    const nextAssignments = new Map(zoneAssignments);
+    zoneAssignments.forEach((zone, geoid) => {
+      const to = zone == null ? undefined : mapping.get(zone);
+      to !== undefined && nextAssignments.set(geoid, to);
+    });
+    const timestamp = new Date().toISOString();
+    const nextZonesLastUpdated = new Map(zonesLastUpdated);
+    mapping.forEach((to, from) => {
+      nextZonesLastUpdated.set(from, timestamp);
+      nextZonesLastUpdated.set(to, timestamp);
+    });
+    idb.updateIdbAssignments(useMapStore.getState().mapDocument!, nextAssignments, timestamp);
+    // A break leaves tracking paused until the next edit; like a paint, this edit
+    // resumes it and folds a pending break into its undo step.
+    temporalManager.resume(MAP_MODES.DISTRICTS);
+    set({
+      zoneAssignments: nextAssignments,
+      zonesLastUpdated: nextZonesLastUpdated,
+      lastZoneRenumber: new Map(mapping),
+      clientLastUpdated: timestamp,
+      pendingShatterUndoState: null,
+    });
+  },
   setClientLastUpdated: (updated_at: string) => {
     set({
       clientLastUpdated: updated_at,
@@ -712,6 +749,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     } = get();
     const preShatterSnapshot = cloneTemporalSnapshot({
       shatterIds: currShatterIds,
@@ -719,6 +757,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     });
 
     // Ensure both maps are provided or build from each other

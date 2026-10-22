@@ -2021,6 +2021,40 @@ def test_put_assignments_with_metadata_num_districts_and_color_scheme(
     assert doc.get("color_scheme") == colors
 
 
+def test_put_assignments_with_zone_aliases(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """Zone aliases are sanitized into map_metadata without clobbering other fields."""
+    r = client.put(
+        f"/api/document/{document_id_all_stats}/metadata", json={"name": "My plan"}
+    )
+    assert r.status_code == 200
+    base = {
+        "document_id": document_id_all_stats,
+        "assignments": [["202090441022004", 1]],
+        "last_updated_at": datetime.now().astimezone().isoformat(),
+    }
+    r = client.put(
+        "/api/assignments",
+        json={
+            **base,
+            "metadata": {"zone_aliases": {"1": " North <b>Shore</b> ", "2": "  "}},
+        },
+    )
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"1": "North Shore"}
+    assert meta["name"] == "My plan"
+
+    r = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"zone_aliases": {"0": "Nope", "x": "Nope"}}},
+    )
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {}
+
+
 def test_put_assignments_metadata_num_districts_validation(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
 ):

@@ -2,6 +2,7 @@
 import {Box, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
@@ -15,6 +16,7 @@ interface ZoneDescriptionTooltipProps {
 export const ZoneDescriptionTooltip: React.FC<ZoneDescriptionTooltipProps> = ({zone, x, y}) => {
   const description = useMapStore(state => state.getZoneDescriptionForZone(zone));
   const communities = useMapStore(state => state.communities);
+  const alias = useZoneAlias(zone);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
@@ -36,7 +38,7 @@ export const ZoneDescriptionTooltip: React.FC<ZoneDescriptionTooltipProps> = ({z
           style={{backgroundColor: color}}
         />
         <Text size="2" weight="bold">
-          {zoneLabel} {displayZone} Description
+          {zoneLabel} {displayZone} {alias ? `· ${alias}` : 'Description'}
         </Text>
       </Flex>
       <Text size="1" color="gray">

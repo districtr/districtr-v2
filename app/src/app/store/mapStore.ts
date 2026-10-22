@@ -19,7 +19,7 @@ import {QueryObserverResult} from '@tanstack/react-query';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
-import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {FALLBACK_NUM_COMMUNITIES, ZONE_ALIAS_MAX_LENGTH} from '@/app/constants/document/limits';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -244,6 +244,14 @@ export interface MapStore {
   clearZoneDescription: (zone: number) => void;
   getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
   getZonesWithDescriptions: () => number[];
+
+  // DISTRICT ALIASES / RENUMBERING
+  /** Set (or clear, with a blank name) a district's display name. */
+  setZoneAlias: (zone: number, alias: string) => void;
+  /** Move per-district state (color, alias, description, lock, selection) from each
+   * key zone to its mapped zone. Assignments are permuted separately, by
+   * assignmentsStore.renumberZones, so the renumber is one undo step. */
+  permuteZoneMetadata: (mapping: Map<number, number>) => void;
 
   // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
   /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
@@ -734,6 +742,67 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         if (c.zone != null) zones.add(c.zone);
       });
       return Array.from(zones).sort((a, b) => a - b);
+    },
+
+    setZoneAlias: (zone, alias) => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+      const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
+      const trimmed = alias.trim().slice(0, ZONE_ALIAS_MAX_LENGTH);
+      if (trimmed) {
+        zone_aliases[zone] = trimmed;
+      } else {
+        delete zone_aliases[zone];
+      }
+      const newMapDocument = {
+        ...mapDocument,
+        map_metadata: {...mapDocument.map_metadata, zone_aliases},
+      };
+      set({mapDocument: newMapDocument, updated: {...updated, metadata: true}});
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+      }
+    },
+
+    permuteZoneMetadata: mapping => {
+      const {mapDocument, pinnedDescriptionZone} = get();
+      if (!mapDocument || !mapping.size) return;
+      const remap = (zone: number) => mapping.get(zone) ?? zone;
+      const colors = mapDocument.color_scheme ?? DefaultColorScheme;
+      const color_scheme = [...colors];
+      mapping.forEach((to, from) => {
+        color_scheme[to - 1] = colors[from - 1];
+      });
+      const zone_aliases = Object.fromEntries(
+        Object.entries(mapDocument.map_metadata?.zone_aliases ?? {}).map(([zone, alias]) => [
+          remap(Number(zone)),
+          alias,
+        ])
+      );
+      // No IDB write here: the caller's assignments write carries this document_metadata.
+      set({
+        mapDocument: {
+          ...mapDocument,
+          color_scheme,
+          map_metadata: {...mapDocument.map_metadata, zone_aliases},
+          document_comments: mapDocument.document_comments?.map(c =>
+            c.zone == null ? c : {...c, zone: remap(c.zone)}
+          ),
+        },
+        pinnedDescriptionZone: pinnedDescriptionZone == null ? null : remap(pinnedDescriptionZone),
+        updated: {metadata: true, comments: true},
+      });
+      useMapControlsStore.setState(state => ({
+        selectedZone: remap(state.selectedZone),
+        mapOptions: {
+          ...state.mapOptions,
+          lockPaintedAreas: state.mapOptions.lockPaintedAreas.map(zone =>
+            zone == null ? zone : remap(zone)
+          ),
+        },
+      }));
     },
 
     hoveredPublicZones: [],
