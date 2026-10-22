@@ -84,6 +84,11 @@ export const colorScheme = [
   '#6200EA',
 ];
 
+// Grays (#rrggbb with r = g = b) read as unassigned land, and the lightest
+// ones vanish on the basemap, so the ColorBrewer sets drop them.
+const withoutGrays = (colors: readonly string[]) =>
+  colors.filter(color => !/^#([0-9a-f]{2})\1\1$/i.test(color));
+
 /** Standard palettes a user can apply to all districts at once. */
 export const DISTRICT_PALETTES: {name: string; colors: readonly string[]}[] = [
   {name: 'Districtr default', colors: colorScheme},
@@ -94,12 +99,12 @@ export const DISTRICT_PALETTES: {name: string; colors: readonly string[]}[] = [
     name: 'Okabe-Ito',
     colors: ['#e69f00', '#56b4e9', '#009e73', '#f0e442', '#0072b2', '#d55e00', '#cc79a7'],
   },
-  {name: 'ColorBrewer Set1', colors: schemeSet1},
-  {name: 'ColorBrewer Set2', colors: schemeSet2},
-  {name: 'ColorBrewer Set3', colors: schemeSet3},
-  {name: 'ColorBrewer Dark2', colors: schemeDark2},
-  {name: 'ColorBrewer Paired', colors: schemePaired},
-  {name: 'ColorBrewer Accent', colors: schemeAccent},
-  {name: 'ColorBrewer Pastel1', colors: schemePastel1},
-  {name: 'ColorBrewer Pastel2', colors: schemePastel2},
+  {name: 'ColorBrewer Set1', colors: withoutGrays(schemeSet1)},
+  {name: 'ColorBrewer Set2', colors: withoutGrays(schemeSet2)},
+  {name: 'ColorBrewer Set3', colors: withoutGrays(schemeSet3)},
+  {name: 'ColorBrewer Dark2', colors: withoutGrays(schemeDark2)},
+  {name: 'ColorBrewer Paired', colors: withoutGrays(schemePaired)},
+  {name: 'ColorBrewer Accent', colors: withoutGrays(schemeAccent)},
+  {name: 'ColorBrewer Pastel1', colors: withoutGrays(schemePastel1)},
+  {name: 'ColorBrewer Pastel2', colors: withoutGrays(schemePastel2)},
 ];

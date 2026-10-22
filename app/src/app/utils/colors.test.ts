@@ -51,3 +51,14 @@ test('short palettes extend to the district count without repeating colors', () 
   expect(scheme.slice(0, okabeIto.length)).toEqual([...okabeIto]);
   expect(new Set(scheme).size).toBe(20);
 });
+
+test('ColorBrewer palettes contain no grays', () => {
+  for (const {name, colors} of DISTRICT_PALETTES.filter(p => p.name.startsWith('ColorBrewer'))) {
+    expect(
+      colors.filter(c => /^#([0-9a-f]{2})\1\1$/i.test(c)),
+      name
+    ).toEqual([]);
+  }
+  // Set1 keeps its 8 hues after losing #999999.
+  expect(DISTRICT_PALETTES.find(p => p.name === 'ColorBrewer Set1')!.colors).toHaveLength(8);
+});
