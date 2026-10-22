@@ -38,6 +38,8 @@ export const MapContainer: React.FC<{
 }> = ({mapRef, initialViewState, onMapLoad, borderLeft = false, children}) => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
+  const appLoadingState = useMapStore(state => state.appLoadingState);
+  const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const activeTool = useMapControlsStore(state => state.activeTool);
@@ -74,6 +76,11 @@ export const MapContainer: React.FC<{
         cursor-${activeTool}
         `}
       ref={mapContainer}
+      // Readiness signal for E2E tests and agents; works in prod builds, unlike the
+      // dev-only window store hook. The GL container also carries data-idle (mapEvents).
+      data-testid="map-container"
+      data-app-state={appLoadingState}
+      data-render-state={mapRenderingState}
     >
       {showGeocode && (
         <div className="absolute top-3 left-3 z-10">
@@ -110,6 +117,7 @@ export const MapContainer: React.FC<{
         onTouchCancel={mapEventHandlers.onTouchCancel}
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
+        onRender={mapEventHandlers.onRender}
         onMoveEnd={mapEventHandlers.onMoveEnd}
         onData={mapEventHandlers.onData as any}
         interactiveLayerIds={INTERACTIVE_LAYERS}

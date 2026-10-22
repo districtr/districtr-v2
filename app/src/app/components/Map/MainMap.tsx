@@ -25,6 +25,7 @@ import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useAnchorLayersReady} from '@/app/hooks/useAnchorLayersReady';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
+import {useWebMcpTools} from '@/app/hooks/useWebMcpTools';
 
 export const MainMap: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -35,6 +36,7 @@ export const MainMap: React.FC = () => {
   const {mapRef, onLoad} = useMapRenderer(RENDERER_TYPES.MAIN);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const areAnchorLayersReady = useAnchorLayersReady(mapRef, isMapLoaded, mapOptions.basemap);
+  useWebMcpTools();
 
   const initialViewState = useMemo(() => {
     const center = MAP_OPTIONS.center as [number, number];

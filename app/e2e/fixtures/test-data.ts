@@ -32,7 +32,7 @@ export const testConfig = {
     : process.env.TEST_DOCUMENT_ID || 'preview-test-doc',
 
   // Map slug that exists in the target environment
-  testMapSlug: process.env.TEST_MAP_SLUG || 'pennsylvania_vtd',
+  testMapSlug: process.env.TEST_MAP_SLUG || 'al_congressional_districts',
 
   // Skip tests that require write access on production
   canCreateDocuments: isLocal || process.env.ALLOW_WRITES === 'true',
@@ -74,46 +74,22 @@ export const testUrls = {
 export const testSelectors = {
   // Map elements
   mapCanvas: '.maplibregl-canvas',
-  mapContainer: '.maplibregl-map',
   navigationZoomIn: '.maplibregl-ctrl-zoom-in',
   navigationZoomOut: '.maplibregl-ctrl-zoom-out',
 
-  // Toolbar elements
+  // Toolbar elements (tool buttons expose aria-pressed)
   toolbar: '[data-testid="toolbar"]',
   brushTool: '[data-testid="brush-tool"]',
   eraserTool: '[data-testid="eraser-tool"]',
   panTool: '[data-testid="pan-tool"]',
   shatterTool: '[data-testid="shatter-tool"]',
+  undoTool: '[data-testid="undo-tool"]',
 
-  // Zone picker
+  // Zone picker (Radix radio items: data-state="checked")
   zonePicker: '[data-testid="zone-picker"]',
   zoneButton: (zone: number) => `[data-testid="zone-${zone}"]`,
 
-  // Sidebar elements
   sidebar: '[data-testid="sidebar"]',
-  populationPanel: '[data-testid="population-panel"]',
-  dataPanel: '[data-testid="data-panel"]',
-
-  // Modal elements
-  saveModal: '[data-testid="save-modal"]',
-  shareModal: '[data-testid="share-modal"]',
-
-  // Buttons
-  saveButton: '[data-testid="save-button"]',
-  shareButton: '[data-testid="share-button"]',
-  resetButton: '[data-testid="reset-button"]',
-
-  // Topbar
-  topbar: '[data-testid="topbar"]',
-  mapName: '[data-testid="map-name"]',
-
-  // Loading states
-  loadingOverlay: '[data-testid="loading-overlay"]',
-  mapLockShade: '.map-lock-shade',
-
-  // Create plan buttons
-  createButton: 'button:has-text("Create")',
-  placeCreateButton: (mapName: string) => `button:has-text("${mapName}")`,
 };
 
 /**
