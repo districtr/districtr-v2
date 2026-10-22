@@ -98,7 +98,8 @@ export const InspectorTooltip = () => {
   return (
     <>
       <Text as="p" size="1" color="gray" mb="1">
-        {formatNumber(wholeCount, NUMBER_FORMATS.STRING)} whole{' '}
+        {/* "whole" only means something next to a block count */}
+        {formatNumber(wholeCount, NUMBER_FORMATS.STRING)} {childLayer ? 'whole ' : ''}
         {wholeCount === 1 ? 'unit' : 'units'}
         {childLayer &&
           ` · ${formatNumber(blockCount, NUMBER_FORMATS.STRING)} ${blockCount === 1 ? 'block' : 'blocks'}`}
