@@ -13,6 +13,7 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {ACCESS_STATES} from '@constants/document/state';
+import {idb} from '@utils/idb/idb';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
@@ -179,13 +180,19 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
       }
     },
-    setLockedZones: zones =>
+    setLockedZones: zones => {
       set({
         mapOptions: {
           ...get().mapOptions,
           lockPaintedAreas: zones,
         },
-      }),
+      });
+      // Remembered per document so locks survive a reload (restored in setMapDocument).
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (mapDocument?.access === ACCESS_STATES.EDIT && mapDocument.document_id) {
+        idb.setZoneLocks(mapDocument.document_id, zones);
+      }
+    },
     toggleLockAllAreas: () => {
       const {mapMode, mapOptions} = get();
       const mapStore = useMapStore.getState();
@@ -204,12 +211,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
         );
       }
 
-      set({
-        mapOptions: {
-          ...mapOptions,
-          lockPaintedAreas: nextLockPaintedAreas,
-        },
-      });
+      get().setLockedZones(nextLockPaintedAreas);
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
