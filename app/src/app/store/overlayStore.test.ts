@@ -1,6 +1,7 @@
 import {beforeEach, expect, test} from 'bun:test';
 import {useOverlayStore} from './overlayStore';
 import {useMapStore} from './mapStore';
+import {useMapControlsStore} from './mapControlsStore';
 
 const mask = (overlayId: string) =>
   useOverlayStore.setState({paintConstraint: {overlayId, featureId: 'f', features: []}});
@@ -47,4 +48,21 @@ test('arming a mask shows only its layer and releases the current mask', () => {
   expect([...state().enabledOverlayIds]).toEqual(['Metro areas']);
   expect(state().paintConstraint).toBeNull();
   expect(state().selectingLayerId).toBe('metro');
+});
+
+test('releasing a mask restores the layers it hid, minus any hidden meanwhile', () => {
+  useMapControlsStore.getState().setMapOptions({showCountyBoundaries: true});
+  state().enableOverlay('School districts');
+  state().enableOverlay('Metro areas');
+  state().selectOverlayFeature('metro');
+  expect(useMapControlsStore.getState().mapOptions.showCountyBoundaries).toBe(false);
+  mask('metro');
+  state().selectOverlayFeature('school'); // re-arm keeps the original snapshot
+  state().clearPaintConstraint();
+  expect([...state().enabledOverlayIds].sort()).toEqual(['Metro areas', 'School districts']);
+  expect(useMapControlsStore.getState().mapOptions.showCountyBoundaries).toBe(true);
+
+  state().selectOverlayFeature('metro');
+  state().toggleOverlay('Metro areas'); // hiding the armed layer releases it
+  expect([...state().enabledOverlayIds]).toEqual(['School districts']);
 });

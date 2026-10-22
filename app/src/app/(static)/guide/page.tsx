@@ -372,10 +372,10 @@ export default function GuidePage() {
               Super Draw allows you to restrict your painting to a county, a metro area, or any
               other area type available for the map. Click the “Mask” button on the toolbar, choose
               an area type, then click that area on the map. Only that area type stays shown while
-              you mask. Paint, Erase and Break then only change units inside the area, and the Mask
-              button stays highlighted until you click it again or press Esc. You can also start a
-              mask from the “Mask” button next to an area type&apos;s toggle under “Map
-              Layers/Boundaries and areas.”
+              you mask, and the others come back when you unmask. Paint, Erase and Break then only
+              change units inside the area, and the Mask button stays highlighted until you click it
+              again or press Esc. You can also start a mask from the “Mask” button next to an area
+              type&apos;s toggle under “Map Layers/Boundaries and areas.”
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}

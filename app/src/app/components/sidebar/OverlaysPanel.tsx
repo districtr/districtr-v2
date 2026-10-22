@@ -13,8 +13,8 @@ import {OverlayMetadataModal, isLegislativeOverlay} from './OverlayMetadataModal
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {HelpTip} from '@/app/components/HelpTip/HelpTip';
 
-/** Masks painting to one area of a boundary layer, turning the layer on if
- * needed; while armed or masked it cancels/releases instead. */
+/** Masks painting to one area of a boundary layer, showing only that layer
+ * while masking; while armed or masked it cancels/releases instead. */
 const MaskButton = ({layerId}: {layerId: string}) => {
   const masked = useOverlayStore(state => state.paintConstraint?.overlayId === layerId);
   const selecting = useOverlayStore(state => state.selectingLayerId === layerId);
@@ -122,19 +122,19 @@ export const OverlaysPanel = () => {
             <Switch
               checked={mapOptions.showCountyBoundaries ?? false}
               onCheckedChange={checked => {
+                // Release (or stop arming) the county paint mask when its layer
+                // is hidden. First: releasing restores the pre-mask layers.
+                const {paintConstraint, selectingLayerId} = useOverlayStore.getState();
+                if (
+                  !checked &&
+                  (paintConstraint?.overlayId ?? selectingLayerId) === COUNTY_SOURCE_ID
+                ) {
+                  clearPaintConstraint();
+                }
                 setMapOptions({
                   showCountyBoundaries: checked,
                   prominentCountyNames: checked,
                 });
-                // Release (or stop arming) the county paint mask when its layer is hidden
-                if (!checked) {
-                  const {paintConstraint, selectingLayerId} = useOverlayStore.getState();
-                  if (paintConstraint?.overlayId === COUNTY_SOURCE_ID) {
-                    clearPaintConstraint();
-                  } else if (selectingLayerId === COUNTY_SOURCE_ID) {
-                    useOverlayStore.setState({selectingLayerId: null});
-                  }
-                }
               }}
             />
             {superDraw && <MaskButton layerId={COUNTY_SOURCE_ID} />}

@@ -42,7 +42,8 @@ export const useToolbarStore = create(
         }
         // An armed mask selection swallows map clicks, and its cancel controls
         // are Super Draw only. An active mask stays: Draw can still release it.
-        useOverlayStore.setState({selectingLayerId: null});
+        const overlays = useOverlayStore.getState();
+        if (overlays.selectingLayerId) overlays.clearPaintConstraint();
         const {demographicDisplayMode} = controls.mapOptions;
         controls.setMapOptions({
           basemap: MAP_MODE_DEFAULT_OPTIONS[controls.mapMode].basemap,

@@ -180,7 +180,7 @@ export const helpTipContent = {
   },
   paintMask: {
     title: 'Masking painting to an area',
-    text: 'Pick a boundary layer, then click one of its areas on the map (a county, a district, a metro area…). The brush and eraser then only change units inside that area until you unmask.',
+    text: 'Pick a boundary layer, then click one of its areas on the map (a county, a district, a metro area…). Paint, Erase and Break then only change units inside that area until you unmask.',
     videoFile: 'mask_area.webm',
     guideAnchor: 'additional-controls',
   },

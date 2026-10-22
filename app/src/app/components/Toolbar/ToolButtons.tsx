@@ -148,7 +148,7 @@ export const ToolButtons: React.FC = () => {
       >
         {/* flexBasis 0 (not auto) so every tool gets the same width regardless
             of label length. Wraps because the sidebar resizes down to 140px,
-            below the five Super Draw tools' combined minimum. */}
+            below the six Super Draw buttons' combined minimum. */}
         {mainTools.map(tool => renderTool(tool, MAIN_TOOL_STYLE))}
         {showMask && (
           <MaskToolButton
