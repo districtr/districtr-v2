@@ -5,7 +5,7 @@ import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {ACTIVE_TOOLS, DISTRICT_EDIT_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {NullableZone, Zone} from '@constants/map/zone';
 import {SpatialUnit} from '@constants/map/geography';
 import {DistrictrMapOptions} from './types';
@@ -155,7 +155,14 @@ export const useMapControlsStore = create<MapControlsStore>()(
     paintFunction: getFeaturesInBbox,
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
-    setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    setMapOptions: options => {
+      const mapOptions = {...get().mapOptions, ...options};
+      // Edit tools are disabled while painted districts are hidden; drop an
+      // active one to Move so it can't keep editing.
+      const dropEditTool =
+        mapOptions.showPaintedDistricts === false && DISTRICT_EDIT_TOOLS.includes(get().activeTool);
+      set(dropEditTool ? {mapOptions, activeTool: ACTIVE_TOOLS.PAN} : {mapOptions});
+    },
     hoveredCountyGeoid: null,
     setHoveredCountyGeoid: geoid => set({hoveredCountyGeoid: geoid}),
     setStateFp: stateFp => {

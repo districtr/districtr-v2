@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
+import {HoverTrigger, hoverHandlers} from './HoverTrigger';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -21,16 +22,6 @@ function formatDeviation(value: number): string {
 interface BasicsSectionProps {
   evaluation: DocumentEvaluation;
 }
-
-const HOVER_BTN_STYLE: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  font: 'inherit',
-  fontWeight: 'bold',
-  cursor: 'default',
-  textDecoration: 'underline dotted',
-};
 
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -147,10 +138,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                     key={d}
                     zone={Number(d)}
                     onClick={() => zoomToDistrict(Number(d))}
-                    onMouseEnter={() => onDistrictEnter(d)}
-                    onMouseLeave={onDistrictLeave}
-                    onFocus={() => onDistrictEnter(d)}
-                    onBlur={onDistrictLeave}
+                    {...hoverHandlers(() => onDistrictEnter([d]), onDistrictLeave)}
                   />
                 ))}
               </Flex>
@@ -190,27 +178,21 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
               </Flex>
               <Text size="2" as="p">
                 Your plan&apos;s most populous district is{' '}
-                <button
-                  type="button"
-                  style={HOVER_BTN_STYLE}
-                  onMouseEnter={() => onDistrictEnter(population_deviation.most_populous_district)}
-                  onMouseLeave={onDistrictLeave}
-                  onFocus={() => onDistrictEnter(population_deviation.most_populous_district)}
-                  onBlur={onDistrictLeave}
+                <HoverTrigger
+                  bold
+                  onEnter={() => onDistrictEnter([population_deviation.most_populous_district])}
+                  onLeave={onDistrictLeave}
                 >
                   District {population_deviation.most_populous_district}
-                </button>{' '}
+                </HoverTrigger>{' '}
                 and least populous district is{' '}
-                <button
-                  type="button"
-                  style={HOVER_BTN_STYLE}
-                  onMouseEnter={() => onDistrictEnter(population_deviation.least_populous_district)}
-                  onMouseLeave={onDistrictLeave}
-                  onFocus={() => onDistrictEnter(population_deviation.least_populous_district)}
-                  onBlur={onDistrictLeave}
+                <HoverTrigger
+                  bold
+                  onEnter={() => onDistrictEnter([population_deviation.least_populous_district])}
+                  onLeave={onDistrictLeave}
                 >
                   District {population_deviation.least_populous_district}
-                </button>
+                </HoverTrigger>
                 {deviationView !== 'max_absolute' && (
                   <>
                     , for a top-to-bottom deviation of{' '}

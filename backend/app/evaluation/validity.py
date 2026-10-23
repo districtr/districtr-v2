@@ -147,6 +147,6 @@ def contiguous(context: DocumentEvaluationContext) -> dict[DistrictId, bool]:
         zone_to_nodes.setdefault(zone, set()).add(geoid)
     result: dict[DistrictId, bool] = {}
     for zone, nodes in zone_to_nodes.items():
-        G.expand_non_contiguous(nodes)
+        nodes = G.expand_non_contiguous(nodes)
         result[zone] = check_subgraph_contiguity(G, nodes)
     return result

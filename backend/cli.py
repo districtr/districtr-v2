@@ -14,7 +14,6 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
-    create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
@@ -99,69 +98,6 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
         gpkg=gpkg,
         rm=rm,
     )
-
-
-@cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
-@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
-@click.option(
-    "--force",
-    "-f",
-    is_flag=True,
-    default=False,
-    help="Drop and recreate edges if they were already loaded for this map",
-)
-@with_session
-def create_parent_child_edges(
-    session: Session,
-    districtr_map_slug: str | None,
-    districtr_map_uuid: str | None,
-    force: bool,
-):
-    """
-    Create parent-child edges for a districtr map.
-    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
-    """
-    if not districtr_map_slug and not districtr_map_uuid:
-        raise ValueError(
-            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
-        )
-
-    if districtr_map_slug:
-        districtr_map_uuid = session.scalars(
-            select(DistrictrMap.uuid).where(
-                DistrictrMap.districtr_map_slug == districtr_map_slug
-            )
-        ).first()
-        if not districtr_map_uuid:
-            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
-
-    logger.info("Creating parent-child edges...")
-    _create_parent_child_edges(
-        session=session, districtr_map_uuid=districtr_map_uuid, force=force
-    )
-    logger.info("Parent-child relationship upserted successfully.")
-
-
-@cli.command("delete-parent-child-edges")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
-@with_session
-def delete_parent_child_edges(session: Session, districtr_map: str):
-    logger.info("Deleting parent-child edges...")
-
-    delete_query = text(
-        """
-        DELETE FROM parentchildedges
-        WHERE districtr_map = :districtr_map
-    """
-    )
-    session.execute(
-        delete_query,
-        {
-            "districtr_map": districtr_map,
-        },
-    )
-    logger.info("Parent-child relationship upserted successfully.")
 
 
 @cli.command("create-districtr-map")
@@ -351,7 +287,10 @@ def update_districtr_map(
     if bounds and len(bounds) == 4:
         _bounds = bounds
 
-    result = _update_districtrmap(
+    # map_type is omitted rather than passed as None: DistrictrMapUpdate.map_type
+    # is non-optional (default "default"), unlike every other field here, so an
+    # explicit None fails pydantic validation instead of falling back to unset.
+    update_kwargs: dict[str, Any] = dict(
         session=session,
         districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
@@ -362,13 +301,16 @@ def update_districtr_map(
         num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
-        map_type=map_type,
         comment=comment,
         parent_geo_unit_type=parent_geo_unit_type,
         child_geo_unit_type=child_geo_unit_type,
         data_source_name=data_source_name,
         bounds=_bounds,
     )
+    if map_type is not None:
+        update_kwargs["map_type"] = map_type
+
+    result = _update_districtrmap(**update_kwargs)
     logger.info(f"Districtr map updated successfully {result}")
 
 
@@ -892,61 +834,54 @@ def update_overlay(
         logger.error(f"Overlay with ID {overlay_id} not found")
         return
 
-    # Build update query dynamically based on provided parameters
-    update_fields = []
-    params = {"overlay_id": str(overlay_uuid)}
+    # Build update values dynamically based on provided parameters
+    updates: dict[Any, Any] = {}
 
     if name is not None:
-        update_fields.append("name = :name")
-        params["name"] = name
+        updates[col(Overlay.name)] = name
 
     if description is not None:
-        update_fields.append("description = :description")
-        params["description"] = description
+        updates[col(Overlay.description)] = description
 
     if data_type is not None:
-        update_fields.append("data_type = :data_type")
-        params["data_type"] = data_type
+        updates[col(Overlay.data_type)] = data_type
 
     if layer_type is not None:
-        update_fields.append("layer_type = :layer_type")
-        params["layer_type"] = layer_type
+        updates[col(Overlay.layer_type)] = layer_type
 
     if source is not None:
-        update_fields.append("source = :source")
-        params["source"] = source
+        updates[col(Overlay.source)] = source
 
     if source_layer is not None:
-        update_fields.append("source_layer = :source_layer")
-        params["source_layer"] = source_layer
+        updates[col(Overlay.source_layer)] = source_layer
 
     if custom_style is not None:
         try:
             parsed_style = json.loads(custom_style)
-            update_fields.append("custom_style = :custom_style")
-            params["custom_style"] = json.dumps(parsed_style)
+            # Store the parsed object, not a string: custom_style is a JSON
+            # column, so the ORM does the encoding itself.
+            updates[col(Overlay.custom_style)] = parsed_style
         except json.JSONDecodeError:
             logger.error("Invalid JSON for custom-style")
             return
 
     if id_property is not None:
-        update_fields.append("id_property = :id_property")
-        params["id_property"] = id_property
+        updates[col(Overlay.id_property)] = id_property
 
-    if not update_fields:
+    if not updates:
         logger.warning("No fields to update. Provide at least one field to update.")
         return
 
-    params["updated_at"] = datetime.now(timezone.utc)
+    updates[col(Overlay.updated_at)] = datetime.now(timezone.utc)
 
     update_stmt = (
         update(Overlay)
-        .where(Overlay.overlay_id == params["overlay_id"])
-        .values({k: v for k, v in params.items() if k != "overlay_id"})
-        .returning(Overlay.overlay_id)
+        .where(col(Overlay.overlay_id) == str(overlay_uuid))
+        .values(updates)
+        .returning(col(Overlay.overlay_id))
     )
 
-    result = session.execute(update_stmt, params)
+    result = session.execute(update_stmt)
     updated = result.scalar()
 
     if updated:
@@ -1064,7 +999,7 @@ def sync_overlay_metadata(session: Session, metadata: str, dry_run: bool):
 )
 @with_session
 def check_missing_graphs(session: Session, skip_alert: bool):
-    """Query all visible DistrictrMap records and alert via SNS if any graph file (npz or pkl) is absent from S3."""
+    """Query all visible DistrictrMap records and alert via SNS if any graph npz is absent from S3."""
     topic_arn = settings.ALARM_SNS_TOPIC_ARN
     if not skip_alert and not topic_arn:
         raise click.UsageError(
@@ -1088,32 +1023,22 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         raise SystemExit(1)
 
     # (gerrydb_table_name, status) where status is "missing" or an S3 error code
-    # Either format satisfies the check during the pkl -> npz migration.
     problems = []
     for m in maps:
         assert m.gerrydb_table_name is not None
+        key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.npz"
         status = None
-        for suffix in ("npz", "pkl"):
-            key = f"{S3_GRAPH_PREFIX}/{m.gerrydb_table_name}.{suffix}"
-            try:
-                s3.head_object(Bucket=settings.AWS_S3_BUCKET, Key=key)
-                logger.info("Graph present: s3://%s/%s", settings.AWS_S3_BUCKET, key)
-                status = None
-                break
-            except botocore.exceptions.ClientError as e:
-                code = e.response.get("Error", {}).get("Code", "")
-                status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
-            except botocore.exceptions.BotoCoreError as e:
-                # Non-HTTP failures: connection, timeout, credentials, etc.
-                status = type(e).__name__
+        try:
+            s3.head_object(Bucket=settings.AWS_S3_BUCKET, Key=key)
+            logger.info("Graph present: s3://%s/%s", settings.AWS_S3_BUCKET, key)
+        except botocore.exceptions.ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            status = "missing" if code in ("404", "NoSuchKey") else code or str(e)
+        except botocore.exceptions.BotoCoreError as e:
+            # Non-HTTP failures: connection, timeout, credentials, etc.
+            status = type(e).__name__
         if status is not None:
-            logger.warning(
-                "Graph %s: s3://%s/%s/%s.{npz,pkl}",
-                status,
-                settings.AWS_S3_BUCKET,
-                S3_GRAPH_PREFIX,
-                m.gerrydb_table_name,
-            )
+            logger.warning("Graph %s: s3://%s/%s", status, settings.AWS_S3_BUCKET, key)
             problems.append((m.gerrydb_table_name, status))
 
     if not problems:
@@ -1125,7 +1050,7 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         return
 
     problem_list = "\n".join(
-        f"  - s3://{settings.AWS_S3_BUCKET}/{S3_GRAPH_PREFIX}/{name}.{{npz,pkl}} — {status}"
+        f"  - s3://{settings.AWS_S3_BUCKET}/{S3_GRAPH_PREFIX}/{name}.npz — {status}"
         for name, status in problems
     )
     sns = boto3.client("sns")

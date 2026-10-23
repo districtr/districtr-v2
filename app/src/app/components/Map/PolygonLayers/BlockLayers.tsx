@@ -1,7 +1,8 @@
 'use client';
 import type React from 'react';
 import type {FilterSpecification} from 'maplibre-gl';
-import {CANONICAL_LAYER_IDS, BlockScope} from '@constants/map/layerIds';
+import {Layer} from 'react-map-gl/maplibre';
+import {BLOCK_SOURCE_ID, CANONICAL_LAYER_IDS, BlockScope} from '@constants/map/layerIds';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import GeometryOutlineLayer from './GeometryOutlineLayer';
 import {HoverLayerGroup} from './HoverLayerGroup';
@@ -40,10 +41,23 @@ export const BlockLayers: React.FC<{
         />
       )}
 
+      {/* Hit-testing target for paint, erase, break and inspect, kept separate from
+          the district colours so hiding them leaves clicks working. MapLibre skips
+          drawing a zero-opacity fill but still queries it. */}
+      <Layer
+        id={CANONICAL_LAYER_IDS.BLOCK[scope].HOVER}
+        type="fill"
+        source={BLOCK_SOURCE_ID}
+        source-layer={sourceLayerId}
+        filter={layerFilter}
+        beforeId={DEFAULT_BLOCK_LAYER_ORDER.zoneBeforeId}
+        layout={{visibility: 'visible'}}
+        paint={{'fill-opacity': 0}}
+      />
       <ZoneLayerGroup
         ids={{
           highlightId: CANONICAL_LAYER_IDS.BLOCK[scope].HIGHLIGHT,
-          assignmentId: CANONICAL_LAYER_IDS.BLOCK[scope].HOVER,
+          assignmentId: CANONICAL_LAYER_IDS.BLOCK[scope].ASSIGNMENT,
         }}
         sourceLayerId={sourceLayerId}
         filter={layerFilter}

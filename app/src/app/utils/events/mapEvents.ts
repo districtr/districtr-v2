@@ -114,6 +114,26 @@ if (typeof module !== 'undefined' && (module as any).hot) {
   });
 }
 
+/**
+ * Break the clicked unit. From inside block view this jumps: the current unit
+ * is exited (healing if its blocks share one zone) and the clicked one broken.
+ */
+export const breakUnit = (
+  features: MapGeoJSONFeature[],
+  mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target']
+) => {
+  const mapStore = useMapStore.getState();
+  if (!mapStore.captiveIds.size) return mapStore.handleShatter(features);
+  // handleShatter bails while locked; don't leave the current unit for nothing.
+  if (mapStore.mapLock) return;
+  mapStore.exitBlockView();
+  // The heal in exitBlockView re-renders shatter state, and that render clears
+  // mapLock (mapRenderSubs.renderShatter). Break the next unit after it so its
+  // lock holds through the fetch — otherwise stray clicks paint whole units.
+  mapRef.once('render', () => useMapStore.getState().handleShatter(features));
+  mapRef.triggerRepaint();
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -126,8 +146,8 @@ export const handleFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER:
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length) {
-        mapStore.handleShatter(selectedFeatures || []);
+      if (documentId && selectedFeatures?.length && mapRef) {
+        breakUnit(selectedFeatures, mapRef);
       }
       return;
     case ACTIVE_TOOLS.BRUSH:
@@ -482,39 +502,9 @@ export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   }
 };
 
-export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-  const mapRef = e.target;
-  const mapStore = useMapStore.getState();
-  const mapControls = useMapControlsStore.getState();
-  const activeTool = mapControls.activeTool;
-  if (activeTool !== ACTIVE_TOOLS.PAN) {
-    return;
-  }
-  e.preventDefault();
-  const sourceLayer = mapStore.mapDocument?.parent_layer;
-  // Selects from the hover layers instead of the points
-  // Otherwise, its hard to select precisely
-  const paintLayers = mapStore.mapDocument?.child_layer
-    ? INTERACTIVE_LAYERS
-    : [BLOCK_HOVER_LAYER_ID];
-
-  const selectedFeatures = mapControls.paintFunction(mapRef, e, 0, paintLayers, false);
-
-  if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
-
-  const handleClose = () => {
-    mapStore.setContextMenu(null);
-  };
-
-  mapRef.once('movestart', handleClose);
-
-  mapStore.setContextMenu({
-    x: e.point.x,
-    y: e.point.y,
-    data: selectedFeatures[0],
-    close: handleClose,
-  });
-};
+// MapLibre suppresses the browser's right-click menu only while the map has a
+// 'contextmenu' listener, so this no-op stays registered.
+export const handleMapContextMenu = () => {};
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
   const {mapDocument, setMapRenderingState} = useMapStore.getState();

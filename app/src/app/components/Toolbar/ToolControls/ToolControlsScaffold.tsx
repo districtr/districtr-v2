@@ -61,8 +61,8 @@ export const ToolControlsScaffold = () => {
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
 
   // Before a unit is broken there's nothing to paint yet, so the whole
-  // paint-adjacent surface reads as inert — once broken, break paints blocks
-  // and gets the exact same live controls as paint.
+  // paint-adjacent surface reads as inert — once broken, the controls go live
+  // so the zone can be set before switching to Paint.
   const breakBeforeBlockView = activeTool === ACTIVE_TOOLS.SHATTER && !inBlockView;
   const sliderDisabled = activeTool === ACTIVE_TOOLS.PAN || breakBeforeBlockView;
   const zonePickerDisabled =
