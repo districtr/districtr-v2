@@ -7,6 +7,7 @@ import {
   EyeOpenIcon,
   LockClosedIcon,
   LockOpen2Icon,
+  TableIcon,
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -20,6 +21,7 @@ import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
+import {DistrictTuningTable} from './DistrictTuningTable';
 import {formatNumber} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
@@ -184,6 +186,7 @@ export const DistrictMeters = () => {
   const showPopNumbers = chartOptions.popShowPopNumbers;
   const showDeviations = chartOptions.popShowTopBottomDeviation;
   const targetDeviation = chartOptions.popTargetPopDeviation;
+  const tuningView = superDraw && chartOptions.popTuningView;
 
   const isReadOnly = access === ACCESS_STATES.READ;
   const populations = populationData.map(d => d.total_pop_20 ?? 0);
@@ -239,6 +242,41 @@ export const DistrictMeters = () => {
         }
       : undefined;
 
+  // Shared by the bars and the tuning table.
+  const footer = (
+    <Flex align="center" justify="between" mt="1">
+      <ShowAllDistrictsButton
+        showAll={showAll}
+        onToggle={() => setShowAllOverride(!showAll)}
+        total={populationData.length}
+        hiddenCount={hiddenCount}
+      />
+      {superDraw && (
+        <Flex align="center" gap="2" style={{marginLeft: 'auto'}}>
+          {/* Same toggle-button treatment as Show on map. */}
+          <Button
+            size="1"
+            variant={tuningView ? 'solid' : 'surface'}
+            color="gray"
+            highContrast={tuningView}
+            onClick={() => setChartOptions({popTuningView: !tuningView})}
+            aria-pressed={tuningView}
+          >
+            <TableIcon />
+            Tuning view
+          </Button>
+          {!tuningView && (
+            <PopulationPanelOptions
+              chartOptions={chartOptions}
+              setChartOptions={setChartOptions}
+              idealPopulation={idealPopulation}
+            />
+          )}
+        </Flex>
+      )}
+    </Flex>
+  );
+
   return (
     <Flex
       direction="column"
@@ -252,6 +290,17 @@ export const DistrictMeters = () => {
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
         </Text>
+      ) : tuningView ? (
+        <>
+          <DistrictTuningTable
+            rows={visibleData}
+            idealPopulation={idealPopulation}
+            showLocks={showRowIcons}
+            isReadOnly={isReadOnly}
+            onToggleLock={handleLockChange}
+          />
+          {footer}
+        </>
       ) : (
         <>
           {/* Header strip: vertical column labels, and the ideal population
@@ -585,23 +634,7 @@ export const DistrictMeters = () => {
               })}
             </Flex>
           </ConditionalScrollArea>
-          <Flex align="center" justify="between" mt="1">
-            <ShowAllDistrictsButton
-              showAll={showAll}
-              onToggle={() => setShowAllOverride(!showAll)}
-              total={populationData.length}
-              hiddenCount={hiddenCount}
-            />
-            {superDraw && (
-              <span style={{marginLeft: 'auto'}}>
-                <PopulationPanelOptions
-                  chartOptions={chartOptions}
-                  setChartOptions={setChartOptions}
-                  idealPopulation={idealPopulation}
-                />
-              </span>
-            )}
-          </Flex>
+          {footer}
         </>
       )}
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}

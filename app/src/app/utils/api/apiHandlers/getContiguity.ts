@@ -13,6 +13,13 @@ type ContiguityResponse =
       };
     };
 
+/**
+ * Shared React Query key for the per-district contiguity check. `updated_at`
+ * turns the key over on every save, so observers can use staleTime Infinity.
+ */
+export const contiguityQueryKey = (mapDocument?: DocumentObject | null) =>
+  ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at] as const;
+
 export const getContiguity = async (
   mapDocument?: DocumentObject | null
 ): Promise<ContiguityResponse> => {

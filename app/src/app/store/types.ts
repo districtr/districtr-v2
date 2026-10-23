@@ -36,6 +36,8 @@ export type DistrictrChartOptions = {
   popShowDistrictNumbers: boolean;
   popBarScaleToCurrent: boolean;
   popShowTopBottomDeviation: boolean;
+  // Super Draw's table view of the population chart, for fine tuning.
+  popTuningView: boolean;
 };
 
 interface APIErrorResponse extends AxiosResponse {
