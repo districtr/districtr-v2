@@ -1,14 +1,15 @@
-'use client';
-import React from 'react';
 import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
-import {useMapStore} from '@/app/store/mapStore';
+import {getDocument} from './apiHandlers/getDocument';
+import {formatErrorDetail} from './factory';
+import {idb} from '@/app/utils/idb/idb';
 import {type MapType} from '@constants/document/types';
 import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
 
 const MAX_ROWS = 914_231;
-const MAX_FILE_SIZE = 2_000_000_000; // 20mb
+// Generous on purpose: a max-row two-column CSV is ~25 MB, and MAX_ROWS is the real guard.
+const MAX_FILE_SIZE = 100_000_000;
 
 export type MapLink = DistrictrMap & {
   document_id: string;
@@ -102,130 +103,116 @@ const inferMapForCsv = (fips: string, availableMaps: DistrictrMap[]): DistrictrM
   );
 };
 
-export const processFile = ({
+const parseCsv = (file: File) =>
+  new Promise<string[][]>((resolve, reject) =>
+    Papa.parse<string[]>(file, {
+      skipEmptyLines: true,
+      complete: results => resolve(results.data),
+      error: reject,
+    })
+  );
+
+/** Parse a block-assignment CSV and create a document from it. Rejects with a user-facing message. */
+export const processFile = async ({
   file,
-  setMapLink,
-  setError,
   availableMaps,
   documentMapType = 'default',
 }: {
   file: File;
-  setMapLink: React.Dispatch<React.SetStateAction<MapLink | null>>;
-  setError: React.Dispatch<React.SetStateAction<any>>;
   availableMaps: DistrictrMap[];
   documentMapType?: MapType;
-}) => {
-  const {setNotification} = useMapStore.getState();
-
-  if (!file) {
-    setNotification({message: 'No file selected', importance: 1, type: 'error'});
-    throw new Error('No file selected');
-  }
+}): Promise<MapLink> => {
   if (file.size > MAX_FILE_SIZE) {
-    setNotification({
-      message: 'Block CSV file size exceeds limit (20mb)',
-      importance: 1,
-      type: 'error',
-    });
-    throw new Error('Block CSV file size exceeds limit');
+    throw new Error(`File is larger than the ${MAX_FILE_SIZE / 1_000_000} MB limit`);
   }
 
-  Papa.parse(file, {
-    skipEmptyLines: true,
-    complete: async results => {
-      const allRows = results.data as string[][];
+  const allRows = await parseCsv(file);
 
-      // If row 0 is a header (col 0 is not a GEOID), evict it without copying the
-      // array: swap it with the last row and pop. Row order does not matter because
-      // we build a GEOID→zone map, not an ordered list.
-      const row0Raw = (allRows[0]?.[0] ?? '').trim();
-      if (parseGeoid(row0Raw) === null) {
-        allRows[0] = allRows[allRows.length - 1];
-        allRows.pop();
-      }
+  // If row 0 is a header (col 0 is not a GEOID), evict it without copying the
+  // array: swap it with the last row and pop. Row order does not matter because
+  // we build a GEOID→zone map, not an ordered list.
+  const row0Raw = (allRows[0]?.[0] ?? '').trim();
+  if (parseGeoid(row0Raw) === null) {
+    allRows[0] = allRows[allRows.length - 1];
+    allRows.pop();
+  }
 
-      if (allRows.length === 0 || (allRows[0]?.length ?? 0) < 2) {
-        setError({ok: false, detail: {message: 'Missing columns'}});
-        return;
-      }
+  if (allRows.length === 0 || (allRows[0]?.length ?? 0) < 2) {
+    throw new Error('Missing columns');
+  }
 
-      if (allRows.length > MAX_ROWS) {
-        setError({
-          ok: false,
-          detail: {message: `Upload size exceeds maximum allowed limit (${MAX_ROWS} records)`},
-        });
-        return;
-      }
+  if (allRows.length > MAX_ROWS) {
+    throw new Error(`Upload size exceeds maximum allowed limit (${MAX_ROWS} records)`);
+  }
 
-      const {assignments, skippedGeoIds, stateFipsSet} = partitionRows(allRows);
+  const {assignments, skippedGeoIds, stateFipsSet} = partitionRows(allRows);
 
-      if (stateFipsSet.size === 0) {
-        setError({ok: false, detail: {message: 'No valid block GEOIDs found'}});
-        return;
-      }
-      // UX decision: we hard-fail on mixed states rather than guessing which state
-      // the user intended. A CSV from Dave's Redistricting App for a single state
-      // plan should never span multiple state FIPS codes; if it does, the file is
-      // likely mismatched or corrupted.
-      // TODO: We might prompt users to indicate which state they intend the import for.
-      if (stateFipsSet.size > 1) {
-        const names = [...stateFipsSet]
-          .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
-          .join(', ');
-        setError({ok: false, detail: {message: `Mixed states found in CSV: ${names}`}});
-        return;
-      }
+  if (stateFipsSet.size === 0) {
+    throw new Error('No valid block GEOIDs found');
+  }
+  // UX decision: we hard-fail on mixed states rather than guessing which state
+  // the user intended. A CSV from Dave's Redistricting App for a single state
+  // plan should never span multiple state FIPS codes; if it does, the file is
+  // likely mismatched or corrupted.
+  // TODO: We might prompt users to indicate which state they intend the import for.
+  if (stateFipsSet.size > 1) {
+    const names = [...stateFipsSet]
+      .map(f => (FIPS_TO_NAME[f] ? `${FIPS_TO_NAME[f]} (${FIPS_TO_ABBR[f]})` : `FIPS ${f}`))
+      .join(', ');
+    throw new Error(`Mixed states found in CSV: ${names}`);
+  }
 
-      const fips = [...stateFipsSet][0];
-      const districtrMap = inferMapForCsv(fips, availableMaps);
-      if (!districtrMap) {
-        const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
-        setError({
-          ok: false,
-          detail: {message: `No custom districts map available for ${stateName}`},
-        });
-        return;
-      }
+  const fips = [...stateFipsSet][0];
+  const districtrMap = inferMapForCsv(fips, availableMaps);
+  if (!districtrMap) {
+    const stateName = FIPS_TO_NAME[fips] ?? `FIPS ${fips}`;
+    throw new Error(`No custom districts map available for ${stateName}`);
+  }
 
-      try {
-        const uploadResult = await uploadAssignments({
-          assignments,
-          districtr_map_slug: districtrMap.districtr_map_slug,
-          map_type: documentMapType,
-        });
-        if (uploadResult.ok && uploadResult.response?.document_id) {
-          const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
-          const remapping = uploadResult.response.zone_label_remapping;
-          setMapLink({
-            ...districtrMap,
-            document_id: uploadResult.response.document_id,
-            public_id: uploadResult.response.public_id,
-            filename: file.name,
-            skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
-            zone_label_remapping:
-              remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
-          });
-        } else {
-          setError({
-            ok: false,
-            detail: {
-              message: uploadResult.ok
-                ? 'Unknown error encountered while uploading assignments'
-                : uploadResult.error.detail,
-            },
-          });
-        }
-      } catch (error: unknown) {
-        setError({
-          ok: false,
-          detail: {
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Unknown error encountered after uploading assignments',
-          },
-        });
-      }
-    },
+  const uploadResult = await uploadAssignments({
+    assignments,
+    districtr_map_slug: districtrMap.districtr_map_slug,
+    map_type: documentMapType,
   });
+  if (!uploadResult.ok) {
+    throw new Error(
+      formatErrorDetail(uploadResult.error.detail) ||
+        `Upload failed${uploadResult.error.status ? ` (HTTP ${uploadResult.error.status})` : ''}`
+    );
+  }
+  if (!uploadResult.response?.document_id) {
+    throw new Error('Unknown error encountered while uploading assignments');
+  }
+  await saveToMyMaps(uploadResult.response.document_id);
+  const allSkipped = [...skippedGeoIds, ...(uploadResult.response.skipped_geo_ids ?? [])];
+  const remapping = uploadResult.response.zone_label_remapping;
+  return {
+    ...districtrMap,
+    document_id: uploadResult.response.document_id,
+    public_id: uploadResult.response.public_id,
+    filename: file.name,
+    skipped_geo_ids: allSkipped.length > 0 ? allSkipped : undefined,
+    zone_label_remapping: remapping && Object.keys(remapping).length > 0 ? remapping : undefined,
+  };
+};
+
+/**
+ * List an uploaded document in "My maps" before it's opened, so closing the
+ * uploader doesn't lose it. Stores a stub; the editor fetches the assignments
+ * on first load. Best effort: the document is already safe on the server.
+ */
+const saveToMyMaps = async (document_id: string) => {
+  try {
+    const doc = await getDocument(document_id);
+    if (!doc.ok) return;
+    await idb.updateDocument({
+      id: document_id,
+      document_metadata: doc.response,
+      assignments: [],
+      clientLastUpdated: doc.response.updated_at,
+      shouldFetchAssignments: true,
+    });
+  } catch (e) {
+    console.error('Failed to save uploaded map to My maps', e);
+  }
 };

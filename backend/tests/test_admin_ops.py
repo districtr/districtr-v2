@@ -189,10 +189,6 @@ def patch_compose_steps():
             manager.add_extent_to_districtrmap,
         ),
         patch(
-            "app.admin_ops.main.create_or_copy_parent_child_edges",
-            manager.create_parent_child_edges,
-        ),
-        patch(
             "app.admin_ops.main.add_districtr_map_to_map_group",
             manager.add_districtr_map_to_map_group,
         ),
@@ -385,7 +381,6 @@ def test_compose_schedules_steps_with_child_layer(
         "create_shatterable_gerrydb_view",
         "create_districtr_map",
         "add_extent_to_districtrmap",
-        "create_parent_child_edges",
         "add_districtr_map_to_map_group",
     ]
 
@@ -409,9 +404,6 @@ def test_compose_schedules_steps_with_child_layer(
     extent_kwargs = manager.add_extent_to_districtrmap.call_args.kwargs
     assert extent_kwargs["districtr_map_uuid"] == "districtr-map-uuid"
 
-    edges_kwargs = manager.create_parent_child_edges.call_args.kwargs
-    assert edges_kwargs["districtr_map_uuid"] == "districtr-map-uuid"
-
     group_kwargs = manager.add_districtr_map_to_map_group.call_args.kwargs
     assert group_kwargs["districtr_map_slug"] == "ks-demo-compose"
     assert group_kwargs["group_slug"] == "compose-group"
@@ -434,7 +426,6 @@ def test_compose_schedules_steps_without_child_layer(client, compose_layers):
         "add_extent_to_districtrmap",
     ]
     manager.create_shatterable_gerrydb_view.assert_not_called()
-    manager.create_parent_child_edges.assert_not_called()
     manager.add_districtr_map_to_map_group.assert_not_called()
 
     map_kwargs = manager.create_districtr_map.call_args.kwargs

@@ -68,7 +68,7 @@ flowchart TB
 - Tasks run in public subnets with strict security groups (no NAT cost); only
   the ALB can reach them.
 - RDS has no public IP; its security group admits only the backend and CMS tasks.
-- Graph pickles stream from S3 per cache miss (free in-region via the S3
+- Graph npz files stream from S3 per cache miss (free in-region via the S3
   gateway endpoint) into the backend's in-process LRU.
 - The frontend loads map tiles and parquet from the tilesets CDN client-side
   (URLs baked into the bundle) — not proxied through the ECS frontend.

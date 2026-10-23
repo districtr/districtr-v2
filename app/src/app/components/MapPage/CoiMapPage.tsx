@@ -1,6 +1,5 @@
 'use client';
 import React, {Suspense, useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
 import {CoiMap} from '@components/Map/CoiMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
@@ -14,6 +13,7 @@ import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {RepairAssignmentsModal} from '../RepairAssignmentsModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {DemographicMap} from '../Map/DemographicMap';
 import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
@@ -117,10 +117,10 @@ const ChildCoiMapPage: React.FC<CoiMapPageProps> = ({isEditing, documentId}) => 
         <MobileToolbar />
         <MapTooltip />
       </div>
-      <MapContextMenu />
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
+      <RepairAssignmentsModal />
     </div>
   );
 };

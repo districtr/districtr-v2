@@ -1,3 +1,4 @@
+import type * as maplibregl from 'maplibre-gl';
 import {getLayerFill} from '@constants/map/layerStyle';
 import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
@@ -193,8 +194,8 @@ export class MapRenderSubscriber {
     if (isDemographic) return;
     const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-      const isHover = layerId.includes('hover');
-      if (isHover && this.mapRef.getLayer(layerId)) {
+      const isAssignment = layerId.includes('assignment');
+      if (isAssignment && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
@@ -204,7 +205,7 @@ export class MapRenderSubscriber {
     });
 
     CHILD_LAYERS.forEach(layerId => {
-      if (!layerId.includes('hover') && this.mapRef.getLayer(layerId)) {
+      if (!layerId.includes('assignment') && this.mapRef.getLayer(layerId)) {
         this.mapRef.setPaintProperty(layerId, 'line-opacity', 1);
       }
     });
@@ -295,7 +296,7 @@ export class MapRenderSubscriber {
     // Color rendering can run independently of focus updates, so we re-assert this here.
     const zonesOpacity = this.useMapControlsStore.getState().mapOptions.zonesOpacity ?? 1;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-      if (!layerId.includes('hover') || !this.mapRef.getLayer(layerId)) return;
+      if (!layerId.includes('assignment') || !this.mapRef.getLayer(layerId)) return;
       this.mapRef.setPaintProperty(
         layerId,
         'fill-opacity',
@@ -430,9 +431,9 @@ export class MapRenderSubscriber {
       return;
     }
 
-    const featureStateCache = this.mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = this.mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     const featureStateChangesCache =
-      this.mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+      this.mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().stateChanges;
     if (!featureStateCache || !mapState.mapDocument) return;
     const mapDocument = mapState.mapDocument;
 
@@ -697,7 +698,7 @@ export class MapRenderSubscriber {
     const mapState = this.useMapStore.getState();
     const {isPainting, mapMode} = this.useMapControlsStore.getState();
     if (!mapRef || !mapState.mapDocument?.document_id || isPainting) return;
-    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     if (!featureStateCache) return;
 
     if (

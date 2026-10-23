@@ -8,9 +8,8 @@ owns the DDL. Django reaches the tables through the connection search_path
 schema-qualified. Run `manage.py check_mirror_drift` to verify the mirrors
 still match the live schema.
 
-Intentionally NOT mirrored: partitioned tables (parentchildedges,
-document.assignments, document.community_assignments), anything in the
-`document` schema, and geometry-bearing tables (document.district_unions).
+Intentionally NOT mirrored: anything in the `document` schema, and
+geometry-bearing tables (document.district_unions).
 Geometry columns must never be mapped here; list any such intentionally
 unmapped columns in datastore.drift.EXCLUDED_COLUMNS.
 """
