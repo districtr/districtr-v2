@@ -34,7 +34,6 @@ export type ActiveToolConfig = {
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
   const mapMode = useMapControlsStore(state => state.mapMode);
@@ -131,9 +130,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'B',
       mode: ACTIVE_TOOLS.SHATTER,
-      // Also disabled inside block view: you're already in the one unit
-      // you'd be breaking, so the click would do nothing.
-      disabled: !mapDocument?.child_layer || inBlockView,
+      disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: ViewGridIcon,
       // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
