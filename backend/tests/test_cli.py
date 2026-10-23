@@ -10,9 +10,11 @@ from sqlmodel import Session
 from sqlalchemy import select, text
 
 import app.core.db
+import app.thumbnails.main
+import app.utils
 from app.core.config import settings
 from app.models import DistrictrMap, Overlay
-from tests.constants import POSTGRES_TEST_DB
+from tests.constants import POSTGRES_TEST_DB, TEST_SQLALCHEMY_DATABASE_URI
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "gerrydb"
 
@@ -33,10 +35,15 @@ def _patch_cli_engine(engine, monkeypatch):
     under the old subprocess-per-test design this came from process env vars
     at cli.py's startup; in-process, `settings` is a session-wide singleton
     already loaded from the container's real (non-test) config.
+    app.utils and app.thumbnails.main bind their own `engine` the same way.
+    The env vars cover anything that reads them at call time (e.g.
+    alembic/env.py prefers DATABASE_URL).
     """
-    monkeypatch.setattr(cli, "engine", engine)
-    monkeypatch.setattr(app.core.db, "engine", engine)
+    for module in (cli, app.core.db, app.utils, app.thumbnails.main):
+        monkeypatch.setattr(module, "engine", engine)
     monkeypatch.setattr(settings, "POSTGRES_DB", POSTGRES_TEST_DB)
+    monkeypatch.setenv("POSTGRES_DB", POSTGRES_TEST_DB)
+    monkeypatch.setenv("DATABASE_URL", str(TEST_SQLALCHEMY_DATABASE_URI))
 
 
 def run_cli(*args: str) -> SimpleNamespace:

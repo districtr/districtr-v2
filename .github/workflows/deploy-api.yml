@@ -8,6 +8,11 @@ on:
       - "backend/**"
       - ".github/workflows/deploy-api.yml"
   workflow_dispatch:
+    inputs:
+      force_migrations:
+        description: "Run the migrate task even if nothing migration-related changed (e.g. after an RDS snapshot restore)"
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -75,10 +80,33 @@ jobs:
           # Exact pin (not the default ^3 range) so a Pulumi release can't
           # silently change deploys; keep ~in sync with infra/package.json.
           pulumi-version: 3.242.0
+      # The migrate task costs ~2 min of Fargate startup even when there is
+      # nothing to apply. The SSM tag is written only after that SHA's
+      # migrations succeeded (or were skipped here), so with alembic unchanged
+      # since, the DB is at head. Dependency/Dockerfile changes still run it:
+      # it's the new image's only DB connection before rollout. Lookup
+      # failures run it too, as does force_migrations (after a snapshot restore,
+      # the DB is behind the SSM tag).
+      - name: Check for new migrations
+        id: migrations
+        run: |
+          set -euo pipefail
+          LAST_SHA=$(aws ssm get-parameter \
+            --name "/districtr/${{ steps.cfg.outputs.stack }}/meta/backend-image-tag" \
+            --query Parameter.Value --output text 2>/dev/null || true)
+          if [[ "$LAST_SHA" =~ ^[0-9a-f]{40}$ ]] && git fetch -q --depth=1 origin "$LAST_SHA" 2>/dev/null &&
+              git diff --quiet "$LAST_SHA" HEAD -- backend/app/alembic backend/alembic.ini \
+                backend/requirements.txt backend/Dockerfile; then
+            echo "No migration changes since $LAST_SHA; skipping the migrate task"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       # Fly release_command equivalent: run `alembic upgrade head` as a
       # one-off task with the new image. If it fails, the service is left
       # untouched on the old image.
       - name: Run database migrations
+        if: inputs.force_migrations || steps.migrations.outputs.changed == 'true'
         working-directory: infra
         run: |
           set -euo pipefail
