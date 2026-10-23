@@ -1,5 +1,5 @@
 import {Button, Callout, Flex, Heading, IconButton, Spinner, Text} from '@radix-ui/themes';
-import React, {useMemo, useState} from 'react';
+import React, {useContext, useMemo, useState} from 'react';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
@@ -21,7 +21,7 @@ import {openRepair, useCurrentRepairIssues} from '@/app/components/RepairAssignm
 import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
-import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {ConditionalScrollArea, FlatRowsContext} from '../ConditionalScrollArea';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {getCommunityRenderOrderId, getUnusedCommunityColors} from '@/app/utils/communities';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
@@ -59,7 +59,8 @@ export const PopulationPanel = () => {
   const getZoneColor = useZoneColorGetter();
   const isEditing = useMapControlsStore(state => state.isEditing);
   const repairIssues = useCurrentRepairIssues();
-  const shouldUseScrollableRows = populationData.length > 10;
+  const flatRows = useContext(FlatRowsContext);
+  const shouldUseScrollableRows = populationData.length > 10 && !flatRows;
   const selectCommunity = useSelectCommunity();
   const colorScheme = useColorScheme();
   const [editingCommunityId, setEditingCommunityId] = useState<number | null>(null);
@@ -152,8 +153,14 @@ export const PopulationPanel = () => {
     <Flex
       gap="0"
       direction="column"
+      // Flat rows (stacked layout) must not be capped, or AnimatedCollapse's
+      // overflow-hidden clips the districts past 80vh.
       style={
-        shouldUseScrollableRows ? {maxHeight: '80vh', overflow: 'hidden'} : {maxHeight: '80vh'}
+        flatRows
+          ? undefined
+          : shouldUseScrollableRows
+            ? {maxHeight: '80vh', overflow: 'hidden'}
+            : {maxHeight: '80vh'}
       }
     >
       {/* The Population tab already names the panel; only COI mode (with its
