@@ -2,7 +2,7 @@ import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '@utils/map/maplibreWorker';
 import type {MutableRefObject} from 'react';
-import React, {useRef, useMemo, useState} from 'react';
+import React, {useRef, useMemo} from 'react';
 import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';
 import {mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/map/layerIds';
@@ -50,10 +50,18 @@ export const MapContainer: React.FC<{
   }, [basemap]);
   // maplibre 6 needs WebGL2; without it the constructor throws and react-map-gl
   // reports it through onError with no target (runtime map errors carry one).
-  const [initFailed, setInitFailed] = useState(false);
+  const setNotification = useMapStore(state => state.setNotification);
   const handleError = (e: {error: Error; target: unknown}) => {
     console.error(e.error);
-    if (!e.target) setInitFailed(true);
+    if (!e.target) {
+      setNotification({
+        message:
+          "This browser can't display the map (it needs WebGL2). Try an up-to-date version of Chrome, Firefox, Safari, or Edge.",
+        id: 'map-init-error',
+        importance: 1,
+        type: 'error',
+      });
+    }
   };
   const showGeocode = basemap === BASEMAP_IDS.STREETS || basemap === BASEMAP_IDS.SATELLITE;
 
@@ -91,12 +99,6 @@ export const MapContainer: React.FC<{
       {/* pointer-events-none on the container kills hover, so the not-allowed
           cursor while locked needs this event-catching overlay. */}
       {mapLock && <div className="absolute inset-0 z-20 pointer-events-auto cursor-not-allowed" />}
-      {initFailed && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-6 text-center">
-          This browser can&apos;t display the map (it needs WebGL2). Try an
-          up-to-date version of Chrome, Firefox, Safari, or Edge.
-        </div>
-      )}
       <GlMap
         ref={mapRef}
         mapStyle={mapStyle}
