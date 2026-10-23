@@ -30,7 +30,7 @@ function getBackendUrl(frontendUrl: string): string {
   return `${new URL(frontendUrl).origin}`;
 }
 
-async function checkService(url: string, name: string, timeout = 30000): Promise<void> {
+async function checkService(url: string, name: string, hint = '', timeout = 30000): Promise<void> {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
@@ -50,7 +50,8 @@ async function checkService(url: string, name: string, timeout = 30000): Promise
 
   throw new Error(
     `${name} not reachable at ${url} after ${timeout / 1000}s. ` +
-      'Make sure docker-compose is running: docker-compose up -d'
+      'Make sure docker-compose is running: docker-compose up -d' +
+      hint
   );
 }
 
@@ -88,7 +89,14 @@ async function globalSetup(config: FullConfig): Promise<void> {
   console.log('Checking docker-compose services...\n');
 
   // Check frontend
-  await checkService(frontendUrl, 'Frontend (Next.js)');
+  // frontend-prod runs `bun run build` on start and exits if the build fails (e.g. a
+  // one-off next/font download error), leaving nothing on the port.
+  await checkService(
+    frontendUrl,
+    'Frontend (Next.js)',
+    '\nIf frontend-prod is the target, its build may have failed and the container exited: ' +
+      'check `docker logs --tail 20 frontend-prod`, then `docker start frontend-prod` to rebuild.'
+  );
 
   // Check backend (root returns {"message":"Hello World"})
   await checkService(backendUrl, 'Backend (FastAPI)');
