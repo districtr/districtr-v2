@@ -21,7 +21,8 @@ type DraftSubmissionMap = Record<string, DraftSubmission>;
 const readAll = (): DraftSubmissionMap => {
   if (typeof window === 'undefined') return {};
   try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}');
+    // `|| {}`: a stored literal null would otherwise crash every lookup.
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') || {};
   } catch {
     return {};
   }
@@ -40,7 +41,8 @@ export const getDraftSubmission = (documentId?: string | null): DraftSubmission 
   if (!documentId) return null;
   const entry = readAll()[documentId];
   // Shape-check: a corrupt/legacy value would otherwise flow into
-  // getFormConfig(undefined) and dead-end the modal with no way to clear it.
+  // getFormConfigForSubmission(undefined) and dead-end the modal with no way
+  // to clear it.
   return entry && typeof entry === 'object' && entry.submissionId && entry.portalId ? entry : null;
 };
 

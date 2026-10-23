@@ -150,6 +150,39 @@ class MenuTrimTests(TestCase):
         )
 
 
+class PageTreeEntryPointTests(TestCase):
+    """Partners reach portals through the Portals hub, never the raw page
+    tree. Checked through Wagtail's own hook runs, not a direct call: a trim
+    registered before wagtail.admin's hooks ran on a list that didn't yet
+    hold the item, and a direct call with a pre-built list hid that."""
+
+    def setUp(self):
+        from core.testing import make_admin_user
+
+        self.partner = make_admin_user(email="p@districtr.org", group_name="partner")
+        self.admin = make_admin_user(email="a@districtr.org", group_name="admin")
+
+    def menu_names(self, user):
+        from wagtail.admin.menu import admin_menu
+
+        request = RequestFactory().get("/admin/")
+        request.user = user
+        return {item.name for item in admin_menu.menu_items_for_request(request)}
+
+    def test_sidebar_has_no_page_tree_for_partners(self):
+        self.assertNotIn("explorer", self.menu_names(self.partner))
+        self.assertIn("explorer", self.menu_names(self.admin))
+
+    def test_dashboard_has_no_pages_summary_for_partners(self):
+        # PagesSummaryItem renders "N Pages created in <site>".
+        self.client.force_login(self.partner)
+        self.assertNotContains(
+            self.client.get(reverse("wagtailadmin_home")), "created in"
+        )
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("wagtailadmin_home")), "created in")
+
+
 class BrandingCssTests(TestCase):
     def test_admin_pages_link_the_districtr_stylesheet(self):
         from core.testing import PASSWORD, make_admin_user

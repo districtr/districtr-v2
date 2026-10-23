@@ -72,7 +72,7 @@ export function createWaf(alb: Alb) {
       // optional on the public list, collecting every visible submission id
       // is one paginated sweep, and the 10k API limit would let one script
       // flag all of them. A person reports a handful at most.
-      // ponytail: per-IP only; a distributed sweep needs session enforcement
+      // Per-IP only. A distributed sweep needs session enforcement
       // on /flag (require_session refusing instead of warning).
       name: "rate-limit-flag",
       priority: 6,
@@ -86,7 +86,9 @@ export function createWaf(alb: Alb) {
               searchString: "/api/submissions/flag",
               fieldToMatch: {uriPath: {}},
               positionalConstraint: "EXACTLY",
-              textTransformations: [{priority: 0, type: "NONE"}],
+              // Starlette routes the decoded path, so /api/submissions/fla%67
+              // reaches the handler; match it decoded too.
+              textTransformations: [{priority: 0, type: "URL_DECODE"}],
             },
           },
         },

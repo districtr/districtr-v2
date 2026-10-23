@@ -41,6 +41,7 @@ const StreamRenderer: React.FC<StreamRendererProps> = ({
       case 'section_header':
         return <ContentHeader key={block.id} title={block.value.title} />;
       case 'plan_gallery':
+      case 'curated_gallery':
         return <PlanGallery key={block.id} {...block.value} />;
       case 'comment_gallery':
         return <CommentGallery key={block.id} {...block.value} />;

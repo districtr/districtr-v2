@@ -167,7 +167,13 @@ export const MapActionsDropdown: React.FC<{
             <DropdownMenu.Item
               className="cursor-pointer"
               data-testid="submit-to-portal"
-              onSelect={() => mapDocument?.document_id && openSubmitPrompt(mapDocument.document_id)}
+              onSelect={() => {
+                const id = mapDocument?.document_id;
+                // Defer past the dropdown's close, like openModal above: opening
+                // the dialog synchronously makes it restore the dropdown's
+                // pointer-events:none on the body, freezing the map editor.
+                if (id) setTimeout(() => openSubmitPrompt(id), 0);
+              }}
             >
               Submit to portal
             </DropdownMenu.Item>

@@ -47,11 +47,6 @@ def register_portals_admin_urls():
             views.submission_action,
             name="portals_submission_action",
         ),
-        path(
-            "portals/add-to-gallery/",
-            views.add_to_portal_gallery,
-            name="portals_add_to_gallery",
-        ),
         # The retired review queue's bookmark-friendly redirect.
         path(
             "moderation/portals/",

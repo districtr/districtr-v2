@@ -13,6 +13,7 @@ from django import forms
 from django.core.validators import RegexValidator
 
 from authapi.teams import scoped_queryset, user_is_team_scoped
+from datastore.widgets import MapModulePickerWidget
 from datastore.models import (
     DistrictrMap,
     GerryDBTable,
@@ -109,8 +110,9 @@ class OverlayUploadForm(forms.Form):
         label="Attach to Districtr maps",
         queryset=DistrictrMap.objects.order_by("name"),
         required=False,
+        widget=MapModulePickerWidget(multiple=True, lookup="pk"),
         help_text="The overlay becomes available on the selected maps "
-        "(hold Ctrl/Cmd to select several; may be empty).",
+        "(may be empty).",
     )
 
     def __init__(self, *args, user=None, **kwargs):

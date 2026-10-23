@@ -46,9 +46,21 @@ describe('parseMapRef', () => {
     expect(parseMapRef('/map/1234?pw=true', BASE)).toBe('1234');
   });
 
+  test('coi links and legacy document_id links', () => {
+    expect(parseMapRef('https://districtr.org/coi/77/edit', BASE)).toBe('77');
+    expect(parseMapRef(`https://districtr.org/map?document_id=${UUID}`, BASE)).toBe(UUID);
+  });
+
   test('unparseable input is null', () => {
     expect(parseMapRef('', BASE)).toBeNull();
     expect(parseMapRef('https://districtr.org/about', BASE)).toBeNull();
     expect(parseMapRef('not a link at all', BASE)).toBeNull();
+  });
+
+  test('numbers outside a map path never name a map', () => {
+    // A classic districtr link would otherwise clone an unrelated v2 map.
+    expect(parseMapRef('https://districtr.org/plan/12345', BASE)).toBeNull();
+    expect(parseMapRef('https://example.com/posts/99', BASE)).toBeNull();
+    expect(parseMapRef('https://cms.districtr.org/admin/pages/123/edit/', BASE)).toBeNull();
   });
 });

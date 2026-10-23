@@ -2,7 +2,7 @@ import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
-  centroids: GeoJSON.FeatureCollection;
+  centroids: GeoJSON.FeatureCollection<GeoJSON.Point>;
 };
 export type MinGeoJSONFeature = Pick<
   MapGeoJSONFeature,
@@ -31,6 +31,22 @@ export type GeometryWorkerClass = {
   setMaxParentZoom: (zoom: number) => void;
   zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
+  /**
+   * Flat typed-array copy of pointData + childPointData, rebuilt when either is
+   * replaced; `zones` is refreshed when zoneAssignments is replaced.
+   */
+  pointIndex?: {
+    parent: GeoJSON.FeatureCollection<GeoJSON.Point>;
+    child: GeoJSON.FeatureCollection<GeoJSON.Point>;
+    ids: string[];
+    x: Float64Array;
+    y: Float64Array;
+    pop: Float64Array;
+    /** Zone per point, -1 when unassigned. */
+    zones: Int32Array;
+    zoneSource?: Record<string, number>;
+  };
+  getPointIndex: () => NonNullable<GeometryWorkerClass['pointIndex']>;
   /**
    * Point data for center of mass calculations.
    */

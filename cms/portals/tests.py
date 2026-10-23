@@ -1,6 +1,6 @@
 """
 Tests for the Portals hub: index scoping, the gallery-as-takedown-surface,
-the curated-gallery pin, and the metrics proxy.
+and the metrics proxy.
 
 The backend is never called: moderation.services' HTTP layer is mocked, with
 a URL router so the gallery's two backend calls (submissions + batched
@@ -34,7 +34,7 @@ def make_entry(**overrides):
         "status": "submitted",
         "hidden": False,
         "flagged": True,
-        "moderation_score": 0.02,
+        "moderation_match": None,
         "fields": {
             "title": "A comment title",
             "comment": "Comment body",
@@ -102,8 +102,7 @@ class PortalsIndexTests(TestCase):
         self.assertContains(response, "Edit form")
 
     def test_team_less_partner_sees_nothing(self):
-        # Fail closed, matching the backend's teams: [] -> 403 — this list
-        # also gates add_to_portal_gallery, a pure CMS write.
+        # Fail closed, matching the backend's teams: [] -> 403.
         partner = make_admin_user(email="partner@districtr.org", group_name="partner")
         self.client.force_login(partner)
         response = self.client.get(self.url)
@@ -194,20 +193,6 @@ class PortalGalleryViewTests(TestCase):
             response = self.client.get(self.url)
         self.assertContains(response, "/api/document/42/thumbnail")
         self.assertContains(response, "Plan 42")
-        self.assertContains(response, "Pin to page gallery")
-
-    def test_draft_map_cannot_be_pinned(self):
-        with mock.patch("moderation.services.requests.request") as request:
-            request.side_effect = backend_router(
-                {
-                    "/api/submissions/admin": [
-                        make_entry(map_public_id=42, status="draft")
-                    ],
-                    "/api/documents/list": [make_document(42)],
-                }
-            )
-            response = self.client.get(self.url)
-        self.assertNotContains(response, "Pin to page gallery")
 
     def test_backend_403_detail_surfaces(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -308,66 +293,12 @@ class SubmissionActionTests(TestCase):
         request.assert_not_called()
 
 
-class AddToPortalGalleryTests(TestCase):
-    def setUp(self):
-        create_mirror_tables_for_form_config()
-        self.url = reverse("portals_add_to_gallery")
-        self.portal = make_portal("midwest-portal")
-        partner = make_admin_user(email="partner@districtr.org", group_name="partner")
-        # Moderation reach (admin_teams), not page ownership, authorizes
-        # gallery pinning — and team-less partners fail closed.
-        make_team("Gallery Team", members=[partner])
-        make_form_config("midwest-portal", admin_teams=["gallery-team"])
-        self.client.login(username="partner@districtr.org", password=PASSWORD)
-
-    def add(self, **overrides):
-        data = {"portal": "midwest-portal", "public_id": "42"}
-        data.update(overrides)
-        return self.client.post(self.url, data)
-
-    def _gallery_ids(self):
-        page = self.portal.get_latest_revision_as_object()
-        return [
-            list(block.value["ids"])
-            for block in page.body
-            if block.block_type == "plan_gallery"
-        ]
-
-    def test_appends_to_new_gallery_block_as_draft(self):
-        response = self.add()
-        self.assertRedirects(
-            response, reverse("portals_index"), fetch_redirect_response=False
-        )
-        self.portal.refresh_from_db()
-        self.assertEqual(self._gallery_ids(), [[42]])
-        # Draft revision only: the live page body is untouched — pages keep
-        # their review workflow even though submissions have none.
-        self.assertEqual(
-            [b for b in self.portal.body if b.block_type == "plan_gallery"], []
-        )
-
-    def test_duplicate_plan_not_added_twice(self):
-        self.add()
-        self.add()
-        self.portal.refresh_from_db()
-        self.assertEqual(self._gallery_ids(), [[42]])
-
-    def test_inaccessible_portal_denied(self):
-        response = self.add(portal="not-a-portal")
-        self.assertRedirects(response, reverse("wagtailadmin_home"))
-
-    def test_invalid_input_is_400(self):
-        self.assertEqual(self.add(public_id="not-a-number").status_code, 400)
-
-    def test_get_not_allowed(self):
-        self.assertEqual(self.client.get(self.url).status_code, 405)
-
-
 class MetricsProxyTests(TestCase):
     def setUp(self):
         from portals import views
 
         views._METRICS_CACHE.clear()
+        views._MEMBERSHIP_CACHE.clear()
         create_mirror_tables_for_form_config()
         self.portal = make_portal("midwest-portal")
         reviewer = make_admin_user(email="reviewer@districtr.org", group_name="partner")
@@ -405,14 +336,13 @@ class MetricsProxyTests(TestCase):
             response = self.client.get(self._row_url(999))
         self.assertEqual(response.status_code, 404)
 
-    def test_guard_admits_maps_past_the_first_hundred(self):
+    def test_guard_asks_about_the_one_map(self):
+        # One filtered call per map, however large the portal.
+        admin_calls = []
+
         def respond(method, url, params=None, **kwargs):
             if "/api/submissions/admin" in url:
-                offset = int((params or {}).get("offset", 0))
-                if offset == 0:
-                    return mock_response(
-                        json_body=[make_entry(map_public_id=i) for i in range(100)]
-                    )
+                admin_calls.append(params)
                 return mock_response(json_body=[make_entry(map_public_id=4242)])
             if "/evaluation" in url:
                 return mock_response(json_body=self.ENVELOPE)
@@ -422,6 +352,8 @@ class MetricsProxyTests(TestCase):
             request.side_effect = respond
             response = self.client.get(self._row_url(4242))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(admin_calls), 1)
+        self.assertEqual(admin_calls[0]["map_public_id"], 4242)
 
     def test_derived_row_shape(self):
         with mock.patch("moderation.services.requests.request") as request:
@@ -567,6 +499,13 @@ class PortalAddMapTests(TestCase):
             ),
             ("not a map 7", None),
             ("", None),
+            ("/coi/31", 31),
+            # A classic districtr link or a Wagtail editor URL isn't a map.
+            ("https://districtr.org/plan/12345", None),
+            ("https://cms.districtr.org/admin/pages/123/edit/", None),
+            # Non-ASCII digits ('²'.isdigit() is true) fail cleanly.
+            ("²", None),
+            ("/map/²", None),
         ):
             self.assertEqual(parse_public_id(ref), expected, ref)
 

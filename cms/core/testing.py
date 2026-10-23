@@ -54,11 +54,11 @@ def make_team(name, *, members=(), maps=()):
 
 
 def make_portal(slug, *, districtr_map_slug="chi_wards", title=None):
-    """A TagPage under the provisioned tags index (content/0002_provision_site)."""
-    from content.models import TagPage, TagsIndexPage
+    """A PortalPage under the provisioned portals index (content/0002_provision_site)."""
+    from content.models import PortalPage, PortalsIndexPage
 
-    index = TagsIndexPage.objects.first()
-    portal = TagPage(
+    index = PortalsIndexPage.objects.first()
+    portal = PortalPage(
         title=title or slug.replace("-", " ").title(),
         slug=slug,
         districtr_map_slug=districtr_map_slug,

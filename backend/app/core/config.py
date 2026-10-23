@@ -18,7 +18,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 from pathlib import Path
 from enum import Enum
-from openai import OpenAI
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -120,14 +119,6 @@ class Settings(BaseSettings):
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 
-    # Moderation
-
-    OPENAI_API_KEY: str | None = None
-
-    def get_openai_client(self) -> OpenAI | None:
-        if self.OPENAI_API_KEY:
-            return OpenAI(api_key=self.OPENAI_API_KEY)
-
     # Security
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
@@ -175,7 +166,7 @@ class Settings(BaseSettings):
     # "S3 not configured", so this must stay opt-in for local dev.
     AWS_USE_DEFAULT_CREDENTIALS: bool = False
 
-    # SNS topic ARN for operational alerts (e.g. missing graph pkl files).
+    # SNS topic ARN for operational alerts (e.g. missing graph npz files).
     # Populated by the ECS task definition; absent in local dev.
     ALARM_SNS_TOPIC_ARN: str | None = None
 

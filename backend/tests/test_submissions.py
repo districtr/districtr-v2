@@ -7,8 +7,8 @@ clone-at-submission (the frozen-gallery data path).
 """
 
 import pytest
+from sqlalchemy import text
 from sqlmodel import Session, col, select
-from unittest.mock import patch
 
 from app.core.security import auth
 from app.main import app
@@ -16,7 +16,8 @@ from app.district_notes.models import DistrictNote
 from app.models import Assignments, Document
 from app.submissions.fields import slugify
 from app.submissions.models import FormConfig, Submission
-from app.submissions.moderation import moderate_submission
+from app.submissions import moderation
+from app.submissions.moderation import find_blocked_phrase
 from tests.constants import GERRY_DB_FIXTURE_NAME
 from tests.test_utils import (  # noqa: F401 (autouse fixtures)
     override_auth_dependency,
@@ -73,6 +74,14 @@ VALID_FIELDS = {
     "title": "My testimony",
     "comment": "Keep the river whole.",
 }
+
+
+@pytest.fixture
+def blocked_zorp(monkeypatch):
+    """A stand-in blocklist entry, so no real list words live in the tests."""
+    monkeypatch.setattr(
+        moderation, "BLOCKLIST", moderation.BLOCKLIST | {moderation.digest(["zorp"])}
+    )
 
 
 def _submit(client, fields=None, map_ref=None, portal_id=PORTAL):
@@ -181,17 +190,26 @@ class TestPrivateFields:
 
 
 class TestModerationAndVisibility:
-    def test_nsfw_scoring_and_toggle(self, client, form_config, session):
+    def test_nsfw_flag_and_toggle(self, client, form_config, session, monkeypatch):
+        # Stand-in blocklist entry drawn from the fixture comment.
+        monkeypatch.setattr(
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(["river", "whole"])},
+        )
+        # Checked in the request's own transaction: flagged on arrival.
         submission_id = _submit(client).json()["id"]
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission(submission_id, session)
 
         public = client.get(f"/api/submissions?portal_id={PORTAL}").json()
         # nsfw rows stay listed — the frontend blurs them.
         assert public[0]["nsfw"] is True
+        # The matched phrase reaches the CMS (admin payload) but not the public.
+        assert "moderation_match" not in public[0]
+        _set_auth(TEAM_A_PAYLOAD)
+        admin = client.get(f"/api/submissions/admin?portal_id={PORTAL}").json()
+        assert admin[0]["moderation_match"] == "river whole"
 
         # Reviewer can unblur a false positive.
-        _set_auth(TEAM_A_PAYLOAD)
         response = client.post(
             f"/api/submissions/admin/{submission_id}/nsfw", json={"nsfw": False}
         )
@@ -370,7 +388,7 @@ class TestCloneAtSubmission:
         assert _assignment_count(session, clone.document_id) == 1
 
         # The gallery lists the clone under the portal tag.
-        gallery = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [submission.map_public_id]
 
 
@@ -507,7 +525,7 @@ class TestGalleryExclusion:
         document_id = response.json()["document_id"]
         _mark_ready(session, document_id)
 
-        listed = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        listed = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert listed == []
 
     def test_nsfw_blurs_and_hidden_removes_in_every_gallery(
@@ -516,7 +534,7 @@ class TestGalleryExclusion:
         self._ready_map(client, session, document_id)
         submission_id = _submit(client, map_ref=document_id).json()["id"]
         public_id = session.get(Submission, submission_id).map_public_id
-        listed = client.get(f"/api/documents/list?portal_ids={PORTAL}").json()
+        listed = client.get(f"/api/documents/list?portal_id={PORTAL}").json()
         assert [d["nsfw"] for d in listed] == [False]
 
         _set_auth(TEAM_A_PAYLOAD)
@@ -527,7 +545,7 @@ class TestGalleryExclusion:
             == 200
         )
         # nsfw stays listed, flagged for the frontend's blur.
-        for query in (f"portal_ids={PORTAL}", f"ids={public_id}"):
+        for query in (f"portal_id={PORTAL}", f"ids={public_id}"):
             listed = client.get(f"/api/documents/list?{query}").json()
             assert [d["nsfw"] for d in listed] == [True], query
 
@@ -537,8 +555,8 @@ class TestGalleryExclusion:
             ).status_code
             == 200
         )
-        # Hidden leaves the tag gallery AND curated (pinned) id galleries...
-        for query in (f"portal_ids={PORTAL}", f"ids={public_id}"):
+        # Hidden leaves the portal gallery AND curated id galleries...
+        for query in (f"portal_id={PORTAL}", f"ids={public_id}"):
             assert client.get(f"/api/documents/list?{query}").json() == [], query
         # ...while the CMS can still fetch its metadata for the takedown row.
         listed = client.get(
@@ -560,8 +578,8 @@ class TestGalleryExclusion:
             portal_id=OTHER_PORTAL,
         )
         assert response.status_code == 201, response.json()
-        assert client.get(f"/api/documents/list?portal_ids={PORTAL}").json() == []
-        listed = client.get(f"/api/documents/list?portal_ids={OTHER_PORTAL}").json()
+        assert client.get(f"/api/documents/list?portal_id={PORTAL}").json() == []
+        listed = client.get(f"/api/documents/list?portal_id={OTHER_PORTAL}").json()
         assert len(listed) == 1
         clone = session.exec(
             select(Document).where(col(Document.public_id) == listed[0]["public_id"])
@@ -600,42 +618,53 @@ class TestGalleryExclusion:
         assert clone_meta["draft_status"] == "ready_to_share"
 
 
-class TestModerationWiring:
-    def test_submit_schedules_the_moderation_task(
-        self, client, form_config, monkeypatch
-    ):
-        # The background-task wiring itself: deleting add_task from
-        # create_submission must fail this test. The task is invoked with
-        # the submission pk after the response is sent (TestClient runs
-        # background tasks synchronously).
-        calls = []
+class TestScorer:
+    def test_blocklist_is_whole_word_and_deterministic(self, monkeypatch):
+        # A stand-in phrase keeps real blocklist words out of the repo.
         monkeypatch.setattr(
-            "app.submissions.main.moderate_submission_in_background",
-            lambda submission_id, session=None: calls.append(submission_id),
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(["zorp", "blat"])},
         )
-        response = _submit(client)
-        assert response.status_code == 201, response.json()
-        assert calls == [response.json()["id"]]
+        for bad in ("zorp blat", "ZORP, blat!", "you zorp-blat"):
+            assert find_blocked_phrase(bad) == "zorp blat", bad
+        for ok in ("zorpblat", "zorp", "blat zorp", "zorps blat"):
+            assert find_blocked_phrase(ok) is None, ok
 
-    def test_map_card_text_is_scored(self, client, form_config, document_id, session):
+    def test_civic_terms_pass_the_real_list(self):
+        assert len(moderation.BLOCKLIST) > 500  # the digest file loaded
+        for ok in (
+            "Scunthorpe",
+            "assess the class",
+            "Coon Rapids",
+            "Dick Durbin",
+            "the gay community",
+            "cocktail bar",
+            "",
+            "   ",
+        ):
+            assert find_blocked_phrase(ok) is None, ok
+
+
+class TestModerationWiring:
+    def test_map_card_text_is_checked(
+        self, client, form_config, document_id, session, blocked_zorp
+    ):
         # The gallery card renders the map's name/description — they must be
-        # part of the scored text or an abusive title sails past the filter.
+        # part of the checked text or an abusive title sails past the filter.
         _mark_ready(session, document_id)
         doc = session.exec(
             select(Document).where(col(Document.document_id) == document_id)
         ).one()
-        doc.map_metadata = {**(doc.map_metadata or {}), "name": "abusive title"}
+        doc.map_metadata = {**(doc.map_metadata or {}), "name": "zorp title"}
         session.add(doc)
         session.commit()
 
-        submission_id = _submit(client, map_ref=document_id).json()["id"]
-        scored = {}
-        with patch(
-            "app.submissions.moderation.score_text",
-            side_effect=lambda text: scored.setdefault("text", text) and 0.0 or 0.0,
-        ):
-            moderate_submission(submission_id, session)
-        assert "abusive title" in scored["text"]
+        submission = session.get(
+            Submission, _submit(client, map_ref=document_id).json()["id"]
+        )
+        assert submission.nsfw is True
+        assert submission.moderation_match == "zorp"
 
 
 class TestFormConfigContract:
@@ -770,7 +799,7 @@ class TestAutoFinalize:
         # ...and the map actually SURFACES in the map gallery — the whole
         # point of auto_public vs internal. It carries no written content,
         # so the written-submissions list leaves it out.
-        gallery = client.get(f"/api/documents/list?portal_ids={AUTO_PORTAL}").json()
+        gallery = client.get(f"/api/documents/list?portal_id={AUTO_PORTAL}").json()
         assert [d["public_id"] for d in gallery] == [doc["public_id"]]
         assert client.get(f"/api/submissions?portal_id={AUTO_PORTAL}").json() == []
 
@@ -783,12 +812,32 @@ class TestAutoFinalize:
         session.refresh(submission)
         assert submission.submitted_at == first_submitted_at
 
+    def test_portal_gallery_lists_one_status(self, client, session):
+        """A portal gallery shows finished maps or in-progress ones, never a
+        mix: an auto-collected live map moves between the two as its
+        author changes its status."""
+        doc = self._create_draft(client, AUTO_PORTAL)
+        finished = f"/api/documents/list?portal_id={AUTO_PORTAL}"
+        in_progress = f"{finished}&draft_status=in_progress"
+
+        self._set_status(client, doc["document_id"], "in_progress")
+        assert client.get(finished).json() == []
+        assert [d["public_id"] for d in client.get(in_progress).json()] == [
+            doc["public_id"]
+        ]
+
+        self._set_status(client, doc["document_id"], "ready_to_share")
+        assert [d["public_id"] for d in client.get(finished).json()] == [
+            doc["public_id"]
+        ]
+        assert client.get(in_progress).json() == []
+
     def test_regressing_status_withdraws_a_live_auto_entry(self, client, session):
         # The author never filled a consent form, so pulling the map back to
         # scratch must un-publish everywhere (/api/submissions has no
         # draft_status filter of its own).
         doc = self._create_draft(client, AUTO_PORTAL)
-        gallery_url = f"/api/documents/list?portal_ids={AUTO_PORTAL}"
+        gallery_url = f"/api/documents/list?portal_id={AUTO_PORTAL}"
         self._set_status(client, doc["document_id"], "ready_to_share")
         assert len(client.get(gallery_url).json()) == 1
 
@@ -804,9 +853,9 @@ class TestAutoFinalize:
         assert submission.status == "draft"
         assert submission.submitted_at is None
 
-        # Re-promoting re-publishes.
+        # Re-promoting re-publishes (in the in-progress gallery).
         self._set_status(client, doc["document_id"], "in_progress")
-        assert len(client.get(gallery_url).json()) == 1
+        assert len(client.get(f"{gallery_url}&draft_status=in_progress").json()) == 1
 
     def test_takedown_of_auto_entry_never_demotes_the_live_map(self, client, session):
         doc = self._create_draft(client, AUTO_PORTAL)
@@ -829,21 +878,18 @@ class TestAutoFinalize:
         assert live["map_metadata"]["draft_status"] == "ready_to_share"
 
     def test_create_document_with_submitted_tier_metadata_flips_immediately(
-        self, client, session
+        self, client, session, blocked_zorp
     ):
         # A creation payload can already carry a submitted-tier status
         # (e.g. copies) — the flip and its moderation pass run at create.
-        # (The real task opens its own DB session, invisible to this test
-        # transaction, so scheduling is asserted via a patched task.)
-        with patch("app.submissions.main.moderate_submission_in_background") as task:
-            response = client.post(
-                "/api/create_document",
-                json={
-                    "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-                    "portal_id": AUTO_PORTAL,
-                    "metadata": {"name": "spicy", "draft_status": "ready_to_share"},
-                },
-            )
+        response = client.post(
+            "/api/create_document",
+            json={
+                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+                "portal_id": AUTO_PORTAL,
+                "metadata": {"name": "zorp", "draft_status": "ready_to_share"},
+            },
+        )
         assert response.status_code == 201, response.json()
         submission = session.exec(
             select(Submission).where(
@@ -851,17 +897,11 @@ class TestAutoFinalize:
             )
         ).one()
         assert submission.status == "submitted"
-        # The auto path is NOT a moderation bypass: the flipped entry gets
-        # scored (the gallery card renders the map's name).
-        task.assert_called_once_with(submission.id)
-
-        # The scoring itself sees the map card text: in-session run.
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission(submission.id, session)
-        session.refresh(submission)
+        # The auto path is NOT a moderation bypass: the flipped entry is
+        # checked (the gallery card renders the map's name).
         assert submission.nsfw is True
 
-    def test_renaming_a_live_auto_map_rescores(self, client, session):
+    def test_renaming_a_live_auto_map_rechecks(self, client, session, blocked_zorp):
         doc = self._create_draft(client, AUTO_PORTAL)
         self._set_status(client, doc["document_id"], "ready_to_share")
         submission = session.exec(
@@ -869,32 +909,29 @@ class TestAutoFinalize:
                 col(Submission.submission_id) == doc["submission_id"]
             )
         ).one()
+        assert submission.nsfw is False
 
-        # The card text is live — a later abusive rename must re-schedule
-        # scoring for the submitted live-referenced entry.
-        with patch("app.main.submissions.moderate_submission_in_background") as task:
-            response = client.put(
-                f"/api/document/{doc['document_id']}/metadata",
-                json={"name": "now abusive"},
-            )
-            assert response.status_code == 200
-        task.assert_called_once_with(submission.id)
-
-        # The client resends unchanged values on most saves: resending the same
-        # name and description must not re-score.
-        with patch("app.main.submissions.moderate_submission_in_background") as task:
-            response = client.put(
-                f"/api/document/{doc['document_id']}/metadata",
-                json={"name": "now abusive", "draft_status": "ready_to_share"},
-            )
-            assert response.status_code == 200
-        task.assert_not_called()
-
-        # ...and the score sees the new name.
-        with patch("app.submissions.moderation.score_text", return_value=0.9):
-            moderate_submission(submission.id, session)
+        # The card text is live — a later abusive rename must re-check the
+        # submitted live-referenced entry.
+        response = client.put(
+            f"/api/document/{doc['document_id']}/metadata", json={"name": "now zorp"}
+        )
+        assert response.status_code == 200
         session.refresh(submission)
         assert submission.nsfw is True
+
+        # A portal admin unblurs it. The client resends unchanged values on
+        # most saves; those must not re-check and undo the admin's decision.
+        submission.nsfw = False
+        session.add(submission)
+        session.commit()
+        response = client.put(
+            f"/api/document/{doc['document_id']}/metadata",
+            json={"name": "now zorp", "draft_status": "ready_to_share"},
+        )
+        assert response.status_code == 200
+        session.refresh(submission)
+        assert submission.nsfw is False
 
     def test_in_progress_also_triggers(self, client, session):
         doc = self._create_draft(client, INTERNAL_PORTAL)
@@ -957,19 +994,22 @@ class TestInternalExclusion:
         )
         return doc
 
-    def test_internal_submissions_hidden_from_public_surfaces(self, client, session):
+    def test_internal_maps_list_only_where_the_owner_puts_a_gallery(
+        self, client, session
+    ):
+        # Internal means no gallery on the page by default. A gallery the
+        # owner adds later (the portal's own, or curated ids) lists the maps.
         doc = self._submitted_internal(client, session)
 
-        # Public submissions list: absent (with or without portal filter).
+        # Written submissions: none (auto-collected entries have no text).
         assert client.get("/api/submissions?portal_id=internal-portal").json() == []
         assert all(
             s["portal_id"] != INTERNAL_PORTAL
             for s in client.get("/api/submissions").json()
         )
-        # Tag gallery: absent (the auto-applied portal tag would match).
-        assert (
-            client.get(f"/api/documents/list?portal_ids={INTERNAL_PORTAL}").json() == []
-        )
+        # The portal's own gallery and a curated gallery: present.
+        assert _listed_ids(client, f"portal_id={INTERNAL_PORTAL}") == [doc["public_id"]]
+        assert _listed_ids(client, f"ids={doc['public_id']}") == [doc["public_id"]]
 
         # Admin list: present.
         _set_auth(TEAM_A_PAYLOAD)
@@ -1185,3 +1225,209 @@ class TestAdminAdd:
     def test_unknown_map_404(self, client, form_config):
         _set_auth(TEAM_A_PAYLOAD)
         assert self._add(client, 99999999).status_code == 404
+
+
+def test_submission_routes_keep_blocking_work_off_the_event_loop():
+    # The sync Session blocks, so a coroutine handler stalls every other
+    # request on the worker (#729). Only the two Turnstile handlers may be
+    # async, and they hand their database work to the threadpool.
+    import inspect
+
+    from app.submissions.main import router
+
+    async_routes = {
+        route.endpoint.__name__
+        for route in router.routes
+        if inspect.iscoroutinefunction(route.endpoint)
+    }
+    assert async_routes == {"create_submission", "finalize_submission"}
+
+
+# ---------------------------------------------------------------------------
+# Public listing reach: curated lookups, closed portals
+# ---------------------------------------------------------------------------
+
+
+def _submitted_clone(client, session, document_id, portal_id=PORTAL):
+    _mark_ready(session, document_id)
+    response = _submit(client, map_ref=document_id, portal_id=portal_id)
+    assert response.status_code == 201, response.json()
+    submission = session.get(Submission, response.json()["id"])
+    return submission.id, submission.map_public_id
+
+
+def _listed_ids(client, query=""):
+    return [d["public_id"] for d in client.get(f"/api/documents/list?{query}").json()]
+
+
+class TestPublicListingReach:
+    def test_takedown_reaches_curated_lookups(
+        self, client, form_config, document_id, session
+    ):
+        submission_id, public_id = _submitted_clone(client, session, document_id)
+        assert _listed_ids(client, f"ids={public_id}") == [public_id]
+
+        _set_auth(TEAM_A_PAYLOAD)
+        client.post(
+            f"/api/submissions/admin/{submission_id}/hidden", json={"hidden": True}
+        )
+        assert _listed_ids(client, f"ids={public_id}") == []
+        assert _listed_ids(client, f"ids={public_id}&include_hidden=true") == [
+            public_id
+        ]
+
+    def test_scratch_live_map_leaves_the_portal_gallery(
+        self, client, form_config, document_id, session
+    ):
+        # Admin-added maps are live references: when the author moves the
+        # map back to scratch, the gallery drops it.
+        client.put(
+            f"/api/document/{document_id}/metadata",
+            json={"draft_status": "ready_to_share"},
+        )
+        public_id = client.get(f"/api/document/{document_id}").json()["public_id"]
+        _set_auth(TEAM_A_PAYLOAD)
+        added = client.post(
+            "/api/submissions/admin/add",
+            json={"portal_id": PORTAL, "map_public_id": public_id},
+        )
+        assert added.status_code == 201, added.json()
+        assert _listed_ids(client, f"portal_id={PORTAL}") == [public_id]
+
+        client.put(
+            f"/api/document/{document_id}/metadata", json={"draft_status": "scratch"}
+        )
+        assert _listed_ids(client, f"portal_id={PORTAL}") == []
+
+
+def test_document_list_pages_in_a_fixed_order(client, document_id):
+    # Offset paging needs a deterministic order: curated ids keep the
+    # editor's order (portal listings are newest first).
+    public_ids = [client.get(f"/api/document/{document_id}").json()["public_id"]]
+    for _ in range(2):
+        created = client.post(
+            "/api/create_document", json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME}
+        ).json()
+        public_ids.append(created["public_id"])
+    first, second, third = public_ids
+
+    curated = f"ids={second}&ids={third}&ids={first}"
+    assert _listed_ids(client, curated) == [second, third, first]
+    assert [
+        _listed_ids(client, f"{curated}&limit=1&offset={page}") for page in range(3)
+    ] == [[second], [third], [first]]
+
+
+class TestClosedPortal:
+    """A portal whose page is unpublished or deleted (accepting=false) takes
+    no public submissions and lists nothing publicly."""
+
+    def _close(self, session, form_config):
+        form_config.accepting = False
+        session.add(form_config)
+        session.commit()
+
+    def test_closed_portal_refuses_intake(self, client, form_config, session):
+        self._close(session, form_config)
+        assert _submit(client).status_code == 404
+        assert (
+            client.get(f"/api/submissions/form_config?portal_id={PORTAL}").status_code
+            == 404
+        )
+
+    def test_closed_portal_lists_nothing(
+        self, client, form_config, document_id, session
+    ):
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert _submit(client).status_code == 201
+        self._close(session, form_config)
+
+        assert client.get(f"/api/submissions?portal_id={PORTAL}").json() == []
+        assert _listed_ids(client, f"portal_id={PORTAL}") == []
+        assert _listed_ids(client, f"ids={public_id}") == []
+        # The CMS hub still sees it, and so do the portal's admins.
+        assert _listed_ids(client, f"ids={public_id}&include_hidden=true") == [
+            public_id
+        ]
+        _set_auth(TEAM_A_PAYLOAD)
+        assert len(client.get(f"/api/submissions/admin?portal_id={PORTAL}").json()) == 2
+
+    def test_closed_portal_starts_no_draft(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        self._close(session, form_config)
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": PORTAL},
+        )
+        assert response.status_code == 201, response.json()
+        assert response.json().get("submission_id") is None
+
+
+class TestSubmissionSideEffects:
+    def test_clone_gets_a_thumbnail(
+        self, client, form_config, document_id, session, monkeypatch
+    ):
+        # Nobody holds the clone's edit id, so its stats must be published
+        # at submission time or the gallery card stays a placeholder.
+        published = []
+        monkeypatch.setattr(
+            "app.submissions.main.publish_district_stats_to_s3",
+            lambda document_id, public_id: published.append(public_id),
+        )
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert published == [public_id]
+
+    def test_private_email_is_never_checked(
+        self, client, form_config, session, monkeypatch
+    ):
+        # Private answers never leave the backend or show publicly, so a
+        # blocklisted email address must not blur the entry.
+        email_words = moderation.normalize(VALID_FIELDS["email"])
+        monkeypatch.setattr(
+            moderation,
+            "BLOCKLIST",
+            moderation.BLOCKLIST | {moderation.digest(email_words)},
+        )
+        submission = session.get(Submission, _submit(client).json()["id"])
+        assert submission.nsfw is False
+
+    def test_form_config_by_submission_survives_a_rename(
+        self, client, form_config, ks_demo_view_census_blocks_districtrmap, session
+    ):
+        # A prompt draft stores the slug it started on; after a rename that
+        # slug 404s, but the draft's submission_id still finds its form.
+        response = client.post(
+            "/api/create_document",
+            json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME, "portal_id": PORTAL},
+        )
+        submission_id = response.json()["submission_id"]
+        session.execute(
+            text(
+                "UPDATE comments.form_configs SET portal_id = 'renamed' WHERE portal_id = :p"
+            ),
+            {"p": PORTAL},
+        )
+        session.commit()
+        assert (
+            client.get(f"/api/submissions/form_config?portal_id={PORTAL}").status_code
+            == 404
+        )
+        config = client.get(
+            f"/api/submissions/form_config?submission_id={submission_id}"
+        )
+        assert config.status_code == 200, config.json()
+        assert config.json()["portal_id"] == "renamed"
+        unknown = client.get(
+            "/api/submissions/form_config?submission_id=00000000-0000-4000-8000-000000000000"
+        )
+        assert unknown.status_code == 404
+
+    def test_admin_list_filters_by_map(self, client, form_config, document_id, session):
+        _, public_id = _submitted_clone(client, session, document_id)
+        assert _submit(client).status_code == 201
+        _set_auth(TEAM_A_PAYLOAD)
+        rows = client.get(
+            f"/api/submissions/admin?portal_id={PORTAL}&map_public_id={public_id}"
+        ).json()
+        assert [r["map_public_id"] for r in rows] == [public_id]

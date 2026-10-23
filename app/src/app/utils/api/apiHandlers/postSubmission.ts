@@ -64,5 +64,10 @@ export interface FormConfigPublic {
 }
 
 /** Public read of a portal's form shape (the abbreviated map-submission form). */
-export const getFormConfig = async (portalId: string) =>
-  get<FormConfigPublic>('submissions/form_config')({queryParams: {portal_id: portalId}});
+/** The form of the portal a draft belongs to, resolved server-side through
+ * the draft, so it survives a portal slug rename. 404 when the draft or its
+ * portal is gone. */
+export const getFormConfigForSubmission = async (submissionId: string) =>
+  get<FormConfigPublic>('submissions/form_config')({
+    queryParams: {submission_id: submissionId},
+  });

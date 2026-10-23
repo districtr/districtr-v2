@@ -1,13 +1,12 @@
 import {DocumentObject} from '../api/apiHandlers/types';
 import {AsyncBuffer, FileMetaData} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
-import {EnhancedAsyncBuffer} from './parquetWorkerUtils';
 
 export type MetaInfo = {
   metadata: FileMetaData;
   url: string;
   byteLength: number;
-  file: AsyncBuffer | EnhancedAsyncBuffer;
+  file: AsyncBuffer;
 };
 
 export type DemographyParquetData = {
@@ -36,58 +35,19 @@ export type ColumnarTableData = {
  */
 export type ParquetFileType = 'tabular' | 'points';
 
-export type ParquetWorkerClass = {
+/** What the worker exposes to the app. Only these cross the worker boundary. */
+export type ParquetWorkerClass = Pick<ParquetWorkerInternals, 'getDemography' | 'getPointData'>;
+
+export type ParquetWorkerInternals = {
   _metaCache: Record<string, MetaInfo>;
-  _idRgCache: Record<string, [number, number]>;
 
   /**
-   * Get the metadata for a given parquet file. Creates an enhanced buffer with
-   * prefetch capabilities. Results are cached, so subsequent calls resolve instantly.
+   * Get the metadata for a given parquet file. Results are cached, so subsequent
+   * calls resolve instantly.
    * @param url - The full URL to the parquet file.
-   * @param enablePrefetch - Whether to enable multi-range prefetch (default: true)
-   * @returns The metadata and enhanced file buffer.
+   * @returns The metadata and file buffer.
    */
-  getMetaData: (url: string, enablePrefetch?: boolean) => Promise<MetaInfo>;
-
-  /**
-   * Get the row groups indices that contain a given parent value.
-   * Uses statistics to efficiently skip irrelevant row groups.
-   * @param meta - The metadata.
-   * @param value - The value to search for.
-   * @param value_col - The column name to search in.
-   * @returns The row range [start, end] covering matching row groups.
-   */
-  getRowGroupsFromParentValue: (
-    meta: MetaInfo,
-    value: string,
-    value_col?: string
-  ) => [number, number];
-
-  /**
-   * Get the row groups indices that contain given child values.
-   * @param meta - The metadata.
-   * @param values - The values to search for.
-   * @param values_col - The column name to search in.
-   * @returns The row range [start, end] covering matching row groups.
-   */
-  getRowGroupsFromChildValue: (
-    meta: MetaInfo,
-    values: string[],
-    values_col?: string
-  ) => [number, number];
-
-  /**
-   * Get row group indices for a given parent value (for prefetch computation).
-   * @param meta - The metadata.
-   * @param value - The value to search for.
-   * @param value_col - The column name to search in.
-   * @returns Array of row group indices.
-   */
-  getRowGroupIndicesFromParentValue: (
-    meta: MetaInfo,
-    value: string,
-    value_col?: string
-  ) => number[];
+  getMetaData: (url: string) => Promise<MetaInfo>;
 
   /**
    * Get byte ranges for specified row groups and columns for prefetching.
@@ -101,34 +61,6 @@ export type ParquetWorkerClass = {
     rowGroupIndices: number[],
     columnNames?: string[]
   ) => Array<[number, number]>;
-
-  /**
-   * Prefetch byte ranges into the cache for efficient subsequent reads.
-   * Only works if the file buffer supports prefetch (enhanced buffer).
-   * @param meta - The metadata with enhanced file buffer.
-   * @param byteRanges - Byte ranges to prefetch.
-   */
-  prefetchByteRanges: (meta: MetaInfo, byteRanges: Array<[number, number]>) => Promise<void>;
-
-  /**
-   * Get the data for a given range of rows.
-   * @param url - The URL to the parquet file.
-   * @param range - The range of rows to get.
-   * @param columns - The columns to select.
-   * @returns Promise<T[]> array of row objects
-   */
-  getRowRange: <T = object>(
-    url: string,
-    range: [number, number] | undefined,
-    columns?: string[]
-  ) => Promise<T[]>;
-
-  /**
-   * Optimize requests for row ranges by merging overlapping ranges.
-   * @param ranges - The ranges to merge.
-   * @returns The merged ranges.
-   */
-  mergeRanges: (ranges: [number, number][]) => [number, number][];
 
   /**
    * Parse the demography data into a columnar table data.

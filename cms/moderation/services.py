@@ -131,7 +131,8 @@ def get_documents_list(ids: list[int]) -> list:
         None,
         "GET",
         "/api/documents/list",
-        params={"ids": ids[:100], "limit": 100, "include_hidden": "true"},
+        # The backend caps an ids lookup at 50 (MAX_LISTED_IDS).
+        params={"ids": ids[:50], "limit": 50, "include_hidden": "true"},
         what="document list",
     )
 

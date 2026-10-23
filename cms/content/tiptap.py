@@ -2,7 +2,7 @@
 ProseMirror (TipTap) document -> StreamField raw-data conversion.
 
 Used by `manage.py migrate_tiptap` to port the legacy cms.tags_content /
-cms.places_content JSONB docs into content.TagPage / content.PlacePage
+cms.places_content JSONB docs into content.PortalPage / content.PlacePage
 bodies. Custom nodes (exact TipTap names, see content/blocks.py) become
 their corresponding struct blocks with attrs copied verbatim; consecutive
 runs of standard prose nodes collapse into ONE `rich_text` block whose value
@@ -119,11 +119,13 @@ def _render_node(node: dict, warnings: list[str]) -> str:
         alt = html.escape(attrs.get("alt") or "", quote=True)
         title = attrs.get("title")
         title_attr = f' title="{html.escape(title, quote=True)}"' if title else ""
-        return f'<img src="{src}" alt="{alt}"{title_attr}>'
+        return f'<img src="{src}" alt="{alt}"{title_attr}/>'
+    # Void tags must self-close: Wagtail's editor parser (Draftail
+    # from_database_format) keeps a tag stack and 500s on a bare <br>.
     if node_type == "hardBreak":
-        return "<br>"
+        return "<br/>"
     if node_type == "horizontalRule":
-        return "<hr>"
+        return "<hr/>"
 
     warnings.append(f"unsupported node type {node_type!r} degraded to its text content")
     return _render_children(node, warnings)

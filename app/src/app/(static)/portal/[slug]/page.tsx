@@ -11,7 +11,7 @@ export const revalidate = 3600;
 export async function generateMetadata({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const language = userCookies.get('language')?.value ?? 'en';
-  const cmsData = await getCMSContent('tags', slug, language).catch(() => null);
+  const cmsData = await getCMSContent('portals', slug, language).catch(() => null);
   const title = cmsData?.content?.title;
   return title ? {title} : {};
 }
@@ -20,7 +20,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const language = userCookies.get('language')?.value ?? 'en';
   const [cmsData, maps] = await Promise.all([
-    getCMSContent('tags', slug, language),
+    getCMSContent('portals', slug, language),
     getAvailableDistrictrMaps({}),
   ]).catch(() => [null, null]);
 

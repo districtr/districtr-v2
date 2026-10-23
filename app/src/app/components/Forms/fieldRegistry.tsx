@@ -13,11 +13,18 @@ import {VALID_STATES_LABELS} from '@/app/constants/meta/usStates';
 
 export type FieldSection = 'submission' | 'about';
 
+/** Loose shape check only; the backend runs the real RFC validation
+ * (email-validator). Unicode-friendly, unlike the browser's type="email",
+ * which rejects addresses like josé@example.com before they're ever sent. */
+const EMAIL_PATTERN = '[^@\\s]+@[^@\\s]+\\.[^@\\s]+';
+export const EMAIL_RE = new RegExp(`^(?:${EMAIL_PATTERN})$`);
+
 export interface FieldSpec {
   label: string;
   type: TextField.RootProps['type'];
   section: FieldSection;
   autoComplete?: TextField.RootProps['autoComplete'];
+  inputMode?: TextField.RootProps['inputMode'];
   component?: typeof TextField.Root | typeof TextArea | typeof Select.Root;
   options?: Array<{label: string; value: string}>;
   pattern?: string;
@@ -60,9 +67,14 @@ export const FIELD_REGISTRY: Record<string, FieldSpec> = {
   },
   email: {
     label: 'Email',
-    type: 'email',
+    // text + inputMode, not type="email": see EMAIL_RE.
+    type: 'text',
+    inputMode: 'email',
     section: 'about',
     autoComplete: 'email',
+    // Native constraint so the form's checkValidity() still gates Submit.
+    pattern: EMAIL_PATTERN,
+    validator: value => EMAIL_RE.test(value ?? ''),
     invalidMessage: 'Enter a valid email address',
   },
   place: {

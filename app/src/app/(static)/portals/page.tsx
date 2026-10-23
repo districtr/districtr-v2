@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 export default async function PortalsPage() {
-  const cmsContent = await listCMSContent('tags');
+  const cmsContent = await listCMSContent('portals');
   if (!cmsContent) return null;
 
   const entries = fastUniqBy(cmsContent, 'slug').sort((a, b) => a.title.localeCompare(b.title));

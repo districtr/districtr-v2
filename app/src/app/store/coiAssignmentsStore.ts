@@ -1,3 +1,4 @@
+import {serializeMapSaves} from '@/app/utils/sync/serializeMapSaves';
 import {GDBPath, NullableZone, Zone} from '@constants/map/zone';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {
@@ -34,6 +35,19 @@ import {editPath} from '../utils/map/editUrl';
 import {createWithFullMiddlewares} from './middlewares';
 import {coiAssignmentsTemporalConfig} from './middlewareConfig';
 import {temporalManager} from '../utils/temporal';
+import type {
+  AssignmentIssues,
+  AssignmentRepairResult,
+  ParentAssignmentChoice,
+} from './assignmentRepairStore';
+import {
+  checkAssignments,
+  communitySnapshot,
+  findAssignmentIssues,
+  findNewIssueIds,
+  planRepair,
+} from '../utils/map/assignmentIntegrity';
+import {demographyService} from '../utils/demography/demographyService';
 import {
   DocumentNotFoundError,
   DocumentCreationError,
@@ -61,6 +75,12 @@ export type CoiAssignmentsPayload = {
   };
   parentToChild: Map<string, Set<string>>;
   childToParent: Map<string, string>;
+};
+
+type SaveOptions = {
+  silent?: boolean;
+  /** A background save; stays quiet once the user has dismissed the repair modal. */
+  autosave?: boolean;
 };
 
 export interface CoiAssignmentsStore {
@@ -124,6 +144,12 @@ export interface CoiAssignmentsStore {
    */
   healParentsIfAllChildrenInSameCommunities: (parentIds?: Set<string>) => void;
 
+  /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
+  applyAssignmentRepair: (
+    seen: AssignmentIssues,
+    choices: Record<string, ParentAssignmentChoice>
+  ) => AssignmentRepairResult;
+
   /** Ingests COI assignments and shatter state from document payload. */
   ingestFromDocument: (
     data: CoiAssignmentsPayload,
@@ -154,7 +180,7 @@ export interface CoiAssignmentsStore {
 
   handlePutAssignments: (
     overwrite?: boolean,
-    opts?: {silent?: boolean}
+    opts?: SaveOptions
   ) => Promise<{ok: true; response: string} | {ok: false; error: {detail: string}}>;
   handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   resolveConflict: (
@@ -826,7 +852,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     community: Zone,
     mode: CoiPaintMode = ACTIVE_TOOLS.BRUSH
   ) => {
-    const {accumulatedAssignments, communityAssignments, communityLastUpdated} = get();
+    const {accumulatedAssignments, communityAssignments, communityLastUpdated, shatterIds} = get();
     const {setPaintedChanges} = useChartStore.getState();
     // Clone the live Maps up front and mutate the local copies only.
     const nextAccumulatedAssignments = new Map(accumulatedAssignments);
@@ -848,7 +874,14 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       if (!id || !sourceLayer) return;
 
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
-      if (nextAccumulatedAssignments.has(id) || currentFeatureState?.locked) return;
+      // Never assign a shattered parent: its blocks carry the communities, and its own
+      // assignment breaks the population join. Backstop for paint functions that miss the filter.
+      if (
+        nextAccumulatedAssignments.has(id) ||
+        shatterIds.parents.has(id) ||
+        currentFeatureState?.locked
+      )
+        return;
 
       const currentCommunities = getCommunitiesForGeoidFromAssignments(communityAssignments, id);
       const newCommunities = new Set(currentCommunities);
@@ -1267,6 +1300,73 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     }
   },
 
+  applyAssignmentRepair: (seen, choices) => {
+    const state = get();
+    // Demography may lag a shatter or heal, and its stale unmatched ids could delete
+    // valid assignments, so refuse until it catches up.
+    if (!demographyService.isLoadedFor(state.shatterIds.parents, seen.documentId)) {
+      return {applied: false, reason: 'loading'};
+    }
+    // Re-check the state about to change; anything the user hasn't seen goes back to them.
+    const current = findAssignmentIssues(
+      communitySnapshot(state),
+      demographyService.unmatchedPaths,
+      seen.blocksByParent
+    );
+    const newIds = findNewIssueIds(current, seen);
+    if (newIds.length) return {applied: false, reason: 'changed', current, newIds};
+    const {keepWhole, dropAssignments, addBlocks} = planRepair(current, choices);
+    const communityAssignments = deepCopyCommunityAssignments(state.communityAssignments);
+    const shatterIds = {
+      parents: new Set(state.shatterIds.parents),
+      children: new Set(state.shatterIds.children),
+    };
+    const parentToChild = cloneParentToChildMap(state.parentToChild);
+    const childToParent = new Map(state.childToParent);
+    addBlocks.forEach((blocks, parent) => {
+      getCommunitiesForGeoidFromAssignments(communityAssignments, parent).forEach(community =>
+        blocks.forEach(block => communityAssignments.get(community)?.add(block))
+      );
+      const children = parentToChild.get(parent) ?? new Set<string>();
+      blocks.forEach(block => {
+        children.add(block);
+        shatterIds.children.add(block);
+        childToParent.set(block, parent);
+      });
+      parentToChild.set(parent, children);
+    });
+    const removedBlocks: string[] = [];
+    keepWhole.forEach(parent => {
+      parentToChild.get(parent)?.forEach(block => {
+        removedBlocks.push(block);
+        removeGeoidFromAllCommunities(communityAssignments, block);
+        shatterIds.children.delete(block);
+        childToParent.delete(block);
+      });
+      parentToChild.delete(parent);
+      shatterIds.parents.delete(parent);
+    });
+    dropAssignments.forEach(id => removeGeoidFromAllCommunities(communityAssignments, id));
+
+    const clientLastUpdated = new Date().toISOString();
+    set({
+      communityAssignments,
+      shatterIds,
+      parentToChild,
+      childToParent,
+      accumulatedAssignments: new Map<string, CoiAccumulatedMutation>(),
+      clientLastUpdated,
+    });
+    // Clear undo history: undoing a repair could only bring the bad assignments back.
+    useCoiAssignmentsStore.temporal.getState().clear();
+    if (removedBlocks.length) GeometryWorker?.removeGeometries(removedBlocks);
+    const {mapDocument} = useMapStore.getState();
+    if (mapDocument) {
+      idb.updateIdbCoiAssignments(mapDocument, communityAssignments, clientLastUpdated, true);
+    }
+    return {applied: true};
+  },
+
   resetCommunityAssignments: () => {
     set({
       communityAssignments: new Map<Zone, Set<string>>(),
@@ -1455,9 +1555,15 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     temporalManager.purgeZone(MAP_MODES.COI, removedCommunity);
   },
 
-  handlePutAssignments: async (overwrite = false, {silent = false} = {}) => {
+  // One save at a time across stores; see serializeMapSaves.
+  handlePutAssignments: serializeMapSaves(async (overwrite = false, opts: SaveOptions = {}) => {
+    const {silent = false, autosave = false} = opts;
     // console.log('[COI save] handlePutAssignments called, overwrite:', overwrite);
     await idb.flushPendingUpdate();
+    if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
+      // Blocked until the user repairs: saving now would persist the bad assignments.
+      return {ok: false, error: {detail: 'Save blocked: this map has assignments to repair.'}};
+    }
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
@@ -1569,7 +1675,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
         detail: 'An unknown error occured during PUT assignments.',
       },
     };
-  },
+  }),
 
   handleRevert: async (mapDocument: DocumentObject) => {
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument, 'coi');

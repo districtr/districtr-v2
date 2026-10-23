@@ -152,25 +152,30 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
   );
 };
 
-const HIDDEN = '(sensitive content hidden)';
-
 /** Row renderer for table/list view - displays comment fields as table cells.
- * nsfw rows mask every free-text cell with a placeholder (a table row can't
- * blur cleanly); the card view offers the opt-in reveal. One moderation
- * decision, same reach as the card's NsfwShield. */
+ * nsfw rows blur every free-text cell until the reader opts in, the same
+ * decision and reach as the card's NsfwShield. */
 export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => {
-  const text = (value: string | null | undefined) => (comment.nsfw ? HIDDEN : value || '—');
+  const [revealed, setRevealed] = useState(false);
+  const blurred = comment.nsfw && !revealed;
+  const blur = blurred ? ' blur-sm select-none' : '';
+  const text = (value: string | null | undefined) => value || '—';
   return (
     <Table.Row className="hover:bg-slate-50 transition-colors">
       {options.showTitles && (
         <Table.Cell>
-          <Text weight="medium" className="line-clamp-1">
+          <Text weight="medium" className={`line-clamp-1${blur}`} aria-hidden={blurred}>
             {text(comment.title)}
           </Text>
         </Table.Cell>
       )}
       <Table.Cell>
-        <Text size="2" className="line-clamp-3 whitespace-pre-line">
+        {blurred && (
+          <Button size="1" variant="soft" color="gray" onClick={() => setRevealed(true)}>
+            Show sensitive content
+          </Button>
+        )}
+        <Text size="2" className={`line-clamp-3 whitespace-pre-line${blur}`} aria-hidden={blurred}>
           {text(comment.comment)}
         </Text>
       </Table.Cell>
@@ -178,27 +183,29 @@ export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) 
         <Table.Cell>
           <Flex align="center" gap="1.5">
             <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
-            <Text size="2">{comment.nsfw ? HIDDEN : getCommenterName(comment)}</Text>
+            <Text size="2" className={blur} aria-hidden={blurred}>
+              {getCommenterName(comment)}
+            </Text>
           </Flex>
         </Table.Cell>
       )}
       {options.showPlaces && (
         <Table.Cell>
-          <Text size="2" color="gray">
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
             {text(comment.place)}
           </Text>
         </Table.Cell>
       )}
       {options.showStates && (
         <Table.Cell>
-          <Text size="2" color="gray">
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
             {text(comment.state)}
           </Text>
         </Table.Cell>
       )}
       {options.showZipCodes && (
         <Table.Cell>
-          <Text size="2" color="gray">
+          <Text size="2" color="gray" className={blur} aria-hidden={blurred}>
             {text(comment.zip_code)}
           </Text>
         </Table.Cell>

@@ -8,9 +8,8 @@ owns the DDL. Django reaches the tables through the connection search_path
 schema-qualified. Run `manage.py check_mirror_drift` to verify the mirrors
 still match the live schema.
 
-Intentionally NOT mirrored: partitioned tables (parentchildedges,
-document.assignments, document.community_assignments), anything in the
-`document` schema, and geometry-bearing tables (document.district_unions).
+Intentionally NOT mirrored: anything in the `document` schema, and
+geometry-bearing tables (document.district_unions).
 Geometry columns must never be mapped here; list any such intentionally
 unmapped columns in datastore.drift.EXCLUDED_COLUMNS.
 """
@@ -114,6 +113,14 @@ class DistrictrMap(models.Model):
     statefps = ArrayField(models.CharField(), blank=True, null=True)
     comment_length_limit = models.IntegerField(blank=True, null=True)
     comment_count_limit = models.IntegerField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    state_abbr = models.CharField(max_length=2, blank=True, null=True)
+    state_name = models.CharField(blank=True, null=True)
+    boundary_type = models.CharField(
+        blank=True,
+        null=True,
+        help_text='e.g. "Congressional", "State House", "State Senate", "Custom".',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -264,8 +271,10 @@ SUBMISSION_FIELD_CHOICES = [
 COLLECTION_MODE_CHOICES = [
     (
         "internal",
-        "Internal gallery only — maps made from the portal are collected "
-        "automatically but shown only in the admin gallery, never publicly.",
+        "Collect without a public gallery — maps made from the portal are "
+        "collected automatically and the page has no gallery by default. Add "
+        "a plan gallery to the page, or pin maps from the Portals hub, to "
+        "show some or all of them.",
     ),
     (
         "auto_public",
@@ -313,6 +322,10 @@ class FormConfig(models.Model):
     # How the portal collects map submissions; see backend
     # app/submissions/models.py::CollectionMode for the vocabulary.
     collection_mode = models.CharField(max_length=16, default="prompt")
+    # Whether the portal page is live; the backend refuses public intake and
+    # listing when it isn't. Derived, never edited: set here on every save
+    # and by PortalPage on publish, unpublish and delete.
+    accepting = models.BooleanField(default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -324,6 +337,22 @@ class FormConfig(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.portal_id})"
+
+    def save(self, *args, **kwargs):
+        from content.models import PortalPage
+
+        self.accepting = PortalPage.portal_is_live(self.portal_id)
+        super().save(*args, **kwargs)
+
+
+def custom_field_key(label: str) -> str | None:
+    """A custom question's key: 'custom_' + the label's slug, capped at the
+    column width. None when the label has no letters or digits, which would
+    leave a bare 'custom_' key."""
+    from django.utils.text import slugify
+
+    slug = slugify(label or "").replace("-", "_")
+    return f"custom_{slug}"[:64] if slug else None
 
 
 class FormFieldCustom(models.Model):

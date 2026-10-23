@@ -1,9 +1,9 @@
 """
 Wagtail admin registration for teams (the tenancy boundary).
 
-Team changes take effect at the member's next login — claims are minted on
-the refresh token at token obtain (authapi/serializers.py), so an existing
-session keeps its old `teams` claim through silent refreshes.
+Team changes take effect on the member's next request: the CMS mints a
+fresh backend token for every call (mint_user_access_token), reading the
+`teams` claim from current membership. There are no refresh tokens.
 
 The user field uses a generic ChooserViewSet (searchable, paginated) rather
 than an unbounded <select>. register_widget stays False so the chooser only
@@ -16,12 +16,15 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from wagtail import hooks
 from wagtail.admin.forms.choosers import BaseFilterForm
-from wagtail.admin.panels import FieldPanel, InlinePanel
+from wagtail.admin.forms import WagtailAdminModelForm
+from wagtail.admin.panels import FieldPanel, InlinePanel, ObjectList
 from wagtail.admin.viewsets.chooser import ChooserViewSet
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
-from authapi.models import Team
+from authapi.models import Team, TeamDistrictrMap
+from datastore.models import DistrictrMap
+from datastore.widgets import MapModulePickerWidget
 
 
 class UserSearchFilterForm(BaseFilterForm):
@@ -76,10 +79,41 @@ def register_user_chooser_viewset():
     return user_chooser_viewset
 
 
+class TeamForm(WagtailAdminModelForm):
+    """Team form with the map-module picker in place of one inline row per
+    module; save() syncs the TeamDistrictrMap links to the picked set."""
+
+    map_modules = forms.ModelMultipleChoiceField(
+        queryset=DistrictrMap.objects.order_by("name"),
+        required=False,
+        label="Map modules assigned",
+        widget=MapModulePickerWidget(multiple=True, lookup="pk"),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["map_modules"] = list(
+                self.instance.districtr_maps.values_list("districtr_map_id", flat=True)
+            )
+
+    def save(self, commit=True):
+        # Reuse existing link rows so unchanged grants keep their pk.
+        existing = {
+            link.districtr_map_id: link for link in self.instance.districtr_maps.all()
+        }
+        self.instance.districtr_maps = [
+            existing.get(districtr_map.pk)
+            or TeamDistrictrMap(districtr_map_id=districtr_map.pk)
+            for districtr_map in self.cleaned_data["map_modules"]
+        ]
+        return super().save(commit)
+
+
 class TeamViewSet(SnippetViewSet):
     """Admin-only "Teams" snippet: name a team, add member users, and assign
     the Districtr map modules it owns. Only the `admin` group holds Team permissions
-    (authapi/migrations/0005), so the menu item never renders for other roles.
+    (authapi/migrations/0002_provision_roles), so the menu item never renders for other roles.
 
     Membership/ownership take effect immediately for the Wagtail admin scoping
     (authapi/teams.py) — no token round-trip, since this scoping is server-side
@@ -95,22 +129,20 @@ class TeamViewSet(SnippetViewSet):
     search_fields = ["name", "slug"]
     list_per_page = 50
 
-    panels = [
-        FieldPanel("name"),
-        FieldPanel("slug"),
-        InlinePanel(
-            "memberships",
-            heading="Members",
-            label="Member",
-            panels=[FieldPanel("user", widget=user_chooser_viewset.widget_class)],
-        ),
-        InlinePanel(
-            "districtr_maps",
-            heading="Map modules assigned",
-            label="Map module",
-            panels=[FieldPanel("districtr_map")],
-        ),
-    ]
+    edit_handler = ObjectList(
+        [
+            FieldPanel("name"),
+            FieldPanel("slug"),
+            InlinePanel(
+                "memberships",
+                heading="Members",
+                label="Member",
+                panels=[FieldPanel("user", widget=user_chooser_viewset.widget_class)],
+            ),
+            FieldPanel("map_modules"),
+        ],
+        base_form_class=TeamForm,
+    )
 
 
 register_snippet(TeamViewSet)
