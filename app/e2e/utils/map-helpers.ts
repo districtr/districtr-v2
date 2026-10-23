@@ -5,6 +5,19 @@ import {Page} from '@playwright/test';
  * (fixtures/map-fixture); for state, use the WebMCP tools (utils/webmcp).
  */
 
+/**
+ * The active toolbar tool ('pan', 'brush', 'shatter', ...), read from the pressed tool
+ * button, so it works in prod builds without the dev-only window stores. Null if none.
+ */
+export async function getCurrentTool(page: Page): Promise<string | null> {
+  const testId = await page
+    .locator('[data-testid="toolbar"] [data-testid$="-tool"][aria-pressed="true"]')
+    .first()
+    .getAttribute('data-testid', {timeout: 1000})
+    .catch(() => null);
+  return testId?.replace(/-tool$/, '') ?? null;
+}
+
 /** Center of the map canvas in page coordinates. */
 export async function getMapCenter(page: Page): Promise<{x: number; y: number}> {
   const box = await page.locator('.maplibregl-canvas').first().boundingBox();
