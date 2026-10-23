@@ -42,6 +42,18 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
+def test_boundary_neighbors(connected_graph):
+    # One entry per boundary edge: a and c each touch b and d.
+    assert sorted(connected_graph.boundary_neighbors(["a", "c"])) == [
+        "b",
+        "b",
+        "d",
+        "d",
+    ]
+    # The internal a–b edge is not a boundary.
+    assert sorted(connected_graph.boundary_neighbors(["a", "b"])) == ["c", "d"]
+
+
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     client.put(
         "/api/assignments",
@@ -259,6 +271,42 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
         assert f["geometry"]["type"] == "Polygon"
         if f["properties"]["n_geos"] == 1:
             assert len(f["properties"]["geo_ids"]) == 1
+
+
+def test_simple_geos_discontiguity_components(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["000010000000001", 1],
+                ["000010000000005", 2],
+                ["vtd:000010000002", 2],
+                ["vtd:000010000003", 1],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id}/contiguity/1/components")
+    assert response.status_code == 200
+    components = response.json()["components"]
+    # Zone 1 is two isolated pieces, each bordering only zone 2 (see topology
+    # above): block ...001 touches block ...005 and vtd ...002; vtd ...003
+    # touches vtd ...002 and block ...005.
+    assert sorted(c["geo_ids"][0] for c in components) == [
+        "000010000000001",
+        "vtd:000010000003",
+    ]
+    for c in components:
+        assert c["neighbor_zones"] == {"2": 2}
+
+    response = client.get(f"/api/document/{document_id}/contiguity/3/components")
+    assert response.status_code == 404
 
 
 @fixture
