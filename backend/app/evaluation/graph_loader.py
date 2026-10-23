@@ -53,20 +53,27 @@ def from_npz(file) -> DualLevelGraph:
         node_ids = data["node_ids"]
         weighted_edges = None
         if bool(data["has_weighted_edges"]):
-            nid = node_ids.tolist()
-            weighted_edges = {
-                (nid[a], nid[b]): int(w)
-                for (a, b), w in zip(data["we_keys"].tolist(), data["we_vals"].tolist())
-            }
-        non_contiguous_parents = None
+            # we_keys already holds node-index pairs (the writer translates
+            # geo_ids through the same sorted node_ids order used here);
+            # append the weights as a third column.
+            weighted_edges = np.column_stack([data["we_keys"], data["we_vals"]]).astype(
+                np.int32
+            )
+        ncp = None
         if bool(data["has_non_contiguous_parents"]):
-            non_contiguous_parents = set(data["non_contiguous_parents"].tolist())
+            ncp_ids = data["non_contiguous_parents"]
+            pos = np.minimum(np.searchsorted(node_ids, ncp_ids), len(node_ids) - 1)
+            if not np.array_equal(node_ids[pos], ncp_ids):
+                raise ValueError(
+                    "non_contiguous_parents contains ids missing from node_ids"
+                )
+            ncp = pos.astype(np.int32)
         return DualLevelGraph(
             node_ids=node_ids,
             edges=data["edges"],
             parent_of=data["parent_of"],
             weighted_edges=weighted_edges,
-            non_contiguous_parents=non_contiguous_parents,
+            non_contiguous_parents=ncp,
         )
 
 

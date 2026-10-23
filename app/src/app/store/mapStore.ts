@@ -16,7 +16,6 @@ import {
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
-import {ContextMenuState} from '@utils/map/types';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
@@ -304,8 +303,6 @@ export interface MapStore {
    */
   focusFeatures: Array<MapFeatureInfo>;
   handleReset: () => void;
-  contextMenu: ContextMenuState | null;
-  setContextMenu: (menu: ContextMenuState | null) => void;
 
   // user id
   userID: string | null;
@@ -1146,8 +1143,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
+      }).catch(err => {
+        console.error(err);
+        return undefined;
       });
       if (!edgesResult?.length) {
+        setMapLock(null);
+        temporalManager.resume(mapMode);
         set({
           notification: {
             importance: 2,
@@ -1325,8 +1327,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
     focusFeatures: [],
-    contextMenu: null,
-    setContextMenu: contextMenu => set({contextMenu}),
     userID: null,
     setUserID: () => {
       set(state => {

@@ -40,6 +40,7 @@ export const CANONICAL_LAYER_IDS = {
     PARENT: {
       BASE: 'blocks',
       HOVER: 'blocks-hover',
+      ASSIGNMENT: 'blocks-assignment',
       HIGHLIGHT: 'blocks-highlight',
       POINTS: 'blocks-points',
       SIZED_CIRCLES: 'blocks-sized-circles',
@@ -49,6 +50,7 @@ export const CANONICAL_LAYER_IDS = {
     CHILD: {
       BASE: 'blocks-child',
       HOVER: 'blocks-child-hover',
+      ASSIGNMENT: 'blocks-child-assignment',
       HIGHLIGHT: 'blocks-highlight-child',
       POINTS: 'blocks-points-child',
       SIZED_CIRCLES: 'blocks-sized-circles-child',
@@ -67,6 +69,9 @@ export const CANONICAL_LAYER_IDS = {
     BACKGROUND: 'ZONE_LABEL_BG',
     LOCK: 'ZONE_LOCK_LABEL',
     COMMENT_INDICATOR: 'ZONE_COMMENT_INDICATOR',
+    // Invisible; reserves badge-sized collision space. Not in ZONE_LABEL_LAYER_LIST
+    // so hover/click hit areas stay the size of the badge.
+    COLLIDER: 'ZONE_LABEL_COLLIDER',
   },
 } as const;
 
@@ -84,6 +89,8 @@ export const BLOCK_POINTS_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.POINT
 export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.HIGHLIGHT;
 export const BLOCK_HOVER_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.HOVER;
 export const BLOCK_HOVER_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.HOVER;
+export const BLOCK_ASSIGNMENT_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.ASSIGNMENT;
+export const BLOCK_ASSIGNMENT_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.ASSIGNMENT;
 
 export const SELECTION_POINTS_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.SELECTION_POINTS_PARENT;
 export const SELECTION_POINTS_SOURCE_ID_CHILD = CANONICAL_LAYER_IDS.SOURCES.SELECTION_POINTS_CHILD;
@@ -152,9 +159,9 @@ export const INTERACTIVE_LAYERS: string[] = [
   BLOCK_HOVER_LAYER_ID_CHILD,
   CANONICAL_LAYER_IDS.PUBLIC.FILL,
 ];
-export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
+export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_ASSIGNMENT_LAYER_ID];
 export const CHILD_LAYERS: string[] = [
   BLOCK_LAYER_ID_CHILD,
-  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_ASSIGNMENT_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 ] as string[];

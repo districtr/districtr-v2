@@ -200,8 +200,22 @@ class ProsemirrorToHtmlTests(SimpleTestCase):
             html,
             "<blockquote><p>quoted</p></blockquote>"
             "<pre><code>x = 1</code></pre>"
-            "<p>line<br>break</p><hr>",
+            "<p>line<br/>break</p><hr/>",
         )
+
+    def test_void_tags_load_in_the_page_editor(self):
+        # The editor converter asserts on unclosed void tags (prod 500 on
+        # every imported page with a line break).
+        from wagtail.admin.rich_text.converters.contentstate import (
+            ContentstateConverter,
+        )
+
+        from content.blocks import RICH_TEXT_FEATURES
+
+        html = prosemirror_to_html(
+            doc(paragraph(text("line"), {"type": "hardBreak"}, text("break")))
+        )
+        ContentstateConverter(RICH_TEXT_FEATURES).from_database_format(html)
 
     def test_image(self):
         html = prosemirror_to_html(
@@ -218,7 +232,7 @@ class ProsemirrorToHtmlTests(SimpleTestCase):
         )
         self.assertEqual(
             html,
-            '<img src="https://example.com/a.png" alt="A map" title="Map">',
+            '<img src="https://example.com/a.png" alt="A map" title="Map"/>',
         )
 
     def test_text_is_escaped(self):
