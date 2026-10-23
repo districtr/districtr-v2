@@ -21,7 +21,7 @@ export const PaintConstraintPill = () => {
       <MapPill
         testId="paint-constraint-pill"
         onEscape={clearPaintConstraint}
-        action={{label: 'Release (Esc)', onClick: clearPaintConstraint}}
+        action={{label: 'Unmask (Esc)', onClick: clearPaintConstraint}}
       >
         Paint mask active
       </MapPill>

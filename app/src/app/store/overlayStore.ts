@@ -11,6 +11,15 @@ import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
 
 const COUNTY_SOURCE_LAYER = 'tl_2023_us_county';
 
+/** Overlay name for an overlay_id; overlays sharing a name toggle as one group. */
+export const getOverlayName = (overlayId: string) =>
+  useMapStore.getState().mapDocument?.overlays?.find(o => o.overlay_id === overlayId)?.name;
+
+/** The overlay a same-name group masks through: only line overlays get the
+ * invisible fill layer that mask selection clicks (see OverlayLayers). */
+export const getMaskOverlayId = (overlays: Overlay[], name: string) =>
+  overlays.find(o => o.name === name && o.layer_type === 'line')?.overlay_id;
+
 export interface OverlayPaintConstraint {
   overlayId: string;
   featureId: string;
@@ -18,8 +27,16 @@ export interface OverlayPaintConstraint {
   featureName?: string;
 }
 
+/** Boundary visibility from before a mask was armed, restored on release. */
+interface LayersBeforeMask {
+  enabledOverlayIds: Set<string>;
+  showCountyBoundaries?: boolean;
+  prominentCountyNames?: boolean;
+}
+
 export interface OverlayStore {
   _idCache: Map<string, boolean>;
+  _layersBeforeMask: LayersBeforeMask | null;
   enabledOverlayIds: Set<string>;
   paintConstraint: OverlayPaintConstraint | null;
   selectingLayerId: string | null;
@@ -35,25 +52,18 @@ export interface OverlayStore {
 export const useOverlayStore = create(
   subscribeWithSelector<OverlayStore>((set, get) => ({
     _idCache: new Map<string, boolean>(),
+    _layersBeforeMask: null,
     enabledOverlayIds: new Set<string>(),
     paintConstraint: null,
     selectingLayerId: null,
 
     toggleOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
-      const newEnabledIds = new Set(enabledOverlayIds);
-      if (newEnabledIds.has(overlayId)) {
-        newEnabledIds.delete(overlayId);
-        // Clear constraint if its overlay is disabled
-        if (paintConstraint?.overlayId === overlayId) {
-          set({enabledOverlayIds: newEnabledIds});
-          clearPaintConstraint();
-          return;
-        }
+      const {enabledOverlayIds, enableOverlay, disableOverlay} = get();
+      if (enabledOverlayIds.has(overlayId)) {
+        disableOverlay(overlayId);
       } else {
-        newEnabledIds.add(overlayId);
+        enableOverlay(overlayId);
       }
-      set({enabledOverlayIds: newEnabledIds});
     },
 
     enableOverlay: (overlayId: string) => {
@@ -64,14 +74,23 @@ export const useOverlayStore = create(
     },
 
     disableOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
+      const {paintConstraint, selectingLayerId, clearPaintConstraint} = get();
+      // enabledOverlayIds holds overlay names, while the mask (or an armed
+      // selection; arming releases any mask) holds an overlay_id. Release
+      // first: that restores the pre-mask layers, minus this one below.
+      const maskLayerId = paintConstraint?.overlayId ?? selectingLayerId;
+      if (maskLayerId && getOverlayName(maskLayerId) === overlayId) {
+        clearPaintConstraint();
+      }
+      const {enabledOverlayIds, _layersBeforeMask} = get();
       const newEnabledIds = new Set(enabledOverlayIds);
       newEnabledIds.delete(overlayId);
-      // Clear constraint if its overlay is disabled
-      if (paintConstraint?.overlayId === overlayId) {
-        clearPaintConstraint();
-      } else {
-        set({enabledOverlayIds: newEnabledIds});
+      set({enabledOverlayIds: newEnabledIds});
+      // Hidden while another mask is up: keep it hidden after that one is released.
+      if (_layersBeforeMask?.enabledOverlayIds.has(overlayId)) {
+        const restoreIds = new Set(_layersBeforeMask.enabledOverlayIds);
+        restoreIds.delete(overlayId);
+        set({_layersBeforeMask: {..._layersBeforeMask, enabledOverlayIds: restoreIds}});
       }
     },
 
@@ -128,20 +147,48 @@ export const useOverlayStore = create(
     },
 
     clearPaintConstraint: () => {
+      const {_layersBeforeMask} = get();
+      if (_layersBeforeMask) {
+        const {enabledOverlayIds, ...countyOptions} = _layersBeforeMask;
+        useMapControlsStore.getState().setMapOptions(countyOptions);
+        set({enabledOverlayIds});
+      }
       set({
         paintConstraint: null,
         _idCache: new Map<string, boolean>(),
         selectingLayerId: null,
+        _layersBeforeMask: null,
       });
     },
 
     selectOverlayFeature: overlayId => {
-      set({selectingLayerId: overlayId});
+      // Show only the layer being masked to while masking: its areas need to
+      // be there to click, and other boundaries drawn on top of it are just
+      // clutter. Releasing the mask (clearPaintConstraint) restores the rest.
+      // Arming a new mask releases the current one, keeping the original
+      // pre-mask layers to restore.
+      const {mapOptions, setMapOptions} = useMapControlsStore.getState();
+      const layersBeforeMask = get()._layersBeforeMask ?? {
+        enabledOverlayIds: get().enabledOverlayIds,
+        showCountyBoundaries: mapOptions.showCountyBoundaries,
+        prominentCountyNames: mapOptions.prominentCountyNames,
+      };
+      const isCounty = overlayId === COUNTY_SOURCE_ID;
+      const name = getOverlayName(overlayId);
+      setMapOptions({showCountyBoundaries: isCounty, prominentCountyNames: isCounty});
+      set({
+        paintConstraint: null,
+        _idCache: new Map<string, boolean>(),
+        selectingLayerId: overlayId,
+        enabledOverlayIds: new Set(name ? [name] : []),
+        _layersBeforeMask: layersBeforeMask,
+      });
     },
 
     reset: () => {
       set({
         _idCache: new Map<string, boolean>(),
+        _layersBeforeMask: null,
         enabledOverlayIds: new Set<string>(),
         paintConstraint: null,
         selectingLayerId: null,
