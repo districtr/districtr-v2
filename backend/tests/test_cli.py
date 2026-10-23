@@ -274,7 +274,8 @@ def test_create_overlay_and_add_to_map(
 
 def test_update_overlay(session: Session):
     """Test updating an overlay via CLI"""
-    # First create an overlay
+    # First create an overlay, plus a bystander to prove the WHERE clause
+    # scopes the update to one row.
     create_result = run_cli(
         "create-overlay",
         "--name",
@@ -285,8 +286,22 @@ def test_update_overlay(session: Session):
         "geojson",
         "--layer-type",
         "fill",
+        "--source",
+        "original-source",
     )
     assert_ok(create_result)
+    bystander_result = run_cli(
+        "create-overlay",
+        "--name",
+        "Bystander Overlay",
+        "--description",
+        "Bystander description",
+        "--data-type",
+        "geojson",
+        "--layer-type",
+        "fill",
+    )
+    assert_ok(bystander_result)
 
     # Get the overlay ID
     original_overlay_stmt = select(Overlay).where(Overlay.name == "Original Overlay")
@@ -294,13 +309,18 @@ def test_update_overlay(session: Session):
     assert original_overlay is not None, "Original overlay not found in database"
     original_overlay_id = str(original_overlay.overlay_id)
 
-    # Update the overlay
+    # Update several fields at once; leave --source alone to check it survives.
+    custom_style = {"paint": {"fill-color": "#ff0000"}}
     update_result = run_cli(
         "update-overlay",
         "--overlay-id",
         original_overlay_id,
         "--name",
         "Updated Overlay",
+        "--description",
+        "Updated description",
+        "--custom-style",
+        json.dumps(custom_style),
     )
     assert_ok(update_result)
 
@@ -317,7 +337,23 @@ def test_update_overlay(session: Session):
     (updated_overlay,) = session.exec(updated_stmt).one_or_none()
     assert updated_overlay is not None, "Overlay not found after update"
     assert updated_overlay.name == "Updated Overlay"
+    assert updated_overlay.description == "Updated description"
+    # The JSON column must hold the parsed object, not a double-encoded string
+    # (a string here breaks OverlayPublic validation for every linked document).
+    assert updated_overlay.custom_style == custom_style
+    # Fields the update didn't name keep their values.
+    assert updated_overlay.source == "original-source"
+    assert updated_overlay.data_type == "geojson"
+
+    # The bystander row is untouched.
+    bystander_stmt = select(Overlay).where(Overlay.name == "Bystander Overlay")
+    (bystander_overlay,) = session.exec(bystander_stmt).one_or_none()
+    assert bystander_overlay is not None, "Bystander overlay not found after update"
+    assert bystander_overlay.description == "Bystander description"
+    assert bystander_overlay.custom_style is None
+
     cleanup_overlay(session, "Updated Overlay")
+    cleanup_overlay(session, "Bystander Overlay")
 
 
 LINK_TEST_OVERLAY_NAME = "Link Overlays Test Overlay"
@@ -958,21 +994,32 @@ def test_add_districtr_map_to_map_group(engine, add_map_to_group_test_setup):
 
 def test_create_spatial_index(engine, simple_parent_geos_gerrydb):
     """create-spatial-index creates a GIST index on the given gerrydb table"""
+
+    def gist_index_count(query_session: Session) -> int:
+        return len(
+            query_session.execute(
+                text(
+                    """SELECT indexdef FROM pg_indexes
+                    WHERE schemaname = 'gerrydb' AND tablename = 'simple_parent_geos'
+                    AND indexdef ILIKE '%USING gist%'"""
+                )
+            ).all()
+        )
+
+    # ogr2ogr already creates its own GIST index on import, so this command's
+    # index is the second one -- assert the count grows, not mere presence.
+    with Session(engine) as query_session:
+        count_before = gist_index_count(query_session)
+
     result_proc = run_cli("create-spatial-index", "--table-name", "simple_parent_geos")
     assert_ok(result_proc)
 
     with Session(engine) as query_session:
-        # ogr2ogr already creates its own GIST index on import, so this command's
-        # index is expected to be the second one -- assert presence, not uniqueness.
-        index_rows = query_session.execute(
-            text(
-                """SELECT indexdef FROM pg_indexes
-                WHERE schemaname = 'gerrydb' AND tablename = 'simple_parent_geos'
-                AND indexdef ILIKE '%USING gist%'"""
-            )
-        ).all()
+        count_after = gist_index_count(query_session)
 
-    assert len(index_rows) > 0, "GIST spatial index was not created"
+    assert (
+        count_after == count_before + 1
+    ), f"GIST spatial index was not created ({count_before} -> {count_after})"
 
 
 # ---------------------------------------------------------------------------

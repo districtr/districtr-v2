@@ -922,7 +922,9 @@ def update_overlay(
     if custom_style is not None:
         try:
             parsed_style = json.loads(custom_style)
-            updates[col(Overlay.custom_style)] = json.dumps(parsed_style)
+            # Store the parsed object, not a string: custom_style is a JSON
+            # column, so the ORM does the encoding itself.
+            updates[col(Overlay.custom_style)] = parsed_style
         except json.JSONDecodeError:
             logger.error("Invalid JSON for custom-style")
             return
