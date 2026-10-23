@@ -69,6 +69,9 @@ export const CANONICAL_LAYER_IDS = {
     BACKGROUND: 'ZONE_LABEL_BG',
     LOCK: 'ZONE_LOCK_LABEL',
     COMMENT_INDICATOR: 'ZONE_COMMENT_INDICATOR',
+    // Invisible; reserves badge-sized collision space. Not in ZONE_LABEL_LAYER_LIST
+    // so hover/click hit areas stay the size of the badge.
+    COLLIDER: 'ZONE_LABEL_COLLIDER',
   },
 } as const;
 
