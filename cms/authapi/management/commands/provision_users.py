@@ -68,7 +68,7 @@ class Command(BaseCommand):
                 except Group.DoesNotExist:
                     raise CommandError(
                         f"Unknown group {group_name!r} for {email} — expected "
-                        "one of admin/partner/super_partner"
+                        "one of admin/partner/super_partner/data_user"
                     )
 
                 existing = User.objects.filter(username=email).first()
