@@ -1,6 +1,7 @@
 'use client';
 import React, {Suspense, useEffect} from 'react';
 import {MainMap} from '@components/Map/MainMap';
+import {MobileMapLegend} from '@components/Map/MobileMapLegend';
 import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
 import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
@@ -152,6 +153,7 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
             <DraftStatusHelper />
           </div>
         </Flex>
+        <MobileMapLegend />
         <MobileToolbar />
         <MapTooltip />
       </div>
