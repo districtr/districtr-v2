@@ -14,6 +14,7 @@ export const CANONICAL_LAYER_IDS = {
   MAP_ANCHORS: {
     HOVER: 'anchor-hover',
     REFERENCE: 'anchor-reference',
+    OVERLAY_LABELS: 'anchor-overlay-labels',
     OVERLAYS: 'anchor-overlays',
     COUNTY_BOUNDARIES: 'anchor-county-boundaries',
     GEOMETRY_OUTLINE: 'anchor-geometry-outline',
@@ -111,6 +112,8 @@ export const MAP_LAYER_ANCHOR_IDS = {
   // External geographic context for evaluating the redistricting plan (e.g. population labels).
   // Sits above all depicting layers so reference lines remain visible through fills.
   reference: CANONICAL_LAYER_IDS.MAP_ANCHORS.REFERENCE,
+  // Text overlays: above every line/fill overlay regardless of toggle/mount order.
+  overlayLabels: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAY_LABELS,
   overlays: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAYS,
   // County boundary lines: below overlays (legislative/school districts etc.)
   // but above demography and zone fills so they stay visible through them.
