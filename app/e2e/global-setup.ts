@@ -24,7 +24,8 @@ function getFrontendUrl(config: FullConfig): string {
 function getBackendUrl(frontendUrl: string): string {
   const isDocker = process.env.IS_DOCKER === 'true';
   if (process.env.BACKEND_URL) return process.env.BACKEND_URL;
-  if (frontendUrl.includes('localhost:3000')) return 'http://localhost:8000';
+  // Covers both the dev (:3000) and frontend-prod (:3001) targets.
+  if (new URL(frontendUrl).hostname === 'localhost') return 'http://localhost:8000';
   if (frontendUrl.includes('frontend:3000')) return 'http://backend:8000';
   return `${new URL(frontendUrl).origin}`;
 }
@@ -94,7 +95,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
 
   // Check that the API is functioning
   try {
-    const apiResponse = await fetch(`${backendUrl}/api/districtr_maps`);
+    const apiResponse = await fetch(`${backendUrl}/api/gerrydb/views`);
     if (apiResponse.ok) {
       console.log('✓ Backend API is responding correctly');
     } else {
@@ -120,7 +121,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
 async function seedTestData(backendUrl: string): Promise<void> {
   try {
     // Check if we have a test map slug available
-    const mapsResponse = await fetch(`${backendUrl}/api/districtr_maps`);
+    const mapsResponse = await fetch(`${backendUrl}/api/gerrydb/views`);
     if (!mapsResponse.ok) {
       console.log('⚠️  Could not fetch available maps for seeding');
       return;

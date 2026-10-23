@@ -146,7 +146,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
     activeTool: ACTIVE_TOOLS.PAN,
     setActiveTool: tool => {
       const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
-      if (canEdit) {
+      // Edit tools stay off while painted districts are hidden (#814), for every caller:
+      // toolbar, hotkeys, and the WebMCP set_tool.
+      const hidden =
+        get().mapOptions.showPaintedDistricts === false && DISTRICT_EDIT_TOOLS.includes(tool);
+      if (canEdit && !hidden) {
         set({activeTool: tool});
       }
     },
