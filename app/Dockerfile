@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 
 # Adjust NODE_VERSION as desired
-ARG NODE_VERSION=21.7.1
+ARG NODE_VERSION=26.12.1
 FROM node:${NODE_VERSION}-slim as base
 
 LABEL fly_launch_runtime="Next.js"
@@ -49,12 +49,17 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
 # Final stage for app image
 FROM base
 
-# Install Bun for runtime
-RUN npm i -g bun
+# Standalone output: server.js plus only the node_modules it traced. Static
+# assets and public/ aren't part of it and are copied alongside.
+COPY --from=build /app/.next/standalone /app
+COPY --from=build /app/.next/static /app/.next/static
+COPY --from=build /app/public /app/public
 
-# Copy built application
-COPY --from=build /app /app
+# server.js binds to $HOSTNAME, which Docker sets to the container id.
+ENV HOSTNAME=0.0.0.0
+# Must exceed the ALB idle timeout (120s); replaces `next start --keepAliveTimeout`.
+ENV KEEP_ALIVE_TIMEOUT=130000
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-CMD [ "bun", "run", "start" ]
+CMD [ "node", "server.js" ]
