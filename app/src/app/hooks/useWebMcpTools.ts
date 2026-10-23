@@ -7,7 +7,12 @@ import {demographyService} from '@utils/demography/demographyService';
 import {ACTIVE_TOOLS, DISTRICT_EDIT_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ACCESS_STATES, APP_LOADING_STATES} from '@constants/document/state';
 import {RENDERING_STATES} from '@constants/map/renderingState';
-import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+} from '@constants/map/layerIds';
+import {pointOnFeature} from '@turf/turf';
 import {filterFeatures} from '@utils/map/filterFeatures';
 
 /**
@@ -84,7 +89,7 @@ const waitUntilSettled = async (timeoutMs: number) => {
 };
 
 const mapState = () => {
-  const {mapDocument, mapStatus, appLoadingState, mapRenderingState, getMapRef} =
+  const {mapDocument, mapStatus, appLoadingState, mapRenderingState, getMapRef, focusFeatures} =
     useMapStore.getState();
   const {selectedZone, activeTool} = useMapControlsStore.getState();
   const {zoneAssignments} = useAssignmentsStore.getState();
@@ -103,6 +108,8 @@ const mapState = () => {
     },
     selected_zone: selectedZone,
     active_tool: activeTool,
+    // The precinct broken out in block view (Break), or null outside block view.
+    focused_area: focusFeatures[0]?.id?.toString() ?? null,
     assigned_feature_count: assigned,
   };
 };
@@ -111,7 +118,7 @@ const tools: ModelContextTool[] = [
   {
     name: 'get_map_state',
     description:
-      'Current state of the open districting map: loading state, zoom level, selected district, active tool, and how many areas are assigned. Pass wait_until_settled to wait for tiles and repaints to finish first.',
+      'Current state of the open districting map: loading state, zoom level, selected district, active tool, the precinct open in block view (focused_area), and how many areas are assigned. Pass wait_until_settled to wait for tiles and repaints to finish first.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -184,6 +191,42 @@ const tools: ModelContextTool[] = [
         collect(mapDocument.child_layer, id => shatterIds.children.has(id));
       collect(mapDocument.parent_layer, id => !shatterIds.parents.has(id));
       return [...areas.values()];
+    },
+  },
+  {
+    name: 'locate_area',
+    description:
+      'Where an area (GEOID) is drawn on the map: {x, y} in CSS pixels from the top-left of the map canvas, at a point inside the area, or visible: false when it is loaded but off screen or not drawn (e.g. a precinct shown as its blocks). Use it to point a person to an area or to click it.',
+    inputSchema: {type: 'object', properties: {id: {type: 'string'}}, required: ['id']},
+    annotations: {readOnlyHint: true},
+    execute: async ({id}) => {
+      if (typeof id !== 'string') return {error: 'id must be a GEOID string.'};
+      const {getMapRef, mapDocument} = useMapStore.getState();
+      const map = getMapRef();
+      if (!map || !mapDocument) return {error: 'Map is not loaded yet.'};
+      const layers = [mapDocument.parent_layer, mapDocument.child_layer].filter(
+        Boolean
+      ) as string[];
+      const hoverLayers = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD].filter(l =>
+        map.getLayer(l)
+      );
+      const {clientWidth, clientHeight} = map.getCanvas();
+      let loaded = false;
+      for (const sourceLayer of layers) {
+        // One piece per tile; any piece's inner point is inside the area.
+        for (const f of map.querySourceFeatures(BLOCK_SOURCE_ID, {sourceLayer})) {
+          if (f.id?.toString() !== id) continue;
+          loaded = true;
+          const [lng, lat] = pointOnFeature(f).geometry.coordinates;
+          const {x, y} = map.project([lng, lat]);
+          if (x < 0 || y < 0 || x > clientWidth || y > clientHeight) continue;
+          const drawn = map
+            .queryRenderedFeatures([x, y], {layers: hoverLayers})
+            .some(r => r.id?.toString() === id);
+          if (drawn) return {id, visible: true, x: Math.round(x), y: Math.round(y)};
+        }
+      }
+      return loaded ? {id, visible: false} : {error: `${id} is not in the loaded map tiles.`};
     },
   },
   {

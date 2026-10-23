@@ -175,8 +175,8 @@ backlog. Fix a violation, then delete it from `KNOWN`; the report notes stale en
 
 The map editor registers [WebMCP](https://webmachinelearning.github.io/webmcp/) tools
 (`src/app/hooks/useWebMcpTools.ts`) whenever the browser exposes `document.modelContext`:
-`get_map_state`, `get_district_summary`, `list_loaded_areas`, `set_tool`, `set_district`,
-`assign_areas`. Playwright 1.64+ calls them through `page.webmcp` (typed wrappers in
+`get_map_state`, `get_district_summary`, `list_loaded_areas`, `locate_area`, `set_tool`,
+`set_district`, `assign_areas`. Playwright 1.64+ calls them through `page.webmcp` (typed wrappers in
 `e2e/utils/webmcp.ts`), so specs assert on map state instead of diffing canvas screenshots.
 `playwright.config.ts` enables WebMCP for the Chromium (`--enable-features=WebMCP`) and Firefox
 projects. Specs that need it call `skipWithoutWebMcp(page)`.

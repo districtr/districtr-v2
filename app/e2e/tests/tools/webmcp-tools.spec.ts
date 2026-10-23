@@ -28,7 +28,7 @@ test.describe('WebMCP map tools', () => {
     await skipWithoutWebMcp(page);
   });
 
-  test('registers the six tools, read tools annotated read-only', async ({page}) => {
+  test('registers the map tools, read tools annotated read-only', async ({page}) => {
     const tools = await page.webmcp.tools();
     const byName = Object.fromEntries(tools.map(t => [t.name, t]));
     expect(Object.keys(byName).sort()).toEqual([
@@ -36,10 +36,16 @@ test.describe('WebMCP map tools', () => {
       'get_district_summary',
       'get_map_state',
       'list_loaded_areas',
+      'locate_area',
       'set_district',
       'set_tool',
     ]);
-    for (const name of ['get_map_state', 'get_district_summary', 'list_loaded_areas']) {
+    for (const name of [
+      'get_map_state',
+      'get_district_summary',
+      'list_loaded_areas',
+      'locate_area',
+    ]) {
       expect(byName[name].annotations?.readOnly, name).toBe(true);
     }
     for (const name of ['assign_areas', 'set_district', 'set_tool']) {
@@ -208,6 +214,28 @@ test.describe('WebMCP map tools', () => {
     // Unlocked: edits go through again (the clicked precinct may now be blocks, so
     // only check the tool no longer refuses).
     await expect.poll(async () => mapTools.assign(page, [area.id], 1)).not.toHaveProperty('error');
+  });
+
+  test('locate_area gives a point that clicks the same area', async ({page}) => {
+    await selectTool(page, testSelectors.brushTool);
+    await page.getByRole('checkbox', {name: 'Paint by county'}).uncheck(); // one area per click
+    const box = (await page.locator('.maplibregl-canvas').first().boundingBox())!;
+    const candidates = (await mapTools.loadedAreas(page, 200)).filter(a => a.zone === null);
+    let painted = false;
+    for (const area of candidates.slice(0, 20)) {
+      const at = await mapTools.locate(page, area.id);
+      if (!('visible' in at) || !at.visible) continue;
+      expect(at.x).toBeGreaterThanOrEqual(0);
+      expect(at.x).toBeLessThanOrEqual(box.width);
+      await settleAfter(page, () => page.mouse.click(box.x + at.x!, box.y + at.y!));
+      const after = await mapTools.loadedAreas(page, 5000);
+      expect(after.find(a => a.id === area.id)?.zone).toBe(1);
+      painted = true;
+      break;
+    }
+    expect(painted).toBe(true);
+    expect(await mapTools.locate(page, 'vtd:not-a-real-id')).toHaveProperty('error');
+    expect(await mapTools.locate(page, 42 as unknown as string)).toHaveProperty('error');
   });
 
   test('refuses blocks of a precinct that is not broken into blocks', async ({page, request}) => {

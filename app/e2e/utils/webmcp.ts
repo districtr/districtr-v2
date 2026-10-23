@@ -15,6 +15,7 @@ export type MapState = {
   map: {public_id: number | null; map_slug: string; num_districts: number | null; access: string};
   selected_zone: number;
   active_tool: string;
+  focused_area: string | null;
   assigned_feature_count: number;
 };
 // assigned_areas is absent on the zone-null (unassigned population) row.
@@ -28,6 +29,7 @@ export type AssignResult = {
   not_loaded: string[];
 };
 export type ToolError = {error: string};
+export type AreaLocation = {id: string; visible: boolean; x?: number; y?: number};
 
 async function call<T>(page: Page, name: string, input: object = {}): Promise<T> {
   const result = await page.webmcp.callTool(name, input);
@@ -44,6 +46,7 @@ export const mapTools = {
   setDistrict: (page: Page, zone: unknown) => call(page, 'set_district', {zone}),
   assign: (page: Page, ids: string[], zone: number | null) =>
     call<AssignResult>(page, 'assign_areas', {ids, zone}),
+  locate: (page: Page, id: string) => call<AreaLocation | ToolError>(page, 'locate_area', {id}),
   /** Raw call for malformed-input tests; the tool must answer {error}. */
   assignRaw: (page: Page, input: object) =>
     call<AssignResult | ToolError>(page, 'assign_areas', input),

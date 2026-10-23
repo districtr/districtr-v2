@@ -7,8 +7,9 @@ import {
   selectTool,
   enableSuperDraw,
 } from '../../fixtures/map-fixture';
-import {testSelectors, testTimeouts, skipConditions} from '../../fixtures/test-data';
+import {testSelectors, skipConditions} from '../../fixtures/test-data';
 import {getCurrentTool, getMapCenter, paintAtCoordinates} from '../../utils/map-helpers';
+import {mapTools, skipWithoutWebMcp} from '../../utils/webmcp';
 
 // Shared document ID for all tests in this file
 let sharedDocumentId: string | null = null;
@@ -47,67 +48,60 @@ test.describe('Shatter Tool', () => {
   });
 
   test('Break picks a different unit from block view; Paint stays inside it', async ({page}) => {
+    // Runs on the WebMCP tools (prod-safe): zoom and focused unit from get_map_state,
+    // on-screen points from locate_area.
     test.setTimeout(120000);
+    await skipWithoutWebMcp(page);
     const shatterTool = page.locator(testSelectors.shatterTool);
-    if (!(await shatterTool.isVisible())) {
-      test.skip(true, 'Shatter tool not available');
-      return;
-    }
     const pill = page.getByTestId('block-mode-pill');
-    const focusedId = () =>
-      page.evaluate(
-        () => (window as any).__ZUSTAND_STORES__.mapStore.getState().focusFeatures[0]?.id
-      );
+    const focused = async () => (await mapTools.state(page)).focused_area;
+    const assigned = async () => (await mapTools.state(page)).assigned_feature_count;
 
     await expect(shatterTool).toBeEnabled({timeout: 45000});
-    // Zoom in so the click lands on a breakable unit.
-    await page.evaluate(async () => {
-      const map = (window as any).__ZUSTAND_STORES__.mapStore.getState().getMapRef();
-      map.jumpTo({zoom: 11});
-      await new Promise(resolve => map.once('idle', resolve));
-    });
+    // Zoom in (the map's own control zooms about the center) so the click lands on a
+    // breakable unit.
+    const zoomIn = page.locator(testSelectors.navigationZoomIn);
+    for (let i = 0; i < 8 && (await mapTools.state(page)).zoom < 11; i++) {
+      await zoomIn.click();
+    }
+    expect((await mapTools.state(page)).zoom).toBeGreaterThanOrEqual(11);
+
     await shatterTool.click();
     const center = await getMapCenter(page);
     await page.mouse.click(center.x, center.y);
     // Break stays armed in block view.
     await expect(pill).toContainText('Choose Paint', {timeout: 45000});
     expect(await getCurrentTool(page)).toBe('shatter');
-    const firstId = await focusedId();
+    await expect.poll(focused, {timeout: 45000}).toBeTruthy();
+    const firstId = await focused();
 
     // A screen point on an unbroken unit outside the captured blocks.
-    const outside = await page.evaluate(() => {
-      const S = (window as any).__ZUSTAND_STORES__;
-      const map = S.mapStore.getState().getMapRef();
-      const captive = S.mapStore.getState().captiveIds;
-      const parents = S.assignmentsStore.getState().shatterIds.parents;
-      const rect = map.getCanvas().getBoundingClientRect();
-      for (let x = 40; x < rect.width - 40; x += 15) {
-        for (let y = 40; y < rect.height - 40; y += 15) {
-          const inUnit = map
-            .queryRenderedFeatures([x, y], {layers: ['blocks-child-hover']})
-            .some((f: any) => captive.has(String(f.id)));
-          const other = map
-            .queryRenderedFeatures([x, y], {layers: ['blocks-hover']})
-            .some((f: any) => !parents.has(String(f.id)));
-          if (!inUnit && other) return {x: rect.left + x, y: rect.top + y};
-        }
+    const box = (await page.locator('.maplibregl-canvas').first().boundingBox())!;
+    let outside: {x: number; y: number} | null = null;
+    for (const area of await mapTools.loadedAreas(page, 5000)) {
+      if (area.parent || area.id === firstId) continue;
+      const at = await mapTools.locate(page, area.id);
+      if ('visible' in at && at.visible) {
+        outside = {x: box.x + at.x!, y: box.y + at.y!};
+        break;
       }
-      return null;
-    });
+    }
     expect(outside).not.toBeNull();
 
-    // Paint never leaves the unit: a click outside it does nothing.
+    // Paint never leaves the unit: a click outside it changes nothing. Map clicks are
+    // handled synchronously, so state can be read right after the click.
     await page.locator(testSelectors.brushTool).click();
     await expect(pill).toContainText('Painting blocks');
+    const before = await assigned();
     await page.mouse.click(outside!.x, outside!.y);
-    await page.waitForTimeout(500);
-    expect(await focusedId()).toBe(firstId);
+    expect(await assigned()).toBe(before);
+    expect(await focused()).toBe(firstId);
 
     // Break jumps to the clicked unit.
     await shatterTool.click();
     await page.mouse.click(outside!.x, outside!.y);
-    await expect.poll(focusedId, {timeout: 45000}).not.toBe(firstId);
-    await expect.poll(focusedId).toBeTruthy();
+    await expect.poll(focused, {timeout: 45000}).not.toBe(firstId);
+    await expect.poll(focused).toBeTruthy();
     await expect(pill).toContainText('Choose Paint');
 
     // Exit keeps the active tool (Break here), and Escape again disarms it.
