@@ -505,6 +505,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
+          // Locks follow the plan across edit/display/evaluate switches; a different
+          // map starts unlocked and restores its own saved locks below.
+          lockPaintedAreas: sameMapAcrossViews ? mapControlsState.mapOptions.lockPaintedAreas : [],
         },
         // A fresh map (not just switching edit/display/eval views of the same
         // one) defaults to painting — that's what a user opens a map to do.
@@ -525,6 +528,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
+
+      const documentId = mapDocument.document_id;
+      if (mapDocument.access === ACCESS_STATES.EDIT && documentId) {
+        idb.getZoneLocks(documentId).then(zones => {
+          // Skip if another map loaded meanwhile or the user locked something already.
+          const {mapOptions} = useMapControlsStore.getState();
+          if (
+            zones.length &&
+            get().mapDocument?.document_id === documentId &&
+            !mapOptions.lockPaintedAreas.length
+          ) {
+            useMapControlsStore.setState({mapOptions: {...mapOptions, lockPaintedAreas: zones}});
+          }
+        });
+      }
 
       useAssignmentsStore.getState().resetShatterState();
 
@@ -1098,13 +1116,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
       });
 
-      useMapControlsStore.setState(state => ({
-        selectedZone: remappedSelectedZone,
-        mapOptions: {
-          ...state.mapOptions,
-          lockPaintedAreas: remappedLockedZones,
-        },
-      }));
+      useMapControlsStore.setState({selectedZone: remappedSelectedZone});
+      useMapControlsStore.getState().setLockedZones(remappedLockedZones);
 
       useCoiAssignmentsStore.getState().removeCommunity(communityId);
 
