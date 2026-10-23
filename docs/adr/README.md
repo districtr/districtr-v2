@@ -94,3 +94,5 @@ What follows, including what a later change would have to undo.
 | [0060](0060-submissions-public-on-arrival.md) | Submissions are public on arrival; moderation is an automatic check plus admin takedown | 2026-09-25 | Accepted. Supersedes 0023, together with 0059. Amended by 0062 |
 | [0061](0061-map-portal-ownership-collection-modes.md) | A map belongs to at most one portal; each portal chooses a collection mode | 2026-09-25 | Accepted |
 | [0062](0062-deterministic-moderation-submissions-only.md) | Moderation is a deterministic word list, applied to portal submissions only | 2026-09-30 | Accepted. Amends 0058 and 0060 |
+| [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
+| [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
