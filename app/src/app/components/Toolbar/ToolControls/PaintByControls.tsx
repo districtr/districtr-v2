@@ -1,5 +1,5 @@
 'use client';
-import {forwardRef} from 'react';
+import {Fragment, forwardRef} from 'react';
 import {Flex, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -40,6 +40,15 @@ export const useCountyPaintAvailable = (): boolean => {
 };
 
 const ANYWHERE = 'anywhere';
+// The list stays about as wide as the trigger; longer layer names end in an
+// ellipsis (full name on hover) instead of stretching the menu.
+const MENU_MAX_WIDTH = 240;
+
+type Option = {value: string; label: string};
+type OptionGroup = {label?: string; options: Option[]};
+
+/** One line per layer: some overlay names carry a description after a tab. */
+const optionLabel = (name: string) => name.replace(/\s*\t\s*/g, ' · ');
 
 // forwardRef + rest props: HelpTip attaches its hover ref and handlers to its child.
 const LabeledSelect = forwardRef<
@@ -47,18 +56,18 @@ const LabeledSelect = forwardRef<
   {
     label: string;
     value: string;
-    options: {value: string; label: string}[];
+    groups: OptionGroup[];
     onValueChange: (value: string) => void;
     disabled?: boolean;
     className?: string;
   }
->(({label, value, options, onValueChange, disabled, className, ...hoverProps}, ref) => (
+>(({label, value, groups, onValueChange, disabled, className, ...hoverProps}, ref) => (
   <Flex ref={ref} direction="column" gap="1" className={className} {...hoverProps}>
     <Text size="2">{label}</Text>
     <Select.Root size="2" value={value} onValueChange={onValueChange} disabled={disabled}>
       <Select.Trigger
         aria-label={label}
-        style={{minWidth: 120}}
+        style={{minWidth: 120, maxWidth: 180}}
         // Focus stays here after a pick, and a closed Radix Select types ahead
         // on letter keys: pressing P (Paint) would also pick "Precincts".
         // Swallow them so tool hotkeys don't also change this menu.
@@ -68,12 +77,24 @@ const LabeledSelect = forwardRef<
           }
         }}
       />
-      <Select.Content position="popper">
-        {options.map(option => (
-          <Select.Item key={option.value} value={option.value}>
-            {option.label}
-          </Select.Item>
-        ))}
+      <Select.Content position="popper" style={{maxWidth: MENU_MAX_WIDTH}}>
+        {groups
+          .filter(group => group.options.length)
+          .map((group, i) => (
+            <Fragment key={group.label ?? i}>
+              {i > 0 && <Select.Separator />}
+              <Select.Group>
+                {group.label && <Select.Label>{group.label}</Select.Label>}
+                {group.options.map(option => (
+                  <Select.Item key={option.value} value={option.value} title={option.label}>
+                    <span className="block truncate" style={{maxWidth: MENU_MAX_WIDTH - 48}}>
+                      {option.label}
+                    </span>
+                  </Select.Item>
+                ))}
+              </Select.Group>
+            </Fragment>
+          ))}
       </Select.Content>
     </Select.Root>
   </Flex>
@@ -104,16 +125,28 @@ export const PaintBySelect: React.FC<{label?: string; offerBlocks?: boolean}> = 
 
   // "Precincts", "Block groups": the same names the break prompts use.
   const unitName = `${(parentUnit && GEO_UNIT_SINGULAR_NAMES[parentUnit]) || 'unit'}s`;
-  const options = [
-    {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
-    ...(superDraw && hasBlocks && offerBlocks ? [{value: 'blocks', label: 'Blocks'}] : []),
-    ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
-    ...(superDraw
-      ? maskLayers
-          .filter(layer => layer.id !== COUNTY_SOURCE_ID)
-          .map(layer => ({value: paintByOverlay(layer.id), label: layer.name}))
-      : []),
+  // Units the brush paints one at a time, then whole areas per footprint.
+  const groups: OptionGroup[] = [
+    {
+      label: 'Units',
+      options: [
+        {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
+        ...(superDraw && hasBlocks && offerBlocks ? [{value: 'blocks', label: 'Blocks'}] : []),
+      ],
+    },
+    {
+      label: 'Whole areas',
+      options: [
+        ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
+        ...(superDraw
+          ? maskLayers
+              .filter(layer => layer.id !== COUNTY_SOURCE_ID)
+              .map(layer => ({value: paintByOverlay(layer.id), label: optionLabel(layer.name)}))
+          : []),
+      ],
+    },
   ];
+  const options = groups.flatMap(group => group.options);
   if (options.length < 2) return null;
 
   return (
@@ -128,7 +161,7 @@ export const PaintBySelect: React.FC<{label?: string; offerBlocks?: boolean}> = 
       <LabeledSelect
         label={label}
         value={options.some(option => option.value === paintBy) ? paintBy : 'units'}
-        options={options}
+        groups={groups}
         disabled={readOnly}
         className={guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''}
         onValueChange={value => {
@@ -158,9 +191,12 @@ export const PaintWithinSelect = () => {
       <LabeledSelect
         label="Paint within"
         value={maskLayerId ?? ANYWHERE}
-        options={[
-          {value: ANYWHERE, label: 'Anywhere'},
-          ...maskLayers.map(layer => ({value: layer.id, label: layer.name})),
+        groups={[
+          {options: [{value: ANYWHERE, label: 'Anywhere'}]},
+          {
+            label: 'Inside one area of',
+            options: maskLayers.map(layer => ({value: layer.id, label: optionLabel(layer.name)})),
+          },
         ]}
         disabled={readOnly}
         onValueChange={value =>

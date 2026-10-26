@@ -168,6 +168,27 @@ export const breakClickedUnitFromBlockView = (e: MapLayerMouseEvent | MapLayerTo
   return true;
 };
 
+/**
+ * Paint by blocks inside a broken unit: a crosshair outside its blocks, where
+ * a click breaks the unit under it instead of painting (the picking state's
+ * crosshair comes from the container's cursor-shatter class). Only writes the
+ * style when it changes.
+ */
+export const updateBlockViewCursor = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  const {captiveIds} = useMapStore.getState();
+  const outsideBlocks =
+    mapOptions.paintBy === 'blocks' &&
+    (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) &&
+    captiveIds.size > 0 &&
+    !e.target
+      .queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID_CHILD]})
+      .some(f => captiveIds.has(String(f.id)));
+  const canvas = e.target.getCanvas();
+  const cursor = outsideBlocks ? 'crosshair' : '';
+  if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -380,6 +401,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
 
 export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 

@@ -5,12 +5,12 @@ import {
   GeoJSONFeature,
   Map as MaplibreMap,
 } from 'maplibre-gl';
-import {bbox} from '@turf/turf';
+import {bbox, booleanPointInPolygon, centroid} from '@turf/turf';
+import type {MultiPolygon, Polygon, Position} from 'geojson';
 import {BLOCK_SOURCE_ID, OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
 import {MAP_MODES} from '@constants/map/mode';
 import {boxAroundPoint} from '@utils/map/bboxAroundPoint';
 import {filterFeatures} from '@utils/map/filterFeatures';
-import {bboxesOverlap, isMostlyInside} from '@utils/map/isMostlyInside';
 import {fastUniqBy} from '@utils/arrays';
 import {overlayIdOf} from '@constants/map/paintBy';
 import {useMapStore} from '@/app/store/mapStore';
@@ -26,9 +26,10 @@ import {queryAreaFeatures} from '@/app/store/overlayStore';
 // the shatterIds object (breaking or healing swaps which features, a parent
 // or its blocks, are paintable, and a stale list would assign both); or the
 // view (a pan or zoom loads tiles with more of an area's units).
+type LoadedUnit = {unit: MapGeoJSONFeature; center: Position};
 let cacheContext: {key: string; shatterIds: object} | null = null;
 const unitsByArea = new Map<string, MapGeoJSONFeature[]>();
-let loadedUnits: MapGeoJSONFeature[] | null = null;
+let loadedUnits: LoadedUnit[] | null = null;
 
 /** Test-only: drop the cache between cases. */
 export const resetOverlayAreaCache = () => {
@@ -40,8 +41,10 @@ export const resetOverlayAreaCache = () => {
 /**
  * Paint by overlay area (Paint by > e.g. School districts): every unit inside
  * the overlay areas under the brush footprint. Units come from the loaded
- * tiles (parent units, plus blocks of broken units), matched by the same
- * "mostly inside" test as the paint mask.
+ * tiles (parent units, plus blocks of broken units). A unit belongs to the
+ * area containing its center: one point-in-polygon test per unit (polygon
+ * clipping against detailed district outlines took seconds per area), and
+ * neighbouring areas never share a unit.
  * ponytail: loaded tiles only, so an area reaching off-screen paints only its
  * loaded part (zoom out to include it); a server-side unit/area crosswalk
  * would remove that limit and the client-side geometry pass.
@@ -86,12 +89,22 @@ export const getFeaturesInOverlayAreas = (
   const units = areaIds.flatMap(areaId => {
     const cached = unitsByArea.get(areaId);
     if (cached) return cached;
-    const areas = queryAreaFeatures(map, overlayId, areaId);
-    const areaBoxes = areas.map(a => bbox(a.geometry));
-    const inside = getLoadedUnits(map, mapDocument, shatterIds).filter(unit => {
-      const unitBox = bbox(unit.geometry);
-      return areaBoxes.some(box => bboxesOverlap(box, unitBox)) && isMostlyInside(unit, areas);
-    });
+    const pieces = queryAreaFeatures(map, overlayId, areaId).map(a => ({
+      polygon: a.geometry as Polygon | MultiPolygon,
+      box: bbox(a.geometry),
+    }));
+    const inside = getLoadedUnits(map, mapDocument, shatterIds)
+      .filter(({center: [x, y]}) =>
+        pieces.some(
+          ({polygon, box}) =>
+            x >= box[0] &&
+            x <= box[2] &&
+            y >= box[1] &&
+            y <= box[3] &&
+            booleanPointInPolygon([x, y], polygon)
+        )
+      )
+      .map(({unit}) => unit);
     unitsByArea.set(areaId, inside);
     return inside;
   });
@@ -120,6 +133,9 @@ const getLoadedUnits = (
           .filter(f => shatterIds.children.has(String(f.id)))
           .map(tag(childLayer))
       : [];
-  loadedUnits = fastUniqBy([...parents, ...children], 'id');
+  loadedUnits = fastUniqBy([...parents, ...children], 'id').map(unit => ({
+    unit,
+    center: centroid(unit.geometry).geometry.coordinates,
+  }));
   return loadedUnits;
 };

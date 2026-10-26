@@ -15,7 +15,12 @@ beforeEach(() => {
   useMapStore.setState({
     mapStatus: {access: 'edit'},
     captiveIds: new Set<string>(),
-    mapDocument: {overlays: [{overlay_id: 'sd', name: 'School districts', layer_type: 'line'}]},
+    mapDocument: {
+      overlays: [
+        {overlay_id: 'sd', name: 'School districts', layer_type: 'line'},
+        {overlay_id: 'metro', name: 'Metro areas', layer_type: 'line'},
+      ],
+    },
   } as any);
   controls().setActiveTool('brush');
 });
@@ -47,13 +52,15 @@ test('leaving Blocks returns the picking tool to the one it stood in for', () =>
   expect(controls().activeTool).toBe('eraser');
 });
 
-test('Counties releases a mask; an overlay area turns its layer on', () => {
+test('Counties releases a mask; an overlay area shows only its layer', () => {
   useOverlayStore.setState({paintConstraint: {overlayId: 'sd', featureId: 'f', features: []}});
   setPaintBy('counties');
   expect(useOverlayStore.getState().paintConstraint).toBeNull();
   expect(controls().paintFunction).toBe(getFeaturesIntersectingCounties);
 
+  useOverlayStore.getState().enableOverlay('Metro areas');
   setPaintBy(paintByOverlay('sd'));
-  expect(useOverlayStore.getState().enabledOverlayIds.has('School districts')).toBe(true);
+  expect([...useOverlayStore.getState().enabledOverlayIds]).toEqual(['School districts']);
+  expect(controls().mapOptions.showCountyBoundaries).toBe(false);
   expect(controls().paintFunction).toBe(getFeaturesInOverlayAreas);
 });

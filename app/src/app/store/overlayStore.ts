@@ -77,6 +77,9 @@ export interface OverlayStore {
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
+  /** Show only this boundary layer (or just the county lines), plus the mask's
+   * own layer while one is up; a pending mask's restore set follows suit. */
+  showOnlyLayer: (overlayName: string | null, showCounties: boolean) => void;
   setPaintConstraint: (overlayId: string, featureId: string) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
@@ -132,6 +135,26 @@ export const useOverlayStore = create(
       if (paintByOverlayId && getOverlayName(paintByOverlayId) === overlayId) {
         setMapOptions({paintBy: 'units'});
       }
+    },
+
+    showOnlyLayer: (overlayName, showCounties) => {
+      const {paintConstraint, selectingLayerId, _layersBeforeMask} = get();
+      const maskLayerId = paintConstraint?.overlayId ?? selectingLayerId;
+      const maskIsCounty = maskLayerId === COUNTY_SOURCE_ID;
+      const maskName = maskLayerId && !maskIsCounty ? getOverlayName(maskLayerId) : undefined;
+      set({
+        enabledOverlayIds: new Set([overlayName, maskName].filter((n): n is string => !!n)),
+        // Releasing the mask then brings back only this layer, not the others.
+        _layersBeforeMask: _layersBeforeMask && {
+          enabledOverlayIds: new Set(overlayName ? [overlayName] : []),
+          showCountyBoundaries: showCounties,
+          prominentCountyNames: showCounties,
+        },
+      });
+      const counties = showCounties || maskIsCounty;
+      useMapControlsStore
+        .getState()
+        .setMapOptions({showCountyBoundaries: counties, prominentCountyNames: counties});
     },
 
     setPaintConstraint: (overlayId: string, featureId: string) => {

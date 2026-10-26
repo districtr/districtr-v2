@@ -18,18 +18,19 @@ export const PaintConstraintPill = () => {
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
   // Paint-mask creation is a Super Draw feature (releasing stays available).
   const superDraw = useToolbarStore(state => state.superDraw);
-  // Paint by blocks takes Escape first (leave block view, then Blocks), so
-  // stepping out of it never also drops the mask.
+  // While Paint by blocks is picking or in a unit its own pill sits in the same
+  // spot and owns Escape; the mask stays on and its pill comes back after. A
+  // mask being picked still prompts (BlockModePill steps aside for it).
   const blockModeActive = useMapStore(state => state.captiveIds.size > 0);
   const pickingUnit = useMapControlsStore(state => state.activeTool === ACTIVE_TOOLS.SHATTER);
-  const onEscape = blockModeActive || pickingUnit ? undefined : clearPaintConstraint;
+  if ((blockModeActive || pickingUnit) && !selectingLayerId) return null;
 
   if (paintConstraint) {
     return (
       <MapPill
         testId="paint-constraint-pill"
-        onEscape={onEscape}
-        action={{label: onEscape ? 'Unmask (Esc)' : 'Unmask', onClick: clearPaintConstraint}}
+        onEscape={clearPaintConstraint}
+        action={{label: 'Unmask (Esc)', onClick: clearPaintConstraint}}
       >
         Paint mask active
       </MapPill>
@@ -47,7 +48,7 @@ export const PaintConstraintPill = () => {
             style={{color: 'var(--accent-9)', flexShrink: 0}}
           />
         }
-        onEscape={onEscape}
+        onEscape={clearPaintConstraint}
       >
         You are selecting an area on the map to paint within.
         <br /> Click the map to select an area, or Esc to cancel.

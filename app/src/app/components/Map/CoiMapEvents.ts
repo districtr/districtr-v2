@@ -23,6 +23,7 @@ import {
   getSelectingClickLayer,
   breakUnit,
   breakClickedUnitFromBlockView,
+  updateBlockViewCursor,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -136,6 +137,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
 
 export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 

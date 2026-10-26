@@ -7,6 +7,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {MapPill} from './MapPill';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {setPaintBy} from '@utils/map/paintBy';
 
 /**
@@ -30,6 +31,7 @@ export const BlockModePill = () => {
   const exitBlockView = useMapStore(state => state.exitBlockView);
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;
+  const selectingMask = useOverlayStore(state => !!state.selectingLayerId);
 
   // Constrain the viewport to the captured blocks (handleShatter fits the map
   // to their bbox via mapOptions.bounds; this keeps the user from wandering).
@@ -63,6 +65,8 @@ export const BlockModePill = () => {
     };
   }, [inBlockView, bounds, getMapRef]);
 
+  // A mask being picked prompts in this spot instead (PaintConstraintPill).
+  if (selectingMask) return null;
   if (inBlockView) {
     return (
       <MapPill

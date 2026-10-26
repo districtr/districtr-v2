@@ -20,17 +20,22 @@ export const paintFunctionFor = (paintBy: PaintBy | undefined): PaintEventHandle
 /**
  * Switch what the brush paints (the Paint by control). Leaving Blocks exits
  * block view; Counties releases a paint mask (county-brush features carry no
- * geometry for the mask's geometric filter); an overlay area turns its layer
- * on so its areas show and can be hit. Re-applying the active tool lets
+ * geometry for the mask's geometric filter) and shows only the county lines;
+ * an overlay area shows only its layer, so its areas show and can be hit. Re-applying the active tool lets
  * setActiveTool arm (or drop) picking a unit to break for Blocks.
  */
 export const setPaintBy = (paintBy: PaintBy) => {
   const {captiveIds, exitBlockView} = useMapStore.getState();
   if (paintBy !== 'blocks' && captiveIds.size) exitBlockView();
-  if (paintBy === 'counties') useOverlayStore.getState().clearPaintConstraint();
+  const overlays = useOverlayStore.getState();
+  // Painting whole areas shows only those areas' outlines (plus the mask's).
+  if (paintBy === 'counties') {
+    overlays.clearPaintConstraint();
+    overlays.showOnlyLayer(null, true);
+  }
   const overlayId = overlayIdOf(paintBy);
   const overlayName = overlayId && getOverlayName(overlayId);
-  if (overlayName) useOverlayStore.getState().enableOverlay(overlayName);
+  if (overlayName) overlays.showOnlyLayer(overlayName, false);
 
   const controls = useMapControlsStore.getState();
   controls.setMapOptions({paintBy});
