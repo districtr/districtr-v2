@@ -106,14 +106,21 @@ export const useOverlayStore = create(
         return;
       }
       // query source layer for feature id; the built-in county layer is a
-      // pseudo-overlay with its own source and source-layer
+      // pseudo-overlay with its own source and source-layer. Vector (pmtiles)
+      // sources return nothing unless sourceLayer is passed.
+      const sourceLayer = useMapStore
+        .getState()
+        .mapDocument?.overlays?.find(o => o.overlay_id === overlayId)?.source_layer;
       const sourceFeatures =
         overlayId === COUNTY_SOURCE_ID
           ? mapRef?.querySourceFeatures(COUNTY_SOURCE_ID, {
               sourceLayer: COUNTY_SOURCE_LAYER,
               filter: ['==', ['get', 'GEOID'], featureId],
             })
-          : mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
+          : mapRef?.querySourceFeatures(
+              `overlay-source-${overlayId}`,
+              sourceLayer ? {sourceLayer} : undefined
+            );
       const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
       if (matchingFeatures && matchingFeatures.length > 0) {
         // County brush and paint masks are mutually exclusive: county-brush

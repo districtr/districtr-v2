@@ -1,3 +1,4 @@
+import type * as maplibregl from 'maplibre-gl';
 import {MutableRefObject, useEffect, useRef} from 'react';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapRenderSubscriber} from '../utils/map/mapRenderSubs';

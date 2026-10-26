@@ -1,13 +1,22 @@
 name: Test app
 
 on:
+  # Feature branches run via pull_request; a push trigger there would run
+  # each suite twice.
   push:
+    branches: [dev, main]
     paths: &paths
       - "app/**"
       - ".github/workflows/test-app.yml"
   # Also on PRs, so the suite runs against the merge result.
   pull_request:
     paths: *paths
+
+# One group per PR, so a new commit cancels its stale run; one per SHA on
+# dev/main, so a queued post-merge run is never cancelled by the next push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   unit:
