@@ -54,6 +54,10 @@ export interface MapControlsStore {
   passwordUnlockable: boolean;
   setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
+  /** Paint by blocks before a unit is broken: Paint or Erase first picks the
+   * unit (activeTool is then the internal break tool), and this is the tool to
+   * return to inside it. The toolbar shows it as the active tool meanwhile. */
+  blockPaintTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
@@ -100,7 +104,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   // Real default is computed per-document in useDocumentWithSync (multi-county
   // unless the map is DC or already has assignments) — this is just the
   // pre-load fallback before that runs.
-  paintByCounty: false,
+  paintBy: 'units',
   prominentCountyNames: true,
   showCountyBoundaries: true,
   showPaintedDistricts: true,
@@ -144,11 +148,19 @@ export const useMapControlsStore = create<MapControlsStore>()(
     passwordUnlockable: false,
     setPasswordUnlockable: passwordUnlockable => set({passwordUnlockable}),
     activeTool: ACTIVE_TOOLS.PAN,
+    blockPaintTool: ACTIVE_TOOLS.BRUSH,
     setActiveTool: tool => {
-      const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
-      if (canEdit) {
-        set({activeTool: tool});
-      }
+      const {mapStatus, captiveIds} = useMapStore.getState();
+      if (mapStatus?.access !== ACCESS_STATES.EDIT) return;
+      const pickUnitToBreak =
+        (tool === ACTIVE_TOOLS.BRUSH || tool === ACTIVE_TOOLS.ERASER) &&
+        get().mapOptions.paintBy === 'blocks' &&
+        !captiveIds.size;
+      set(
+        pickUnitToBreak
+          ? {activeTool: ACTIVE_TOOLS.SHATTER, blockPaintTool: tool}
+          : {activeTool: tool}
+      );
     },
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),

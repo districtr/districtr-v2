@@ -7,16 +7,17 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {MapPill} from './MapPill';
+import {setPaintBy} from '@utils/map/paintBy';
 
 /**
- * Guides the break-into-blocks flow: prompts for a unit while the break tool
- * is armed, then (in block view) constrains the viewport to the captured
- * blocks and offers the exit. Escape exits block view, or disarms the break
- * tool before a unit is picked.
+ * Guides Paint by blocks: prompts for a unit to break while Paint/Erase are
+ * picking one, then (in block view) constrains the viewport to the captured
+ * blocks and offers the exit. Escape exits block view (back to picking), or
+ * before a unit is picked goes back to painting by units.
  */
 export const BlockModePill = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
+  const paintBy = useMapControlsStore(state => state.mapOptions.paintBy);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   // Same setting as "Population labels on exposed blocks" under Map Layers —
   // surfaced here too since breaking a unit is exactly when someone wants it.
@@ -81,9 +82,9 @@ export const BlockModePill = () => {
           </RadixText>
         }
       >
-        {activeTool === ACTIVE_TOOLS.SHATTER ? (
+        {paintBy === 'blocks' ? (
           <>
-            <b>Choose Paint</b> to paint these blocks, or another {unitName} to break
+            Painting blocks. <b>Click another {unitName}</b> to break it
           </>
         ) : (
           'Painting blocks'
@@ -102,7 +103,7 @@ export const BlockModePill = () => {
             style={{color: 'var(--accent-9)', flexShrink: 0}}
           />
         }
-        onEscape={() => setActiveTool(ACTIVE_TOOLS.BRUSH)}
+        onEscape={() => setPaintBy('units')}
       >
         <b>Choose a {unitName}</b> to break down into blocks
       </MapPill>

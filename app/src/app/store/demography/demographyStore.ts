@@ -9,6 +9,7 @@ import {useCoiAssignmentsStore} from '../coiAssignmentsStore';
 import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
@@ -251,9 +252,13 @@ export var useDemographyStore = create(
             mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
           const paintByCounty =
             !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
-          useMapControlsStore.getState().setMapOptions({paintByCounty});
+          const {mapOptions, setMapOptions, setPaintFunction} = useMapControlsStore.getState();
           if (paintByCounty) {
-            useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
+            setMapOptions({paintBy: 'counties'});
+            setPaintFunction(getFeaturesIntersectingCounties);
+          } else if (mapOptions.paintBy === 'counties') {
+            setMapOptions({paintBy: 'units'});
+            setPaintFunction(getFeaturesInBbox);
           }
         }
         // Demography and assignments are both current here, so this is the load-time

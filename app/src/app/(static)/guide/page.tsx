@@ -116,9 +116,10 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/brush_size.webm`}
             />
             <Text size="3">
-              The “Paint by county” option will assign entire counties at a time, and this is on as
-              the default setting to help you get started. To paint units smaller than counties,
-              uncheck the box next to the slider.
+              The “Paint by” menu next to the slider sets what one brush stroke paints. “Counties”
+              assigns entire counties at a time, and is the default on a new map to help you get
+              started. To paint units smaller than counties, switch it back to your map&apos;s units
+              (for example, “Precincts”).
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/county_brush.webm`}
@@ -340,11 +341,11 @@ export default function GuidePage() {
             </Heading>
             <Text size="3">
               If you need to use smaller units of geography to balance the population of your
-              districts, click the break icon on the toolbar. Then click on a unit you want to break
-              down to smaller pieces, which allows you to paint individual blocks within the
-              precinct or block group. You can see the population numbers on the blocks from the
-              pop-up below, or by selecting the “Population labels on exposed blocks” option under
-              the “Map Layers” tab.
+              districts, set “Paint by” to “Blocks.” Then click on a unit you want to break down to
+              smaller pieces, which allows you to paint individual blocks within the precinct or
+              block group. Click another unit to move on to its blocks, or press Esc to leave. You
+              can see the population numbers on the blocks from the pop-up below, or by selecting
+              the “Population labels on exposed blocks” option under the “Map Layers” tab.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/shatter.webm`}
@@ -369,12 +370,12 @@ export default function GuidePage() {
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/lock_district.webm`}
             />
             <Text size="3">
-              Super Draw allows you to restrict your painting to a county, a metro area, or any
-              other area type available for the map. Click the “Mask” button on the toolbar, choose
-              an area type, then click that area on the map. Only that area type stays shown while
-              you mask, and the others come back when you unmask. Paint, Erase and Break then only
-              change units inside the area, and the Mask button stays highlighted until you click it
-              again or press Esc. You can also start a mask from the “Mask” button next to an area
+              Super Draw adds two more ways to use the map&apos;s boundary layers, such as school
+              districts or metro areas. Under “Paint by,” choose one to paint a whole area of it
+              with a single click. Under “Paint within,” choose one, then click an area on the map:
+              Paint and Erase then only change units inside that area, until you choose “Anywhere”
+              or press Esc. Only that area type stays shown while you paint within it, and the
+              others come back afterward. You can also start from the “Mask” button next to an area
               type&apos;s toggle under “Map Layers/Boundaries and areas.”
             </Text>
             <LoopVideoPlayer

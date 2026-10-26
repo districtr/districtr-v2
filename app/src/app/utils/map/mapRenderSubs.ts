@@ -4,8 +4,7 @@ import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layer
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
-import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
-import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
+import {paintFunctionFor} from '@utils/map/paintBy';
 import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
@@ -222,9 +221,7 @@ export class MapRenderSubscriber {
     setHoverFeatures();
     useTooltipStore.getState().setTooltip(null);
     const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
-    const defaultPaintFunction = mapOptions.paintByCounty
-      ? getFeaturesIntersectingCounties
-      : getFeaturesInBbox;
+    const defaultPaintFunction = paintFunctionFor(mapOptions.paintBy);
     switch (activeTool) {
       case ACTIVE_TOOLS.PAN:
       case ACTIVE_TOOLS.BRUSH:

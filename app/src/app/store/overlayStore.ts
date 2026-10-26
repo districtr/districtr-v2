@@ -6,10 +6,36 @@ import {useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {dissolve} from '@turf/turf';
-import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
+import {Feature, GeoJSONFeature, MapGeoJSONFeature, Map as MaplibreMap} from 'maplibre-gl';
 import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
+import {overlayIdOf} from '@constants/map/paintBy';
 
 const COUNTY_SOURCE_LAYER = 'tl_2023_us_county';
+
+/** The pieces of one area (overlay or county feature) in the loaded tiles; a
+ * feature split across tiles comes back as several. The built-in county layer
+ * is a pseudo-overlay with its own source and source-layer, and vector
+ * (pmtiles) sources return nothing unless sourceLayer is passed. */
+export const queryAreaFeatures = (
+  map: MaplibreMap,
+  layerId: string,
+  featureId: string
+): GeoJSONFeature[] => {
+  const sourceLayer = useMapStore
+    .getState()
+    .mapDocument?.overlays?.find(o => o.overlay_id === layerId)?.source_layer;
+  const sourceFeatures =
+    layerId === COUNTY_SOURCE_ID
+      ? map.querySourceFeatures(COUNTY_SOURCE_ID, {
+          sourceLayer: COUNTY_SOURCE_LAYER,
+          filter: ['==', ['get', 'GEOID'], featureId],
+        })
+      : map.querySourceFeatures(
+          `overlay-source-${layerId}`,
+          sourceLayer ? {sourceLayer} : undefined
+        );
+  return (sourceFeatures ?? []).filter(feature => feature.id === featureId);
+};
 
 /** Overlay name for an overlay_id; overlays sharing a name toggle as one group. */
 export const getOverlayName = (overlayId: string) =>
@@ -26,6 +52,14 @@ export interface OverlayPaintConstraint {
   features: MapGeoJSONFeature[];
   featureName?: string;
 }
+
+/** Painting by overlay area needs that overlay drawn (its areas are what the
+ * brush hits), so showing only the mask layer never hides it. */
+const withPaintByOverlay = (enabledOverlayIds: Set<string>) => {
+  const overlayId = overlayIdOf(useMapControlsStore.getState().mapOptions.paintBy);
+  const name = overlayId && getOverlayName(overlayId);
+  return name ? new Set([...enabledOverlayIds, name]) : enabledOverlayIds;
+};
 
 /** Boundary visibility from before a mask was armed, restored on release. */
 interface LayersBeforeMask {
@@ -105,32 +139,16 @@ export const useOverlayStore = create(
         clearPaintConstraint();
         return;
       }
-      // query source layer for feature id; the built-in county layer is a
-      // pseudo-overlay with its own source and source-layer. Vector (pmtiles)
-      // sources return nothing unless sourceLayer is passed.
-      const sourceLayer = useMapStore
-        .getState()
-        .mapDocument?.overlays?.find(o => o.overlay_id === overlayId)?.source_layer;
-      const sourceFeatures =
-        overlayId === COUNTY_SOURCE_ID
-          ? mapRef?.querySourceFeatures(COUNTY_SOURCE_ID, {
-              sourceLayer: COUNTY_SOURCE_LAYER,
-              filter: ['==', ['get', 'GEOID'], featureId],
-            })
-          : mapRef?.querySourceFeatures(
-              `overlay-source-${overlayId}`,
-              sourceLayer ? {sourceLayer} : undefined
-            );
-      const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
-      if (matchingFeatures && matchingFeatures.length > 0) {
+      const matchingFeatures = queryAreaFeatures(mapRef, overlayId, featureId);
+      if (matchingFeatures.length > 0) {
         // County brush and paint masks are mutually exclusive: county-brush
         // features carry no geometry, and the mask filter is geometric
-        // (filterFeatures reads f.geometry). PaintByCounty already clears the
-        // mask when the brush turns on; this is the same exclusion from the
-        // other direction, so neither order of clicks combines the two.
+        // (filterFeatures reads f.geometry). setPaintBy already clears the
+        // mask when painting by county starts; this is the same exclusion from
+        // the other direction, so neither order of clicks combines the two.
         const {mapOptions, setMapOptions, setPaintFunction} = useMapControlsStore.getState();
-        if (mapOptions.paintByCounty) {
-          setMapOptions({paintByCounty: false});
+        if (mapOptions.paintBy === 'counties') {
+          setMapOptions({paintBy: 'units'});
           setPaintFunction(getFeaturesInBbox);
         }
         set({
@@ -158,7 +176,7 @@ export const useOverlayStore = create(
       if (_layersBeforeMask) {
         const {enabledOverlayIds, ...countyOptions} = _layersBeforeMask;
         useMapControlsStore.getState().setMapOptions(countyOptions);
-        set({enabledOverlayIds});
+        set({enabledOverlayIds: withPaintByOverlay(enabledOverlayIds)});
       }
       set({
         paintConstraint: null,
@@ -187,7 +205,7 @@ export const useOverlayStore = create(
         paintConstraint: null,
         _idCache: new Map<string, boolean>(),
         selectingLayerId: overlayId,
-        enabledOverlayIds: new Set(name ? [name] : []),
+        enabledOverlayIds: withPaintByOverlay(new Set(name ? [name] : [])),
         _layersBeforeMask: layersBeforeMask,
       });
     },

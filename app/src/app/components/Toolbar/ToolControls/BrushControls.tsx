@@ -1,25 +1,13 @@
 import {Box, Flex} from '@radix-ui/themes';
-import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import PaintByCounty from '@components/Toolbar/PaintByCounty';
+import {PaintBySelect} from '@components/Toolbar/ToolControls/PaintByControls';
 
-export const BrushControls = () => {
-  const paintCounties = useFeatureFlagStore(state => state.paintCounties);
-
-  return (
-    <Flex direction="column" gapY="2" justify="between" wrap="wrap">
-      <Flex direction="row" gapX="4" wrap="wrap" align="center">
-        {paintCounties && (
-          // mt centers the card on the slider track, offsetting the "Brush Size"
-          // label above it (flex centering shifts content by half the margin)
-          <Box className="mt-3">
-            <PaintByCounty />
-          </Box>
-        )}
-        <Box className="flex-grow" style={{flexGrow: 1}}>
-          <BrushSizeSelector />
-        </Box>
-      </Flex>
-    </Flex>
-  );
-};
+/** The inspector's brush row: what one footprint reads, and its size. */
+export const BrushControls = () => (
+  <Flex direction="row" gapX="4" gapY="2" wrap="wrap" align="start">
+    <PaintBySelect label="Inspect by" />
+    <Box className="flex-grow" style={{flexGrow: 1}}>
+      <BrushSizeSelector />
+    </Box>
+  </Flex>
+);

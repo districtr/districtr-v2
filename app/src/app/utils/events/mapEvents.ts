@@ -34,6 +34,7 @@ import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
+import {filterFeatures} from '../map/filterFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -134,6 +135,31 @@ export const breakUnit = (
   mapRef.triggerRepaint();
 };
 
+/**
+ * Paint by blocks inside a broken unit: a click on another (unbroken) unit
+ * breaks that one instead, so Paint and Erase move on without a separate
+ * break tool. Returns whether it did.
+ */
+export const breakClickedUnitFromBlockView = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  if (
+    mapOptions.paintBy !== 'blocks' ||
+    (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    !useMapStore.getState().captiveIds.size
+  ) {
+    return false;
+  }
+  // Broken units (this one included) drop out here: filterFeatures skips
+  // parents that have blocks, so only a click on an unbroken unit matches.
+  const units = filterFeatures({
+    _features: e.target.queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID]}),
+    allowOutsideCaptiveIds: true,
+  });
+  if (!units.length) return false;
+  breakUnit(units, e.target);
+  return true;
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -212,6 +238,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
     return;
   }
+  if (breakClickedUnitFromBlockView(e)) return;
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {

@@ -368,6 +368,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           'state'
         );
       }
+      // Paint by blocks: Paint/Erase go back to picking the next unit to break.
+      const {activeTool, setActiveTool} = useMapControlsStore.getState();
+      setActiveTool(activeTool);
       // Resume the temporal recorder regardless of mode.
       temporalManager.resume(mapMode);
     },
@@ -1264,17 +1267,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      // Break stays armed so the user can pick a different unit; switching to
-      // Paint paints within this one. Other entry points (context menu) paint.
-      if (useMapControlsStore.getState().activeTool !== ACTIVE_TOOLS.SHATTER) {
-        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // Inside the broken unit, go back to the tool that picked it (Paint by
+      // blocks picks with Paint or Erase); anything else paints.
+      const {activeTool, blockPaintTool} = useMapControlsStore.getState();
+      if (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) {
+        useMapControlsStore.setState({
+          activeTool: activeTool === ACTIVE_TOOLS.SHATTER ? blockPaintTool : ACTIVE_TOOLS.BRUSH,
+        });
       }
-      // County painting makes no sense inside a broken unit. Dynamic import:
-      // getFeaturesInBbox imports this store, so a static import would cycle.
-      if (useMapControlsStore.getState().mapOptions.paintByCounty) {
+      // Block view is Paint by blocks (counties or overlay areas make no sense
+      // inside one unit). Dynamic import: getFeaturesInBbox imports this
+      // store, so a static import would cycle.
+      if (useMapControlsStore.getState().mapOptions.paintBy !== 'blocks') {
         const {getFeaturesInBbox} = await import('@utils/map/getFeaturesInBbox');
         useMapControlsStore.getState().setPaintFunction(getFeaturesInBbox);
-        setMapOptions({paintByCounty: false});
+        setMapOptions({paintBy: 'blocks'});
       }
       setMapOptions({
         mode: 'break',

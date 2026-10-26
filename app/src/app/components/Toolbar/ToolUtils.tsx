@@ -5,7 +5,6 @@ import {
   EraserIcon,
   Pencil2Icon,
   HandIcon,
-  ViewGridIcon,
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
@@ -60,8 +59,8 @@ export const useActiveTools = () => {
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
   // Pan, paint, and erase exist in both Draw and Super Draw, so their shared
-  // help entry flips with the mode — the same combination key Break and
-  // Inspector always use, since those two only ever exist in Super Draw.
+  // help entry flips with the mode — the same combination key Inspector
+  // always uses, since it only ever exists in Super Draw.
   const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
 
   const config: ActiveToolConfig[] = [
@@ -128,20 +127,6 @@ export const useActiveTools = () => {
       hotKeyAccessor: e => {
         // command or control AND shift + y
         return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ';
-      },
-    },
-    {
-      hotKeyLabel: 'B',
-      mode: ACTIVE_TOOLS.SHATTER,
-      // Also disabled inside block view: you're already in the one unit
-      // you'd be breaking, so the click would do nothing.
-      disabled: !mapDocument?.child_layer || districtsHidden,
-      label: 'Break',
-      icon: ViewGridIcon,
-      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
-      helpKey: 'superdrawToolsCombination',
-      hotKeyAccessor: e => {
-        return e.code === 'KeyB';
       },
     },
     {

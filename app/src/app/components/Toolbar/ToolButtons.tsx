@@ -8,8 +8,6 @@ import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import type {ActiveToolConfig} from '@/app/components/Toolbar/ToolUtils';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@/app/components/HelpTip/HelpTip';
 import {useAltHeld} from '@/app/hooks/useAltHeld';
-import {useToolbarStore} from '@store/toolbarStore';
-import {MaskToolButton, useMaskLayers} from '@/app/components/Toolbar/MaskToolButton';
 
 // Fixed button size; the old user-configurable size picker was removed.
 const TOOLBAR_SIZE = 40;
@@ -24,26 +22,13 @@ const HISTORY_GROW_FACTOR = 0.2;
 
 const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 
-const toolButtonStyle = (isActive: boolean): React.CSSProperties => ({
-  position: 'relative',
-  height: TOOLBAR_HEIGHT,
-  // Radix ghost buttons use content-box sizing, their own padding, and
-  // negative alignment margins; neutralize all three so ghost and solid
-  // render the same size (content is centered, so padding can be 0).
-  boxSizing: 'border-box',
-  padding: 0,
-  margin: 0,
-  borderRadius: 7,
-  boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
-});
-const MAIN_TOOL_STYLE = {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0};
-
 // '⌘ + Shift + Z' → '⌘⇧Z': chorded labels are too wide for a corner badge.
 const compactHotkeyLabel = (label: string) => label.replace(/Shift/g, '⇧').replace(/\s*\+\s*/g, '');
 
 export const ToolButtons: React.FC = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
+  const blockPaintTool = useMapControlsStore(state => state.blockPaintTool);
   // Hotkey badges show only while Alt/Option is held; the hotkeys themselves
   // always work.
   const showHotkeyHints = useAltHeld();
@@ -54,15 +39,15 @@ export const ToolButtons: React.FC = () => {
   useEffect(() => {
     if (guideTarget === `tool:${activeTool}`) advanceGuide(guideTarget);
   }, [guideTarget, activeTool, advanceGuide]);
-  // Paint-mask creation is a Super Draw feature, same as in OverlaysPanel.
-  const superDraw = useToolbarStore(state => state.superDraw);
-  const maskLayers = useMaskLayers();
-  const showMask = superDraw && maskLayers.length > 0;
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
-    const isActive = activeTool === tool.mode;
+    // Paint by blocks picks a unit with the internal break tool on behalf of
+    // Paint or Erase; that tool stays the one shown as active.
+    const isActive =
+      activeTool === tool.mode ||
+      (activeTool === ACTIVE_TOOLS.SHATTER && blockPaintTool === tool.mode);
     const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton
@@ -79,7 +64,19 @@ export const ToolButtons: React.FC = () => {
             setActiveTool(isActive ? ACTIVE_TOOLS.PAN : tool.mode);
           }
         }}
-        style={{...toolButtonStyle(isActive), ...buttonStyle}}
+        style={{
+          position: 'relative',
+          height: TOOLBAR_HEIGHT,
+          // Radix ghost buttons use content-box sizing, their own padding, and
+          // negative alignment margins; neutralize all three so ghost and solid
+          // render the same size (content is centered, so padding can be 0).
+          boxSizing: 'border-box',
+          padding: 0,
+          margin: 0,
+          borderRadius: 7,
+          boxShadow: isActive ? '0 1px 3px var(--gray-a7)' : 'inset 0 0 0 1px var(--gray-a6)',
+          ...buttonStyle,
+        }}
         variant={isActive ? 'solid' : 'ghost'}
         color={isActive ? undefined : 'gray'}
         disabled={tool.disabled}
@@ -140,21 +137,12 @@ export const ToolButtons: React.FC = () => {
       {/* Container flexGrow tracks button count so extra sidebar width is
           shared per-button — undo/redo grow with the sidebar instead of
           staying fixed, but at half rate so they stay visually secondary. */}
-      <Flex
-        direction="row"
-        wrap="wrap"
-        gap="1"
-        style={{flexGrow: mainTools.length + (showMask ? 1 : 0)}}
-      >
+      <Flex direction="row" wrap="wrap" gap="1" style={{flexGrow: mainTools.length}}>
         {/* flexBasis 0 (not auto) so every tool gets the same width regardless
             of label length. Wraps because the sidebar resizes down to 140px,
-            below the six Super Draw buttons' combined minimum. */}
-        {mainTools.map(tool => renderTool(tool, MAIN_TOOL_STYLE))}
-        {showMask && (
-          <MaskToolButton
-            layers={maskLayers}
-            buttonStyle={isActive => ({...toolButtonStyle(isActive), ...MAIN_TOOL_STYLE})}
-          />
+            below the four Super Draw tools' combined minimum. */}
+        {mainTools.map(tool =>
+          renderTool(tool, {minWidth: TOOLBAR_SIZE, flexGrow: 1, flexBasis: 0})
         )}
       </Flex>
       <Flex direction="row" gapX="1" style={{flexGrow: historyTools.length * HISTORY_GROW_FACTOR}}>

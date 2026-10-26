@@ -5,6 +5,7 @@ import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useOverlayStore} from './overlayStore';
+import {overlayIdOf, setPaintBy} from '@utils/map/paintBy';
 
 export type ToolbarState = {
   // Super Draw exposes the full editing toolset; plain Draw hides the advanced
@@ -36,6 +37,9 @@ export const useToolbarStore = create(
         // Leaving Super Draw: back out of super-only state so the user isn't
         // stranded on a hidden tool or a setting Draw has no control for.
         // Draw mode always runs on the global defaults for these.
+        // Painting by blocks or by overlay area is Super Draw only.
+        const {paintBy} = useMapControlsStore.getState().mapOptions;
+        if (paintBy === 'blocks' || overlayIdOf(paintBy)) setPaintBy('units');
         const controls = useMapControlsStore.getState();
         if (SUPER_DRAW_TOOLS.includes(controls.activeTool)) {
           controls.setActiveTool(ACTIVE_TOOLS.PAN);

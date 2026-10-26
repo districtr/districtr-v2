@@ -11,7 +11,7 @@ import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {useDraftStatusCriteria, BALANCE_DEVIATION} from '@/app/hooks/useDraftStatusCriteria';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {statusIcons} from '@components/Topbar/MapStatus';
-import {useCountyPaintAvailable} from '@components/Toolbar/PaintByCounty';
+import {useCountyPaintAvailable} from '@components/Toolbar/ToolControls/PaintByControls';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {
@@ -187,7 +187,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const countyPaintAvailable = useCountyPaintAvailable();
   // Hints that point at a toggle are suppressed once it's already on —
   // guiding the user to a checked checkbox invites turning it off.
-  const paintByCounty = useMapControlsStore(state => !!state.mapOptions.paintByCounty);
+  const paintByCounty = useMapControlsStore(state => state.mapOptions.paintBy === 'counties');
   const showPopulationTooltip = useMapControlsStore(
     state => state.mapOptions.showPopulationTooltip === true
   );
