@@ -25,7 +25,11 @@ const bboxesOverlap = (a: BBox, b: BBox) =>
 // Memo of the last areas under the brush and the units inside them, so a drag
 // within the same areas skips the geometry pass. Only the geometric part is
 // memoized; locks and the mask are re-applied by filterFeatures every call.
+// Keyed on the document and the shatterIds object too: breaking or healing a
+// unit swaps which features (parent or its blocks) are paintable, and a stale
+// list would assign both (orphaned blocks under a healed parent).
 let lastKey: string | null = null;
+let lastShatterIds: object | null = null;
 let lastUnits: MapGeoJSONFeature[] = [];
 
 /**
@@ -34,7 +38,8 @@ let lastUnits: MapGeoJSONFeature[] = [];
  * tiles (parent units, plus blocks of broken units), matched by the same
  * "mostly inside" test as the paint mask.
  * ponytail: loaded tiles only, so an area reaching off-screen paints only its
- * loaded part; a server-side unit/area crosswalk would fix that if it matters.
+ * loaded part, and each new area set costs one turf pass over the loaded units
+ * (noticeable at state zoom). A server-side unit/area crosswalk fixes both.
  */
 export const getFeaturesInOverlayAreas = (
   map: MaplibreMap | null,
@@ -55,19 +60,15 @@ export const getFeaturesInOverlayAreas = (
         .map(f => String(f.id))
     ),
   ].sort();
-  if (!areaIds.length) {
-    lastKey = null;
-    return;
-  }
+  if (!areaIds.length) return;
 
-  const key = `${overlayId}|${areaIds.join(',')}`;
-  if (key !== lastKey) {
+  const {mapMode} = useMapControlsStore.getState();
+  const {shatterIds} =
+    mapMode === MAP_MODES.COI ? useCoiAssignmentsStore.getState() : useAssignmentsStore.getState();
+  const key = `${mapDocument.document_id}|${mapMode}|${overlayId}|${areaIds.join(',')}`;
+  if (key !== lastKey || shatterIds !== lastShatterIds) {
     const areas = areaIds.flatMap(id => queryAreaFeatures(map, overlayId, id));
     const areaBoxes = areas.map(a => bbox(a));
-    const {shatterIds} =
-      useMapControlsStore.getState().mapMode === MAP_MODES.COI
-        ? useCoiAssignmentsStore.getState()
-        : useAssignmentsStore.getState();
     // querySourceFeatures leaves source/sourceLayer unset; painting reads them.
     const queryUnits = (sourceLayer: string) =>
       map
@@ -75,14 +76,16 @@ export const getFeaturesInOverlayAreas = (
         .map(f => Object.assign(f, {source: BLOCK_SOURCE_ID, sourceLayer}));
     const parents = queryUnits(mapDocument.parent_layer);
     // Child tiles hold every block; only broken units' blocks are paintable.
-    const children = mapDocument.child_layer
-      ? queryUnits(mapDocument.child_layer).filter(f => shatterIds.children.has(String(f.id)))
-      : [];
+    const children =
+      mapDocument.child_layer && shatterIds.children.size
+        ? queryUnits(mapDocument.child_layer).filter(f => shatterIds.children.has(String(f.id)))
+        : [];
     lastUnits = fastUniqBy([...parents, ...children], 'id').filter(unit => {
       const unitBox = bbox(unit);
       return areaBoxes.some(box => bboxesOverlap(box, unitBox)) && isMostlyInside(unit, areas);
     }) as MapGeoJSONFeature[];
     lastKey = key;
+    lastShatterIds = shatterIds;
   }
   return filterFeatures({_features: lastUnits, filterLocked});
 };

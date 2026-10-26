@@ -1,4 +1,5 @@
 'use client';
+import {forwardRef} from 'react';
 import {Flex, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -39,15 +40,19 @@ export const useCountyPaintAvailable = (): boolean => {
 
 const ANYWHERE = 'anywhere';
 
-const LabeledSelect: React.FC<{
-  label: string;
-  value: string;
-  options: {value: string; label: string}[];
-  onValueChange: (value: string) => void;
-  disabled?: boolean;
-  className?: string;
-}> = ({label, value, options, onValueChange, disabled, className}) => (
-  <Flex direction="column" gap="1" className={className}>
+// forwardRef + rest props: HelpTip attaches its hover ref and handlers to its child.
+const LabeledSelect = forwardRef<
+  HTMLDivElement,
+  {
+    label: string;
+    value: string;
+    options: {value: string; label: string}[];
+    onValueChange: (value: string) => void;
+    disabled?: boolean;
+    className?: string;
+  }
+>(({label, value, options, onValueChange, disabled, className, ...hoverProps}, ref) => (
+  <Flex ref={ref} direction="column" gap="1" className={className} {...hoverProps}>
     <Text size="2">{label}</Text>
     <Select.Root size="2" value={value} onValueChange={onValueChange} disabled={disabled}>
       <Select.Trigger aria-label={label} style={{minWidth: 120}} />
@@ -60,7 +65,8 @@ const LabeledSelect: React.FC<{
       </Select.Content>
     </Select.Root>
   </Flex>
-);
+));
+LabeledSelect.displayName = 'LabeledSelect';
 
 /**
  * Paint by: what one brush footprint paints. The map's own units by default;
@@ -69,7 +75,10 @@ const LabeledSelect: React.FC<{
  * or whole areas of a boundary overlay such as school districts. Hidden when
  * there's nothing to choose between.
  */
-export const PaintBySelect: React.FC<{label?: string}> = ({label = 'Paint by'}) => {
+export const PaintBySelect: React.FC<{label?: string; offerBlocks?: boolean}> = ({
+  label = 'Paint by',
+  offerBlocks = true,
+}) => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const parentUnit = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
   const hasBlocks = useMapStore(state => !!state.mapDocument?.child_layer);
@@ -85,7 +94,7 @@ export const PaintBySelect: React.FC<{label?: string}> = ({label = 'Paint by'}) 
   const unitName = `${(parentUnit && GEO_UNIT_SINGULAR_NAMES[parentUnit]) || 'unit'}s`;
   const options = [
     {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
-    ...(superDraw && hasBlocks ? [{value: 'blocks', label: 'Blocks'}] : []),
+    ...(superDraw && hasBlocks && offerBlocks ? [{value: 'blocks', label: 'Blocks'}] : []),
     ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
     ...(superDraw
       ? maskLayers

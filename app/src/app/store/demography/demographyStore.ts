@@ -10,6 +10,7 @@ import {getDemography} from '@/app/utils/api/apiHandlers/getDemography';
 import {demographyDataHash, demographyService} from '@/app/utils/demography/demographyService';
 import {getAvailableColumnSets} from '@/app/utils/demography/getAvailableColumnSets';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {useFeatureFlagStore} from '../featureFlagStore';
 import {getFeaturesIntersectingCounties} from '@/app/utils/map/getFeaturesIntersectingCounties';
 import {DEFAULT_CHOROPLETH_BIN_COUNT} from './constants';
 import {idb} from '@/app/utils/idb/idb';
@@ -251,7 +252,10 @@ export var useDemographyStore = create(
             mapDocument.statefps?.length === 1 &&
             mapDocument.statefps[0] === CONNECTICUT_STATE_FIPS;
           const paintByCounty =
-            !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
+            useFeatureFlagStore.getState().paintCounties &&
+            !isConnecticut &&
+            !hasAssignments &&
+            demographyService.spansMultipleCounties();
           const {mapOptions, setMapOptions, setPaintFunction} = useMapControlsStore.getState();
           if (paintByCounty) {
             setMapOptions({paintBy: 'counties'});

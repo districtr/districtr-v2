@@ -314,7 +314,11 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
    * paint-capable tool is already active. */
   const guideToBrushControl = (target: string) => {
     const {activeTool} = useMapControlsStore.getState();
-    const paintCapable = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
+    // SHATTER here is Paint/Erase picking a unit under Paint by blocks.
+    const paintCapable =
+      activeTool === ACTIVE_TOOLS.BRUSH ||
+      activeTool === ACTIVE_TOOLS.ERASER ||
+      activeTool === ACTIVE_TOOLS.SHATTER;
     startGuide(paintCapable ? [target] : [`tool:${ACTIVE_TOOLS.BRUSH}`, target]);
   };
 

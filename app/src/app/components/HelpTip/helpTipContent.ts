@@ -37,7 +37,7 @@ export const helpTipContent = {
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
   },
-  // Super Draw's basic tools (pan, paint, erase, county brush, break, inspect)
+  // Super Draw's basic tools (pan, paint, erase, inspect)
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',

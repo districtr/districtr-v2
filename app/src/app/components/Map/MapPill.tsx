@@ -33,7 +33,8 @@ export const MapPill: React.FC<MapPillProps> = ({
   useEffect(() => {
     if (!onEscape) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      // An open menu or select handles its own Escape (closing itself).
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
       const activeElement = document.activeElement;
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;

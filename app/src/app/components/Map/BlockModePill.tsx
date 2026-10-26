@@ -17,7 +17,6 @@ import {setPaintBy} from '@utils/map/paintBy';
  */
 export const BlockModePill = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
-  const paintBy = useMapControlsStore(state => state.mapOptions.paintBy);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   // Same setting as "Population labels on exposed blocks" under Map Layers —
   // surfaced here too since breaking a unit is exactly when someone wants it.
@@ -82,7 +81,7 @@ export const BlockModePill = () => {
           </RadixText>
         }
       >
-        {paintBy === 'blocks' ? (
+        {activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER ? (
           <>
             Painting blocks. <b>Click another {unitName}</b> to break it
           </>

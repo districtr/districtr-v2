@@ -511,12 +511,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
         // A fresh map (not just switching edit/display/eval views of the same
         // one) defaults to painting — that's what a user opens a map to do.
+        // mapOptions resets paintBy to units, so the brush and a Paint-by-blocks
+        // pick go back to plain painting too.
         activeTool:
           mapDocument.access !== ACCESS_STATES.EDIT
             ? ACTIVE_TOOLS.PAN
-            : sameMapAcrossViews
-              ? mapControlsState.activeTool
-              : ACTIVE_TOOLS.BRUSH,
+            : !sameMapAcrossViews
+              ? ACTIVE_TOOLS.BRUSH
+              : mapControlsState.activeTool === ACTIVE_TOOLS.SHATTER
+                ? mapControlsState.blockPaintTool
+                : mapControlsState.activeTool,
+        paintFunction: useMapControlsStore.getInitialState().paintFunction,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,

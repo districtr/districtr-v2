@@ -68,7 +68,8 @@ The project's names are its biggest newcomer trap. The concordance, keyed by con
 | Community map | `map_type: "community"` | "community map" | Edited in `"coi"` mode (next rows). |
 | The district/community axis | `map_type` (backend), `DocumentType` (`"district"`/`"coi"`, backend — derived from `map_type` at runtime in `main.py`), `MapMode` (`"districts"`/`"coi"`, frontend) | — | Three near-parallel enums, no shared source; which one a function switches on is unpredictable. |
 | Communities of interest | `coi` | "community" / "communities" | `MAP_MODE_LABELS` maps `coi` → "community"; grepping "community" finds the map-type axis first. |
-| Shatter | `shatter`, `ACTIVE_TOOLS.SHATTER` (~45 files) | "Break", "break down into blocks", "Block Mode", "Super Draw" | One feature, four names; the UI word "break" doesn't grep to the implementation. |
+| Shatter | `shatter`, `ACTIVE_TOOLS.SHATTER` (~45 files), `paintBy: 'blocks'` | "Paint by > Blocks", "break down into blocks", "Block Mode", "Super Draw" | One feature, four names; the UI words don't grep to the implementation. |
+| Paint mask | `paintConstraint`, `selectingLayerId` (`overlayStore`) | "Paint within", "Mask" (Boundaries rows) | A brush constraint, not a layer setting. |
 | Parent / child layers | `parent_layer` / `child_layer` on `DistrictrMap` | — | *Roles relative to a module*, not units: parent = coarse paintable layer (VTDs in one module, block groups in another), child = fine shatter target. `parent_layer` is NOT NULL everywhere — a non-shatterable module's only layer sits in `parent_layer` with no children; **shatterable = `child_layer IS NOT NULL`**. |
 | Voting district | `vtd`, `GeoUnitType.VTD` | "precinct" | User-report vocabulary doesn't grep; `"bg"` ↔ "block groups". |
 | Edit-link token | `private_edit_id` (URL param) | "edit link" | Base64url-shortened `document_id` (UUID) — same value, reversible encoding, no server lookup; it *looks* like a separate credential but isn't. |
