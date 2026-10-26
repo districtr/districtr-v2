@@ -53,7 +53,17 @@ mock.module('../api/apiHandlers/getPointSelectionData', () => ({
 }));
 
 const unit = (id: string, geometry: ReturnType<typeof square>) => ({id, geometry, properties: {}});
+// The real breakUnits' edge fetch, for the undo-recorder test.
+mock.module('../api/apiHandlers/getChildEdges', () => ({
+  getChildEdges: async () => [
+    {parent_path: 'p:edge', child_path: 'b:edge-a'},
+    {parent_path: 'p:edge', child_path: 'b:edge-b'},
+  ],
+}));
+
+let zoom = 10;
 const map = {
+  getZoom: () => zoom,
   getLayer: () => ({}),
   querySourceFeatures: (source: string) =>
     source === 'blocks'
@@ -75,6 +85,7 @@ let broke: string[][] = [];
 beforeEach(() => {
   healed = [];
   broke = [];
+  zoom = 10;
   useMapStore.setState({
     mapLock: null,
     mapDocument: {
@@ -116,4 +127,51 @@ test('a click paints inside units whole and edge units by block center, then hea
   expect(painted).toEqual(['b:edge-a', 'p:in']);
   expect(healed).toEqual(['p:edge']);
   expect(useMapStore.getState().mapLock).toBeNull();
+});
+
+const paintedIds = async () => {
+  let painted: string[] = [];
+  await paintOverlayArea(map, {id: 'sd-1'} as any, features => {
+    painted = features.map(f => String(f.id)).sort();
+  });
+  return painted;
+};
+
+test('an already broken edge unit is not broken again; its inside blocks paint', async () => {
+  useAssignmentsStore.setState({
+    shatterIds: {parents: new Set(['p:edge']), children: new Set(['b:edge-a', 'b:edge-b'])},
+    parentToChild: new Map([['p:edge', new Set(['b:edge-a', 'b:edge-b'])]]),
+  });
+  expect(await paintedIds()).toEqual(['b:edge-a', 'p:in']);
+  expect(broke).toEqual([]);
+});
+
+test('without a block layer, edge units paint whole', async () => {
+  useMapStore.setState({
+    mapDocument: {...useMapStore.getState().mapDocument!, child_layer: null},
+  } as any);
+  expect(await paintedIds()).toEqual(['p:edge', 'p:in']);
+  expect(broke).toEqual([]);
+});
+
+test('below the minimum zoom nothing paints and the user is told to zoom in', async () => {
+  zoom = 5;
+  expect(await paintedIds()).toEqual([]);
+  expect(useMapStore.getState().notification?.id).toBe('paint-area-zoom');
+});
+
+test('the break pauses undo until the paint, and a click resumes it either way', async () => {
+  // The real breakUnits (the stub above skips its undo-recorder pause).
+  useMapStore.setState({
+    breakUnits: initialMap.breakUnits,
+    mapDocument: {...useMapStore.getState().mapDocument!, districtr_map_slug: 'al'},
+  } as any);
+  const temporal = () => useAssignmentsStore.temporal.getState();
+  let trackingDuringPaint: boolean | null = null;
+  await paintOverlayArea(map, {id: 'sd-1'} as any, () => {
+    trackingDuringPaint = temporal().isTracking;
+  });
+  expect(trackingDuringPaint as boolean | null).toBe(false);
+  // Nothing was ingested (the paint above is a no-op): the click still resumes it.
+  expect(temporal().isTracking).toBe(true);
 });

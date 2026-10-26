@@ -82,19 +82,40 @@ export const getOverlayAreaUnderCursor = (
  * pre-break snapshot that the paint's ingest turns into the history entry.
  * Districts mode only. `paint` is the caller's mutate + ingest.
  * ponytail: candidates are the parent units in loaded tiles, so an area that
- * runs off-screen paints only its loaded part; a server-side block/area
- * crosswalk would make this exact and geometry-free.
+ * runs off-screen paints only its loaded part, and the area's outline is the
+ * tiles' (simplified at low zoom, hence MIN_AREA_PAINT_ZOOM); a server-side
+ * block/area crosswalk would make this exact and geometry-free.
  */
+// Below this zoom the loaded tiles' outlines are too simplified to sort blocks
+// near an area's edge. ponytail: a tuning knob, picked by eye on TIGER tiles.
+export const MIN_AREA_PAINT_ZOOM = 8;
+
+// One click at a time, start to finish: the shatter render drops the map lock
+// mid-click, so the lock alone can't keep a second click (or an undo) from
+// interleaving with this one's break, paint and heal.
+let inFlight = false;
+export const isAreaPaintInFlight = () => inFlight;
+
 export const paintOverlayArea = async (
   map: MaplibreMap,
   area: MapGeoJSONFeature,
   paint: (features: MapGeoJSONFeature[]) => void
 ) => {
-  const {mapDocument, mapLock, setMapLock, breakUnits} = useMapStore.getState();
+  const {mapDocument, mapLock, setMapLock, setNotification, breakUnits} = useMapStore.getState();
   const overlayId = overlayIdOf(useMapControlsStore.getState().mapOptions.paintBy);
-  if (!mapDocument || mapLock || !overlayId || area.id == null) return;
+  if (inFlight || !mapDocument || mapLock || !overlayId || area.id == null) return;
+  if (map.getZoom() < MIN_AREA_PAINT_ZOOM) {
+    setNotification({
+      importance: 2,
+      message: 'Zoom in a little to paint a whole area: at this zoom its outline is too rough.',
+      id: 'paint-area-zoom',
+    });
+    return;
+  }
+  inFlight = true;
   const lockReason = `Painting ${getOverlayName(overlayId) ?? 'area'}…`;
   setMapLock({isLocked: true, reason: lockReason});
+  let brokenNow: string[] = [];
   try {
     const shape = toAreaShape(
       queryAreaFeatures(map, overlayId, String(area.id)).map(
@@ -152,7 +173,6 @@ export const paintOverlayArea = async (
       else toBreak.push(id);
     });
 
-    let brokenNow: string[] = [];
     if (toBreak.length) {
       const edges = await breakUnits(toBreak);
       if (!edges) return; // breakUnits notified
@@ -176,6 +196,8 @@ export const paintOverlayArea = async (
               filterIds: blockIds,
             })
           ).features
+            // A unit healed meanwhile no longer has paintable blocks.
+            .filter(f => useAssignmentsStore.getState().shatterIds.children.has(f.properties?.path))
             .filter(f => inArea(f.geometry.coordinates, shape))
             .map(
               f =>
@@ -198,10 +220,26 @@ export const paintOverlayArea = async (
         .getState()
         .healParentsIfAllChildrenInSameZone({_parentIds: new Set(brokenNow)}, 'state');
     }
+  } catch (error) {
+    console.error(error);
+    // Don't leave this click's units broken for nothing.
+    if (brokenNow.length) {
+      useAssignmentsStore
+        .getState()
+        .healParentsIfAllChildrenInSameZone({_parentIds: new Set(brokenNow)}, 'state');
+    }
+    setNotification({
+      importance: 2,
+      type: 'error',
+      message: 'Painting this area failed. Please try again.',
+      id: `paint-area-failed-${String(area.id)}`,
+    });
   } finally {
     // breakUnits paused the undo recorder; the paint's ingest resumes it, but
     // not when nothing got painted.
     temporalManager.resume(MAP_MODES.DISTRICTS);
-    useMapStore.getState().setMapLock(null);
+    // Only this click's lock: another lock is someone else's.
+    if (useMapStore.getState().mapLock?.reason === lockReason) setMapLock(null);
+    inFlight = false;
   }
 };

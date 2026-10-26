@@ -100,13 +100,14 @@ export const LabeledSelect = forwardRef<
 LabeledSelect.displayName = 'LabeledSelect';
 
 /**
- * Paint by: what one brush footprint paints. The map's own units by default;
- * whole counties; and in Super Draw, blocks inside one unit (this replaced the
- * Break tool: Paint/Erase first pick a unit to break, then paint its blocks)
- * or whole areas of a boundary overlay such as school districts. Hidden when
- * there's nothing to choose between.
+ * Paint by: what one brush footprint paints, as a segmented control. The
+ * map's own units by default; whole counties; and in Super Draw, blocks inside
+ * one unit (the same mode the Break button turns on: Paint/Erase first pick a
+ * unit to break, then paint its blocks), plus a "…" menu of boundary layers
+ * whose areas one click paints whole (paintOverlayArea). Hidden when there's
+ * nothing to choose between.
  */
-export const PaintBySelect: React.FC<{
+export const PaintByControl: React.FC<{
   label?: string;
   /** Inspect by: blocks and overlay areas are Paint/Erase modes, not readings. */
   forInspector?: boolean;

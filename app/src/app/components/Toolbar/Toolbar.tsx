@@ -25,7 +25,9 @@ export const Toolbar: React.FC = () => {
       const tool = activeToolsRef.current.find(f => !f.disabled && f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
-        tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
+        if (tool.onHotkey) tool.onHotkey();
+        else if (tool.onClick) tool.onClick();
+        else setActiveTool(tool.mode);
       }
     };
 

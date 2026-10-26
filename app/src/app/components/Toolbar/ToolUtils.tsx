@@ -15,6 +15,7 @@ import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
 import {selectShownTool, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {setPaintBy} from '@utils/map/paintBy';
+import {isAreaPaintInFlight} from '@utils/map/paintOverlayArea';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -31,6 +32,8 @@ export type ActiveToolConfig = {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
+  /** What the hotkey does when it differs from a click: select, never toggle off. */
+  onHotkey?: () => void;
   /** Overrides "activeTool is this mode" for the pressed look (Paint vs Break). */
   isActive?: boolean;
   helpKey?: HelpTipKey;
@@ -61,8 +64,15 @@ export const useActiveTools = () => {
   const redoRef = useRef(redo);
   undoRef.current = undo;
   redoRef.current = redo;
-  const handleUndo = useMemo(() => debounce(() => undoRef.current(), 100), []);
-  const handleRedo = useMemo(() => debounce(() => redoRef.current(), 100), []);
+  // Not mid area-paint: its break and paint must land as one step first.
+  const handleUndo = useMemo(
+    () => debounce(() => !isAreaPaintInFlight() && undoRef.current(), 100),
+    []
+  );
+  const handleRedo = useMemo(
+    () => debounce(() => !isAreaPaintInFlight() && redoRef.current(), 100),
+    []
+  );
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
@@ -73,6 +83,16 @@ export const useActiveTools = () => {
   const paintByBlocks = paintBy === 'blocks';
   const breakActive = paintByBlocks && shownTool === ACTIVE_TOOLS.BRUSH;
   const paintActive = !paintByBlocks && shownTool === ACTIVE_TOOLS.BRUSH;
+  // Paint leaves Paint by blocks only when Break is the pressed tool: from
+  // Erase (or Move) inside Paint by blocks it goes back to painting blocks.
+  const selectPaint = () => {
+    if (breakActive) setPaintBy('units');
+    setActiveTool(ACTIVE_TOOLS.BRUSH);
+  };
+  const selectBreak = () => {
+    setPaintBy('blocks');
+    setActiveTool(ACTIVE_TOOLS.BRUSH);
+  };
 
   const config: ActiveToolConfig[] = [
     {
@@ -95,11 +115,8 @@ export const useActiveTools = () => {
       helpKey: combinationHelpKey,
       // Break is Paint by blocks, so Paint shows pressed for the other Paint bys.
       isActive: paintActive,
-      onClick: () => {
-        if (paintActive) return setActiveTool(ACTIVE_TOOLS.PAN);
-        if (paintByBlocks) setPaintBy('units');
-        setActiveTool(ACTIVE_TOOLS.BRUSH);
-      },
+      onClick: () => (paintActive ? setActiveTool(ACTIVE_TOOLS.PAN) : selectPaint()),
+      onHotkey: () => selectPaint(),
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -158,13 +175,11 @@ export const useActiveTools = () => {
       // paints its blocks (setActiveTool's picking rule).
       isActive: breakActive,
       onClick: () => {
-        if (breakActive) {
-          setPaintBy('units');
-          return setActiveTool(ACTIVE_TOOLS.PAN);
-        }
-        setPaintBy('blocks');
-        setActiveTool(ACTIVE_TOOLS.BRUSH);
+        if (!breakActive) return selectBreak();
+        setPaintBy('units');
+        setActiveTool(ACTIVE_TOOLS.PAN);
       },
+      onHotkey: () => selectBreak(),
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },

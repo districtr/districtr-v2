@@ -19,8 +19,9 @@ type Shape = Pick<MapGeoJSONFeature, 'geometry'>;
 
 /** Whether a unit counts as inside an area (given as one or more polygon
  * pieces, e.g. one overlay feature split across tiles): a point touches it,
- * or more than a quarter of a polygon's area overlaps it. Shared by the paint
- * mask filter and painting by overlay area. */
+ * or more than a quarter of a polygon's area overlaps it. The paint mask's
+ * filter (filterFeatures); painting by overlay area sorts by center point
+ * instead (paintOverlayArea). */
 export const isMostlyInside = (f: Shape, areas: Shape[]): boolean => {
   if (f.geometry.type === 'Point') {
     return areas.some(a => booleanIntersects(a.geometry, f.geometry));

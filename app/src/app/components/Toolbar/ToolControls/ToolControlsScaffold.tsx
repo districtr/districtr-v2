@@ -4,7 +4,7 @@ import {Box, Flex} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import {selectShownTool, useMapControlsStore} from '@store/mapControlsStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import {PaintBySelect} from '@components/Toolbar/ToolControls/PaintByControls';
+import {PaintByControl} from '@components/Toolbar/ToolControls/PaintByControls';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
@@ -47,12 +47,12 @@ const CoiTwoColumnGrid = makeTwoColumnGrid(COI_TWO_COLUMN_BREAKPOINT);
 const disabledSectionStyle = (disabled: boolean): React.CSSProperties =>
   disabled ? {opacity: 0.5, pointerEvents: 'none'} : {};
 
-/** The one layout every paint-adjacent tool (pan, paint, erase) shares:
- * a Paint by / Paint within / brush-size row on top, then a district/zone picker beside
- * a fixed column of map-display toggles. Which pieces are interactive varies
+/** The one layout every paint-adjacent tool (pan, paint, erase, break) shares:
+ * a Paint by / brush-size row on top, then a district/zone picker beside a
+ * fixed column of map-display toggles. Which pieces are interactive varies
  * by tool — the structure never does, so nothing mounts or unmounts as the
- * active tool changes. Inspector is the one tool exempt from this: it keeps
- * its own, separate layout (see InspectorControls). */
+ * active tool changes. Inspector and Mask keep their own layouts
+ * (InspectorControls, MaskControls). */
 export const ToolControlsScaffold = () => {
   // Paint by blocks before a unit is broken: the internal break tool is picking
   // a unit for Paint or Erase (blockPaintTool), so the controls follow that.
@@ -76,7 +76,7 @@ export const ToolControlsScaffold = () => {
   return (
     <Flex direction="column" gapY="4" width="100%">
       <Flex direction="row" gapX="4" gapY="2" wrap="wrap" align="start">
-        <PaintBySelect />
+        <PaintByControl />
         <Box className="flex-grow" style={{flexGrow: 1, ...disabledSectionStyle(sliderDisabled)}}>
           <BrushSizeSelector />
         </Box>

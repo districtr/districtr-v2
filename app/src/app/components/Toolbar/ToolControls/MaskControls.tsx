@@ -19,19 +19,26 @@ export const MaskControls = () => {
   const maskedLayerId = useOverlayStore(state => state.paintConstraint?.overlayId);
   const setMaskBy = useOverlayStore(state => state.setMaskBy);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
-  const maskBy = maskedLayerId ?? maskByLayerId ?? layers[0]?.id;
+  // A remembered layer can drop out (e.g. Counties on a single-county map).
+  const knownMaskBy = layers.some(layer => layer.id === maskByLayerId) ? maskByLayerId : null;
+  const maskBy = maskedLayerId ?? knownMaskBy ?? layers[0]?.id;
 
-  // Opening the tool (once the layers are known) shows the Mask by layer; an
-  // active mask stays as it is.
-  const firstLayerId = layers[0]?.id;
+  // With no mask up, the Mask by layer is shown so its areas can be clicked:
+  // when the tool opens, and again after a release (which restores the layers
+  // from before, usually without it). An active mask stays as it is. Closing
+  // the tool without masking puts the hidden layers back.
   useEffect(() => {
-    const {paintConstraint, maskByLayerId: current} = useOverlayStore.getState();
-    if (paintConstraint) {
-      useOverlayStore.setState({maskByLayerId: paintConstraint.overlayId});
-    } else if (current ?? firstLayerId) {
-      setMaskBy((current ?? firstLayerId)!);
+    if (maskedLayerId) {
+      useOverlayStore.setState({maskByLayerId: maskedLayerId});
+      return;
     }
-  }, [firstLayerId, setMaskBy]);
+    if (!maskBy) return;
+    setMaskBy(maskBy);
+    return () => {
+      const {paintConstraint, _layersBeforeMask, clearPaintConstraint} = useOverlayStore.getState();
+      if (!paintConstraint && _layersBeforeMask) clearPaintConstraint();
+    };
+  }, [maskedLayerId, maskBy, setMaskBy]);
 
   if (!layers.length) {
     return (
