@@ -4,7 +4,6 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {Overlay} from '@utils/api/apiHandlers/types';
 import {useMapStore} from './mapStore';
 import {useMapControlsStore} from './mapControlsStore';
-import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {dissolve} from '@turf/turf';
 import {Feature, GeoJSONFeature, MapGeoJSONFeature, Map as MaplibreMap} from 'maplibre-gl';
 import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
@@ -34,7 +33,8 @@ export const queryAreaFeatures = (
           `overlay-source-${layerId}`,
           sourceLayer ? {sourceLayer} : undefined
         );
-  return (sourceFeatures ?? []).filter(feature => feature.id === featureId);
+  // String compare: promoteId keeps numeric ids as numbers.
+  return (sourceFeatures ?? []).filter(feature => String(feature.id) === String(featureId));
 };
 
 /** Overlay name for an overlay_id; overlays sharing a name toggle as one group. */
@@ -126,6 +126,12 @@ export const useOverlayStore = create(
         restoreIds.delete(overlayId);
         set({_layersBeforeMask: {..._layersBeforeMask, enabledOverlayIds: restoreIds}});
       }
+      // Painting by this overlay needs its areas drawn; fall back to the map's units.
+      const {mapOptions, setMapOptions} = useMapControlsStore.getState();
+      const paintByOverlayId = overlayIdOf(mapOptions.paintBy);
+      if (paintByOverlayId && getOverlayName(paintByOverlayId) === overlayId) {
+        setMapOptions({paintBy: 'units'});
+      }
     },
 
     setPaintConstraint: (overlayId: string, featureId: string) => {
@@ -146,11 +152,8 @@ export const useOverlayStore = create(
         // (filterFeatures reads f.geometry). setPaintBy already clears the
         // mask when painting by county starts; this is the same exclusion from
         // the other direction, so neither order of clicks combines the two.
-        const {mapOptions, setMapOptions, setPaintFunction} = useMapControlsStore.getState();
-        if (mapOptions.paintBy === 'counties') {
-          setMapOptions({paintBy: 'units'});
-          setPaintFunction(getFeaturesInBbox);
-        }
+        const {mapOptions, setMapOptions} = useMapControlsStore.getState();
+        if (mapOptions.paintBy === 'counties') setMapOptions({paintBy: 'units'});
         set({
           paintConstraint: {
             overlayId: overlayId,

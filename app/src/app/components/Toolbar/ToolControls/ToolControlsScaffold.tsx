@@ -2,7 +2,7 @@
 import React from 'react';
 import {Box, Flex} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
-import {useMapControlsStore} from '@store/mapControlsStore';
+import {selectShownTool, useMapControlsStore} from '@store/mapControlsStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import {PaintBySelect, PaintWithinSelect} from '@components/Toolbar/ToolControls/PaintByControls';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
@@ -55,9 +55,7 @@ const disabledSectionStyle = (disabled: boolean): React.CSSProperties =>
 export const ToolControlsScaffold = () => {
   // Paint by blocks before a unit is broken: the internal break tool is picking
   // a unit for Paint or Erase (blockPaintTool), so the controls follow that.
-  const activeTool = useMapControlsStore(state =>
-    state.activeTool === ACTIVE_TOOLS.SHATTER ? state.blockPaintTool : state.activeTool
-  );
+  const activeTool = useMapControlsStore(selectShownTool);
   const pickingUnit = useMapControlsStore(state => state.activeTool === ACTIVE_TOOLS.SHATTER);
   const mapMode = useMapControlsStore(state => state.mapMode);
 

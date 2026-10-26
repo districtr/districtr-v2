@@ -151,9 +151,17 @@ export const breakClickedUnitFromBlockView = (e: MapLayerMouseEvent | MapLayerTo
   }
   // Broken units (this one included) drop out here: filterFeatures skips
   // parents that have blocks, so only a click on an unbroken unit matches.
+  // Same filtering as picking a unit to break: not the brush's paint-over or
+  // locked-zone rules (activeTool is Paint here), only units in locked zones.
+  const {lockPaintedAreas} = mapOptions;
+  const {zoneAssignments} = useAssignmentsStore.getState();
   const units = filterFeatures({
     _features: e.target.queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID]}),
     allowOutsideCaptiveIds: true,
+    filterLocked: false,
+    additionalFilters: [
+      f => !lockPaintedAreas.includes(zoneAssignments.get(f.id?.toString() || '') ?? null),
+    ],
   });
   if (!units.length) return false;
   breakUnit(units, e.target);

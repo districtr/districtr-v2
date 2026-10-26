@@ -1,6 +1,6 @@
 'use client';
 import {Flex, IconButton, Kbd, Text} from '@radix-ui/themes';
-import {useMapControlsStore} from '@store/mapControlsStore';
+import {selectShownTool, useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore} from '@store/uiHintStore';
 import React, {useEffect} from 'react';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
@@ -26,9 +26,10 @@ const HISTORY_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.UNDO, ACTIVE_TOOLS.REDO];
 const compactHotkeyLabel = (label: string) => label.replace(/Shift/g, '⇧').replace(/\s*\+\s*/g, '');
 
 export const ToolButtons: React.FC = () => {
-  const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
-  const blockPaintTool = useMapControlsStore(state => state.blockPaintTool);
+  // Paint by blocks picks a unit with the internal break tool on behalf of
+  // Paint or Erase; that tool stays the one shown as active.
+  const shownTool = useMapControlsStore(selectShownTool);
   // Hotkey badges show only while Alt/Option is held; the hotkeys themselves
   // always work.
   const showHotkeyHints = useAltHeld();
@@ -37,17 +38,13 @@ export const ToolButtons: React.FC = () => {
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
   useEffect(() => {
-    if (guideTarget === `tool:${activeTool}`) advanceGuide(guideTarget);
-  }, [guideTarget, activeTool, advanceGuide]);
+    if (guideTarget === `tool:${shownTool}`) advanceGuide(guideTarget);
+  }, [guideTarget, shownTool, advanceGuide]);
   const mainTools = activeTools.filter(tool => !HISTORY_TOOLS.includes(tool.mode));
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
-    // Paint by blocks picks a unit with the internal break tool on behalf of
-    // Paint or Erase; that tool stays the one shown as active.
-    const isActive =
-      activeTool === tool.mode ||
-      (activeTool === ACTIVE_TOOLS.SHATTER && blockPaintTool === tool.mode);
+    const isActive = shownTool === tool.mode;
     const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton

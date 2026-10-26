@@ -124,15 +124,23 @@ const OverlayLayer = ({
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
       baseProps['source-layer'] = overlay.source_layer;
     }
-    // Dim everything but the masked area, on the masked overlay only: on any
-    // other overlay no feature matches, so every one of them would be dimmed.
-    if (isConstraintOverlay && selectedFeatureId) {
-      baseProps.filter = ['!', ['==', ['get', idProperty], selectedFeatureId]];
-      baseProps.paint['fill-opacity'] = 0.75;
-    }
 
     return baseProps;
-  }, [clickLayerId, layerId, overlay, isConstraintOverlay, selectedFeatureId]);
+  }, [clickLayerId, layerId, overlay]);
+
+  // Dim everything but the masked area, on the masked overlay only (on any
+  // other overlay no feature matches, so every one of them would be dimmed).
+  // Its own layer, not a filter on the click layer: Paint by this overlay
+  // still has to hit the masked area there.
+  const dimLayerProps = useMemo(() => {
+    if (!clickLayerProps || !isConstraintOverlay || !selectedFeatureId) return null;
+    return {
+      ...clickLayerProps,
+      id: `${clickLayerId}-dim`,
+      filter: ['!=', ['to-string', ['get', idProperty]], String(selectedFeatureId)],
+      paint: {'fill-color': '#FFFFFF', 'fill-opacity': 0.75},
+    };
+  }, [clickLayerProps, clickLayerId, isConstraintOverlay, selectedFeatureId, idProperty]);
 
   // Selected constraint outline layer (for emphasis)
   const selectedOutlineProps = useMemo(() => {
@@ -179,6 +187,7 @@ const OverlayLayer = ({
         {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
         {/* Invisible click layer for line overlays */}
         {clickLayerProps && <Layer {...clickLayerProps} />}
+        {dimLayerProps && <Layer {...dimLayerProps} />}
       </Source>
     </>
   );

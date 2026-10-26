@@ -1,6 +1,5 @@
 import type {PaintBy} from '@/app/store/types';
 import type {PaintEventHandler} from '@utils/map/types';
-import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {overlayIdOf} from '@constants/map/paintBy';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -8,8 +7,6 @@ import {getOverlayName, useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 import {getFeaturesInOverlayAreas} from '@utils/map/getFeaturesInOverlayAreas';
-
-export {overlayIdOf, paintByOverlay} from '@constants/map/paintBy';
 
 /** The brush's feature picker for a `Paint by` value. Blocks use the plain
  * bbox brush: inside a broken unit the brush is already confined to it. */
@@ -37,7 +34,5 @@ export const setPaintBy = (paintBy: PaintBy) => {
 
   const controls = useMapControlsStore.getState();
   controls.setMapOptions({paintBy});
-  controls.setPaintFunction(paintFunctionFor(paintBy));
-  const {activeTool, blockPaintTool} = useMapControlsStore.getState();
-  controls.setActiveTool(activeTool === ACTIVE_TOOLS.SHATTER ? blockPaintTool : activeTool);
+  controls.syncBlockPicking();
 };

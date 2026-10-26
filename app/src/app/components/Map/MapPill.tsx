@@ -39,6 +39,8 @@ export const MapPill: React.FC<MapPillProps> = ({
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;
       onEscape();
+      // One Escape steps back once: a second pill on screen doesn't also react.
+      e.preventDefault();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);

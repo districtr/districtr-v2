@@ -9,7 +9,8 @@ import {useUiHintStore, useGuideTarget} from '@/app/store/uiHintStore';
 import {useFeatureFlagStore} from '@/app/store/featureFlagStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
-import {paintByOverlay, setPaintBy} from '@utils/map/paintBy';
+import {setPaintBy} from '@utils/map/paintBy';
+import {paintByOverlay} from '@constants/map/paintBy';
 import {useMaskLayers} from '@/app/hooks/useMaskLayers';
 import type {PaintBy} from '@/app/store/types';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -55,7 +56,18 @@ const LabeledSelect = forwardRef<
   <Flex ref={ref} direction="column" gap="1" className={className} {...hoverProps}>
     <Text size="2">{label}</Text>
     <Select.Root size="2" value={value} onValueChange={onValueChange} disabled={disabled}>
-      <Select.Trigger aria-label={label} style={{minWidth: 120}} />
+      <Select.Trigger
+        aria-label={label}
+        style={{minWidth: 120}}
+        // Focus stays here after a pick, and a closed Radix Select types ahead
+        // on letter keys: pressing P (Paint) would also pick "Precincts".
+        // Swallow them so tool hotkeys don't also change this menu.
+        onKeyDown={e => {
+          if (e.key.length === 1 && e.key !== ' ' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+          }
+        }}
+      />
       <Select.Content position="popper">
         {options.map(option => (
           <Select.Item key={option.value} value={option.value}>

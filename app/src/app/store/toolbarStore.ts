@@ -5,7 +5,8 @@ import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useOverlayStore} from './overlayStore';
-import {overlayIdOf, setPaintBy} from '@utils/map/paintBy';
+import {setPaintBy} from '@utils/map/paintBy';
+import {overlayIdOf} from '@constants/map/paintBy';
 
 export type ToolbarState = {
   // Super Draw exposes the full editing toolset; plain Draw hides the advanced

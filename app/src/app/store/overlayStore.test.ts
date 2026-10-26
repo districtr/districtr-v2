@@ -57,9 +57,12 @@ const mask = (overlayId: string) =>
   useOverlayStore.setState({paintConstraint: {overlayId, featureId: 'f', features: []}});
 const state = () => useOverlayStore.getState();
 
+const initialControlsState = useMapControlsStore.getState();
+
 describe('mask layers', () => {
   afterEach(() => {
     useMapStore.setState(initialMapState);
+    useMapControlsStore.setState(initialControlsState);
     useOverlayStore.getState().reset();
   });
   beforeEach(() => {
@@ -120,5 +123,18 @@ describe('mask layers', () => {
     state().selectOverlayFeature('metro');
     state().toggleOverlay('Metro areas'); // hiding the armed layer releases it
     expect([...state().enabledOverlayIds]).toEqual(['School districts']);
+  });
+
+  test('masking keeps the Paint by overlay drawn, so its brush still finds areas', () => {
+    useMapControlsStore.getState().setMapOptions({paintBy: 'overlay:school'});
+    state().selectOverlayFeature('metro');
+    expect([...state().enabledOverlayIds].sort()).toEqual(['Metro areas', 'School districts']);
+  });
+
+  test('hiding the Paint by overlay falls back to painting units', () => {
+    useMapControlsStore.getState().setMapOptions({paintBy: 'overlay:school'});
+    state().enableOverlay('School districts');
+    state().toggleOverlay('School districts');
+    expect(useMapControlsStore.getState().mapOptions.paintBy).toBe('units');
   });
 });

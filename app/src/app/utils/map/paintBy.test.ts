@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, expect, test} from 'bun:test';
-import {paintByOverlay, setPaintBy} from './paintBy';
+import {setPaintBy} from './paintBy';
+import {paintByOverlay} from '@constants/map/paintBy';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';

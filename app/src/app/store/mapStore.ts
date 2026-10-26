@@ -31,7 +31,7 @@ import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
-import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
+import {selectShownTool, DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
@@ -369,8 +369,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         );
       }
       // Paint by blocks: Paint/Erase go back to picking the next unit to break.
-      const {activeTool, setActiveTool} = useMapControlsStore.getState();
-      setActiveTool(activeTool);
+      useMapControlsStore.getState().syncBlockPicking();
       // Resume the temporal recorder regardless of mode.
       temporalManager.resume(mapMode);
     },
@@ -518,10 +517,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             ? ACTIVE_TOOLS.PAN
             : !sameMapAcrossViews
               ? ACTIVE_TOOLS.BRUSH
-              : mapControlsState.activeTool === ACTIVE_TOOLS.SHATTER
-                ? mapControlsState.blockPaintTool
-                : mapControlsState.activeTool,
-        paintFunction: useMapControlsStore.getInitialState().paintFunction,
+              : selectShownTool(mapControlsState),
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -1281,11 +1277,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
       }
       // Block view is Paint by blocks (counties or overlay areas make no sense
-      // inside one unit). Dynamic import: getFeaturesInBbox imports this
-      // store, so a static import would cycle.
+      // inside one unit).
       if (useMapControlsStore.getState().mapOptions.paintBy !== 'blocks') {
-        const {getFeaturesInBbox} = await import('@utils/map/getFeaturesInBbox');
-        useMapControlsStore.getState().setPaintFunction(getFeaturesInBbox);
         setMapOptions({paintBy: 'blocks'});
       }
       setMapOptions({

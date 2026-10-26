@@ -2,6 +2,9 @@ export const ACTIVE_TOOLS = {
   PAN: 'pan',
   BRUSH: 'brush',
   ERASER: 'eraser',
+  // Internal: never a toolbar button. Under Paint by blocks, setActiveTool
+  // turns Paint/Erase into this while no unit is broken (picking one), and the
+  // UI shows the tool it stands in for (selectShownTool in mapControlsStore).
   SHATTER: 'shatter',
   UNDO: 'undo',
   REDO: 'redo',
@@ -12,7 +15,7 @@ export type ActiveTool = (typeof ACTIVE_TOOLS)[keyof typeof ACTIVE_TOOLS];
 
 // Tools only exposed in Super Draw mode. Shared by the toolbar filter and the
 // mode-exit reset so the two can't drift.
-export const SUPER_DRAW_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.SHATTER, ACTIVE_TOOLS.INSPECTOR];
+export const SUPER_DRAW_TOOLS: ActiveTool[] = [ACTIVE_TOOLS.INSPECTOR];
 
 // Tools that change the plan. Disabled while painted districts are hidden, so
 // nothing is edited out of sight.

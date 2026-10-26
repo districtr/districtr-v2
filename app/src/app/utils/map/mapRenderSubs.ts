@@ -4,10 +4,8 @@ import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layer
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {ColorZoneAssignmentsState} from '@utils/map/types';
 import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
-import {paintFunctionFor} from '@utils/map/paintBy';
 import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore} from '@store/mapStore';
-import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {setHoverFeatures} from '@utils/map/hoverFeatures';
 import {useTooltipStore} from '@store/tooltipStore';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
@@ -220,20 +218,6 @@ export class MapRenderSubscriber {
     // next mousemove repaint them.
     setHoverFeatures();
     useTooltipStore.getState().setTooltip(null);
-    const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
-    const defaultPaintFunction = paintFunctionFor(mapOptions.paintBy);
-    switch (activeTool) {
-      case ACTIVE_TOOLS.PAN:
-      case ACTIVE_TOOLS.BRUSH:
-      case ACTIVE_TOOLS.ERASER:
-      case ACTIVE_TOOLS.INSPECTOR:
-        setPaintFunction(defaultPaintFunction);
-        break;
-      case ACTIVE_TOOLS.SHATTER:
-        setPaintFunction(getFeatureUnderCursor);
-        break;
-      default:
-    }
   }
   subscribeCursor() {
     this.controlSubscriptions.push(
