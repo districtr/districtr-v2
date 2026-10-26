@@ -1,6 +1,6 @@
 'use client';
 import {Fragment, forwardRef} from 'react';
-import {DropdownMenu, Flex, SegmentedControl, Select, Text} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, SegmentedControl, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -16,7 +16,6 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
 import {MAP_MODES} from '@constants/map/mode';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
-import {HelpTip} from '@components/HelpTip/HelpTip';
 
 // Connecticut's TIGER county layer (tl_2023_us_county) reflects its 2022
 // switch to planning regions as county-equivalents, but districtr's own block
@@ -39,8 +38,6 @@ export const useCountyPaintAvailable = (): boolean => {
   return paintCounties && !isConnecticut && !isSingleCounty;
 };
 
-// The Paint by control's "…" segment: it opens the whole-areas menu.
-const MORE = 'more';
 // The list stays about as wide as the trigger; longer layer names end in an
 // ellipsis (full name on hover) instead of stretching the menu.
 const MENU_MAX_WIDTH = 240;
@@ -143,78 +140,71 @@ export const PaintBySelect: React.FC<{
       : [];
   if (segments.length + moreAreas.length < 2) return null;
   const moreSelected = moreAreas.find(option => option.value === paintBy);
-  const value = moreSelected
-    ? MORE
-    : segments.some(option => option.value === paintBy)
-      ? paintBy
-      : 'units';
+  const value = segments.some(option => option.value === paintBy) ? paintBy : 'units';
   const choose = (next: string) => {
     if (next === 'counties') advanceGuide('county-brush');
     setPaintBy(next as PaintBy);
   };
 
   return (
-    <HelpTip
-      tip="paintBy"
-      text={
-        superDraw
-          ? undefined
-          : 'Choose what one brush stroke paints: single units, or whole counties at a time.'
-      }
-    >
-      <Flex
-        direction="column"
-        gap="1"
-        className={guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''}
-      >
-        <Text size="2">{label}</Text>
+    <Flex direction="column" gap="1" className={guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''}>
+      <Text size="2">{label}</Text>
+      <Flex gap="1" align="center">
         <SegmentedControl.Root
-          size="1"
-          value={value}
+          size="2"
+          // No segment is selected while painting a whole area from the menu.
+          value={moreSelected ? '' : value}
           // No disabled prop on SegmentedControl: read-only maps just can't click.
           style={readOnly ? {pointerEvents: 'none', opacity: 0.5} : undefined}
-          // The "…" segment only opens its menu; an empty value is a re-click.
-          onValueChange={next => next && next !== MORE && choose(next)}
+          // An empty value is a re-click on the selected segment.
+          onValueChange={next => next && choose(next)}
         >
           {segments.map(option => (
             <SegmentedControl.Item key={option.value} value={option.value}>
               {option.label}
             </SegmentedControl.Item>
           ))}
-          {moreAreas.length > 0 && (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <SegmentedControl.Item
-                  value={MORE}
-                  // The menu trigger stamps its own data-state (open/closed) over
-                  // the segment's on/off; this keeps the pressed look and indicator.
-                  data-state={value === MORE ? 'on' : 'off'}
-                  aria-label="More areas to paint by"
-                  title={moreSelected?.label ?? 'More areas to paint by'}
-                >
-                  <span className="block truncate" style={{maxWidth: 110}}>
-                    {moreSelected?.label ?? '…'}
-                  </span>
-                </SegmentedControl.Item>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content size="1" style={{maxWidth: MENU_MAX_WIDTH}}>
-                <DropdownMenu.Label>Whole areas</DropdownMenu.Label>
-                {moreAreas.map(option => (
-                  <DropdownMenu.Item
-                    key={option.value}
-                    title={option.label}
-                    onSelect={() => choose(option.value)}
-                  >
-                    <span className="block truncate" style={{maxWidth: MENU_MAX_WIDTH - 40}}>
-                      {option.label}
-                    </span>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          )}
         </SegmentedControl.Root>
+        {moreAreas.length > 0 && (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger disabled={readOnly}>
+              {/* Smaller and quieter than the segments until one of its areas
+                  is chosen; then it reads that area's name. */}
+              <Button
+                size="2"
+                variant={moreSelected ? 'solid' : 'soft'}
+                color={moreSelected ? undefined : 'gray'}
+                aria-label="More areas to paint by"
+                title={moreSelected?.label ?? 'More areas to paint by'}
+                className="cursor-pointer"
+                style={moreSelected ? undefined : {paddingInline: 0, width: 30}}
+              >
+                {moreSelected ? (
+                  <span className="block truncate" style={{maxWidth: 120}}>
+                    {moreSelected.label}
+                  </span>
+                ) : (
+                  '…'
+                )}
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content size="1" style={{maxWidth: MENU_MAX_WIDTH}}>
+              <DropdownMenu.Label>Whole areas</DropdownMenu.Label>
+              {moreAreas.map(option => (
+                <DropdownMenu.Item
+                  key={option.value}
+                  title={option.label}
+                  onSelect={() => choose(option.value)}
+                >
+                  <span className="block truncate" style={{maxWidth: MENU_MAX_WIDTH - 40}}>
+                    {option.label}
+                  </span>
+                </DropdownMenu.Item>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        )}
       </Flex>
-    </HelpTip>
+    </Flex>
   );
 };
