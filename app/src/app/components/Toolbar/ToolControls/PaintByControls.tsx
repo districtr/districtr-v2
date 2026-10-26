@@ -1,9 +1,8 @@
 'use client';
 import {Fragment, forwardRef} from 'react';
-import {Flex, Select, Text} from '@radix-ui/themes';
+import {DropdownMenu, Flex, SegmentedControl, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
-import {useOverlayStore} from '@/app/store/overlayStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useUiHintStore, useGuideTarget} from '@/app/store/uiHintStore';
 import {useFeatureFlagStore} from '@/app/store/featureFlagStore';
@@ -40,7 +39,8 @@ export const useCountyPaintAvailable = (): boolean => {
   return paintCounties && !isConnecticut && !isSingleCounty;
 };
 
-const ANYWHERE = 'anywhere';
+// The Paint by control's "…" segment: it opens the whole-areas menu.
+const MORE = 'more';
 // The list stays about as wide as the trigger; longer layer names end in an
 // ellipsis (full name on hover) instead of stretching the menu.
 const MENU_MAX_WIDTH = 240;
@@ -49,10 +49,10 @@ type Option = {value: string; label: string};
 type OptionGroup = {label?: string; options: Option[]};
 
 /** One line per layer: some overlay names carry a description after a tab. */
-const optionLabel = (name: string) => name.replace(/\s*\t\s*/g, ' · ');
+export const optionLabel = (name: string) => name.replace(/\s*\t\s*/g, ' · ');
 
 // forwardRef + rest props: HelpTip attaches its hover ref and handlers to its child.
-const LabeledSelect = forwardRef<
+export const LabeledSelect = forwardRef<
   HTMLDivElement,
   {
     label: string;
@@ -128,30 +128,30 @@ export const PaintBySelect: React.FC<{
 
   // "Precincts", "Block groups": the same names the break prompts use.
   const unitName = `${(parentUnit && GEO_UNIT_SINGULAR_NAMES[parentUnit]) || 'unit'}s`;
-  // Units the brush paints one at a time, then whole areas per footprint.
-  const groups: OptionGroup[] = [
-    {
-      label: 'Units',
-      options: [
-        {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
-        ...(superDraw && hasBlocks && !forInspector ? [{value: 'blocks', label: 'Blocks'}] : []),
-      ],
-    },
-    {
-      label: 'Whole areas',
-      options: [
-        ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
-        // Areas paint exactly by breaking edge units, a districts-mode flow.
-        ...(superDraw && !forInspector && mapMode === MAP_MODES.DISTRICTS
-          ? maskLayers
-              .filter(layer => layer.id !== COUNTY_SOURCE_ID)
-              .map(layer => ({value: paintByOverlay(layer.id), label: optionLabel(layer.name)}))
-          : []),
-      ],
-    },
+  const segments: Option[] = [
+    ...(superDraw && hasBlocks && !forInspector ? [{value: 'blocks', label: 'Blocks'}] : []),
+    {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
+    ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
   ];
-  const options = groups.flatMap(group => group.options);
-  if (options.length < 2) return null;
+  // Whole areas of a boundary layer, behind the "…" segment. They paint
+  // exactly by breaking edge units, a districts-mode flow.
+  const moreAreas: Option[] =
+    superDraw && !forInspector && mapMode === MAP_MODES.DISTRICTS
+      ? maskLayers
+          .filter(layer => layer.id !== COUNTY_SOURCE_ID)
+          .map(layer => ({value: paintByOverlay(layer.id), label: optionLabel(layer.name)}))
+      : [];
+  if (segments.length + moreAreas.length < 2) return null;
+  const moreSelected = moreAreas.find(option => option.value === paintBy);
+  const value = moreSelected
+    ? MORE
+    : segments.some(option => option.value === paintBy)
+      ? paintBy
+      : 'units';
+  const choose = (next: string) => {
+    if (next === 'counties') advanceGuide('county-brush');
+    setPaintBy(next as PaintBy);
+  };
 
   return (
     <HelpTip
@@ -162,51 +162,59 @@ export const PaintBySelect: React.FC<{
           : 'Choose what one brush stroke paints: single units, or whole counties at a time.'
       }
     >
-      <LabeledSelect
-        label={label}
-        value={options.some(option => option.value === paintBy) ? paintBy : 'units'}
-        groups={groups}
-        disabled={readOnly}
+      <Flex
+        direction="column"
+        gap="1"
         className={guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''}
-        onValueChange={value => {
-          if (value === 'counties') advanceGuide('county-brush');
-          setPaintBy(value as PaintBy);
-        }}
-      />
-    </HelpTip>
-  );
-};
-
-/** Paint within: the paint mask (Super Draw). Picking a layer arms area
- * selection (the map pill prompts for the click); Anywhere releases it. */
-export const PaintWithinSelect = () => {
-  const superDraw = useToolbarStore(state => state.superDraw);
-  const readOnly = useMapStore(state => state.mapStatus?.access === ACCESS_STATES.READ);
-  const maskLayers = useMaskLayers();
-  const maskLayerId = useOverlayStore(
-    state => state.paintConstraint?.overlayId ?? state.selectingLayerId
-  );
-  const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
-  const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
-  if (!superDraw || !maskLayers.length) return null;
-
-  return (
-    <HelpTip tip="paintMask">
-      <LabeledSelect
-        label="Paint within"
-        value={maskLayerId ?? ANYWHERE}
-        groups={[
-          {options: [{value: ANYWHERE, label: 'Anywhere'}]},
-          {
-            label: 'Inside one area of',
-            options: maskLayers.map(layer => ({value: layer.id, label: optionLabel(layer.name)})),
-          },
-        ]}
-        disabled={readOnly}
-        onValueChange={value =>
-          value === ANYWHERE ? clearPaintConstraint() : selectOverlayFeature(value)
-        }
-      />
+      >
+        <Text size="2">{label}</Text>
+        <SegmentedControl.Root
+          size="1"
+          value={value}
+          // No disabled prop on SegmentedControl: read-only maps just can't click.
+          style={readOnly ? {pointerEvents: 'none', opacity: 0.5} : undefined}
+          // The "…" segment only opens its menu; an empty value is a re-click.
+          onValueChange={next => next && next !== MORE && choose(next)}
+        >
+          {segments.map(option => (
+            <SegmentedControl.Item key={option.value} value={option.value}>
+              {option.label}
+            </SegmentedControl.Item>
+          ))}
+          {moreAreas.length > 0 && (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <SegmentedControl.Item
+                  value={MORE}
+                  // The menu trigger stamps its own data-state (open/closed) over
+                  // the segment's on/off; this keeps the pressed look and indicator.
+                  data-state={value === MORE ? 'on' : 'off'}
+                  aria-label="More areas to paint by"
+                  title={moreSelected?.label ?? 'More areas to paint by'}
+                >
+                  <span className="block truncate" style={{maxWidth: 110}}>
+                    {moreSelected?.label ?? '…'}
+                  </span>
+                </SegmentedControl.Item>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content size="1" style={{maxWidth: MENU_MAX_WIDTH}}>
+                <DropdownMenu.Label>Whole areas</DropdownMenu.Label>
+                {moreAreas.map(option => (
+                  <DropdownMenu.Item
+                    key={option.value}
+                    title={option.label}
+                    onSelect={() => choose(option.value)}
+                  >
+                    <span className="block truncate" style={{maxWidth: MENU_MAX_WIDTH - 40}}>
+                      {option.label}
+                    </span>
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          )}
+        </SegmentedControl.Root>
+      </Flex>
     </HelpTip>
   );
 };

@@ -80,6 +80,7 @@ export const testSelectors = {
 
   // Toolbar elements
   toolbar: '[data-testid="toolbar"]',
+  shatterTool: '[data-testid="shatter-tool"]',
   brushTool: '[data-testid="brush-tool"]',
   eraserTool: '[data-testid="eraser-tool"]',
   panTool: '[data-testid="pan-tool"]',

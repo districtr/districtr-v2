@@ -137,4 +137,14 @@ describe('mask layers', () => {
     state().toggleOverlay('School districts');
     expect(useMapControlsStore.getState().mapOptions.paintBy).toBe('units');
   });
+
+  test('Mask by shows only its layer and releases the current mask, without arming', () => {
+    state().enableOverlay('School districts');
+    mask('school');
+    state().setMaskBy('metro');
+    expect(state().maskByLayerId).toBe('metro');
+    expect([...state().enabledOverlayIds]).toEqual(['Metro areas']);
+    expect(state().paintConstraint).toBeNull();
+    expect(state().selectingLayerId).toBeNull();
+  });
 });

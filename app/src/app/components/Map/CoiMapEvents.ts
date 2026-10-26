@@ -23,6 +23,7 @@ import {
   getSelectingClickLayer,
   breakUnit,
   breakClickedUnitFromBlockView,
+  maskAreaAt,
   updateBlockViewCursor,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
@@ -103,6 +104,13 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
   const childOnly = mapStore.captiveIds.size > 0 || mapOptions.mode === 'break';
 
+  if (activeTool === ACTIVE_TOOLS.MASK) {
+    // Sets the mask, or moves it to the clicked area.
+    const [area] = maskAreaAt(e);
+    const {maskByLayerId} = useOverlayStore.getState();
+    if (area && maskByLayerId) setPaintConstraint(maskByLayerId, String(area.id));
+    return;
+  }
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],
@@ -153,6 +161,11 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   const hasCommunities = mapStore.communities.length > 0;
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
+  if (activeTool === ACTIVE_TOOLS.MASK) {
+    setHoverFeatures(maskAreaAt(e));
+    setTooltip(null);
+    return;
+  }
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],

@@ -74,6 +74,11 @@ export interface OverlayStore {
   enabledOverlayIds: Set<string>;
   paintConstraint: OverlayPaintConstraint | null;
   selectingLayerId: string | null;
+  /** The Mask tool's "Mask by" layer: clicking one of its areas sets the mask. */
+  maskByLayerId: string | null;
+  /** Choose the Mask tool's layer: shows only it (like arming a mask, and
+   * releasing any current one), without arming the one-shot selection. */
+  setMaskBy: (layerId: string) => void;
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
@@ -236,10 +241,17 @@ export const useOverlayStore = create(
       });
     },
 
+    maskByLayerId: null,
+    setMaskBy: layerId => {
+      get().selectOverlayFeature(layerId);
+      set({selectingLayerId: null, maskByLayerId: layerId});
+    },
+
     reset: () => {
       set({
         _idCache: new Map<string, boolean>(),
         _layersBeforeMask: null,
+        maskByLayerId: null,
         enabledOverlayIds: new Set<string>(),
         paintConstraint: null,
         selectingLayerId: null,

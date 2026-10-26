@@ -34,11 +34,10 @@ test.describe('Paint by blocks (breaking units)', () => {
     await navigateToMap(page, sharedDocumentId);
   });
 
-  // Paint by > Blocks replaced the Break tool: Paint/Erase first pick a unit to
-  // break (the internal 'shatter' tool), then paint its blocks.
+  // The Break button is Paint by blocks: Paint first picks a unit to break
+  // (the internal 'shatter' tool), then paints its blocks.
   const paintByBlocks = async (page: Page) => {
-    await page.getByRole('combobox', {name: 'Paint by'}).click();
-    await page.getByRole('option', {name: 'Blocks'}).click();
+    await page.locator(testSelectors.shatterTool).click();
   };
 
   test('Paint by Blocks has Paint pick a unit to break', async ({page}) => {
@@ -47,9 +46,8 @@ test.describe('Paint by blocks (breaking units)', () => {
       test.skip(true, 'Map not available');
       return;
     }
-    const brushTool = page.locator(testSelectors.brushTool);
-    await expect(brushTool).toBeEnabled({timeout: 45000});
-    await brushTool.click();
+    const breakTool = page.locator(testSelectors.shatterTool);
+    await expect(breakTool).toBeEnabled({timeout: 45000});
     await paintByBlocks(page);
 
     await expect(page.getByTestId('block-mode-pill')).toContainText('to break down into blocks');

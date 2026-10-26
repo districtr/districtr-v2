@@ -4,7 +4,7 @@ import {Box, Flex} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import {selectShownTool, useMapControlsStore} from '@store/mapControlsStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import {PaintBySelect, PaintWithinSelect} from '@components/Toolbar/ToolControls/PaintByControls';
+import {PaintBySelect} from '@components/Toolbar/ToolControls/PaintByControls';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
@@ -77,7 +77,6 @@ export const ToolControlsScaffold = () => {
     <Flex direction="column" gapY="4" width="100%">
       <Flex direction="row" gapX="4" gapY="2" wrap="wrap" align="start">
         <PaintBySelect />
-        <PaintWithinSelect />
         <Box className="flex-grow" style={{flexGrow: 1, ...disabledSectionStyle(sliderDisabled)}}>
           <BrushSizeSelector />
         </Box>

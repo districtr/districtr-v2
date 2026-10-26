@@ -44,7 +44,7 @@ export const ToolButtons: React.FC = () => {
   const historyTools = activeTools.filter(tool => HISTORY_TOOLS.includes(tool.mode));
   const renderTool = (tool: ActiveToolConfig, buttonStyle: React.CSSProperties) => {
     const IconComponent = tool.icon;
-    const isActive = shownTool === tool.mode;
+    const isActive = tool.isActive ?? shownTool === tool.mode;
     const isHistoryTool = HISTORY_TOOLS.includes(tool.mode);
     const button = (
       <IconButton

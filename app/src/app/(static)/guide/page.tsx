@@ -341,11 +341,12 @@ export default function GuidePage() {
             </Heading>
             <Text size="3">
               If you need to use smaller units of geography to balance the population of your
-              districts, set “Paint by” to “Blocks.” Then click on a unit you want to break down to
-              smaller pieces, which allows you to paint individual blocks within the precinct or
-              block group. Click another unit to move on to its blocks, or press Esc to leave. You
-              can see the population numbers on the blocks from the pop-up below, or by selecting
-              the “Population labels on exposed blocks” option under the “Map Layers” tab.
+              districts, click the break icon on the toolbar (or set “Paint by” to “Blocks”). Then
+              click on a unit you want to break down to smaller pieces, which allows you to paint
+              individual blocks within the precinct or block group. Click another unit to move on to
+              its blocks, or press Esc to leave. You can see the population numbers on the blocks
+              from the pop-up below, or by selecting the “Population labels on exposed blocks”
+              option under the “Map Layers” tab.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/shatter.webm`}
@@ -373,11 +374,12 @@ export default function GuidePage() {
               Super Draw adds two more ways to use the map&apos;s boundary layers, such as school
               districts or metro areas. Under “Paint by,” choose one, then click an area to paint
               exactly that area: units on its edge are broken into blocks, and only the blocks
-              inside it are painted. Under “Paint within,” choose one, then click an area on the
-              map: Paint and Erase then only change units inside that area, until you choose
-              “Anywhere” or press Esc. Only that area type stays shown while you paint within it,
-              and the others come back afterward. You can also start from the “Mask” button next to
-              an area type&apos;s toggle under “Map Layers/Boundaries and areas.”
+              inside it are painted (the “…” option lists the area types). The mask tool on the
+              toolbar limits painting to one area: choose an area type under “Mask by,” then click
+              an area on the map. Paint and Erase then only change units inside it until you click
+              “Release mask” or press Esc. Only that area type stays shown while you mask, and the
+              others come back afterward. You can also start from the “Mask” button next to an area
+              type&apos;s toggle under “Map Layers/Boundaries and areas.”
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}

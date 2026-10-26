@@ -182,7 +182,7 @@ export const helpTipContent = {
   },
   paintMask: {
     title: 'Masking painting to an area',
-    text: 'Pick a boundary layer, then click one of its areas on the map (a county, a district, a metro area…). Paint and Erase then only change units inside that area until you choose Anywhere or press Esc.',
+    text: 'With the Mask tool, choose a layer under Mask by, then click one of its areas on the map (a county, a district, a metro area…). Paint and Erase then only change units inside that area until you release the mask or press Esc.',
     videoFile: 'mask_area.webm',
     guideAnchor: 'additional-controls',
   },
@@ -192,7 +192,7 @@ export const helpTipContent = {
   // link, so nothing ever needs to travel into the card.
   superDraw: {
     title: 'Super Draw',
-    text: 'Super Draw unlocks additional tools for fine-tuning your districts, including painting by blocks or by area and a side-by-side view of demographic or election data next to your map.',
+    text: 'Super Draw unlocks additional tools for fine-tuning your districts, including the break and mask tools, painting by area, and a side-by-side view of demographic or election data next to your map.',
     guideAnchor: 'super-draw',
   },
   editMapDetails: {
