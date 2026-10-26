@@ -11,7 +11,7 @@ import csv
 import dataclasses
 import logging
 
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import ClassVar, Iterable, NewType, cast
 
@@ -61,11 +61,73 @@ def demographic_columns_from_columns(columns: Iterable[str]) -> list[Demographic
     ]
 
 
-_transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
+# WGS 84 / UTM zone EPSG code per state FIPS, for compactness metrics. Each zone is
+# the most common one among the state's VTD centroids (GerryChain's `reprojected()`
+# rule). UTM is conformal, so Polsby-Popper/Reock keep their shape; the previous
+# EPSG:5070 is equal-area, which distorts shape (badly outside CONUS, e.g. AK, PR).
+STATE_UTM_EPSG: dict[str, int] = {
+    "01": 32616,  # AL
+    "02": 32606,  # AK
+    "04": 32612,  # AZ
+    "05": 32615,  # AR
+    "06": 32611,  # CA
+    "08": 32613,  # CO
+    "09": 32618,  # CT
+    "10": 32618,  # DE
+    "11": 32618,  # DC
+    "12": 32617,  # FL
+    "13": 32616,  # GA
+    "15": 32604,  # HI
+    "16": 32611,  # ID
+    "17": 32616,  # IL
+    "18": 32616,  # IN
+    "19": 32615,  # IA
+    "20": 32614,  # KS
+    "21": 32616,  # KY
+    "22": 32615,  # LA
+    "23": 32619,  # ME
+    "24": 32618,  # MD
+    "25": 32619,  # MA
+    "26": 32617,  # MI
+    "27": 32615,  # MN
+    "28": 32616,  # MS
+    "29": 32615,  # MO
+    "30": 32612,  # MT
+    "31": 32614,  # NE
+    "32": 32611,  # NV
+    "33": 32619,  # NH
+    "34": 32618,  # NJ
+    "35": 32613,  # NM
+    "36": 32618,  # NY
+    "37": 32617,  # NC
+    "38": 32614,  # ND
+    "39": 32617,  # OH
+    "40": 32614,  # OK
+    "41": 32610,  # OR
+    "42": 32618,  # PA
+    "44": 32619,  # RI
+    "45": 32617,  # SC
+    "46": 32614,  # SD
+    "47": 32616,  # TN
+    "48": 32614,  # TX
+    "49": 32612,  # UT
+    "50": 32618,  # VT
+    "51": 32618,  # VA
+    "53": 32610,  # WA
+    "54": 32617,  # WV
+    "55": 32616,  # WI
+    "56": 32613,  # WY
+    "72": 32619,  # PR
+}
 
 
-def _reproject(coords: np.ndarray) -> np.ndarray:
-    x, y = _transformer.transform(coords[:, 0], coords[:, 1])
+@lru_cache(maxsize=None)
+def _transformer(epsg: int) -> pyproj.Transformer:
+    return pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+
+
+def _reproject(coords: np.ndarray, epsg: int) -> np.ndarray:
+    x, y = _transformer(epsg).transform(coords[:, 0], coords[:, 1])
     return np.stack([x, y], axis=1)
 
 
@@ -90,15 +152,22 @@ class DocumentEvaluationContext:
 
     @cached_property
     def projected_district_geometries(self) -> dict[DistrictId, shapely.Geometry]:
-        """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
-        metrics."""
+        """Well-formed per-zone geometries projected to the state's UTM zone
+        (`STATE_UTM_EPSG`), shared by compactness metrics. Multi-state maps use the
+        zone of their first state."""
+        statefps = self._districtr_map.statefps
+        epsg = STATE_UTM_EPSG.get(statefps[0]) if statefps else None
+        if epsg is None:
+            raise ValueError(
+                f"No UTM zone for statefps {statefps} of document '{self.document_id}'."
+            )
         districts = [
             d for d in self.district_stats if d.zone is not None and d.geometry
         ]
         shapes = np.array(
             [shapely.geometry.shape(d.geometry) for d in districts], dtype=object
         )
-        projected = shapely.transform(shapes, _reproject)
+        projected = shapely.transform(shapes, lambda c: _reproject(c, epsg))
         return {
             cast(DistrictId, d.zone): geom
             for d, geom in zip(districts, projected)

@@ -14,6 +14,7 @@ export const CANONICAL_LAYER_IDS = {
   MAP_ANCHORS: {
     HOVER: 'anchor-hover',
     REFERENCE: 'anchor-reference',
+    OVERLAY_LABELS: 'anchor-overlay-labels',
     OVERLAYS: 'anchor-overlays',
     COUNTY_BOUNDARIES: 'anchor-county-boundaries',
     GEOMETRY_OUTLINE: 'anchor-geometry-outline',
@@ -40,6 +41,7 @@ export const CANONICAL_LAYER_IDS = {
     PARENT: {
       BASE: 'blocks',
       HOVER: 'blocks-hover',
+      ASSIGNMENT: 'blocks-assignment',
       HIGHLIGHT: 'blocks-highlight',
       POINTS: 'blocks-points',
       SIZED_CIRCLES: 'blocks-sized-circles',
@@ -49,6 +51,7 @@ export const CANONICAL_LAYER_IDS = {
     CHILD: {
       BASE: 'blocks-child',
       HOVER: 'blocks-child-hover',
+      ASSIGNMENT: 'blocks-child-assignment',
       HIGHLIGHT: 'blocks-highlight-child',
       POINTS: 'blocks-points-child',
       SIZED_CIRCLES: 'blocks-sized-circles-child',
@@ -59,6 +62,7 @@ export const CANONICAL_LAYER_IDS = {
   PUBLIC: {
     FILL: 'public-district-fill',
     OUTLINE: 'public-district-outline',
+    MASK: 'public-district-hover-mask',
     HIGHLIGHT: 'public-district-highlight',
   },
   ZONE_LABELS: {
@@ -66,6 +70,9 @@ export const CANONICAL_LAYER_IDS = {
     BACKGROUND: 'ZONE_LABEL_BG',
     LOCK: 'ZONE_LOCK_LABEL',
     COMMENT_INDICATOR: 'ZONE_COMMENT_INDICATOR',
+    // Invisible; reserves badge-sized collision space. Not in ZONE_LABEL_LAYER_LIST
+    // so hover/click hit areas stay the size of the badge.
+    COLLIDER: 'ZONE_LABEL_COLLIDER',
   },
 } as const;
 
@@ -83,6 +90,8 @@ export const BLOCK_POINTS_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.POINT
 export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.HIGHLIGHT;
 export const BLOCK_HOVER_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.HOVER;
 export const BLOCK_HOVER_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.HOVER;
+export const BLOCK_ASSIGNMENT_LAYER_ID = CANONICAL_LAYER_IDS.BLOCK.PARENT.ASSIGNMENT;
+export const BLOCK_ASSIGNMENT_LAYER_ID_CHILD = CANONICAL_LAYER_IDS.BLOCK.CHILD.ASSIGNMENT;
 
 export const SELECTION_POINTS_SOURCE_ID = CANONICAL_LAYER_IDS.SOURCES.SELECTION_POINTS_PARENT;
 export const SELECTION_POINTS_SOURCE_ID_CHILD = CANONICAL_LAYER_IDS.SOURCES.SELECTION_POINTS_CHILD;
@@ -103,6 +112,8 @@ export const MAP_LAYER_ANCHOR_IDS = {
   // External geographic context for evaluating the redistricting plan (e.g. population labels).
   // Sits above all depicting layers so reference lines remain visible through fills.
   reference: CANONICAL_LAYER_IDS.MAP_ANCHORS.REFERENCE,
+  // Text overlays: above every line/fill overlay regardless of toggle/mount order.
+  overlayLabels: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAY_LABELS,
   overlays: CANONICAL_LAYER_IDS.MAP_ANCHORS.OVERLAYS,
   // County boundary lines: below overlays (legislative/school districts etc.)
   // but above demography and zone fills so they stay visible through them.
@@ -151,9 +162,9 @@ export const INTERACTIVE_LAYERS: string[] = [
   BLOCK_HOVER_LAYER_ID_CHILD,
   CANONICAL_LAYER_IDS.PUBLIC.FILL,
 ];
-export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
+export const PARENT_LAYERS: string[] = [BLOCK_LAYER_ID, BLOCK_ASSIGNMENT_LAYER_ID];
 export const CHILD_LAYERS: string[] = [
   BLOCK_LAYER_ID_CHILD,
-  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_ASSIGNMENT_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 ] as string[];

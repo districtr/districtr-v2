@@ -56,7 +56,7 @@ export function createNetwork() {
       })
   );
 
-  // Free gateway endpoint: graph pickles and thumbnails move between the
+  // Free gateway endpoint: graph npz files and thumbnails move between the
   // backend and S3 without touching the public internet.
   new aws.ec2.VpcEndpoint(`${name}-s3-endpoint`, {
     vpcId: vpc.id,

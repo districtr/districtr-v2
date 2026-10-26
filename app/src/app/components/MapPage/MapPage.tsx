@@ -1,6 +1,5 @@
 'use client';
 import React, {Suspense, useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
 import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
@@ -156,7 +155,6 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         <MobileToolbar />
         <MapTooltip />
       </div>
-      <MapContextMenu />
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
