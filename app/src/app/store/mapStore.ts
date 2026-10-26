@@ -283,6 +283,14 @@ export interface MapStore {
    * TODO: Multiple break/shatter is not yet implemented.
    */
   handleShatter: (features: Array<Partial<MapGeoJSONFeature>>) => void;
+  /** The data half of a break, with no block view: fetch the units' child
+   * edges in one call, record the shatter state, and give each block its
+   * parent's assignment. Pauses the undo recorder (the next ingest makes the
+   * break plus its paint one undo step). Returns the edges, or null after
+   * notifying on failure. The caller owns the map lock. */
+  breakUnits: (
+    geoids: string[]
+  ) => Promise<Array<{parent_path: string; child_path: string}> | null>;
   // LOCK
   // TODO: Refactor to something like this
   // featureStates: {
@@ -1129,21 +1137,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           });
       }
     },
-    handleShatter: async features => {
-      const {mapDocument, mapLock, setMapLock} = get();
-      if (!features.length) {
-        setMapLock(null);
-        return;
-      }
-      if (mapLock || !mapDocument?.districtr_map_slug) {
-        return;
-      }
-      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+    breakUnits: async geoids => {
+      const {mapDocument} = get();
+      if (!mapDocument?.districtr_map_slug || !geoids.length) return null;
+      const {mapMode} = useMapControlsStore.getState();
       temporalManager.pause(mapMode);
-      setMapLock({isLocked: true, reason: 'Breaking districts'});
-      // set BLOCK_LAYER_ID based on features[0] to focused true
-
-      const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
@@ -1152,7 +1150,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         return undefined;
       });
       if (!edgesResult?.length) {
-        setMapLock(null);
         temporalManager.resume(mapMode);
         set({
           notification: {
@@ -1162,7 +1159,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
         });
-        return;
+        return null;
       }
       // TODO Need to return child edges even if the parent is already shattered
       // currently returns nothing
@@ -1175,14 +1172,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
-      let captiveIds = new Set<string>();
       let parentToChild = new Map(currentParentToChild);
       let childToParent = new Map(currentChildToParent);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
         children.add(edge.child_path);
-        captiveIds.add(edge.child_path);
         childToParent.set(edge.child_path, edge.parent_path);
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
@@ -1244,6 +1239,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           zoneAssignments,
         });
       }
+      return edgesResult;
+    },
+    handleShatter: async features => {
+      const {mapDocument, mapLock, setMapLock} = get();
+      if (!features.length) {
+        setMapLock(null);
+        return;
+      }
+      if (mapLock || !mapDocument?.districtr_map_slug) {
+        return;
+      }
+      const {setMapOptions} = useMapControlsStore.getState();
+      setMapLock({isLocked: true, reason: 'Breaking districts'});
+      const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
+      const edgesResult = await get().breakUnits(geoids);
+      if (!edgesResult) {
+        setMapLock(null);
+        return;
+      }
+      const captiveIds = new Set(edgesResult.map(edge => edge.child_path));
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
       // Pad the unit's bbox so the fitted block view has breathing room around

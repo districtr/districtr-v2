@@ -8,6 +8,7 @@ import {PaintBySelect, PaintWithinSelect} from '@components/Toolbar/ToolControls
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
+import {overlayIdOf} from '@constants/map/paintBy';
 import {MAP_MODES} from '@constants/map/mode';
 
 // Sidebar container width (it defaults to 35vw and is user-resizable) at which
@@ -61,7 +62,12 @@ export const ToolControlsScaffold = () => {
 
   // Picking a unit is a single click, so the brush size doesn't apply yet; the
   // zone can still be set before the first stroke inside it.
-  const sliderDisabled = activeTool === ACTIVE_TOOLS.PAN || pickingUnit;
+  // Painting a whole overlay area is a click on it, also with no brush size.
+  const paintingByArea = useMapControlsStore(state => !!overlayIdOf(state.mapOptions.paintBy));
+  const sliderDisabled =
+    activeTool === ACTIVE_TOOLS.PAN ||
+    pickingUnit ||
+    (paintingByArea && activeTool !== ACTIVE_TOOLS.INSPECTOR);
   const zonePickerDisabled =
     activeTool === ACTIVE_TOOLS.PAN ||
     (activeTool === ACTIVE_TOOLS.ERASER && mapMode === MAP_MODES.DISTRICTS);

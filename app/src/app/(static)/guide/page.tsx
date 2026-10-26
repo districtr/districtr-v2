@@ -371,12 +371,13 @@ export default function GuidePage() {
             />
             <Text size="3">
               Super Draw adds two more ways to use the map&apos;s boundary layers, such as school
-              districts or metro areas. Under “Paint by,” choose one to paint a whole area of it
-              with a single click. Under “Paint within,” choose one, then click an area on the map:
-              Paint and Erase then only change units inside that area, until you choose “Anywhere”
-              or press Esc. Only that area type stays shown while you paint within it, and the
-              others come back afterward. You can also start from the “Mask” button next to an area
-              type&apos;s toggle under “Map Layers/Boundaries and areas.”
+              districts or metro areas. Under “Paint by,” choose one, then click an area to paint
+              exactly that area: units on its edge are broken into blocks, and only the blocks
+              inside it are painted. Under “Paint within,” choose one, then click an area on the
+              map: Paint and Erase then only change units inside that area, until you choose
+              “Anywhere” or press Esc. Only that area type stays shown while you paint within it,
+              and the others come back afterward. You can also start from the “Mask” button next to
+              an area type&apos;s toggle under “Map Layers/Boundaries and areas.”
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/mask_area.webm`}

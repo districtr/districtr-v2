@@ -5,7 +5,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesIntersectingCounties} from './getFeaturesIntersectingCounties';
-import {getFeaturesInOverlayAreas} from './getFeaturesInOverlayAreas';
+import {getOverlayAreaUnderCursor} from './paintOverlayArea';
 
 const initialMap = useMapStore.getState();
 const initialControls = useMapControlsStore.getState();
@@ -62,5 +62,5 @@ test('Counties releases a mask; an overlay area shows only its layer', () => {
   setPaintBy(paintByOverlay('sd'));
   expect([...useOverlayStore.getState().enabledOverlayIds]).toEqual(['School districts']);
   expect(controls().mapOptions.showCountyBoundaries).toBe(false);
-  expect(controls().paintFunction).toBe(getFeaturesInOverlayAreas);
+  expect(controls().paintFunction).toBe(getOverlayAreaUnderCursor);
 });

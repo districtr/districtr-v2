@@ -15,6 +15,7 @@ import {useMaskLayers} from '@/app/hooks/useMaskLayers';
 import type {PaintBy} from '@/app/store/types';
 import {ACCESS_STATES} from '@constants/document/state';
 import {COUNTY_SOURCE_ID} from '@constants/map/layerIds';
+import {MAP_MODES} from '@constants/map/mode';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {HelpTip} from '@components/HelpTip/HelpTip';
 
@@ -108,11 +109,13 @@ LabeledSelect.displayName = 'LabeledSelect';
  * or whole areas of a boundary overlay such as school districts. Hidden when
  * there's nothing to choose between.
  */
-export const PaintBySelect: React.FC<{label?: string; offerBlocks?: boolean}> = ({
-  label = 'Paint by',
-  offerBlocks = true,
-}) => {
+export const PaintBySelect: React.FC<{
+  label?: string;
+  /** Inspect by: blocks and overlay areas are Paint/Erase modes, not readings. */
+  forInspector?: boolean;
+}> = ({label = 'Paint by', forInspector = false}) => {
   const superDraw = useToolbarStore(state => state.superDraw);
+  const mapMode = useMapControlsStore(state => state.mapMode);
   const parentUnit = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
   const hasBlocks = useMapStore(state => !!state.mapDocument?.child_layer);
   const readOnly = useMapStore(state => state.mapStatus?.access === ACCESS_STATES.READ);
@@ -131,14 +134,15 @@ export const PaintBySelect: React.FC<{label?: string; offerBlocks?: boolean}> = 
       label: 'Units',
       options: [
         {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
-        ...(superDraw && hasBlocks && offerBlocks ? [{value: 'blocks', label: 'Blocks'}] : []),
+        ...(superDraw && hasBlocks && !forInspector ? [{value: 'blocks', label: 'Blocks'}] : []),
       ],
     },
     {
       label: 'Whole areas',
       options: [
         ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
-        ...(superDraw
+        // Areas paint exactly by breaking edge units, a districts-mode flow.
+        ...(superDraw && !forInspector && mapMode === MAP_MODES.DISTRICTS
           ? maskLayers
               .filter(layer => layer.id !== COUNTY_SOURCE_ID)
               .map(layer => ({value: paintByOverlay(layer.id), label: optionLabel(layer.name)}))

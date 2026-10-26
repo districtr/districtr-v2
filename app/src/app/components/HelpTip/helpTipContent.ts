@@ -67,7 +67,7 @@ export const helpTipContent = {
   // Draw mode passes its own shorter text (no blocks or overlay areas there).
   paintBy: {
     title: 'Paint by',
-    text: 'Choose what one brush stroke paints: single units, whole counties, or whole areas such as school districts. Blocks lets you paint inside one unit: click a unit to break it into blocks, paint them, then click another unit to move on.',
+    text: 'Choose what one brush stroke paints: single units, or whole counties. Blocks lets you paint inside one unit: click a unit to break it into blocks, paint them, then click another unit to move on. A boundary layer such as school districts paints one whole area per click, exactly: units on its edge are broken and only their blocks inside it are painted.',
     videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on painting by county',

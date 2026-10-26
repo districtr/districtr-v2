@@ -35,6 +35,8 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {filterFeatures} from '../map/filterFeatures';
+import {paintOverlayArea} from '../map/paintOverlayArea';
+import {overlayIdOf} from '@constants/map/paintBy';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -189,6 +191,16 @@ export const updateBlockViewCursor = (e: MapLayerMouseEvent | MapLayerTouchEvent
   if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
 };
 
+/** Paint by overlay area is a click tool for Paint/Erase: hover highlights the
+ * area, a click paints it (paintOverlayArea), and there's no drag stroke. */
+const isPaintingByArea = () => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  return (
+    (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) &&
+    !!overlayIdOf(mapOptions.paintBy)
+  );
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -264,6 +276,15 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     if (features.length > 0) {
       setPaintConstraint(selectingLayerId, features[0].id as string);
       setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    }
+    return;
+  }
+  if (isPaintingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    if (area && canMutateAssignments()) {
+      paintOverlayArea(mapRef, area, features =>
+        handleFeatureSelection(features, useMapStore.getState(), sourceLayer, mapRef)
+      );
     }
     return;
   }
@@ -352,6 +373,9 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
     mapRef.dragPan.enable();
+  } else if (isPaintingByArea()) {
+    // A click tool: no stroke, and dragging pans.
+    mapRef.dragPan.enable();
   } else if (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) {
     if (!canMutateAssignments()) {
       mapRef.dragPan.enable();
@@ -368,6 +392,7 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   const {activeTool, setIsPainting} = useMapControlsStore.getState();
   if (
     (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    isPaintingByArea() ||
     !canMutateAssignments()
   )
     return;
@@ -460,6 +485,11 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   }
   if (!isBrushingTool) {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    setTooltip(null);
+    return;
+  }
+  if (isPaintingByArea()) {
+    setHoverFeatures(paintFunction(mapRef, e, brushSize) ?? EMPTY_FEATURE_ARRAY);
     setTooltip(null);
     return;
   }

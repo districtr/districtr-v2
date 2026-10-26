@@ -6,7 +6,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getOverlayName, useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
-import {getFeaturesInOverlayAreas} from '@utils/map/getFeaturesInOverlayAreas';
+import {getOverlayAreaUnderCursor} from '@utils/map/paintOverlayArea';
 
 /** The brush's feature picker for a `Paint by` value. Blocks use the plain
  * bbox brush: inside a broken unit the brush is already confined to it. */
@@ -14,7 +14,7 @@ export const paintFunctionFor = (paintBy: PaintBy | undefined): PaintEventHandle
   paintBy === 'counties'
     ? getFeaturesIntersectingCounties
     : overlayIdOf(paintBy)
-      ? getFeaturesInOverlayAreas
+      ? getOverlayAreaUnderCursor
       : getFeaturesInBbox;
 
 /**
