@@ -1,3 +1,4 @@
+import type * as maplibregl from 'maplibre-gl';
 import {getLayerFill} from '@constants/map/layerStyle';
 import {PARENT_LAYERS, CHILD_LAYERS, BLOCK_SOURCE_ID} from '@constants/map/layerIds';
 import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
@@ -430,9 +431,9 @@ export class MapRenderSubscriber {
       return;
     }
 
-    const featureStateCache = this.mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = this.mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     const featureStateChangesCache =
-      this.mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+      this.mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().stateChanges;
     if (!featureStateCache || !mapState.mapDocument) return;
     const mapDocument = mapState.mapDocument;
 
@@ -697,7 +698,7 @@ export class MapRenderSubscriber {
     const mapState = this.useMapStore.getState();
     const {isPainting, mapMode} = this.useMapControlsStore.getState();
     if (!mapRef || !mapState.mapDocument?.document_id || isPainting) return;
-    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     if (!featureStateCache) return;
 
     if (
