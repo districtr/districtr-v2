@@ -193,8 +193,6 @@ python cli.py create-districtr-map \
     --tiles-s3-path path/to/my/joined/tiles.pmtiles
 ```
 
-5. Create parent child edges by running `python cli.py create-parent-child-edges --districtr-map gerrydb_layer_name`
-
 You're done! (Assuming you also created your tilesets. See pipelines CLI for that.)
 
 ### Batch loading shatterable districtr maps

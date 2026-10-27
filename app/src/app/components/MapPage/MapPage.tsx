@@ -1,6 +1,5 @@
 'use client';
 import React, {Suspense, useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
 import {MainMap} from '@components/Map/MainMap';
 import {PublicMap} from '@components/Map/PublicMap';
 import {DemographicMap} from '@components/Map/DemographicMap';
@@ -20,6 +19,7 @@ import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import {RepairAssignmentsModal} from '../RepairAssignmentsModal';
 import {ZoneDescriptionModal} from '@components/Map/Tooltip/ZoneDescriptionModal';
 import {migrateUserMapsFromLocalStorage} from '@/app/utils/idb/migrateUserMaps';
 import {isUUID} from '@/app/utils/metadata/isUUID';
@@ -155,10 +155,10 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
         <MobileToolbar />
         <MapTooltip />
       </div>
-      <MapContextMenu />
       <AppNotification />
       {conflictModal}
       <SaveConflictModal />
+      <RepairAssignmentsModal />
       <ZoneDescriptionModal />
     </div>
   );

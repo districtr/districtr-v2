@@ -6,7 +6,7 @@ is no longer read or written. It held only derived data, so the downgrade
 recreates it empty and it refills on demand.
 
 Revision ID: 55d7b369ed57
-Revises: f1c6a3d85b20
+Revises: bf8c58301816
 Create Date: 2026-10-01
 
 """
@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSON
 
 # revision identifiers, used by Alembic.
 revision: str = "55d7b369ed57"
-down_revision: Union[str, None] = "f1c6a3d85b20"
+down_revision: Union[str, None] = "bf8c58301816"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

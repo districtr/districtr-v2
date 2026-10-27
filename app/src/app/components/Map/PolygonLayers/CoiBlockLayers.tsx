@@ -80,9 +80,9 @@ export const CoiBlockLayers: React.FC<{
         type="fill"
         layout={{visibility: 'visible'}}
         paint={{
-          // Keep a canonical interactive layer for brush hit-testing.
-          'fill-opacity': 0.001,
-          // Must stay visually transparent because shared map subscriptions mutate this layer opacity.
+          // Hit-testing only: MapLibre skips drawing a zero-opacity fill but still
+          // queries it.
+          'fill-opacity': 0,
           'fill-color': 'rgba(0,0,0,0)',
         }}
       />

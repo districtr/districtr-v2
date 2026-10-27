@@ -6,12 +6,26 @@ from app.core.config import settings
 engine = create_engine(
     str(settings.SQLALCHEMY_DATABASE_URI),
     echo=settings.ECHO_DB,
-    # 60/task; RDS max_connections ~900 caps us at ~14 tasks. Keep in step
+    # 60 per worker process; the Dockerfile runs 2 uvicorn workers, so
+    # 120/task, and RDS max_connections ~900 caps us at ~7 tasks. Keep in step
     # with the anyio threadpool limiter (app/main.py lifespan).
     pool_size=40,
     max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=3600,
+    connect_args={
+        # Server side: a backend whose client vanished without closing (host
+        # died, network partition) keeps its locks, including the
+        # session-level evaluation lock, until TCP gives up, ~2h at Linux
+        # defaults. Probing after 60s idle bounds that to ~2 min.
+        "options": "-c tcp_keepalives_idle=60 -c tcp_keepalives_interval=10 "
+        "-c tcp_keepalives_count=6",
+        # Client side: the same bound for a server that vanished mid-request.
+        "keepalives": 1,
+        "keepalives_idle": 60,
+        "keepalives_interval": 10,
+        "keepalives_count": 6,
+    },
 )
 
 
