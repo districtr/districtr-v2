@@ -1,5 +1,5 @@
 'use client';
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import {
   Box,
@@ -11,13 +11,22 @@ import {
   Select,
   Separator,
   Spinner,
+  Switch,
   Text,
 } from '@radix-ui/themes';
 import {Cross2Icon, InfoCircledIcon, TriangleRightIcon} from '@radix-ui/react-icons';
 import {ParentSize} from '@visx/responsive';
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@utils/elections';
-import {useEnsembleSegment, useEnsembleSummary} from './ensembleData';
+import {
+  ensembleExtremeThumbUrl,
+  useEnsembleBounds,
+  useEnsembleJointIndex,
+  useEnsembleSegment,
+  useEnsembleSummary,
+} from './ensembleData';
+import {isRelevantObjective, objectiveColor, objectiveRank} from './ensembleExtremes';
+import type {EnsembleAnalysis} from './ensembleTypes';
 import {
   CATEGORY_LABELS,
   findEnsembleMetric,
@@ -30,7 +39,8 @@ import {
 import {compareToEnsemble} from '@utils/ensembleStats';
 import {EnsembleComparisonText} from './EnsembleComparisonText';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
-import {EnsembleHistogram} from './EnsembleHistogram';
+import {EnsembleHistogram, type HistogramExtreme} from './EnsembleHistogram';
+import {JointSection, resolvePairs} from './JointSection';
 import {SegmentTables} from './SegmentTables';
 import {SegmentThumbnail} from './SegmentThumbnail';
 
@@ -42,9 +52,10 @@ const CHART_HEIGHT = 320;
 /** The histogram stops short of the dialog's full width; wider bars than this
  * read as blocks rather than a distribution. */
 const CHART_MAX_WIDTH = 760;
-/** Which of the two collapsible sections are open, remembered per browser. */
+/** Which of the collapsible sections are open, remembered per browser. */
 const SECTIONS_KEY = 'districtr-ensemble-modal-sections';
-const DEFAULT_SECTIONS = ['demonstration'];
+const JOINT_SECTION = 'joint';
+const DEFAULT_SECTIONS = ['demonstration', JOINT_SECTION];
 
 const readStoredSections = (): string[] => {
   try {
@@ -93,15 +104,20 @@ export interface EnsembleModalProps {
   focus?: EnsembleMetricFocus | null;
   /** The reader's own plan, for the "Evaluated plan" marker. */
   evaluation?: DocumentEvaluation;
+  /** Optional files the preset's folder holds, from the package index. */
+  analysis?: EnsembleAnalysis;
 }
 
 /**
  * The explanation behind the ensemble comparison: how the plans are made, a
- * hundred consecutive plans to look at, and the full distribution of any metric
- * with the reader's plan marked on it.
+ * hundred consecutive plans to look at, the full distribution of any metric
+ * with the reader's plan marked on it, and, where the package holds them, the
+ * extreme plans a search found and the joint density of pairs of metrics.
  *
  * The segment and its thumbnails are an order of magnitude larger than the
- * summary the panel loads, so they are fetched only once this is open.
+ * summary the panel loads, so they are fetched only once this is open. Each
+ * analysis file is read only when the index flags it, and an absent one
+ * leaves its part of the modal out.
  */
 export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   open,
@@ -112,11 +128,20 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   nPlans,
   focus,
   evaluation,
+  analysis,
 }) => {
   const summaryQuery = useEnsembleSummary(moduleSlug, presetKey, open);
   const segmentQuery = useEnsembleSegment(moduleSlug, presetKey, open);
+  const boundsQuery = useEnsembleBounds(moduleSlug, presetKey, open && !!analysis?.bounds);
+  const jointIndexQuery = useEnsembleJointIndex(moduleSlug, presetKey, open && !!analysis?.joint);
   const summary = summaryQuery.data;
   const segment = segmentQuery.data;
+  const bounds = boundsQuery.data;
+  const jointPairs = useMemo(
+    () => resolvePairs(jointIndexQuery.data?.pairs ?? []),
+    [jointIndexQuery.data]
+  );
+  const [showAllExtremes, setShowAllExtremes] = useState(false);
 
   const [selection, setSelection] = useState<EnsembleMetricFocus | null>(focus ?? null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -175,6 +200,44 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   const elections = summary?.elections ?? [];
 
   const substitutions = {plans: planCountText, preset: presetLabel};
+  const stepLabel = fillEnsembleText(ENSEMBLE_MODAL_TEXT.stepLabel, {
+    step: stepNumber.toLocaleString(),
+  });
+
+  // Each objective's best plan, marked at its own value of the charted series.
+  const objectives = bounds?.objectives ?? [];
+  const hasMoreExtremes = objectives.some(
+    objective => !isRelevantObjective(metric.id, objective.key)
+  );
+  const metricId = metric.id;
+  const election = resolved.election;
+  const extremes = useMemo((): HistogramExtreme[] => {
+    const def = findEnsembleMetric(metricId);
+    if (!def || !bounds) return [];
+    return bounds.objectives
+      .filter(
+        objective =>
+          (showAllExtremes || isRelevantObjective(metricId, objective.key)) &&
+          objective.plans.length > 0
+      )
+      .sort((a, b) => objectiveRank(a.key) - objectiveRank(b.key))
+      .flatMap(objective => {
+        const best = objective.plans[0];
+        if (!best.metrics) return [];
+        const value = def.stepValue(best.metrics, election);
+        if (value === undefined || !Number.isFinite(value)) return [];
+        return [
+          {
+            key: objective.key,
+            label: objective.label,
+            objective: objective.objective,
+            color: objectiveColor(objective.key),
+            value,
+            thumbUrl: ensembleExtremeThumbUrl(moduleSlug, presetKey, objective.key, 0, best.thumb),
+          },
+        ];
+      });
+  }, [bounds, metricId, election, showAllExtremes, moduleSlug, presetKey]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -370,17 +433,39 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                       planValue={planValue}
                       planLabel={ENSEMBLE_MODAL_TEXT.thisPlanMarker}
                       stepValue={stepValue}
-                      stepLabel={fillEnsembleText(ENSEMBLE_MODAL_TEXT.stepLabel, {
-                        step: stepNumber.toLocaleString(),
-                      })}
+                      stepLabel={stepLabel}
                       width={width}
                       height={CHART_HEIGHT}
                       percentAxisLabel={ENSEMBLE_MODAL_TEXT.axisLabel}
                       metricLabel={metric.label}
+                      extremes={extremes}
                     />
                   )}
                 </ParentSize>
               </div>
+              {(extremes.length > 0 || (objectives.length > 0 && hasMoreExtremes)) && (
+                <Flex direction="column" gap="1" mt="1">
+                  {extremes.length > 0 && (
+                    <Text size="1" color="gray">
+                      {fillEnsembleText(ENSEMBLE_MODAL_TEXT.extremesCaption, substitutions)}
+                    </Text>
+                  )}
+                  {hasMoreExtremes && (
+                    <Text as="label" size="1">
+                      <Flex gap="2" align="center">
+                        <Switch
+                          size="1"
+                          checked={showAllExtremes}
+                          onCheckedChange={setShowAllExtremes}
+                        />
+                        {fillEnsembleText(ENSEMBLE_MODAL_TEXT.extremesToggle, {
+                          count: objectives.length,
+                        })}
+                      </Flex>
+                    </Text>
+                  )}
+                </Flex>
+              )}
               <Box mt="4" mb="2">
                 {planValue === undefined ? (
                   <Text size="2">
@@ -400,6 +485,35 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                   {ENSEMBLE_MODAL_TEXT.noPlanValue}
                 </Text>
               )}
+            </>
+          )}
+
+          {jointPairs.length > 0 && (
+            <>
+              <Separator size="4" my="2" />
+              <Accordion.Root
+                type="multiple"
+                value={openSections}
+                onValueChange={handleSectionsChange}
+              >
+                <CollapsibleSection
+                  value={JOINT_SECTION}
+                  heading={ENSEMBLE_MODAL_TEXT.jointHeading}
+                >
+                  <JointSection
+                    moduleSlug={moduleSlug}
+                    presetKey={presetKey}
+                    presetLabel={presetLabel}
+                    planCountText={planCountText}
+                    pairs={jointPairs}
+                    open={open && openSections.includes(JOINT_SECTION)}
+                    evaluation={evaluation}
+                    step={step}
+                    planLabel={ENSEMBLE_MODAL_TEXT.thisPlanMarker}
+                    stepLabel={stepLabel}
+                  />
+                </CollapsibleSection>
+              </Accordion.Root>
             </>
           )}
         </Flex>

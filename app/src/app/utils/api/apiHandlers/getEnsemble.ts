@@ -23,6 +23,23 @@ export interface EnsemblePreset {
    * index is an alias for another module's package (a custom-districts module
    * reading its base module's ensemble). Absent means the index's own module. */
   package?: string;
+  /** Which optional analysis files the preset's folder holds. */
+  analysis?: EnsembleAnalysis;
+}
+
+/**
+ * Optional files beside a preset's summary, read by the "About these plans"
+ * dialog. A flag that is absent or false means the files are absent.
+ */
+export interface EnsembleAnalysis {
+  /** `bounds.json` and `extremes/<objective>/`: the extreme plans a search found. */
+  bounds?: boolean;
+  /** `joint/index.json` and its pair files: two-way bucket counts. */
+  joint?: boolean;
+  /** Number of `chunks/<k>.json` files of 100 shuffled plans each. */
+  chunks?: number;
+  /** `trajectory/<objective>.json`: subsampled steps of one search. */
+  trajectory?: boolean;
 }
 
 export interface EnsembleIndex {

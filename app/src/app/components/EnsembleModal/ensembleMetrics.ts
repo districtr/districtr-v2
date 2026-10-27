@@ -2,7 +2,12 @@
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
-import type {EnsembleDistribution, EnsembleSegmentStep, EnsembleSummary} from './ensembleTypes';
+import type {
+  EnsembleDistribution,
+  EnsembleMetricsPayload,
+  EnsembleSeriesRef,
+  EnsembleSummary,
+} from './ensembleTypes';
 
 export type EnsembleCategory = 'partisan' | 'competitiveness' | 'splits' | 'compactness';
 
@@ -25,8 +30,8 @@ export interface EnsembleMetricDef {
   distribution: (summary: EnsembleSummary, election?: string) => EnsembleDistribution | undefined;
   /** The value for the plan the user is editing, from the evaluation endpoint. */
   planValue: (evaluation: DocumentEvaluation, election?: string) => number | undefined;
-  /** The value for one plan of the demonstration segment. */
-  stepValue: (step: EnsembleSegmentStep, election?: string) => number | undefined;
+  /** The value for one plan of the package: a segment step, an extreme plan. */
+  stepValue: (step: EnsembleMetricsPayload, election?: string) => number | undefined;
 }
 
 export const CATEGORY_LABELS: Record<EnsembleCategory, string> = {
@@ -110,7 +115,7 @@ const compactnessMetric = (
 const districtCountMetric = (
   id: 'n_dem_districts' | 'n_rep_districts' | 'n_swing_districts',
   label: string,
-  pick: (step: EnsembleSegmentStep['competitiveness']) => number[]
+  pick: (step: EnsembleMetricsPayload['competitiveness']) => number[]
 ): EnsembleMetricDef => ({
   id,
   label,
@@ -198,6 +203,18 @@ export const findEnsembleMetric = (id: string) => ENSEMBLE_METRICS.find(metric =
 
 export const metricsInCategory = (category: EnsembleCategory) =>
   ENSEMBLE_METRICS.filter(metric => metric.category === category);
+
+/** The metric a package series reference names, with its election, or
+ * undefined for a series the modal has no definition for. */
+export const metricForRef = (
+  ref: EnsembleSeriesRef
+): {def: EnsembleMetricDef; election?: string} | undefined => {
+  const id = ref.stat ? `${ref.metric}_${ref.stat}` : ref.metric;
+  const def = findEnsembleMetric(id);
+  if (!def) return undefined;
+  if (def.perElection) return ref.election ? {def, election: ref.election} : undefined;
+  return {def};
+};
 
 /** Where the histogram starts when the modal is opened without a cell to focus. */
 export const DEFAULT_ENSEMBLE_FOCUS: EnsembleMetricFocus = {

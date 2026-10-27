@@ -1,0 +1,64 @@
+{
+  "pairs": [
+    {
+      "id": "disproportionality_pres_24__county_splits",
+      "x": {
+        "metric": "disproportionality",
+        "election": "pres_24",
+        "stat": null
+      },
+      "y": {
+        "metric": "county_splits",
+        "election": null,
+        "stat": null
+      },
+      "file": "joint/disproportionality_pres_24__county_splits.json",
+      "why": "Democrats concentrate in the Denver metro; proportional outcomes may require cutting it."
+    },
+    {
+      "id": "n_competitive_contests__disproportionality_pres_24",
+      "x": {
+        "metric": "n_competitive_contests",
+        "election": null,
+        "stat": null
+      },
+      "y": {
+        "metric": "disproportionality",
+        "election": "pres_24",
+        "stat": null
+      },
+      "file": "joint/n_competitive_contests__disproportionality_pres_24.json",
+      "why": "Colorado ranks competitiveness after other criteria; the two pull apart in a 55-45 state."
+    },
+    {
+      "id": "cut_edges__county_splits",
+      "x": {
+        "metric": "cut_edges",
+        "election": null,
+        "stat": null
+      },
+      "y": {
+        "metric": "county_splits",
+        "election": null,
+        "stat": null
+      },
+      "file": "joint/cut_edges__county_splits.json",
+      "why": "The control pair: compact plans are expected to keep counties whole, which calibrates the eye."
+    },
+    {
+      "id": "seats_pres_24__cut_edges",
+      "x": {
+        "metric": "seats",
+        "election": "pres_24",
+        "stat": null
+      },
+      "y": {
+        "metric": "cut_edges",
+        "election": null,
+        "stat": null
+      },
+      "file": "joint/seats_pres_24__cut_edges.json",
+      "why": "What a partisan map costs in shape."
+    }
+  ]
+}

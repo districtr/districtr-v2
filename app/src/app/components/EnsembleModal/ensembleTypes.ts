@@ -18,6 +18,21 @@ export interface EnsemblePreset {
    * index is an alias for another module's package (a custom-districts module
    * reading its base module's ensemble). Absent means the index's own module. */
   package?: string;
+  /** Which optional analysis files the preset's folder holds. */
+  analysis?: EnsembleAnalysis;
+}
+
+/** Optional files beside a preset's summary; each flag absent or false means
+ * the files are absent. */
+export interface EnsembleAnalysis {
+  /** `bounds.json` and `extremes/`. */
+  bounds?: boolean;
+  /** `joint/index.json` and the pair files it lists. */
+  joint?: boolean;
+  /** Number of `chunks/<k>.json` files. */
+  chunks?: number;
+  /** `trajectory/`. */
+  trajectory?: boolean;
 }
 
 export interface EnsembleIndex {
@@ -121,4 +136,111 @@ export interface EnsembleSegment {
   /** Index of the first step within the chain. */
   start: number;
   steps: EnsembleSegmentStep[];
+}
+
+/**
+ * The metrics of one plan, shaped as a segment step without its `plan` index.
+ * Extreme plans, chunk plans and trajectory steps all carry this payload.
+ */
+export type EnsembleMetricsPayload = Omit<EnsembleSegmentStep, 'plan'>;
+
+/**
+ * Names one series of `summary.json` by its nesting: `metric` is the summary
+ * key, `election` the per-election key beneath it, `stat` the compactness
+ * aggregate (`mean`, `min`, `max`) beneath it.
+ */
+export interface EnsembleSeriesRef {
+  metric: string;
+  election?: string | null;
+  stat?: string | null;
+}
+
+/** The single-metric goals a search optimized for. */
+export type EnsembleObjectiveKey =
+  | 'dem_seats'
+  | 'rep_seats'
+  | 'competitive'
+  | 'county_splits'
+  | 'cut_edges'
+  | 'polsby_popper';
+
+/** One of the distinct plans a search found for an objective, best first. */
+export interface EnsembleExtremePlan {
+  /** Path of the plan's `extremes/<key>/<k>.json`. */
+  file: string;
+  /** Path of the plan's thumbnail SVG. */
+  thumb: string;
+  /** The plan's objective score. */
+  value: number;
+  metrics: EnsembleMetricsPayload;
+}
+
+/** The search configuration behind one objective's plans. */
+export interface EnsembleSearchRun {
+  method: string;
+  burst_length: number;
+  bursts: number;
+  plateau: number;
+  restarts: number;
+  /** Chain indices of the sampled plans the restarts started from. */
+  seeds: number[];
+}
+
+/**
+ * The most extreme plans a search found for one goal. These are possibilities
+ * found by optimization, outside the random sample.
+ */
+export interface EnsembleObjective {
+  key: EnsembleObjectiveKey | string;
+  label: string;
+  direction: 'max' | 'min';
+  /** The objective in plain words. */
+  objective: string;
+  best_value: number;
+  /** The best objective score of each restart. */
+  restarts: number[];
+  run: EnsembleSearchRun;
+  plans: EnsembleExtremePlan[];
+}
+
+/** `bounds.json`. */
+export interface EnsembleBounds {
+  objectives: EnsembleObjective[];
+}
+
+/** One pair of series offered as a joint density. */
+export interface EnsembleJointPair {
+  id: string;
+  x: EnsembleSeriesRef;
+  y: EnsembleSeriesRef;
+  /** Path of the pair's counts file. */
+  file?: string;
+  /** Why the pair is worth reading, in plain words. */
+  why: string;
+}
+
+/** `joint/index.json`. */
+export interface EnsembleJointIndex {
+  pairs: EnsembleJointPair[];
+}
+
+/**
+ * Two-way bucket counts of the ensemble for one pair of series.
+ *
+ * Each axis follows `EnsembleDistribution`: `integer` and `discrete` axes list
+ * one exact value per column (an integer axis may carry one trailing edge past
+ * its last value), `continuous` axes list bucket edges, one more than columns,
+ * with equal-width buckets half-open except the last. `counts[row][column]`
+ * holds the plans whose Y value falls in row `row` and X value in column
+ * `column`; `n` is the plan count the cells sum to.
+ */
+export interface EnsembleJoint {
+  x: EnsembleSeriesRef;
+  y: EnsembleSeriesRef;
+  x_kind: EnsembleDistribution['kind'];
+  x_edges: number[];
+  y_kind: EnsembleDistribution['kind'];
+  y_edges: number[];
+  counts: number[][];
+  n: number;
 }

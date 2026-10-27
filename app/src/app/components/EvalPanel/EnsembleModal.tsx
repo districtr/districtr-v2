@@ -79,5 +79,6 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
     nPlans={preset.n_plans}
     focus={toFocus(metric)}
     evaluation={evaluation}
+    analysis={preset.analysis}
   />
 );
