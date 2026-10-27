@@ -350,6 +350,55 @@ def optimize_cmd(
             logger.info("Wrote %s (%.0fs)", path, params["wall_time_seconds"])
 
 
+@ensembles.command("analyze")
+@click.option(
+    "--ensemble-dir",
+    required=True,
+    help="Directory holding <preset>.npz, <preset>.scores.npz, their manifests "
+    "and any optimize/ runs",
+)
+@click.option("--vtd-gpkg", required=True, help="VTD GeoPackage (GerryDB export)")
+@click.option(
+    "--preset",
+    "presets",
+    multiple=True,
+    type=click.Choice(sorted(PRESETS)),
+    default=sorted(PRESETS),
+    show_default=True,
+)
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
+@click.option(
+    "--shuffle-seed",
+    default=20261027,
+    show_default=True,
+    help="Seed of the chain's shuffle into chunks",
+)
+def analyze_cmd(
+    ensemble_dir: str,
+    vtd_gpkg: str,
+    presets: tuple[str, ...],
+    graph_npz: str | None,
+    shuffle_seed: int,
+) -> None:
+    """Write each preset's analysis files into the package: bounds, extremes,
+    joint counts, chunks, trajectories and config.json; then refresh index.json.
+
+    Run `package` first; bounds, extremes and trajectories need `optimize` runs."""
+    from ensembles import analysis
+
+    out = Path(ensemble_dir)
+    for key in presets:
+        started = time.monotonic()
+        folder = analysis.write_analysis(out, key, vtd_gpkg, graph_npz, shuffle_seed)
+        logger.info("Wrote %s analysis (%.0fs)", folder, time.monotonic() - started)
+    module_slug = json.loads((out / f"{presets[0]}.json").read_text())["module_slug"]
+    package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
+
+
 @ensembles.command("publish")
 @click.option(
     "--module-slug", required=True, help="districtr_map_slug the ensemble belongs to"

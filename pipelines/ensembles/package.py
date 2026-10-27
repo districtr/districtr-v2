@@ -580,7 +580,8 @@ def write_preset(
 
 def write_index(package_dir: str | Path, module_slug: str) -> dict:
     """Write ``index.json`` listing every preset folder in ``package_dir``, in
-    ``PRESETS`` order."""
+    ``PRESETS`` order. A preset with analysis files (its ``config.json``, see
+    ``ensembles.analysis``) also carries their ``analysis`` flags."""
     package_dir = Path(package_dir)
     found = {
         p.parent.name: json.loads(p.read_text())
@@ -589,19 +590,24 @@ def write_index(package_dir: str | Path, module_slug: str) -> dict:
     order = [k for k in PRESETS if k in found] + sorted(set(found) - set(PRESETS))
     index = {
         "module_slug": module_slug,
-        "presets": [
-            {
-                "key": key,
-                "label": found[key]["chain"]["label"],
-                "default": key == DEFAULT_PRESET,
-                "n_plans": found[key]["scoring"]["n_plans"],
-                "generated_at": found[key]["generated_at"],
-            }
-            for key in order
-        ],
+        "presets": [_index_entry(package_dir, key, found[key]) for key in order],
     }
     _write_json(package_dir / "index.json", index, indent=1)
     return index
+
+
+def _index_entry(package_dir: Path, key: str, manifest: dict) -> dict:
+    entry = {
+        "key": key,
+        "label": manifest["chain"]["label"],
+        "default": key == DEFAULT_PRESET,
+        "n_plans": manifest["scoring"]["n_plans"],
+        "generated_at": manifest["generated_at"],
+    }
+    config = package_dir / key / "config.json"
+    if config.exists():
+        entry["analysis"] = json.loads(config.read_text())["analysis"]
+    return entry
 
 
 # Alias indexes are written under the package folder but published under their
