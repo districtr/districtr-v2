@@ -1,4 +1,37 @@
 
+## v2.4.0
+
+**October 2026**
+
+**New features**
+
+- Freedom to Vote test in the evaluation panel: scores each plan's seat-vote disproportionality across the two most recent Presidential and Senate elections
+- Adjustable competitiveness band (±2 to ±10 points), with swing and sweep districts highlighted on the map on hover
+- Upload up to 10 CSVs at once, each with its own status card
+- Super Draw break mode: Break moves straight to the next unit you click, while Paint and Erase stay inside the broken unit
+
+**UI polish**
+
+- Faster district label placement with no lag while panning; population labels no longer draw under district badges
+- Paint, Erase and Break are disabled while painted districts are hidden, and the Inspector works anywhere on the map in that state
+- Removed the right-click "Break to Blocks" menu; the Break tool covers it
+- Uploader page layout fixes
+
+**Reliability and bug fixes**
+
+- Compactness scores (Polsby-Popper, Reock) now use each state's UTM zone instead of a national equal-area projection, matching GerryChain
+- Fixed browser out-of-memory crashes, especially on mobile, when breaking geographies in large states
+- The map no longer stays locked when breaking a geography fails
+- Fixed stats timeouts when two requests rebuild the same plan's stats, and evaluation metrics no longer compute twice under concurrent requests
+- Imported legacy CMS pages with line breaks now open in the page editor
+
+**Developer and ops**
+
+- Upgraded to MapLibre GL 6, react-map-gl 8 and PMTiles 4
+- Graphs are npz-only and store all edge data in index space; dropped the unused parentchildedges table
+- Architecture Decision Records in `docs/adr/`
+- Faster CI, plus CLI typing fixes and tests for 12 previously untested commands
+
 ## v2.3.0
 
 **August 2026**

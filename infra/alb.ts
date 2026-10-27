@@ -73,9 +73,11 @@ export function createAlb(network: Network) {
       // doesn't make ECS cycle otherwise-healthy tasks.
       path: "/",
       matcher: "200",
-      interval: 30,
+      // Healthy after 2 x 10s, so rollouts don't wait long on the ALB;
+      // 9 misses = 90s of failures before a task is marked unhealthy.
+      interval: 10,
       healthyThreshold: 2,
-      unhealthyThreshold: 3,
+      unhealthyThreshold: 9,
     },
   });
 
@@ -89,9 +91,9 @@ export function createAlb(network: Network) {
     healthCheck: {
       path: "/",
       matcher: "200-399",
-      interval: 30,
+      interval: 10,
       healthyThreshold: 2,
-      unhealthyThreshold: 3,
+      unhealthyThreshold: 9,
     },
   });
 
@@ -108,9 +110,9 @@ export function createAlb(network: Network) {
       // backend's — is DB-free so a DB blip doesn't cycle tasks.
       path: "/healthz",
       matcher: "200",
-      interval: 30,
+      interval: 10,
       healthyThreshold: 2,
-      unhealthyThreshold: 3,
+      unhealthyThreshold: 9,
     },
   });
 
