@@ -1,10 +1,19 @@
 name: Test pipelines
 
 on:
+  # Same shape as the other test workflows: PRs run via pull_request, so push
+  # only covers dev/main.
   push:
-    paths:
+    branches: [dev, main]
+    paths: &paths
       - "pipelines/**"
       - ".github/workflows/test-pipelines.yml"
+  pull_request:
+    paths: *paths
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -23,8 +32,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt pytest
+          pip install uv==0.12.23
+          uv pip install --system -r requirements.txt pytest
         working-directory: pipelines
 
       - name: Run tests

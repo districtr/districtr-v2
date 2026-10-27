@@ -1,5 +1,6 @@
 import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
 import {
+  CANONICAL_LAYER_IDS,
   SELECTION_POINTS_SOURCE_ID,
   SELECTION_POINTS_SOURCE_ID_CHILD,
   ZONE_LABEL_SOURCE_ID,
@@ -12,14 +13,68 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import React, {useLayoutEffect, useMemo, useState} from 'react';
+import React, {useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
 import {FilterSpecification} from 'maplibre-gl';
 
+// Basemap place-name source layers: protomaps (minimal/streets) and MapTiler (satellite).
+const PLACE_LABEL_SOURCE_LAYERS = new Set([
+  'places',
+  'place_label',
+  'town_label',
+  'city_label',
+  'state_label',
+  'country_label',
+  'country_disputed_label',
+  'continent_label',
+]);
+
+/**
+ * Population numbers yield to every 'never' label placed before them (that is how
+ * they yield to district badges), and basemap place names are placed first. While
+ * the numbers are on, tuning is fine-grained, so hide place names instead.
+ * Re-applied on 'style.load', since a basemap switch brings them back.
+ */
+const useHidePlaceLabels = (hide: boolean) => {
+  const getMapRef = useMapStore(state => state.getMapRef);
+  useEffect(() => {
+    const map = getMapRef();
+    if (!map || !hide) return;
+    let hidden: string[] = [];
+    const apply = () => {
+      // Skip layers the style itself hides, so restoring doesn't reveal them.
+      hidden = (map.getStyle()?.layers ?? [])
+        .filter(
+          l =>
+            l.type === 'symbol' &&
+            PLACE_LABEL_SOURCE_LAYERS.has(l['source-layer'] ?? '') &&
+            l.layout?.visibility !== 'none'
+        )
+        .map(l => l.id);
+      hidden.forEach(id => map.setLayoutProperty(id, 'visibility', 'none'));
+    };
+    apply();
+    map.on('style.load', apply);
+    return () => {
+      map.off('style.load', apply);
+      hidden.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'visible'));
+    };
+  }, [hide, getMapRef]);
+};
+
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
+  const showPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showPopulationNumbers
+  );
+  const showBlockPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showBlockPopulationNumbers
+  );
+  const hasCaptiveBlocks = useMapStore(state => state.captiveIds.size > 0);
+  // Same condition under which PopulationTextLayer renders any numbers.
+  useHidePlaceLabels(!!(showPopulationNumbers || (showBlockPopulationNumbers && hasCaptiveBlocks)));
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
@@ -107,7 +162,10 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
         'text-offset': [0, 0],
         // padding
         'text-padding': 0,
-        'text-allow-overlap': ['step', ['zoom'], false, 12, true],
+        // From z12 labels may overlap each other ('cooperative') but still yield to
+        // 'never' symbols placed before them: the district badge collider (and basemap
+        // place names, which useHidePlaceLabels hides while these numbers show).
+        'text-overlap': ['step', ['zoom'], 'never', 12, 'cooperative'],
       }}
       paint={{
         'text-color': '#000',
@@ -145,11 +203,14 @@ const ZoneNumbersLayer = () => {
   const zonesWithDescriptions = useMemo(() => {
     return getZonesWithDescriptions();
   }, [getZonesWithDescriptions, zoneDescriptions]);
-
+  const lastLabelData = useRef('');
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const map = useMapStore.getState().getMapRef();
-    if (!map) return;
+    // No label work mid-motion or mid-stroke (the camera is still while painting):
+    // a re-place forces MapLibre to re-place every symbol. The 'moveend' after a
+    // motion, or the assignment change / 'idle' after a stroke, picks it up.
+    if (!map || map.isMoving() || useMapControlsStore.getState().isPainting) return;
     const currentView = map.getBounds();
     const bounds = [
       currentView.getWest(),
@@ -179,18 +240,25 @@ const ZoneNumbersLayer = () => {
             ...(aliases[feature.properties?.zone] && {alias: aliases[feature.properties?.zone]}),
           },
         }));
-        setZoneNumberData({
-          ...geoms.centroids,
-          features: enrichedFeatures,
-        });
+        // Skip unchanged data: a fresh object re-renders the map, whose idle
+        // event would schedule another identical update.
+        const key = JSON.stringify(enrichedFeatures);
+        if (key !== lastLabelData.current) {
+          lastLabelData.current = key;
+          setZoneNumberData({
+            ...geoms.centroids,
+            features: enrichedFeatures,
+          });
+        }
       }
     } else {
+      lastLabelData.current = '';
       setZoneNumberData(EMPTY_FT_COLLECTION);
     }
   };
 
   const handleUpdate = useMemo(
-    () => throttle(addZoneMetaLayers, 250, {leading: true, trailing: true}),
+    () => throttle(addZoneMetaLayers, 100, {leading: true, trailing: true}),
     [mapDocumentId]
   );
 
@@ -217,23 +285,27 @@ const ZoneNumbersLayer = () => {
           map.addImage('lock', image.data);
         }
       });
+    }
+    // Not behind hasImage: when the document lands after the map (mapDocumentId
+    // changes, so handleUpdate is rebuilt) the cleanup detaches these and 'lock'
+    // already exists, which used to leave labels frozen until a refresh.
+    if (map) {
+      // 'moveend' covers pans, zooms and resizes without waiting on tiles; 'idle' is
+      // a backstop (e.g. point data landing after load) and a no-op when unchanged.
       map.on('moveend', handleUpdate);
-      map.on('zoomend', handleUpdate);
-      map.on('resize', handleUpdate);
       map.on('idle', handleUpdate);
     }
     return () => {
       handleUpdate.cancel();
       if (map) {
         map.off('moveend', handleUpdate);
-        map.off('zoomend', handleUpdate);
-        map.off('resize', handleUpdate);
         map.off('idle', handleUpdate);
       }
     };
   }, [getMapRef, handleUpdate]);
 
   useEffect(() => {
+    lastLabelData.current = '';
     setZoneNumberData(EMPTY_FT_COLLECTION);
   }, [mapDocumentId]);
 
@@ -242,8 +314,30 @@ const ZoneNumbersLayer = () => {
   }
   return (
     <Source id={ZONE_LABEL_SOURCE_ID} type="geojson" data={zoneNumberData}>
+      {/* Invisible, badge-sized collision box. Rendered first so it exists when the
+          badge layers below anchor to it (beforeId), keeping it topmost: MapLibre
+          places it first with 'never', so population labels ('never' / 'cooperative')
+          yield to it; the visible badge layers stay 'always' so crowded districts all
+          keep a number. */}
+      <Layer
+        id={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
+        type="symbol"
+        source={ZONE_LABEL_SOURCE_ID}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': ['to-string', ['get', 'zone']],
+          'text-font': ['Barlow Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
+          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
+          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
+          'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
+          'text-overlap': 'never',
+        }}
+        paint={{'text-opacity': 0}}
+      />
       <Layer
         id={ZONE_LABEL_LAYER_IDS.BACKGROUND}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="circle"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -259,6 +353,7 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.TEXT}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -280,6 +375,7 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.LOCK}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
@@ -326,6 +422,7 @@ const ZoneNumbersLayer = () => {
       {/* Simple circle indicator for zones with comments */}
       <Layer
         id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="circle"
         source={ZONE_LABEL_SOURCE_ID}
         paint={{

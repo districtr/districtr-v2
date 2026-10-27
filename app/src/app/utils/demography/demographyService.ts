@@ -1,4 +1,5 @@
 'use client';
+import type * as maplibregl from 'maplibre-gl';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {FALLBACK_NUM_DISTRICTS} from '../../constants/map/layerStyle';

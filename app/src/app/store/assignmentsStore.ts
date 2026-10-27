@@ -1,3 +1,4 @@
+import type * as maplibregl from 'maplibre-gl';
 import {serializeMapSaves} from '@/app/utils/sync/serializeMapSaves';
 import {ConflictResolutionOptions, SyncConflictResolution} from '@constants/document/sync';
 import {NullableZone, Zone, GDBPath} from '@constants/map/zone';
@@ -456,9 +457,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
     // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     const featureStateChangesCache =
-      mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+      mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().stateChanges;
     if (!featureStateCache) return;
     // PAINT
     const popChanges: Record<number, number> = {};
