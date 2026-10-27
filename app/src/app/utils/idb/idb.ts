@@ -74,8 +74,10 @@ export class DocumentsDB extends Dexie {
   }
 
   async deleteDocument(document_id: string) {
-    await this.documents.delete(document_id);
-    await this.zone_locks.delete(document_id);
+    await this.transaction('rw', this.documents, this.zone_locks, async () => {
+      await this.documents.delete(document_id);
+      await this.zone_locks.delete(document_id);
+    });
   }
 
   async getAllDocuments(): Promise<StoredDocument[]> {

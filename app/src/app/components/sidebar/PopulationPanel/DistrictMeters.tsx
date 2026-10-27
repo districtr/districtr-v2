@@ -604,6 +604,22 @@ export const DistrictMeters = () => {
           </Flex>
         </>
       )}
+      {/* Plain Draw has no lock toggles, but locks persist across modes and
+          reloads and still block painting, so name them and offer a way out. */}
+      {!superDraw && isEditing && lockPaintedAreas.length > 0 && (
+        <Flex align="center" justify="between" gap="2" px="1" mt="2">
+          <Flex align="center" gap="1">
+            <LockClosedIcon color="var(--gray-11)" />
+            <Text size="1" color="gray">
+              {lockPaintedAreas.length} {lockPaintedAreas.length === 1 ? 'district' : 'districts'}{' '}
+              locked
+            </Text>
+          </Flex>
+          <Button size="1" variant="ghost" onClick={() => setLockedZones([])}>
+            Unlock all
+          </Button>
+        </Flex>
+      )}
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
       <Flex
         gap="4"
