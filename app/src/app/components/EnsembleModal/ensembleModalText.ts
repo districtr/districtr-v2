@@ -49,6 +49,12 @@ export const ENSEMBLE_MODAL_TEXT = {
   thisPlanMarker: 'Evaluated plan',
   axisLabel: 'Percent of plans',
 
+  extremesCaption:
+    'Dotted lines mark plans a search found by pursuing one goal at a time under the {preset} recipe’s rules. They lie outside the {plans} sampled plans: they show what the rules allow, while the bars show what random drawing typically gives.',
+  extremesToggle: 'Show all {count} searches',
+  extremeValue: 'This plan’s {metric}: {value}',
+  extremeThumbAlt: 'Districts of the plan found for “{label}”',
+
   loading: 'Loading the demonstration plans…',
   loadFailed:
     'The demonstration plans are unavailable right now. The rest of this page still works.',
