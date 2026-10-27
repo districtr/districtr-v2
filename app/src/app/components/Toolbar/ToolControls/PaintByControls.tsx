@@ -1,6 +1,6 @@
 'use client';
 import {Fragment, forwardRef} from 'react';
-import {Button, DropdownMenu, Flex, SegmentedControl, Select, Text} from '@radix-ui/themes';
+import {Button, DropdownMenu, Flex, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -99,8 +99,32 @@ export const LabeledSelect = forwardRef<
 ));
 LabeledSelect.displayName = 'LabeledSelect';
 
+// Outlined like the toolbar's tool buttons; the chosen one turns the accent
+// blue (text and outline only, quieter than the toolbar's solid active tool).
+const PaintByButton = forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<typeof Button> & {active: boolean}
+>(({active, style, ...props}, ref) => (
+  <Button
+    ref={ref}
+    size="2"
+    variant="outline"
+    color={active ? undefined : 'gray'}
+    aria-pressed={active}
+    className="cursor-pointer"
+    style={{
+      borderRadius: 7,
+      background: 'var(--color-background)',
+      ...(active ? {} : {color: 'var(--gray-12)', boxShadow: 'inset 0 0 0 1px var(--gray-a6)'}),
+      ...style,
+    }}
+    {...props}
+  />
+));
+PaintByButton.displayName = 'PaintByButton';
+
 /**
- * Paint by: what one brush footprint paints, as a segmented control. The
+ * Paint by: what one brush footprint paints, as a row of toggle buttons. The
  * map's own units by default; whole counties; and in Super Draw, blocks inside
  * one unit (the same mode the Break button turns on: Paint/Erase first pick a
  * unit to break, then paint its blocks), plus a "…" menu of boundary layers
@@ -151,33 +175,25 @@ export const PaintByControl: React.FC<{
     <Flex direction="column" gap="1" className={guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''}>
       <Text size="2">{label}</Text>
       <Flex gap="1" align="center">
-        <SegmentedControl.Root
-          size="2"
-          // No segment is selected while painting a whole area from the menu.
-          value={moreSelected ? '' : value}
-          // No disabled prop on SegmentedControl: read-only maps just can't click.
-          style={readOnly ? {pointerEvents: 'none', opacity: 0.5} : undefined}
-          // An empty value is a re-click on the selected segment.
-          onValueChange={next => next && choose(next)}
-        >
-          {segments.map(option => (
-            <SegmentedControl.Item key={option.value} value={option.value}>
-              {option.label}
-            </SegmentedControl.Item>
-          ))}
-        </SegmentedControl.Root>
+        {segments.map(option => (
+          <PaintByButton
+            key={option.value}
+            active={!moreSelected && value === option.value}
+            disabled={readOnly}
+            onClick={() => choose(option.value)}
+          >
+            {option.label}
+          </PaintByButton>
+        ))}
         {moreAreas.length > 0 && (
           <DropdownMenu.Root>
             <DropdownMenu.Trigger disabled={readOnly}>
-              {/* Smaller and quieter than the segments until one of its areas
-                  is chosen; then it reads that area's name. */}
-              <Button
-                size="2"
-                variant={moreSelected ? 'solid' : 'soft'}
-                color={moreSelected ? undefined : 'gray'}
+              {/* Narrower than the other buttons until one of its areas is
+                  chosen; then it reads that area's name. */}
+              <PaintByButton
+                active={!!moreSelected}
                 aria-label="More areas to paint by"
                 title={moreSelected?.label ?? 'More areas to paint by'}
-                className="cursor-pointer"
                 style={moreSelected ? undefined : {paddingInline: 0, width: 30}}
               >
                 {moreSelected ? (
@@ -187,7 +203,7 @@ export const PaintByControl: React.FC<{
                 ) : (
                   '…'
                 )}
-              </Button>
+              </PaintByButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content size="1" style={{maxWidth: MENU_MAX_WIDTH}}>
               <DropdownMenu.Label>Whole areas</DropdownMenu.Label>
