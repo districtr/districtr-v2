@@ -9,7 +9,7 @@ export type AssignmentsTemporalSnapshot = {
   childToParent: Map<string, string>;
   zoneAssignments: Map<string, NullableZone>;
   clientLastUpdated: string;
-  lastZoneRenumber?: Map<number, number> | null;
+  lastZoneRenumber: Map<number, number> | null;
 };
 
 /**

@@ -1871,7 +1871,10 @@ def update_districtrmap_metadata(
         previous = document.map_metadata or {}
         merged = {
             **previous,
-            **metadata.model_dump(exclude_unset=True),
+            # zone_aliases follow the district numbering, so they are written only by
+            # the conflict-checked PUT /api/assignments; a stale tab's form here would
+            # otherwise silently overwrite them.
+            **metadata.model_dump(exclude_unset=True, exclude={"zone_aliases"}),
         }
         stmt = (
             update(Document)

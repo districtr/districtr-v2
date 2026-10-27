@@ -750,7 +750,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (!mapDocument) return;
       const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
       // Same pipeline and cap the server applies, so the stored name is what's shown.
-      const trimmed = sanitizeCommunityName(alias).slice(0, MAX_COMMUNITY_NAME_LENGTH);
+      // Cut by code point like the server: a UTF-16 slice can split an emoji, and the
+      // lone surrogate would fail every later save.
+      const trimmed = Array.from(sanitizeCommunityName(alias))
+        .slice(0, MAX_COMMUNITY_NAME_LENGTH)
+        .join('');
       if (trimmed) {
         zone_aliases[zone] = trimmed;
       } else {

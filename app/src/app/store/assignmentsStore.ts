@@ -257,7 +257,7 @@ const resolveUseLocal = async (
         'Failed to post local assignments when resolving conflict.'
       );
     }
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
   } finally {
     setMapLock(null);
   }
@@ -335,9 +335,17 @@ const resolveFork = async ({
       zone: c.zone,
       text: c.text,
     }));
+    // The copy is of the server's version, so also carry over the local colors and
+    // aliases (a local renumber permutes both).
+    const {localDocument} = syncConflictInfo;
     const newDocWithLocalComments = {
       ...createMapDocumentResponse.response,
       document_comments: localComments,
+      color_scheme: localDocument.color_scheme ?? createMapDocumentResponse.response.color_scheme,
+      map_metadata: {
+        ...createMapDocumentResponse.response.map_metadata,
+        zone_aliases: localDocument.map_metadata?.zone_aliases ?? {},
+      },
     };
     setMapDocument(newDocWithLocalComments);
     const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
@@ -358,7 +366,7 @@ const resolveFork = async ({
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
       onNavigate(createMapDocumentResponse.response);
@@ -534,12 +542,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       // Save immediately when loading from document (not during painting)
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
-      // The document's metadata just replaced whatever the renumber steps in history
-      // left behind, so undoing one would permute metadata that was never swapped.
-      if (get().lastZoneRenumber) {
-        set({lastZoneRenumber: null});
-        useAssignmentsStore.temporal.getState().clear();
-      }
+      // The document's numbering, colors and aliases just replaced this tab's, and
+      // either tab may have renumbered, so history from before this load would
+      // restore old numbering under the new metadata.
+      set({lastZoneRenumber: null});
+      useAssignmentsStore.temporal.getState().clear();
     }
     demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,
@@ -951,6 +958,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
+    // Read with mapDocument: any edit after this point supersedes this save.
+    const clientLastUpdatedAtStart = get().clientLastUpdated;
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
       setNotification({
         message: 'Unable to save: no map document loaded.',
@@ -1005,6 +1014,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         shatterIds,
         childToParent,
         overwrite,
+        clientLastUpdatedAtStart,
       });
 
       if (
@@ -1032,7 +1042,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         };
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        if (hasPendingChanges && !silent) {
+        if (hasPendingChanges && !silent && !assignmentsPostResponse.response.superseded) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
           return {
             ok: true,
