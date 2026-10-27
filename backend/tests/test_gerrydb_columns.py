@@ -1,8 +1,7 @@
 """Adding columns to an onboarded GerryDB layer and refreshing its derivatives.
 
-`add-gerrydb-columns` runs as a CLI subprocess: ogr2ogr writes its staging
-table through its own connection, so the target table is committed and
-dropped by the fixture. The view rebuild and cache invalidation run on the
+`add-gerrydb-columns` runs through the CLI on its own committing session,
+so the target table is committed and dropped by the fixture. The view rebuild and cache invalidation run on the
 rollback session, next to documents created through the API.
 """
 
@@ -10,8 +9,11 @@ import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
+import cli
 import pytest
+from click.testing import CliRunner
 from sqlalchemy import func, text, update
 from sqlmodel import Session, select
 
@@ -25,7 +27,7 @@ from management.gerrydb_columns import (
     rebuild_shatterable_view,
 )
 from tests.constants import GERRY_DB_FIXTURE_NAME, OGR2OGR_PG_CONNECTION_STRING
-from tests.test_cli import run_cli
+from tests.test_cli import _patch_cli_engine  # noqa: F401
 
 TARGET_TABLE = "add_columns_test_layer"
 
@@ -134,8 +136,15 @@ def _table_columns(engine) -> list[str]:
         )
 
 
-def _add_columns(*extra: str, gpkg: Path) -> subprocess.CompletedProcess:
-    return run_cli("add-gerrydb-columns", "--gpkg", str(gpkg), *extra)
+def _add_columns(*extra: str, gpkg: Path) -> SimpleNamespace:
+    """Run the command in-process; a refusal's message is the raised exception's."""
+    result = CliRunner().invoke(
+        cli.cli, ["add-gerrydb-columns", "--gpkg", str(gpkg), *extra]
+    )
+    return SimpleNamespace(
+        returncode=result.exit_code,
+        stderr=result.output + str(result.exception or ""),
+    )
 
 
 def test_add_gerrydb_columns_preserves_existing_values(engine, tmp_path, target_table):
