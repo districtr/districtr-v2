@@ -11,7 +11,7 @@ import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {INSPECTOR_TITLE} from '@constants/demography/inspectorLabels';
 import {useMapStore} from '@store/mapStore';
-import {GEO_UNIT_LABELS, type GeoUnit} from '@constants/document/geoUnits';
+import {describeHoverUnits, povShare} from '@utils/demography/inspector';
 
 const withOpacity = (color: string, opacity: number) => {
   if (color.startsWith('rgba(')) return color;
@@ -36,13 +36,8 @@ const withOpacity = (color: string, opacity: number) => {
 };
 
 const NEUTRAL_BAR = 'rgba(17, 24, 39, 0.15)';
-const POV_HEADER = {dem: 'Dem share', rep: 'Rep share'} as const;
-
-// GEO_UNIT_LABELS are all plain plurals ("VTDs", "block groups", "blocks").
-const unitCountLabel = (type: GeoUnit, count: number) => {
-  const label = GEO_UNIT_LABELS[type];
-  return `${formatNumber(count, NUMBER_FORMATS.STRING)} ${count === 1 ? label.slice(0, -1) : label}`;
-};
+// Each row shows the selected party's two-party share, e.g. "R POV 77%".
+const POV_HEADER = {dem: 'D POV', rep: 'R POV'} as const;
 
 export const InspectorTooltip = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
@@ -54,15 +49,7 @@ export const InspectorTooltip = () => {
   const ids = hoverFeatures.map(f => f.id as string);
   const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
-
-  // Child-layer features are broken-out units; everything else is a whole parent unit.
-  const childCount = mapDocument?.child_layer
-    ? hoverFeatures.filter(f => f.sourceLayer === mapDocument.child_layer).length
-    : 0;
-  const unitCounts = [
-    {type: mapDocument?.parent_geo_unit_type, count: ids.length - childCount},
-    {type: mapDocument?.child_geo_unit_type, count: childCount},
-  ].flatMap(({type, count}) => (type ? [unitCountLabel(type, count)] : []));
+  const unitCounts = describeHoverUnits(hoverFeatures, mapDocument);
 
   // Total is pinned above; order by universe totals, voter history stays chronological.
   const universeTotals = demographyService.universeTotals;
@@ -75,14 +62,10 @@ export const InspectorTooltip = () => {
   const totalColumn = TOTAL_COLUMN[inspectorMode];
   const showBars = !totalColumn || Boolean(inspectorData[totalColumn]);
 
-  // _pct is the two-party dem share for voter history, so the rep share is its complement.
   const formatValue = (column: string) => {
-    const demShare = inspectorData[`${column}_pct`];
-    const value = !isVoterHistory
-      ? inspectorData[column]
-      : inspectorPov === 'rep'
-        ? 1 - demShare
-        : demShare;
+    const value = isVoterHistory
+      ? povShare(inspectorData[`${column}_pct`], inspectorPov)
+      : inspectorData[column];
     return isNaN(value) ? 'No data' : formatNumber(value, valueFormat);
   };
 
@@ -117,9 +100,11 @@ export const InspectorTooltip = () => {
 
   return (
     <>
-      <Text as="p" size="1" color="gray" mb="1">
-        {unitCounts.join(' · ')}
-      </Text>
+      {unitCounts && (
+        <Text as="p" size="1" color="gray" mb="1">
+          {unitCounts}
+        </Text>
+      )}
       <Table.Root variant="surface" size="1" style={{margin: 0}} className="max-w-[50vw] w-64 ">
         <Table.Header>
           <Table.Row>
