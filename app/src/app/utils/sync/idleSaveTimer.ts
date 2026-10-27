@@ -13,7 +13,7 @@ export function createIdleSaveTimer(idleMs: number, maxWaitMs: number, onFire: (
   let lastActivity = 0;
 
   const check = () => {
-    const now = Date.now();
+    const now = performance.now();
     const due = Math.min(lastActivity + idleMs, deadline);
     if (now < due) {
       timer = setTimeout(check, due - now);
@@ -25,13 +25,13 @@ export function createIdleSaveTimer(idleMs: number, maxWaitMs: number, onFire: (
 
   return {
     arm() {
-      lastActivity = Date.now();
+      lastActivity = performance.now();
       if (timer !== undefined) return;
       deadline = lastActivity + maxWaitMs;
-      timer = setTimeout(check, idleMs);
+      timer = setTimeout(check, Math.min(idleMs, maxWaitMs));
     },
     activity() {
-      lastActivity = Date.now();
+      lastActivity = performance.now();
     },
     cancel() {
       clearTimeout(timer);

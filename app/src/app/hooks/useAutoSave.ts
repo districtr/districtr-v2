@@ -82,23 +82,36 @@ export function useAutoSave() {
 
     // Idle save: the first client edit (paint, comment, undo) after a save arms
     // the timer, and any interaction pushes it back until the user goes idle or
-    // the cap since that first edit runs out. Post-save server syncs also bump
-    // clientLastUpdated — those match mapDocument.updated_at and are skipped so a
-    // save doesn't reschedule itself.
+    // the cap since that first edit runs out.
     let map: MapLibreMap | undefined;
-    const timer = createIdleSaveTimer(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS, () => {
+    let disposed = false;
+    const endCycle = () => {
+      timer.cancel();
       map?.off('move', timer.activity);
       map = undefined;
+    };
+    const timer = createIdleSaveTimer(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS, () => {
+      endCycle();
       saveWithNotice();
     });
     const onClientLastUpdated = (clientLastUpdated: string) => {
-      if (clientLastUpdated === useMapStore.getState().mapDocument?.updated_at) return;
-      if (!map) {
-        // Programmatic moves (fly-to, keyboard pan) don't come through the DOM.
-        map = useMapStore.getState().getMapRef();
-        map?.on('move', timer.activity);
-      }
-      timer.arm();
+      // Every save (this one, the Save button, blur) ends by setting clientLastUpdated
+      // to the server's updated_at, then copying that onto mapDocument in the same
+      // tick. Check once both have landed: a match means the changes are saved, so
+      // end the cycle and let the next edit start a fresh cap.
+      queueMicrotask(() => {
+        if (disposed) return;
+        if (clientLastUpdated === useMapStore.getState().mapDocument?.updated_at) {
+          endCycle();
+          return;
+        }
+        if (!map) {
+          // Programmatic moves (fly-to, keyboard pan) don't come through the DOM.
+          map = useMapStore.getState().getMapRef();
+          map?.on('move', timer.activity);
+        }
+        timer.arm();
+      });
     };
     const unsubDistrict = useAssignmentsStore.subscribe((state, prev) => {
       if (state.clientLastUpdated !== prev.clientLastUpdated) {
@@ -123,8 +136,8 @@ export function useAutoSave() {
     return () => {
       unsubDistrict();
       unsubCoi();
-      timer.cancel();
-      map?.off('move', timer.activity);
+      disposed = true;
+      endCycle();
       ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, timer.activity, activityOpts));
       window.removeEventListener('pagehide', saveNow);
       window.removeEventListener('blur', saveNow);
