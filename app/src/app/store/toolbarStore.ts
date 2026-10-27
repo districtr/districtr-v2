@@ -35,12 +35,12 @@ export const useToolbarStore = create(
         // Leaving Super Draw: back out of super-only state so the user isn't
         // stranded on a hidden tool or a setting Draw has no control for.
         // Draw mode always runs on the global defaults for these.
-        // District locks are the exception: they persist across modes, and Draw
-        // shows a locked count with Unlock all instead.
         const controls = useMapControlsStore.getState();
         if (SUPER_DRAW_TOOLS.includes(controls.activeTool)) {
           controls.setActiveTool(ACTIVE_TOOLS.PAN);
         }
+        // District locks are a Super Draw tool: release them, saved copy included.
+        controls.setLockedZones([]);
         const {demographicDisplayMode} = controls.mapOptions;
         controls.setMapOptions({
           basemap: MAP_MODE_DEFAULT_OPTIONS[controls.mapMode].basemap,

@@ -32,6 +32,7 @@ import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
+import {useToolbarStore} from './toolbarStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
@@ -532,6 +533,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const documentId = mapDocument.document_id;
       if (mapDocument.access === ACCESS_STATES.EDIT && documentId) {
         idb.getZoneLocks(documentId).then(zones => {
+          // Locks are a Super Draw tool, so opening a plan in plain Draw releases its
+          // saved copy too. Covers leaving Super Draw from a read-only view, which had
+          // no editable document to clear then.
+          if (!useToolbarStore.getState().superDraw) {
+            if (zones.length) idb.setZoneLocks(documentId, []);
+            return;
+          }
           // Skip if another map loaded meanwhile or the user locked something already.
           const {mapOptions} = useMapControlsStore.getState();
           if (

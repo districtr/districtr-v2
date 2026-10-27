@@ -1,6 +1,7 @@
 import {beforeEach, describe, expect, spyOn, test} from 'bun:test';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {idb} from '@/app/utils/idb/idb';
 import type {NullableZone} from '@constants/map/zone';
 
@@ -17,12 +18,16 @@ let setZoneLocks: ReturnType<typeof spyOn>;
 
 beforeEach(() => {
   saved = {};
+  // Locks are a Super Draw tool; the plain-Draw tests switch this off.
+  useToolbarStore.setState({superDraw: true});
   useMapStore.setState({mapDocument: null});
   useMapControlsStore.setState(state => ({
     mapOptions: {...state.mapOptions, lockPaintedAreas: []},
   }));
   spyOn(idb, 'getZoneLocks').mockImplementation(async id => saved[id] ?? []);
-  setZoneLocks = spyOn(idb, 'setZoneLocks').mockImplementation(async () => {});
+  setZoneLocks = spyOn(idb, 'setZoneLocks').mockImplementation(async (id, zones) => {
+    saved[id] = zones;
+  });
   setZoneLocks.mockClear();
   spyOn(idb, 'updateIdbDocumentMetadata').mockImplementation(async () => {});
 });
@@ -76,5 +81,39 @@ describe('district locks', () => {
     useMapStore.getState().setMapDocument(docB);
     await flush();
     expect(locks()).toEqual([]);
+  });
+
+  test('leaving Super Draw releases the locks and their saved copy', async () => {
+    useMapStore.getState().setMapDocument(docA);
+    await flush();
+    useMapControlsStore.getState().setLockedZones([2, 5]);
+
+    useToolbarStore.getState().setSuperDraw(false);
+    expect(locks()).toEqual([]);
+    expect(saved.a).toEqual([]);
+  });
+
+  test('leaving Super Draw from a read-only view releases the saved locks on return', async () => {
+    useMapStore.getState().setMapDocument(docA);
+    await flush();
+    useMapControlsStore.getState().setLockedZones([2]);
+    useMapStore.getState().setMapDocument(docAView);
+
+    // The read-only doc can't be saved to, so the edit load clears the saved copy.
+    useToolbarStore.getState().setSuperDraw(false);
+    expect(saved.a).toEqual([2]);
+    useMapStore.getState().setMapDocument(docA);
+    await flush();
+    expect(locks()).toEqual([]);
+    expect(saved.a).toEqual([]);
+  });
+
+  test('opening a plan in plain Draw does not restore its saved locks', async () => {
+    useToolbarStore.setState({superDraw: false});
+    saved.a = [3];
+    useMapStore.getState().setMapDocument(docA);
+    await flush();
+    expect(locks()).toEqual([]);
+    expect(saved.a).toEqual([]);
   });
 });
