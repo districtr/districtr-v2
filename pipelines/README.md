@@ -117,6 +117,14 @@ python cli.py ensembles run \
     --module-slug co_congressional_districts_v2 \
     --n-steps 100000 --rng-seed 20261008 \
     -o ../data/ensembles/co_congressional_districts_v2
+python cli.py ensembles optimize \
+    --ensemble-dir ../data/ensembles/co_congressional_districts_v2 \
+    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
+    --graph-npz co_districtr_view_v2.npz
+python cli.py ensembles analyze \
+    --ensemble-dir ../data/ensembles/co_congressional_districts_v2 \
+    --vtd-gpkg ../data/gerrydb/co_districtr_vtd_view_v2.gpkg \
+    --graph-npz co_districtr_view_v2.npz
 python cli.py ensembles publish \
     --module-slug co_congressional_districts_v2 --dry-run
 ```
@@ -219,3 +227,98 @@ module's slug whose presets carry `"package": "<slug>"`, the folder the app
 then reads them from. A custom-districts module shares its base module's
 ensemble this way (Colorado: `--alias co_custom_districts_v2`); the app's
 district-count gate admits only plans of the ensemble's size.
+
+`publish` uploads every file under `package/`, the analysis files below
+included.
+
+### Optimization
+
+`optimize` (`--ensemble-dir`, `--vtd-gpkg`; `--preset` and `--objective`
+repeatable, every one by default) searches each preset's space for the
+extremes of one objective at a time by short bursts (Cannon et al. 2023): a
+burst runs the preset's rustrecom chain for `--burst-length` accepted steps
+(10) from the current plan, every visited plan is scored with the same
+gerrytools metrics as the ensemble, and the next burst starts from the best
+plan seen so far (the latest of equals on a tie). A restart ends after
+`--bursts` bursts (500) or once `--plateau` consecutive bursts (150) bring no
+strict improvement. Each restart starts from one plan of the preset's chain,
+`--seeds` (plan indices `0,33333,66666`); `--rng-seed` seeds the bursts. Pass
+`--graph-npz` (the combined block/VTD graph from `transforms create-graph`)
+for a shatterable module so cut edges are counted between blocks, as in the
+package. The chain's input graph is `<ensemble-dir>/graph.json`
+unless `--graph-json` names another.
+
+| Objective | Direction | Definition |
+| --- | --- | --- |
+| `dem_seats` | max | Democratic seats summed over the tallied elections, plus the mean over those elections of the Democratic two-party share in the closest district the Democrat loses (0.5 in an election it sweeps); the fraction stays at most 0.5, so a seat always outweighs it |
+| `rep_seats` | max | the Republican mirror of `dem_seats` |
+| `competitive` | max | (district, election) contests with a Democratic two-party share strictly within 3 points of 50%, summed over elections (gerrytools' `CompetitiveContests`) |
+| `county_splits` | min | counties assigned to more than one district |
+| `cut_edges` | min | cut edges, between blocks with `--graph-npz`, between VTDs otherwise |
+| `polsby_popper` | max | mean Polsby-Popper over districts |
+
+Objectives and constraints read only partisan tallies, counties, adjacency
+and geometry; racial shares, where a module has them, are scored after
+generation.
+
+Per preset and objective it writes `optimize/<preset>/<objective>.npz`, every
+visited plan with `assignments`, `restart`, `burst` (0 for a seed), `parent`
+(the row the plan was proposed from), `value`, `cut_edges` and every score
+array, and `<objective>.json`, the run's parameters, the rows of the five best
+plans that differ pairwise in at least 10% of VTDs (districts matched to
+maximise overlap, so relabelling counts as no difference), and per restart
+the seed plan, best value, bursts run, stop reason and wall time. On
+Colorado a burst takes about 80 ms; the twelve runs (two presets, six
+objectives, three restarts of up to 500 bursts) take about three minutes run
+side by side, one process each.
+
+### Analysis files
+
+`analyze` (`--ensemble-dir`, `--vtd-gpkg`, `--graph-npz`, `--preset`,
+`--shuffle-seed`) writes these files into `package/<preset>/` beside the
+package's own, from the chain npz, its scores and the preset's `optimize` runs,
+then refreshes `index.json`. Run `package` first. Assignments in these files
+list the app's 1-based district numbers in the order of `config.json`'s
+`node_ids`; a metrics payload is a segment step without its `plan` field; a
+series reference is `{"metric", "election", "stat"}`, the nesting of
+`summary.json`.
+
+- `bounds.json` — `objectives`, one per optimized objective: `key`, `label`,
+  `direction`, `objective` (its definition in words), `best_value`,
+  `restarts` (each restart's best value), `run` (`method`, `burst_length`,
+  `bursts`, `plateau`, `restarts`, `seeds`), and `plans`, up to five distinct
+  plans best first, each `file`, `thumb`, `value` and `metrics`.
+- `extremes/<objective>/<k>.json` and `.svg` — those plans, `k` = 0 for the
+  best: `objective`, `rank` (1 for the best), `value`, `assignment`,
+  `metrics`, and a thumbnail in the segment's style.
+- `joint/index.json` — `pairs`, each `id`, `x` and `y` (series references),
+  `file`, and `why` (the reason the pair is informative). Colorado's four:
+  disproportionality (pres_24) × county splits, competitive contests ×
+  disproportionality (pres_24), cut edges × county splits, Democratic seats
+  (pres_24) × cut edges.
+- `joint/<id>.json` — the sample's two-way counts: `x`, `y`, `x_kind`,
+  `x_edges`, `y_kind`, `y_edges`, `counts` (one row per y bucket, one column
+  per x bucket) and `n`, the plans where both series are finite. Kinds and
+  edges follow `summary.json`, except that continuous series, and integer
+  series spanning more than 50 values (block cut edges), get 50 equal-width
+  `continuous` buckets.
+- `chunks/<k>.json`, `k` = 0..999 — the chain shuffled
+  (`numpy.random.default_rng(shuffle_seed).permutation`) and cut into chunks
+  of 100: `chunk` and `plans`, each `plan` (chain index), `assignment` and
+  `metrics`. Each chunk is a random sample of 100 plans.
+- `trajectory/<objective>.json` and `trajectory/<objective>/<i>.svg` — the
+  chain path by which the best restart reached its best plan, each step one
+  recombination from the last, subsampled evenly to at most 200 steps with
+  both ends kept: `objective`, `seed_plan`, `path_length`, and `steps`, each
+  `burst`, `value`, `metrics` and `thumb`.
+- `config.json` — `analysis` (the flags below), the chain and scoring
+  manifests, `cut_edges_unit_type`, every objective's run configuration and
+  per-restart results, the joint bucket count and pairs, the chunk size and
+  shuffle seed, the trajectory rule, software versions and `node_ids`.
+
+`index.json` gives each analysed preset `"analysis": {"bounds", "joint",
+"chunks", "trajectory"}` (`chunks` is the chunk count). On Colorado `analyze`
+takes two to five minutes per preset, and a preset's analysis files take about
+815 MB: 800 MB of chunks (about 840 KB each, 100 KB gzipped), 11 to 15 MB of
+trajectories, 0.7 MB of extremes, and tens of KB for bounds, joint counts and
+config.

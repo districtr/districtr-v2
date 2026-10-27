@@ -171,6 +171,39 @@ def build_metrics(elections: list[str]) -> list:
     return metrics
 
 
+def make_evaluator(
+    node_ids: np.ndarray, vtd_gpkg: str | Path
+) -> tuple[PlanEvaluator, list[str]]:
+    """A ``PlanEvaluator`` holding every metric of ``build_metrics`` for plans over
+    ``node_ids``, and the election keys it scores."""
+    gdf = load_geometry(vtd_gpkg)
+    missing = set(node_ids) - set(gdf.index)
+    if missing:
+        raise ValueError(f"{len(missing)} plan nodes are missing from {vtd_gpkg}")
+    elections = election_keys(gdf.columns)
+
+    graph = nx.Graph()
+    graph.add_nodes_from(node_ids)  # no edges: these metrics don't need adjacency
+    evaluator = PlanEvaluator(graph, geometry=gdf, target_crs=TARGET_CRS)
+    evaluator.add_metrics(*build_metrics(elections))
+    return evaluator, elections
+
+
+def evaluate(evaluator: PlanEvaluator, assignments: np.ndarray) -> dict:
+    """Every stored array (module docstring) for ``assignments`` (plans x nodes)."""
+    result = evaluator.evaluate_many(assignments)
+    arrays = {name: _as_array(result[name]) for name in evaluator.metrics}
+    _add_compactness_aggregates(arrays)
+    return arrays
+
+
+def _add_compactness_aggregates(arrays: dict) -> None:
+    for metric in COMPACTNESS:
+        arrays[f"{metric}_mean"] = arrays[metric].mean(axis=1)
+        arrays[f"{metric}_min"] = arrays[metric].min(axis=1)
+        arrays[f"{metric}_max"] = arrays[metric].max(axis=1)
+
+
 def score_ensemble(
     npz_path: str | Path, vtd_gpkg: str | Path, n_plans: int | None
 ) -> dict:
@@ -185,16 +218,7 @@ def score_ensemble(
     if n_plans is not None:
         assignments = assignments[:n_plans]
 
-    gdf = load_geometry(vtd_gpkg)
-    missing = set(node_ids) - set(gdf.index)
-    if missing:
-        raise ValueError(f"{len(missing)} plan nodes are missing from {vtd_gpkg}")
-    elections = election_keys(gdf.columns)
-
-    graph = nx.Graph()
-    graph.add_nodes_from(node_ids)  # no edges: these metrics don't need adjacency
-    evaluator = PlanEvaluator(graph, geometry=gdf, target_crs=TARGET_CRS)
-    evaluator.add_metrics(*build_metrics(elections))
+    evaluator, elections = make_evaluator(node_ids, vtd_gpkg)
 
     start = time.monotonic()
     chunks: dict[str, list[np.ndarray]] = {}
@@ -216,10 +240,7 @@ def score_ensemble(
     )
 
     arrays = {name: np.concatenate(parts) for name, parts in chunks.items()}
-    for metric in COMPACTNESS:
-        arrays[f"{metric}_mean"] = arrays[metric].mean(axis=1)
-        arrays[f"{metric}_min"] = arrays[metric].min(axis=1)
-        arrays[f"{metric}_max"] = arrays[metric].max(axis=1)
+    _add_compactness_aggregates(arrays)
     return {
         "arrays": arrays,
         "elections": elections,

@@ -4,9 +4,21 @@ import time
 from pathlib import Path
 
 import click
+import numpy as np
 
 from ensembles import chain, graph, package
 from ensembles.presets import PRESETS
+
+# The optimize module's objective keys, listed here so the CLI loads without
+# gerrytools' dependencies.
+OBJECTIVE_KEYS = (
+    "dem_seats",
+    "rep_seats",
+    "competitive",
+    "county_splits",
+    "cut_edges",
+    "polsby_popper",
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,6 +213,189 @@ def package_cmd(
     for key in presets:
         folder = package.write_preset(out, key, vtd_gpkg, segment_start, graph_npz)
         logger.info("Wrote %s", folder)
+    package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
+
+
+def _seed_plans(value: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(v) for v in value.split(","))
+    except ValueError:
+        raise click.BadParameter("comma-separated plan indices") from None
+
+
+@ensembles.command("optimize")
+@click.option(
+    "--ensemble-dir",
+    required=True,
+    help="Directory holding graph.json and <preset>.npz with its manifest",
+)
+@click.option("--vtd-gpkg", required=True, help="VTD GeoPackage (GerryDB export)")
+@click.option(
+    "--preset",
+    "presets",
+    multiple=True,
+    type=click.Choice(sorted(PRESETS)),
+    default=sorted(PRESETS),
+    show_default=True,
+)
+@click.option(
+    "--objective",
+    "objectives",
+    multiple=True,
+    type=click.Choice(list(OBJECTIVE_KEYS)),
+    default=list(OBJECTIVE_KEYS),
+    show_default=True,
+)
+@click.option(
+    "--graph-json",
+    default=None,
+    help="Chain input graph [default: <ensemble-dir>/graph.json]",
+)
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
+@click.option("--burst-length", default=10, show_default=True)
+@click.option("--bursts", default=500, show_default=True, help="Bursts per restart")
+@click.option(
+    "--plateau",
+    default=150,
+    show_default=True,
+    help="Stop a restart after this many bursts without improvement",
+)
+@click.option(
+    "--seeds",
+    default="0,33333,66666",
+    show_default=True,
+    help="Chain plan indices to restart from, comma-separated",
+)
+@click.option("--rng-seed", default=20261027, show_default=True)
+def optimize_cmd(
+    ensemble_dir: str,
+    vtd_gpkg: str,
+    presets: tuple[str, ...],
+    objectives: tuple[str, ...],
+    graph_json: str | None,
+    graph_npz: str | None,
+    burst_length: int,
+    bursts: int,
+    plateau: int,
+    seeds: str,
+    rng_seed: int,
+) -> None:
+    """Short-burst optimization of each objective for each preset.
+
+    Writes optimize/<preset>/<objective>.npz (every visited plan with its scores)
+    and .json (run facts) under the ensemble directory."""
+    from ensembles import optimize, score
+
+    out = Path(ensemble_dir)
+    graph_path = Path(graph_json) if graph_json else out / "graph.json"
+    seed_plans = _seed_plans(seeds)
+    for key in presets:
+        chain_npz = np.load(out / f"{key}.npz")
+        node_ids = chain_npz["node_ids"]
+        assignments = chain_npz["assignments"]
+        manifest = json.loads((out / f"{key}.json").read_text())
+        tol = manifest["rustrecom_config"]["tol"]
+        evaluator, elections = score.make_evaluator(node_ids, vtd_gpkg)
+        counter = (
+            package.CutEdgeCounter.blocks(node_ids, graph_npz)
+            if graph_npz
+            else package.CutEdgeCounter.units(node_ids, graph_path)
+        )
+        scorer = optimize.Scorer(evaluator, elections, counter)
+        for objective_key in objectives:
+            objective = optimize.OBJECTIVES[objective_key]
+            runner = optimize.BurstRunner(
+                graph_path,
+                PRESETS[key],
+                tol,
+                out / optimize.OPTIMIZE_DIRNAME / key / f".work-{objective_key}",
+            )
+            if not np.array_equal(runner.node_ids, node_ids):
+                raise click.ClickException(f"{graph_path} and {key}.npz disagree")
+            started = time.monotonic()
+            try:
+                result = optimize.optimize(
+                    objective,
+                    runner,
+                    scorer,
+                    assignments,
+                    seed_plans,
+                    burst_length,
+                    bursts,
+                    plateau,
+                    rng_seed,
+                    label=f"{key} {objective_key}",
+                )
+            finally:
+                runner.close()
+            params = {
+                "preset": key,
+                "variant": PRESETS[key].variant,
+                "region_weights": PRESETS[key].region_weights,
+                "tol": tol,
+                "burst_length": burst_length,
+                "bursts": bursts,
+                "plateau": plateau,
+                "seeds": list(seed_plans),
+                "rng_seed": rng_seed,
+                "elections": elections,
+                "cut_edges_unit_type": counter.unit_type,
+                "wall_time_seconds": round(time.monotonic() - started, 1),
+            }
+            path = optimize.write_run(out, key, objective, result, params)
+            logger.info("Wrote %s (%.0fs)", path, params["wall_time_seconds"])
+
+
+@ensembles.command("analyze")
+@click.option(
+    "--ensemble-dir",
+    required=True,
+    help="Directory holding <preset>.npz, <preset>.scores.npz, their manifests "
+    "and any optimize/ runs",
+)
+@click.option("--vtd-gpkg", required=True, help="VTD GeoPackage (GerryDB export)")
+@click.option(
+    "--preset",
+    "presets",
+    multiple=True,
+    type=click.Choice(sorted(PRESETS)),
+    default=sorted(PRESETS),
+    show_default=True,
+)
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
+@click.option(
+    "--shuffle-seed",
+    default=20261027,
+    show_default=True,
+    help="Seed of the chain's shuffle into chunks",
+)
+def analyze_cmd(
+    ensemble_dir: str,
+    vtd_gpkg: str,
+    presets: tuple[str, ...],
+    graph_npz: str | None,
+    shuffle_seed: int,
+) -> None:
+    """Write each preset's analysis files into the package: bounds, extremes,
+    joint counts, chunks, trajectories and config.json; then refresh index.json.
+
+    Run `package` first; bounds, extremes and trajectories need `optimize` runs."""
+    from ensembles import analysis
+
+    out = Path(ensemble_dir)
+    for key in presets:
+        started = time.monotonic()
+        folder = analysis.write_analysis(out, key, vtd_gpkg, graph_npz, shuffle_seed)
+        logger.info("Wrote %s analysis (%.0fs)", folder, time.monotonic() - started)
+    module_slug = json.loads((out / f"{presets[0]}.json").read_text())["module_slug"]
     package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
 
 

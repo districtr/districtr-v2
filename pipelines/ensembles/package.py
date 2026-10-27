@@ -259,32 +259,71 @@ def summary(scores: dict, cut_edges: np.ndarray, cut_edges_unit: str = "vtd") ->
 # ── Cut edges ─────────────────────────────────────────────────────────────────
 
 
+class CutEdgeCounter:
+    """Weighted cut-edge counts of plans over a fixed edge list: a plan's count
+    is the weight sum of the edges whose two nodes sit in different districts.
+    ``left`` and ``right`` are column indices into the plans' node order."""
+
+    def __init__(
+        self, left: np.ndarray, right: np.ndarray, weights: np.ndarray, unit_type: str
+    ):
+        self.left, self.right = left, right
+        self.weights = weights.astype(np.int64)
+        self.unit_type = unit_type
+
+    @classmethod
+    def blocks(cls, node_ids: np.ndarray, graph_npz: str | Path) -> "CutEdgeCounter":
+        """Block-level counts from the combined graph's ``weighted_edges`` (the
+        number of block adjacencies between each pair of adjacent VTDs; see
+        ``transforms/graph.py``). A block edge is cut exactly when its two VTDs
+        sit in different districts. This is the count the app reports for a
+        shatterable module (``block_cut_edges`` in backend/app/evaluation)."""
+        graph = np.load(graph_npz, allow_pickle=False)
+        if not bool(graph["has_weighted_edges"]):
+            raise ValueError(f"{graph_npz} carries no block-edge weights")
+        graph_ids = graph["node_ids"]
+        column = {node: i for i, node in enumerate(node_ids.tolist())}
+        keys = graph["we_keys"]
+        try:
+            left = np.array([column[graph_ids[a]] for a in keys[:, 0]])
+            right = np.array([column[graph_ids[b]] for b in keys[:, 1]])
+        except KeyError as missing:
+            raise ValueError(f"Graph VTD {missing} is not an ensemble node") from None
+        return cls(left, right, graph["we_vals"], "block")
+
+    @classmethod
+    def units(cls, node_ids: np.ndarray, graph_json: str | Path) -> "CutEdgeCounter":
+        """Unit-level counts over the chain input graph's adjacency (one per
+        edge), the count rustrecom reports."""
+        data = json.loads(Path(graph_json).read_text())
+        ids = [node["id"] for node in data["nodes"]]
+        if ids != node_ids.tolist():
+            raise ValueError(f"{graph_json} lists its nodes in another order")
+        column = {node: i for i, node in enumerate(ids)}
+        pairs = np.array(
+            [
+                (i, column[nbr["id"]])
+                for i, nbrs in enumerate(data["adjacency"])
+                for nbr in nbrs
+                if column[nbr["id"]] > i
+            ]
+        )
+        return cls(pairs[:, 0], pairs[:, 1], np.ones(len(pairs)), "vtd")
+
+    def __call__(self, assignments: np.ndarray) -> np.ndarray:
+        counts = np.empty(len(assignments), dtype=np.int64)
+        for start in range(0, len(assignments), 10_000):
+            block = assignments[start : start + 10_000]
+            cut = block[:, self.left] != block[:, self.right]
+            counts[start : start + len(block)] = cut @ self.weights
+        return counts
+
+
 def block_cut_edges(
     assignments: np.ndarray, node_ids: np.ndarray, graph_npz: str | Path
 ) -> np.ndarray:
-    """Block-level cut edges of VTD-level plans, from the combined graph's
-    ``weighted_edges`` (the number of block adjacencies between each pair of
-    adjacent VTDs; see ``transforms/graph.py``). A block edge is cut exactly
-    when its two VTDs sit in different districts, so the count is the weight
-    sum over the plan's cut VTD edges. This is the count the app reports for a
-    shatterable module (``block_cut_edges`` in backend/app/evaluation)."""
-    graph = np.load(graph_npz, allow_pickle=False)
-    if not bool(graph["has_weighted_edges"]):
-        raise ValueError(f"{graph_npz} carries no block-edge weights")
-    graph_ids = graph["node_ids"]
-    column = {node: i for i, node in enumerate(node_ids.tolist())}
-    keys, weights = graph["we_keys"], graph["we_vals"].astype(np.int64)
-    try:
-        left = np.array([column[graph_ids[a]] for a in keys[:, 0]])
-        right = np.array([column[graph_ids[b]] for b in keys[:, 1]])
-    except KeyError as missing:
-        raise ValueError(f"Graph VTD {missing} is not an ensemble node") from None
-    counts = np.empty(len(assignments), dtype=np.int64)
-    for start in range(0, len(assignments), 10_000):
-        block = assignments[start : start + 10_000]
-        cut = block[:, left] != block[:, right]
-        counts[start : start + len(block)] = cut @ weights
-    return counts
+    """Block-level cut edges of VTD-level plans (``CutEdgeCounter.blocks``)."""
+    return CutEdgeCounter.blocks(node_ids, graph_npz)(assignments)
 
 
 # ── Segment ───────────────────────────────────────────────────────────────────
@@ -541,7 +580,8 @@ def write_preset(
 
 def write_index(package_dir: str | Path, module_slug: str) -> dict:
     """Write ``index.json`` listing every preset folder in ``package_dir``, in
-    ``PRESETS`` order."""
+    ``PRESETS`` order. A preset with analysis files (its ``config.json``, see
+    ``ensembles.analysis``) also carries their ``analysis`` flags."""
     package_dir = Path(package_dir)
     found = {
         p.parent.name: json.loads(p.read_text())
@@ -550,19 +590,24 @@ def write_index(package_dir: str | Path, module_slug: str) -> dict:
     order = [k for k in PRESETS if k in found] + sorted(set(found) - set(PRESETS))
     index = {
         "module_slug": module_slug,
-        "presets": [
-            {
-                "key": key,
-                "label": found[key]["chain"]["label"],
-                "default": key == DEFAULT_PRESET,
-                "n_plans": found[key]["scoring"]["n_plans"],
-                "generated_at": found[key]["generated_at"],
-            }
-            for key in order
-        ],
+        "presets": [_index_entry(package_dir, key, found[key]) for key in order],
     }
     _write_json(package_dir / "index.json", index, indent=1)
     return index
+
+
+def _index_entry(package_dir: Path, key: str, manifest: dict) -> dict:
+    entry = {
+        "key": key,
+        "label": manifest["chain"]["label"],
+        "default": key == DEFAULT_PRESET,
+        "n_plans": manifest["scoring"]["n_plans"],
+        "generated_at": manifest["generated_at"],
+    }
+    config = package_dir / key / "config.json"
+    if config.exists():
+        entry["analysis"] = json.loads(config.read_text())["analysis"]
+    return entry
 
 
 # Alias indexes are written under the package folder but published under their
