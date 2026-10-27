@@ -1,3 +1,4 @@
+import type * as maplibregl from 'maplibre-gl';
 import {AllDemographyTableConfigs, AllMapConfigs} from '@/app/utils/api/summaryStats';
 import {type ScaleLinear, type ScaleSequential, type ScaleThreshold} from 'd3-scale';
 import {type MapStore} from '../mapStore';
