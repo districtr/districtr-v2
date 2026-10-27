@@ -516,6 +516,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
               : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
+        pinnedZones: [],
         isPainting: false,
         // Drop a remembered viewport when loading a different map so a fresh map
         // fits to its extent; keep it across same-map view switches.

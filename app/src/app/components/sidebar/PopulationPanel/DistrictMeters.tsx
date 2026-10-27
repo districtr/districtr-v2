@@ -3,6 +3,8 @@ import React, {useContext, useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
+  DrawingPinFilledIcon,
+  DrawingPinIcon,
   EyeNoneIcon,
   EyeOpenIcon,
   LockClosedIcon,
@@ -22,7 +24,7 @@ import {
   FlatRowsContext,
   SCROLL_RESERVED_WIDTH,
 } from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
+import {ShowAllDistrictsButton, usePinnedZones} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
@@ -31,15 +33,13 @@ import {ACCESS_STATES} from '@constants/document/state';
 
 const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
-// Mirrors the rows' Super Draw icon cluster so the header strip's x-scale
-// matches the bars' when icons are showing: two size-1 icon buttons (24px), the
-// cluster gap (4px), and the comment button's trailing space (TWIN_TRAIL).
-const ICONS_WIDTH = 56;
-// ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
-// margin eats half of it: measured against the rendered rows, its real trailing
-// space is 6px, not 8. The header's invisible twin uses the measured value —
-// copying the mr-2 class instead puts the lock-all 4px right of the rows'.
-const TWIN_TRAIL = 6;
+// Width of the rows' Super Draw icon cluster (pin, comment, lock), shared by
+// the header strip so its x-scale matches the bars'. The three ghost buttons
+// render about 64px wide; the rest is slack before the bar.
+const ICONS_WIDTH = 76;
+// ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
+// twin copies it so the lock-all sits over the rows' locks.
+const TWIN_TRAIL = 8;
 
 // Bars stop growing on wide sidebars; everything (label strip, rows,
 // scoreboard) shares the cap so columns stay aligned.
@@ -145,6 +145,9 @@ export const DistrictMeters = () => {
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
+  const pinnedZones = usePinnedZones();
+  const togglePinnedZone = useMapControlsStore(state => state.togglePinnedZone);
+  const clearPinnedZones = useMapControlsStore(state => state.clearPinnedZones);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
@@ -169,17 +172,22 @@ export const DistrictMeters = () => {
   const selectCommunity = useSelectCommunity();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
-  // default to all); null = no explicit choice yet.
+  // default to all); null = no explicit choice yet. Pinned districts, when
+  // there are any, replace started as the default subset at every plan size.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
-  const showAll = showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX;
+  const pinning = pinnedZones.length > 0;
+  const showAll = showAllOverride ?? (!pinning && populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
-  // The selected district always gets a row, started or not: picking an empty
-  // district to draw into and having no bar appear reads as a broken panel.
+  const inSubset = (d: (typeof populationData)[number]) =>
+    pinning ? pinnedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
+  // The selected district always gets a row, in the subset or not: picking an
+  // empty district to draw into and having no bar appear reads as a broken
+  // panel, and it's how an unpinned district shows up to be pinned.
   const visibleData = showAll
     ? populationData
-    : populationData.filter(d => (d.total_pop_20 ?? 0) > 0 || d.zone === selectedZone);
+    : populationData.filter(d => inSubset(d) || d.zone === selectedZone);
   const hiddenCount = showAll
-    ? populationData.length - startedData.length
+    ? populationData.length - populationData.filter(inSubset).length
     : populationData.length - visibleData.length;
   const nothingStarted = startedData.length === 0;
 
@@ -275,13 +283,30 @@ export const DistrictMeters = () => {
                 : undefined
             }
           >
-            {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
+            {/* numColWidth is in ch, so the spacer takes the rows' size-2 font
+                or it comes out wider than their number cells. */}
+            {showDistrictNumbers && (
+              <Box style={{width: numColWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}} />
+            )}
             {showRowIcons && (
-              /* Mirrors the rows' icon cluster exactly — an invisible twin of
-                 the comment button, then the lock — so the lock-all lands
-                 directly above the rows' lock icons (ghost-margin quirks
-                 included). */
+              /* Mirrors the rows' icon cluster exactly — unpin-all (invisible
+                 while nothing is pinned), an invisible twin of the comment
+                 button, then the lock — so each lands directly above the
+                 rows' icons (ghost-margin quirks included). */
               <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+                <Tooltip content="Unpin all districts">
+                  <IconButton
+                    onClick={clearPinnedZones}
+                    variant="ghost"
+                    size="1"
+                    aria-label="Unpin all districts"
+                    aria-hidden={!pinning}
+                    tabIndex={pinning ? undefined : -1}
+                    style={pinning ? undefined : {visibility: 'hidden'}}
+                  >
+                    <DrawingPinFilledIcon />
+                  </IconButton>
+                </Tooltip>
                 <IconButton
                   variant="ghost"
                   size="1"
@@ -366,6 +391,7 @@ export const DistrictMeters = () => {
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
+                const pinned = pinnedZones.includes(d.zone);
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -408,6 +434,23 @@ export const DistrictMeters = () => {
                         style={{width: ICONS_WIDTH}}
                         onClick={e => e.stopPropagation()}
                       >
+                        <Tooltip
+                          content={
+                            pinned
+                              ? 'Unpin this district'
+                              : 'Pin this district to show only pinned districts in the tables'
+                          }
+                        >
+                          <IconButton
+                            onClick={() => togglePinnedZone(d.zone)}
+                            variant="ghost"
+                            size="1"
+                            aria-pressed={pinned}
+                            aria-label={`Pin district ${d.zone}`}
+                          >
+                            {pinned ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
+                          </IconButton>
+                        </Tooltip>
                         <ZoneDescriptionPopover zone={d.zone} color={color} />
                         <Tooltip
                           content={
@@ -596,6 +639,7 @@ export const DistrictMeters = () => {
               onToggle={() => setShowAllOverride(!showAll)}
               total={populationData.length}
               hiddenCount={hiddenCount}
+              subset={pinning ? 'pinned' : 'started'}
             />
             {superDraw && (
               <span style={{marginLeft: 'auto'}}>

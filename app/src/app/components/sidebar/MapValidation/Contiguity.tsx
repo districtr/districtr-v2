@@ -7,10 +7,12 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {usePinnedFilter} from '../ShowAllDistrictsButton';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
+  const pinFilter = usePinnedFilter(mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
     queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
     queryFn: async () => {
@@ -66,10 +68,12 @@ export const Contiguity = () => {
     );
   }
 
+  const rows = pinFilter.filter(tableData);
+
   return (
     <Box>
       {/* One row per district — scroll past ten, like the population panel. */}
-      <ConditionalScrollArea shouldUseScrollableRows={tableData.length > 10} maxHeight="60vh">
+      <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
         <Table.Root size="1">
           <Table.Header>
             <Table.Row>
@@ -81,8 +85,8 @@ export const Contiguity = () => {
           </Table.Header>
 
           <Table.Body>
-            {tableData.map((row: any, i: number) => (
-              <Table.Row key={i}>
+            {rows.map((row: any) => (
+              <Table.Row key={row.zone}>
                 <Table.Cell>
                   <Flex align="center" gap="2">
                     <div
@@ -109,6 +113,7 @@ export const Contiguity = () => {
           </Table.Body>
         </Table.Root>
       </ConditionalScrollArea>
+      {pinFilter.toggle}
     </Box>
   );
 };
