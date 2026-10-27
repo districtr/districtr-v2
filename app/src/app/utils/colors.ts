@@ -1,6 +1,3 @@
-import {interpolateRainbow} from 'd3-scale-chromatic';
-import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
-
 /**
  * Picks readable text color for a given background: 'white' if the background
  * (blended toward white by 1 - alpha, since alpha'd cells sit on a white/
@@ -216,39 +213,121 @@ export function latexBaseAlternative(input: string): {input: string; hex: string
 
 const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
+function hexToHsl(color: string): [number, number, number] | null {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map(channel => channel / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const l = (max + min) / 2;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+const hueDistance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/**
+ * `count` new colors in the tone range of `colors`: saturation and lightness
+ * are drawn at random from the span the chromatic colors cover, and hues
+ * spread around the wheel from a random start with some jitter. Sorted by
+ * hue, and none repeats a color in `colors`.
+ */
+export function randomColorsInRange(
+  colors: string[],
+  count: number,
+  random: () => number = Math.random
+): string[] {
+  const chromatic = colors
+    .map(hexToHsl)
+    .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
+  const span = (i: number, fallback: [number, number]): [number, number] => {
+    if (!chromatic.length) return fallback;
+    const values = chromatic.map(hsl => hsl[i]);
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    // A one-color range still gets a little room to vary.
+    if (hi - lo >= 0.1) return [lo, hi];
+    const mid = (lo + hi) / 2;
+    return [mid - 0.05, mid + 0.05];
+  };
+  const [sLo, sHi] = span(1, [0.5, 0.8]);
+  const [lLo, lHi] = span(2, [0.4, 0.6]);
+  const seen = new Set(colors.map(color => color.toLowerCase()));
+  const start = random() * 360;
+  const out: [number, string][] = [];
+  for (let i = 0; out.length < count && i < count * 20; i++) {
+    const hue = (start + i * GOLDEN_RATIO_CONJUGATE * 360 + (random() - 0.5) * 20 + 360) % 360;
+    const hex = hslToHex(
+      hue,
+      clamp(sLo + random() * (sHi - sLo), 0, 1),
+      clamp(lLo + random() * (lHi - lLo), 0.05, 0.95)
+    );
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    out.push([hue, hex]);
+  }
+  return out.sort((a, b) => a[0] - b[0]).map(([, hex]) => hex);
+}
+
 /**
  * Pads `colorArray` to `numDistricts` colors (or truncates it). Existing
  * entries are kept as they are, duplicates included, so no district's color
- * moves. New colors are unused defaults, then steps around d3's cyclic rainbow
- * by the golden ratio. Every added color is distinct (case-insensitively) and
+ * moves. New colors take the palette's average saturation and lightness and
+ * step around the hue wheel by the golden ratio, skipping hues too close to
+ * one already in use (the allowed gap halves each lap). Later laps also
+ * nudge lightness. Every added color is distinct (case-insensitively) and
  * the result is the same on every call.
  */
-export const extendColorArray = (
-  colorArray: string[],
-  numDistricts: number,
-  defaultColorArray: string[] = DefaultColorScheme
-) => {
+export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   const result = colorArray.slice(0, numDistricts);
   const seen = new Set(result.map(color => color.toLowerCase()));
-  const add = (color: string) => {
-    const key = color.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    result.push(key);
-  };
-  for (const color of defaultColorArray) {
-    if (result.length >= numDistricts) break;
-    add(color);
-  }
-  // ponytail: the rainbow has ~1,200 distinct hexes (first repeat at step 384),
-  // so past ~1,200 colors this falls back to counting up through hex values.
-  // Use a 2D (hue x lightness) sequence if plans ever get that large.
+  // Grays have no meaningful hue, so they don't set the style or block hues.
+  const chromatic = result
+    .map(hexToHsl)
+    .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
+  const mean = (i: number, fallback: number) =>
+    chromatic.length
+      ? chromatic.reduce((sum, hsl) => sum + hsl[i], 0) / chromatic.length
+      : fallback;
+  const saturation = clamp(mean(1, 0.65), 0.3, 1);
+  const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
+  const hues = chromatic.map(hsl => hsl[0]);
+  const lightnessShifts = [0, -0.08, 0.08, -0.16, 0.16];
+  // ponytail: ~360 hue steps per lap at a few lightness levels; past ~2,000
+  // colors this falls back to counting up through hex values.
   for (let i = 0; result.length < numDistricts && i < 20_000; i++) {
-    const [r, g, b] = parseColorToRgb(interpolateRainbow((i * GOLDEN_RATIO_CONJUGATE) % 1))!;
-    add(`#${[r, g, b].map(channel => channel.toString(16).padStart(2, '0')).join('')}`);
+    const lap = Math.floor(i / 360);
+    const minGap = 24 / 2 ** lap;
+    const hue = (i * GOLDEN_RATIO_CONJUGATE * 360) % 360;
+    if (hues.some(used => hueDistance(used, hue) < minGap)) continue;
+    const hex = hslToHex(hue, saturation, clamp(lightness + lightnessShifts[lap % 5], 0.15, 0.9));
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    hues.push(hue);
+    result.push(hex);
   }
   for (let n = 0; result.length < numDistricts; n++) {
-    add(`#${n.toString(16).padStart(6, '0')}`);
+    const hex = `#${n.toString(16).padStart(6, '0')}`;
+    if (!seen.has(hex)) {
+      seen.add(hex);
+      result.push(hex);
+    }
   }
   return result;
 };

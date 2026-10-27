@@ -1,6 +1,19 @@
 import {afterAll, describe, expect, test} from 'bun:test';
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
-import {extendColorArray, latexBaseAlternative, resolveColorInput} from './colors';
+import {
+  extendColorArray,
+  latexBaseAlternative,
+  randomColorsInRange,
+  resolveColorInput,
+} from './colors';
+
+const tone = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  return {s: max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1)), l};
+};
 
 // Minimal stand-in for a canvas 2D context: knows hex plus a few CSS names and,
 // like a real canvas, ignores values it can't parse and serializes translucent
@@ -106,9 +119,38 @@ describe('extendColorArray', () => {
     expect(extendColorArray(['#0099cd', '#ffca5d', '#00cd99'], 2)).toEqual(['#0099cd', '#ffca5d']);
   });
 
-  test('terminates past the rainbow sequence', () => {
+  test('new colors loosely match the palette and bring in new hues', () => {
+    for (const name of ['ColorBrewer Pastel1', 'ColorBrewer Dark2', 'Tableau 10']) {
+      const palette = [...DISTRICT_PALETTES.find(p => p.name === name)!.colors];
+      const avg = (key: 's' | 'l') =>
+        palette.reduce((sum, c) => sum + tone(c)[key], 0) / palette.length;
+      const added = extendColorArray(palette, palette.length + 4).slice(palette.length);
+      for (const color of added) {
+        expect(Math.abs(tone(color).l - avg('l')), `${name} ${color}`).toBeLessThan(0.1);
+        expect(Math.abs(tone(color).s - avg('s')), `${name} ${color}`).toBeLessThan(0.15);
+      }
+      expect(unique([...palette, ...added])).toBe(palette.length + 4);
+    }
+  });
+
+  test('terminates past the hue sequence', () => {
     expect(unique(extendColorArray([], 2000))).toBe(2000);
   });
+});
+
+test('random suggestions stay in the tone range of the current colors', () => {
+  const pastel = [...DISTRICT_PALETTES.find(p => p.name === 'ColorBrewer Pastel1')!.colors];
+  const tones = pastel.map(tone);
+  const lMin = Math.min(...tones.map(t => t.l));
+  const lMax = Math.max(...tones.map(t => t.l));
+  const suggestions = randomColorsInRange(pastel, 24);
+  expect(suggestions).toHaveLength(24);
+  expect(new Set([...pastel, ...suggestions]).size).toBe(pastel.length + 24);
+  for (const color of suggestions) {
+    // Small slack for rounding to 8-bit channels.
+    expect(tone(color).l, color).toBeGreaterThanOrEqual(lMin - 0.02);
+    expect(tone(color).l, color).toBeLessThanOrEqual(lMax + 0.02);
+  }
 });
 
 test('ColorBrewer palettes contain no grays', () => {

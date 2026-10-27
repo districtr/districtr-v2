@@ -8,6 +8,9 @@ import {ANONYMOUS_DOCUMENT_ID} from '@/app/constants/document/limits';
 import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {ColorChangeModal} from '../Toolbar/ColorChangeModal';
+import {useMapControlsStore} from '@store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
 import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelper';
 import {fetchWithSession} from '@utils/api/session';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -17,12 +20,13 @@ import {canSubmitDraft, getDraftSubmission} from '@/app/utils/draftSubmissions';
 import {useDraftSubmissionStore} from '@store/draftSubmissionStore';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
- * and reset in one dropdown. Saving lives in the topbar SaveButton;
+ * district colors, and reset in one dropdown. Saving lives in the topbar SaveButton;
  * Visual settings sit next to the toolbar (sidebar or mobile dock). */
 export const MapActionsDropdown: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({handleMetadataChange}) => {
-  const [modal, setModal] = useState<'share' | null>(null);
+  const [modal, setModal] = useState<'share' | 'colors' | null>(null);
+  const isCommunityMode = useMapControlsStore(state => state.mapMode) === MAP_MODES.COI;
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
@@ -47,7 +51,7 @@ export const MapActionsDropdown: React.FC<{
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
-  const openModal = (which: 'share') => setTimeout(() => setModal(which), 0);
+  const openModal = (which: 'share' | 'colors') => setTimeout(() => setModal(which), 0);
 
   // "Share your map" guide: pulses this trigger, then the Share item.
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
@@ -209,6 +213,15 @@ export const MapActionsDropdown: React.FC<{
               </DropdownMenu.Item>
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
+          {!isCommunityMode && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+              onSelect={() => openModal('colors')}
+            >
+              Customize district colors
+            </DropdownMenu.Item>
+          )}
           {guideDismissed && (
             <DropdownMenu.Item
               className="cursor-pointer"
@@ -242,6 +255,7 @@ export const MapActionsDropdown: React.FC<{
         onClose={() => setModal(null)}
         handleMetadataChange={handleMetadataChange}
       />
+      <ColorChangeModal open={modal === 'colors'} onClose={() => setModal(null)} />
     </>
   );
 };

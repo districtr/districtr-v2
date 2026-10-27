@@ -1,12 +1,13 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
-import {Cross2Icon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, Button, Select, Text, TextField} from '@radix-ui/themes';
-import {colorScheme as DefaultColorScheme, DISTRICT_PALETTES} from '@constants/colors';
+import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
+import {Box, Flex, Dialog, Button, IconButton, Select, Text, TextField} from '@radix-ui/themes';
+import {DISTRICT_PALETTES} from '@constants/colors';
 import {
   extendColorArray,
   getReadableTextColor,
   latexBaseAlternative,
+  randomColorsInRange,
   resolveColorInput,
 } from '@/app/utils/colors';
 import {idb} from '@/app/utils/idb/idb';
@@ -26,6 +27,7 @@ export const ColorChangeModal: React.FC<{
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
   const [colorText, setColorText] = useState('');
   const [colorTextTouched, setColorTextTouched] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const setNotification = useMapStore(store => store.setNotification);
 
   useEffect(() => {
@@ -42,45 +44,80 @@ export const ColorChangeModal: React.FC<{
     setColorText(selectedColor);
     setColorTextTouched(false);
   }, [selectedColor, colorSelectIndex]);
-  const typedColor = resolveColorInput(colorText);
-  const colorTextInvalid = colorTextTouched && !typedColor;
-  const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
-
-  // Swatches keep a fixed order and show which district already uses them,
-  // rather than reshuffling unused colors to the front after every pick.
-  const usedBy = useMemo(() => {
-    const map = new Map<string, number[]>();
+  // Which district (1-based) owns each color, so no two districts share one.
+  const ownerOf = useMemo(() => {
+    const map = new Map<string, number>();
     innerColorScheme.slice(0, numDistricts).forEach((color, i) => {
       const key = color.toLowerCase();
-      map.set(key, [...(map.get(key) ?? []), i + 1]);
+      if (!map.has(key)) map.set(key, i + 1);
     });
     return map;
   }, [innerColorScheme, numDistricts]);
+  const otherOwner = (color: string) => {
+    const owner = ownerOf.get(color.toLowerCase());
+    return owner && owner !== colorSelectIndex + 1 ? owner : undefined;
+  };
+
+  // The palette the districts mostly come from, if any, offered in full.
+  const currentPalette = useMemo(() => {
+    let best: {palette: (typeof DISTRICT_PALETTES)[number]; hits: number} | undefined;
+    for (const palette of DISTRICT_PALETTES) {
+      const colors = new Set(palette.colors.map(color => color.toLowerCase()));
+      const hits = innerColorScheme
+        .slice(0, numDistricts)
+        .filter(color => colors.has(color.toLowerCase())).length;
+      if (hits * 2 >= Math.min(numDistricts, palette.colors.length) && hits > (best?.hits ?? 0)) {
+        best = {palette, hits};
+      }
+    }
+    return best?.palette;
+  }, [innerColorScheme, numDistricts]);
+
+  // Only palette colors no district uses yet; when none are left, the
+  // similar tones row is the whole offer.
+  const freePaletteColors =
+    currentPalette?.colors.filter(color => !ownerOf.has(color.toLowerCase())) ?? [];
+
+  // One row of random colors in the current districts' tone range. They are
+  // drawn on open, on palette change and on shuffle, not on every pick, so the
+  // options don't jump around while the user is choosing.
+  const SUGGESTION_COUNT = 16;
+  const shuffleSuggestions = (scheme: string[] = innerColorScheme) =>
+    setSuggestions(randomColorsInRange(scheme.slice(0, numDistricts), SUGGESTION_COUNT));
+
+  const typedColor = resolveColorInput(colorText);
+  const colorTextInvalid = colorTextTouched && !typedColor;
+  const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
+  const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
 
   const setDistrictColor = (hex: string) => {
+    if (otherOwner(hex)) return;
     // Preserve the full scheme length — slicing to numDistricts here used to
-    // truncate the saved color_scheme. Duplicates are allowed: with more
-    // districts than palette colors they're unavoidable.
+    // truncate the saved color_scheme.
     const dupe = [...innerColorScheme];
     dupe[colorSelectIndex] = hex;
     setInnerColorScheme(dupe);
   };
 
   // Typed text applies on Enter or blur, not per keystroke, so `tangerine`
-  // never applies `tan` on the way. The swatch previews it meanwhile.
-  const commitColorText = () => {
+  // never applies `tan` on the way. The preview box shows it meanwhile.
+  const commitColorText = (text = colorText) => {
     setColorTextTouched(true);
-    if (typedColor && typedColor !== selectedColor.toLowerCase()) setDistrictColor(typedColor);
+    const hex = resolveColorInput(text);
+    if (hex && hex !== selectedColor.toLowerCase()) setDistrictColor(hex);
   };
 
   const handleApplyPalette = (name: string) => {
     const palette = DISTRICT_PALETTES.find(p => p.name === name);
     if (!palette) return;
-    // A palette shorter than the scheme is extended with unused Districtr
-    // colors rather than cycled, so no two districts end up sharing a color.
-    setInnerColorScheme(
-      extendColorArray([...palette.colors], Math.max(innerColorScheme.length, numDistricts))
+    // A palette shorter than the scheme is extended with new hues in its own
+    // style rather than cycled, so no two districts end up sharing a color.
+    const scheme = extendColorArray(
+      [...palette.colors],
+      Math.max(innerColorScheme.length, numDistricts)
     );
+    setInnerColorScheme(scheme);
+    shuffleSuggestions(scheme);
   };
 
   const handleSave = async () => {
@@ -103,7 +140,24 @@ export const ColorChangeModal: React.FC<{
 
   useEffect(() => {
     setDialogOpen(open || false);
+    if (open) shuffleSuggestions(colorScheme);
   }, [open]);
+
+  const suggestionSwatch = (color: string, fill?: boolean) => {
+    const owner = otherOwner(color);
+    return (
+      <ColorSwatch
+        key={color}
+        color={color}
+        label={owner ? `${color}, used by District ${owner}` : color}
+        selected={color.toLowerCase() === selectedColor.toLowerCase()}
+        disabled={!!owner}
+        onClick={() => setDistrictColor(color)}
+        round
+        fill={fill}
+      />
+    );
+  };
 
   return (
     <Dialog.Root
@@ -117,7 +171,7 @@ export const ColorChangeModal: React.FC<{
       <Dialog.Content className="max-w-[600px]">
         <Flex align="start">
           <Dialog.Title size="4" className="m-0 flex-1">
-            Customize District Colors
+            Customize district colors
           </Dialog.Title>
 
           <Dialog.Close
@@ -163,7 +217,8 @@ export const ColorChangeModal: React.FC<{
               Pick a district
             </Text>
             {/* Keyed by index, not color like the toolbar picker, so districts
-                that share a color stay individually selectable. */}
+                that share a color (saved before colors had to be unique) stay
+                individually selectable. */}
             <Flex wrap="wrap" gap="1" className="max-h-[25vh] overflow-y-auto p-1">
               {innerColorScheme.slice(0, numDistricts).map((color, i) => (
                 <ColorSwatch
@@ -197,53 +252,70 @@ export const ColorChangeModal: React.FC<{
                   setColorText(event.target.value);
                   setColorTextTouched(false);
                 }}
-                onBlur={commitColorText}
+                onBlur={() => commitColorText()}
                 onKeyDown={event => event.key === 'Enter' && commitColorText()}
                 placeholder="rebeccapurple, BrickRed, #ff8800"
                 aria-label={`Color for District ${colorSelectIndex + 1}`}
-                aria-invalid={colorTextInvalid}
+                aria-invalid={colorTextInvalid || !!typedOwner}
               />
-              <label
-                className="relative shrink-0 cursor-pointer rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 focus-within:ring-2 focus-within:ring-gray-900"
-                title="Pick any color"
+              {/* Button size 2 matches the TextField's height. */}
+              <Button
+                asChild
+                variant="surface"
+                color="gray"
+                className="relative shrink-0 cursor-pointer focus-within:ring-2 focus-within:ring-gray-900"
               >
-                Custom…
-                <input
-                  type="color"
-                  className="sr-only"
-                  value={selectedColor}
-                  onChange={event => setDistrictColor(event.target.value)}
-                />
-              </label>
+                <label title="Pick any color">
+                  Custom color
+                  <input
+                    type="color"
+                    className="sr-only"
+                    value={selectedColor}
+                    onChange={event => {
+                      setColorText(event.target.value);
+                      commitColorText(event.target.value);
+                    }}
+                  />
+                </label>
+              </Button>
             </Flex>
-            <Text size="1" color={colorTextInvalid ? 'red' : 'gray'}>
+            <Text size="1" color={colorTextInvalid || typedOwner ? 'red' : 'gray'}>
               {colorTextInvalid
                 ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
-                : latexAlternative
-                  ? `LaTeX's base color by this name is different (${latexAlternative.hex}). Type ${latexAlternative.input} to use it.`
-                  : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a swatch.'}
+                : typedOwner
+                  ? `District ${typedOwner} already uses this color. Pick another.`
+                  : latexAlternative
+                    ? `LaTeX's base color by this name is different (${latexAlternative.hex}). Type ${latexAlternative.input} to use it.`
+                    : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
             </Text>
-            <Flex wrap="wrap" gap="1">
-              {DefaultColorScheme.map(color => {
-                const users = usedBy.get(color.toLowerCase());
-                return (
-                  <ColorSwatch
-                    key={color}
-                    color={color}
-                    label={
-                      users
-                        ? `${color}, used by District${users.length > 1 ? 's' : ''} ${users.join(', ')}`
-                        : color
-                    }
-                    selected={color.toLowerCase() === selectedColor.toLowerCase()}
-                    onClick={() => setDistrictColor(color)}
-                    round
-                  >
-                    {users?.[0]}
-                  </ColorSwatch>
-                );
-              })}
+            {currentPalette && freePaletteColors.length > 0 && (
+              <>
+                <Text size="1" weight="medium" mt="1">
+                  {currentPalette.name}
+                </Text>
+                <Flex wrap="wrap" gap="1">
+                  {freePaletteColors.map(color => suggestionSwatch(color))}
+                </Flex>
+              </>
+            )}
+            <Flex align="center" gapX="1" mt="1">
+              <Text size="1" weight="medium">
+                Similar tones
+              </Text>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                aria-label="Shuffle similar tones"
+                title="Shuffle"
+                onClick={() => shuffleSuggestions()}
+              >
+                <ShuffleIcon />
+              </IconButton>
             </Flex>
+            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] justify-items-center gap-1">
+              {suggestions.map(color => suggestionSwatch(color, true))}
+            </div>
           </Flex>
         </Flex>
         <Flex justify="end" gapX="2" mt="4">
@@ -261,21 +333,43 @@ const ColorSwatch: React.FC<{
   color: string;
   label: string;
   selected: boolean;
+  disabled?: boolean;
   onClick: () => void;
   /** Small circles for colors, so they don't read as more district buttons. */
   round?: boolean;
+  /** Grow to the grid cell (up to size-7) instead of a fixed size. */
+  fill?: boolean;
   children?: React.ReactNode;
-}> = ({color, label, selected, onClick, round, children}) => (
+}> = ({color, label, selected, disabled, onClick, round, fill, children}) => (
   <button
     type="button"
     aria-label={label}
     aria-pressed={selected}
     title={label}
+    disabled={disabled}
     onClick={onClick}
     className={`inline-flex shrink-0 items-center justify-center border border-black/10 font-medium ${
-      round ? 'size-7 rounded-full text-[10px]' : 'size-8 rounded-md text-xs'
-    } ${selected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:ring-2 hover:ring-gray-300'}`}
-    style={{backgroundColor: color, color: getReadableTextColor(color) ?? '#111'}}
+      fill
+        ? 'aspect-square w-full max-w-7 rounded-full'
+        : round
+          ? 'size-6 rounded-full'
+          : 'size-8 rounded-md text-xs'
+    } ${
+      selected
+        ? 'ring-2 ring-offset-1 ring-gray-900'
+        : disabled
+          ? 'cursor-not-allowed'
+          : 'hover:ring-2 hover:ring-gray-300'
+    }`}
+    style={{
+      backgroundColor: color,
+      color: getReadableTextColor(color) ?? '#111',
+      // A slash marks colors another district already uses; fading them
+      // instead makes them read as lighter tints on offer.
+      backgroundImage: disabled
+        ? 'linear-gradient(to top right, transparent calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% + 1px), transparent calc(50% + 1px))'
+        : undefined,
+    }}
   >
     {/* text-box trims the span to the digits' cap height, so flex centering
         centers the ink, not an em box padded by descender space. It must sit

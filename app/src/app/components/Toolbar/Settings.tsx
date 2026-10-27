@@ -1,5 +1,5 @@
 import React from 'react';
-import {Heading, CheckboxGroup, Flex, Button, Text, Select, RadioCards} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Text, Select, RadioCards} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
@@ -7,10 +7,8 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {ColorChangeModal} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
-import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
@@ -36,11 +34,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
   const superDraw = useToolbarStore(state => state.superDraw);
   const isSingleCounty = useIsSingleCounty();
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings) && !isSingleCounty;
-  const access = useMapStore(state => state.mapStatus?.access);
   const variable = useDemographyStore(state => state.variable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-
-  const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
@@ -190,18 +185,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
               Highlight broken precincts
             </CheckboxGroup.Item>
           )}
-
-          {superDraw && (
-            <Button
-              onClick={() => setColorModalOpen(true)}
-              variant="outline"
-              size="1"
-              mt="2"
-              disabled={access === ACCESS_STATES.READ}
-            >
-              Customize district colors
-            </Button>
-          )}
         </CheckboxGroup.Root>
         {!inWorkflowTab && overlayGroups.length > 0 && (
           <Flex direction="row" align="center" gap="3" wrap="wrap">
@@ -264,8 +247,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
           </>
         )}
       </Flex>
-
-      <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
     </>
   );
 };
