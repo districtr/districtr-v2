@@ -19,7 +19,7 @@ const SPARSE_BAR_MIN_WIDTH = 8;
 /** Markers closer than this are nudged apart so each stays visible. */
 const MARKER_MIN_GAP = 4;
 const LEGEND_HEIGHT = 20;
-/** Extreme plans are drawn finer than the two plan markers and dotted. */
+/** Extreme plans are dotted, against the solid plan and dashed step markers. */
 const EXTREME_DASH = '1 3';
 const EXTREME_THUMB_WIDTH = 180;
 const DEFAULT_HEIGHT = 280;
