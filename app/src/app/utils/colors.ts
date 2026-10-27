@@ -1,3 +1,4 @@
+import {interpolateRainbow} from 'd3-scale-chromatic';
 import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 
 /**
@@ -40,10 +41,10 @@ function parseColorToRgb(color: string): [number, number, number] | null {
 
 // LaTeX xcolor `dvipsnames` (the 68 CMYK colors in dvipsnam.def), converted
 // to RGB with xcolor's own rule, rgb = 1 - min(1, cmy + k). That rule runs more
-// saturated than PDF viewers render these (ForestGreen is #00e000 here). xcolor's
-// base names (red, lime, ...) and svgnames are CSS names, so the browser covers
-// them, except where a CamelCase svgname such as ForestGreen is also a
-// dvipsname: the exact-case dvipsnames match wins (see resolveColorInput).
+// saturated than PDF viewers render these (ForestGreen is #00e000 here).
+// svgnames are spelled like CSS names, so the browser resolves them, except
+// where a CamelCase svgname such as ForestGreen is also a dvipsname: the
+// exact-case dvipsnames match wins (see resolveColorInput).
 const LATEX_DVIPS_COLORS = new Map<string, string>(
   Object.entries({
     GreenYellow: '#d9ff4f',
@@ -120,6 +121,35 @@ const LATEX_DVIPS_COLORS_LOWER = new Map(
   [...LATEX_DVIPS_COLORS].map(([name, hex]) => [name.toLowerCase(), hex])
 );
 
+// xcolor's 19 base colors, from the rgb column of xcolor.dtx. They share
+// lowercase spellings with CSS, and nine of them (green, lime, orange, brown,
+// purple, violet, pink, darkgray, lightgray) have different values there, so
+// a bare `lime` stays CSS's and `latex:lime` reaches xcolor's.
+const LATEX_BASE_COLORS = new Map<string, string>(
+  Object.entries({
+    red: '#ff0000',
+    green: '#00ff00',
+    blue: '#0000ff',
+    cyan: '#00ffff',
+    magenta: '#ff00ff',
+    yellow: '#ffff00',
+    black: '#000000',
+    white: '#ffffff',
+    gray: '#808080',
+    darkgray: '#404040',
+    lightgray: '#bfbfbf',
+    brown: '#bf8040',
+    lime: '#bfff00',
+    olive: '#808000',
+    orange: '#ff8000',
+    pink: '#ffbfbf',
+    purple: '#bf0040',
+    teal: '#008080',
+    violet: '#800080',
+  })
+);
+const LATEX_PREFIX = 'latex:';
+
 let colorContext: CanvasRenderingContext2D | null | undefined;
 
 /** Resolves any CSS color (name, hex, rgb(), hsl(), ...) to opaque #rrggbb via the browser. */
@@ -140,14 +170,31 @@ function cssColorToHex(color: string): string | null {
     : null;
 }
 
+/** Resolves a LaTeX color name: case-sensitive like LaTeX, then case-insensitive. */
+function latexColorToHex(name: string): string | null {
+  const lower = name.toLowerCase();
+  return (
+    LATEX_BASE_COLORS.get(name) ??
+    LATEX_DVIPS_COLORS.get(name) ??
+    LATEX_BASE_COLORS.get(lower) ??
+    LATEX_DVIPS_COLORS_LOWER.get(lower) ??
+    null
+  );
+}
+
 /**
- * Resolves typed color text to #rrggbb, or null if unrecognized. An exact-case
- * dvipsnames match wins (so `Orange` is LaTeX's, `orange` is CSS's); CSS comes
- * next; then a case-insensitive dvipsnames match (`brickred`).
+ * Resolves typed color text to #rrggbb, or null if unrecognized.
+ * - `latex:<name>` looks up only LaTeX names (`latex:lime` is xcolor's #bfff00).
+ * - Otherwise an exact-case dvipsnames match wins (so `Orange` is LaTeX's and
+ *   `orange` is CSS's), then CSS, then a case-insensitive dvipsnames match
+ *   (`brickred`).
  */
 export function resolveColorInput(input: string): string | null {
   const color = input.trim();
   if (!color) return null;
+  if (color.toLowerCase().startsWith(LATEX_PREFIX)) {
+    return latexColorToHex(color.slice(LATEX_PREFIX.length).trim());
+  }
   return (
     LATEX_DVIPS_COLORS.get(color) ??
     cssColorToHex(color) ??
@@ -156,82 +203,52 @@ export function resolveColorInput(input: string): string | null {
   );
 }
 
+/**
+ * For a bare name that is both a CSS name and an xcolor base name with a
+ * different value (`lime`), the LaTeX alternative, so the UI can offer it.
+ */
+export function latexBaseAlternative(input: string): {input: string; hex: string} | null {
+  const name = input.trim().toLowerCase();
+  const hex = LATEX_BASE_COLORS.get(name);
+  if (!hex || hex === resolveColorInput(input)) return null;
+  return {input: `${LATEX_PREFIX}${name}`, hex};
+}
+
+const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
+
+/**
+ * Pads `colorArray` to `numDistricts` colors (or truncates it). Existing
+ * entries are kept as they are, duplicates included, so no district's color
+ * moves. New colors are unused defaults, then steps around d3's cyclic rainbow
+ * by the golden ratio. Every added color is distinct (case-insensitively) and
+ * the result is the same on every call.
+ */
 export const extendColorArray = (
   colorArray: string[],
   numDistricts: number,
   defaultColorArray: string[] = DefaultColorScheme
 ) => {
-  let newColorArray = [...colorArray];
-  while (newColorArray.length < numDistricts) {
-    const unusedDefaultColors = defaultColorArray.filter(color => !newColorArray.includes(color));
-    newColorArray = newColorArray
-      .concat(...unusedDefaultColors)
-      .concat(...defaultColorArray.map(hexshift))
-      .filter((color, index, array) => array.findIndex(c => c === color) === index);
+  const result = colorArray.slice(0, numDistricts);
+  const seen = new Set(result.map(color => color.toLowerCase()));
+  const add = (color: string) => {
+    const key = color.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(key);
+  };
+  for (const color of defaultColorArray) {
+    if (result.length >= numDistricts) break;
+    add(color);
   }
-  return newColorArray.slice(0, numDistricts);
+  // ponytail: the rainbow has ~1,200 distinct hexes (first repeat at step 384),
+  // so past ~1,200 colors this falls back to counting up through hex values.
+  // Use a 2D (hue x lightness) sequence if plans ever get that large.
+  for (let i = 0; result.length < numDistricts && i < 20_000; i++) {
+    const [r, g, b] = parseColorToRgb(interpolateRainbow((i * GOLDEN_RATIO_CONJUGATE) % 1))!;
+    add(`#${[r, g, b].map(channel => channel.toString(16).padStart(2, '0')).join('')}`);
+  }
+  for (let n = 0; result.length < numDistricts; n++) {
+    add(`#${n.toString(16).padStart(6, '0')}`);
+  }
+  return result;
 };
-
-function hexshift(color: string): string {
-  const hex = '0123456789ABCDEF';
-  let sub = hex[Math.floor(Math.random() * 16)];
-  let char = color[Math.floor(Math.random() * (color.length - 1)) + 1];
-
-  while (sub === char) {
-    sub = hex[Math.floor(Math.random() * 16)];
-  }
-
-  return color.replace(char, sub);
-}
-
-export function districtr(N: number): string[] {
-  const colors = [
-    '#0099cd',
-    '#ffca5d',
-    '#00cd99',
-    '#99cd00',
-    '#cd0099',
-    '#9900cd',
-    '#8dd3c7',
-    '#bebada',
-    '#fb8072',
-    '#80b1d3',
-    '#fdb462',
-    '#b3de69',
-    '#fccde5',
-    '#bc80bd',
-    '#ccebc5',
-    '#ffed6f',
-    '#ffffb3',
-    '#a6cee3',
-    '#1f78b4',
-    '#b2df8a',
-    '#33a02c',
-    '#fb9a99',
-    '#e31a1c',
-    '#fdbf6f',
-    '#ff7f00',
-    '#cab2d6',
-    '#6a3d9a',
-    '#b15928',
-    '#64ffda',
-    '#00B8D4',
-    '#A1887F',
-    '#76FF03',
-    '#DCE775',
-    '#B388FF',
-    '#FF80AB',
-    '#D81B60',
-    '#26A69A',
-    '#FFEA00',
-    '#6200EA',
-  ];
-
-  const repeats = Math.ceil(N / colors.length);
-  const tail = colors.flatMap(color =>
-    Array(repeats - 1)
-      .fill(null)
-      .map(() => hexshift(color))
-  );
-  return colors.concat(tail).slice(0, N);
-}

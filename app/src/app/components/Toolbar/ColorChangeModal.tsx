@@ -3,7 +3,12 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Flex, Dialog, Button, Select, Text, TextField} from '@radix-ui/themes';
 import {colorScheme as DefaultColorScheme, DISTRICT_PALETTES} from '@constants/colors';
-import {extendColorArray, getReadableTextColor, resolveColorInput} from '@/app/utils/colors';
+import {
+  extendColorArray,
+  getReadableTextColor,
+  latexBaseAlternative,
+  resolveColorInput,
+} from '@/app/utils/colors';
 import {idb} from '@/app/utils/idb/idb';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
@@ -30,12 +35,16 @@ export const ColorChangeModal: React.FC<{
   const selectedColor = innerColorScheme[colorSelectIndex] ?? '#000000';
   // The text field mirrors the selected district's color whenever something
   // other than typing changes it (district switch, swatch, palette, custom).
+  // colorText is deliberately not a dependency: re-running on every keystroke
+  // would overwrite what the user is typing.
   useEffect(() => {
     if (resolveColorInput(colorText)?.toLowerCase() === selectedColor.toLowerCase()) return;
     setColorText(selectedColor);
     setColorTextTouched(false);
   }, [selectedColor, colorSelectIndex]);
-  const colorTextInvalid = colorTextTouched && !resolveColorInput(colorText);
+  const typedColor = resolveColorInput(colorText);
+  const colorTextInvalid = colorTextTouched && !typedColor;
+  const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
 
   // Swatches keep a fixed order and show which district already uses them,
   // rather than reshuffling unused colors to the front after every pick.
@@ -57,12 +66,11 @@ export const ColorChangeModal: React.FC<{
     setInnerColorScheme(dupe);
   };
 
-  // Applies as soon as the text names a color; nothing to confirm.
-  const handleColorTextChange = (text: string) => {
-    setColorText(text);
-    setColorTextTouched(false);
-    const hex = resolveColorInput(text);
-    if (hex) setDistrictColor(hex);
+  // Typed text applies on Enter or blur, not per keystroke, so `tangerine`
+  // never applies `tan` on the way. The swatch previews it meanwhile.
+  const commitColorText = () => {
+    setColorTextTouched(true);
+    if (typedColor && typedColor !== selectedColor.toLowerCase()) setDistrictColor(typedColor);
   };
 
   const handleApplyPalette = (name: string) => {
@@ -177,7 +185,7 @@ export const ColorChangeModal: React.FC<{
                 width="32px"
                 height="32px"
                 className="shrink-0 rounded-md border border-gray-300"
-                style={{backgroundColor: selectedColor}}
+                style={{backgroundColor: typedColor ?? selectedColor}}
               />
               <Text size="2" weight="medium" className="shrink-0">
                 District {colorSelectIndex + 1}
@@ -185,9 +193,12 @@ export const ColorChangeModal: React.FC<{
               <TextField.Root
                 className="flex-1"
                 value={colorText}
-                onChange={event => handleColorTextChange(event.target.value)}
-                onBlur={() => setColorTextTouched(true)}
-                onKeyDown={event => event.key === 'Enter' && setColorTextTouched(true)}
+                onChange={event => {
+                  setColorText(event.target.value);
+                  setColorTextTouched(false);
+                }}
+                onBlur={commitColorText}
+                onKeyDown={event => event.key === 'Enter' && commitColorText()}
                 placeholder="rebeccapurple, BrickRed, #ff8800"
                 aria-label={`Color for District ${colorSelectIndex + 1}`}
                 aria-invalid={colorTextInvalid}
@@ -207,8 +218,10 @@ export const ColorChangeModal: React.FC<{
             </Flex>
             <Text size="1" color={colorTextInvalid ? 'red' : 'gray'}>
               {colorTextInvalid
-                ? 'Not a usable color. Try a CSS name, a LaTeX dvipsnames name, or a hex code (no transparency).'
-                : 'Type a CSS or LaTeX color name or a hex code, or pick a swatch.'}
+                ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
+                : latexAlternative
+                  ? `LaTeX's base color by this name is different (${latexAlternative.hex}). Type ${latexAlternative.input} to use it.`
+                  : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a swatch.'}
             </Text>
             <Flex wrap="wrap" gap="1">
               {DefaultColorScheme.map(color => {
