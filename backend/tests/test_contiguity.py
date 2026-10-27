@@ -383,6 +383,44 @@ def test_ks_ellis_geos_contiguity(
     assert response.json() == {"1": 1, "2": 1, "3": 2}
 
 
+def test_ks_ellis_geos_zone_components(
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
+):
+    document_id = ks_ellis_assignments
+
+    # Largest component first: the client treats index 0 as the main body
+    # when population isn't loaded.
+    response = client.get(f"/api/document/{document_id}/contiguity/3/components")
+    assert response.status_code == 200
+    assert response.json()["components"] == [
+        {
+            "geo_ids": [
+                "vtd:2005100003A",
+                "vtd:20051000200",
+                "vtd:2005100021A",
+                "vtd:20051000220",
+                "vtd:20051000230",
+                "vtd:20051000240",
+                "vtd:20051900050",
+                "vtd:20051900060",
+                "vtd:20051900070",
+            ],
+            "neighbor_zones": {"2": 7},
+        },
+        {"geo_ids": ["vtd:20051900100"], "neighbor_zones": {"2": 1}},
+    ]
+
+    # Every bordering zone is reported, not just the top one: the client falls
+    # back to the next neighbor when the top one is locked.
+    response = client.get(f"/api/document/{document_id}/contiguity/2/components")
+    assert response.status_code == 200
+    (component,) = response.json()["components"]
+    assert len(component["geo_ids"]) == 12
+    assert component["neighbor_zones"] == {"3": 8, "1": 6}
+
+
 def test_fix_ks_ellis_geos_contiguity(
     client: TestClient,
     ks_ellis_assignments: str,

@@ -174,6 +174,8 @@ const getPopLookup = () => {
 function MoveFragments({zone}: {zone: number}) {
   const mapDocument = useMapStore(store => store.mapDocument);
   const mapLock = useMapStore(store => store.mapLock);
+  // Block view only re-merges the focused parent, and Heal can move units outside it.
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   // Like Paint and Erase: nothing is edited out of sight.
   const districtsHidden = useMapControlsStore(
     state => state.mapOptions.showPaintedDistricts === false
@@ -233,9 +235,11 @@ function MoveFragments({zone}: {zone: number}) {
     <>
       <Tooltip
         content={
-          districtsHidden
-            ? 'Show painted districts to heal'
-            : 'Move every piece outside the main body into the district it borders most'
+          inBlockView
+            ? 'Exit block view to heal'
+            : districtsHidden
+              ? 'Show painted districts to heal'
+              : 'Move every piece outside the main body into the district it borders most'
         }
       >
         <Button
@@ -243,7 +247,7 @@ function MoveFragments({zone}: {zone: number}) {
           variant="soft"
           ml="auto"
           loading={loading}
-          disabled={districtsHidden || !!mapLock}
+          disabled={inBlockView || districtsHidden || !!mapLock}
           onClick={preview}
         >
           Heal
