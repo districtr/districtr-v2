@@ -22,7 +22,7 @@ import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScroll
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {DistrictTuningTable} from './DistrictTuningTable';
-import {formatNumber} from '@utils/numbers';
+import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -87,12 +87,6 @@ const COL_LABEL_STYLE: React.CSSProperties = {
   letterSpacing: '0.06em',
   fontSize: 10,
 };
-
-// Unicode minus to match the tabular figures.
-const signedNumber = (value: number) =>
-  `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value), NUMBER_FORMATS.STRING)}`;
-const signedPercent = (value: number, ideal: number) =>
-  `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value / ideal), NUMBER_FORMATS.PERCENT)}`;
 
 // Population past ideal darkens toward black as the overage grows: the excess
 // segment starts 30% black at the ideal line and is fully black at 100% over.
@@ -253,7 +247,15 @@ export const DistrictMeters = () => {
       />
       {superDraw && (
         <Flex align="center" gap="2" style={{marginLeft: 'auto'}}>
-          {/* Same toggle-button treatment as Show on map. */}
+          {!tuningView && (
+            <PopulationPanelOptions
+              chartOptions={chartOptions}
+              setChartOptions={setChartOptions}
+              idealPopulation={idealPopulation}
+            />
+          )}
+          {/* Same toggle-button treatment as Show on map. Last, so it stays
+              put when the settings button hides. */}
           <Button
             size="1"
             variant={tuningView ? 'solid' : 'surface'}
@@ -265,13 +267,6 @@ export const DistrictMeters = () => {
             <TableIcon />
             Tuning view
           </Button>
-          {!tuningView && (
-            <PopulationPanelOptions
-              chartOptions={chartOptions}
-              setChartOptions={setChartOptions}
-              idealPopulation={idealPopulation}
-            />
-          )}
         </Flex>
       )}
     </Flex>

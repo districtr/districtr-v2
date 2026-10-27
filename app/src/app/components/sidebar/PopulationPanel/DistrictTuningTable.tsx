@@ -7,8 +7,9 @@ import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
+import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
-import {formatDeviationPct, formatNumber} from '@utils/numbers';
+import {formatNumber, signedDeviationPct, signedNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
@@ -18,15 +19,15 @@ const NUM_CELL_STYLE: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const signed = (value: number, text: string) => `${value < 0 ? '−' : '+'}${text}`;
-
 /**
  * Super Draw's tuning view of the population chart: once every district is
  * within a few hundred people of ideal the bars all look identical, so this
  * swaps them for exact numbers and a per-district contiguity flag.
  *
- * Contiguity shares the validation panel's query key, which turns over with
- * the document's updated_at: one request per save, shared by both views.
+ * Contiguity shares one cache entry (contiguityQueryKey) with the validation
+ * panel and the draft-status helper. The key turns over with the document's
+ * updated_at, so the check runs once per save; between saves the column is
+ * marked stale rather than refetched.
  */
 export const DistrictTuningTable: React.FC<{
   rows: {zone: number; total_pop_20?: number | null}[];
@@ -53,6 +54,10 @@ export const DistrictTuningTable: React.FC<{
     refetchOnWindowFocus: false,
   });
   const components = contiguity?.ok ? contiguity.response : undefined;
+  // Population updates as you paint, contiguity only on save. Editors only:
+  // a viewer's map can't be out of date with itself.
+  const {isOutdated} = useMapSaveStatus();
+  const stale = isOutdated && !isReadOnly;
 
   return (
     <Flex direction="column">
@@ -117,29 +122,27 @@ export const DistrictTuningTable: React.FC<{
                     {formatNumber(population, NUMBER_FORMATS.STRING)}
                   </Table.Cell>
                   <Table.Cell style={NUM_CELL_STYLE}>
-                    {deviation !== undefined
-                      ? signed(deviation, formatNumber(Math.abs(deviation), NUMBER_FORMATS.STRING)!)
-                      : '—'}
+                    {deviation !== undefined ? signedNumber(deviation) : '—'}
                   </Table.Cell>
                   <Table.Cell style={NUM_CELL_STYLE}>
                     <Text color="gray">
                       {deviation !== undefined && idealPopulation
-                        ? signed(
-                            deviation,
-                            formatDeviationPct(Math.abs(deviation) / idealPopulation)
-                          )
+                        ? signedDeviationPct(deviation, idealPopulation)
                         : '—'}
                     </Text>
                   </Table.Cell>
-                  {/* Dimmed while a post-save recheck is in flight. */}
-                  <Table.Cell style={{opacity: isFetching ? 0.5 : 1}}>
+                  {/* Dimmed while unsaved edits make it stale, or a post-save
+                      recheck is in flight. */}
+                  <Table.Cell style={{opacity: stale || isFetching ? 0.5 : 1}}>
                     {pieces === undefined ? (
                       <Text color="gray">—</Text>
                     ) : pieces === 1 ? (
                       <Text color="green">Yes</Text>
                     ) : (
-                      <Text color="red" title={`${pieces} separate pieces`}>
-                        No ({pieces})
+                      <Text color="red">
+                        {/* Visually "No (3)"; read as "No (3 components)". */}
+                        No ({pieces}
+                        <span className="sr-only">&nbsp;components</span>)
                       </Text>
                     )}
                   </Table.Cell>
@@ -172,6 +175,11 @@ export const DistrictTuningTable: React.FC<{
           </Table.Body>
         </Table.Root>
       </ConditionalScrollArea>
+      {stale && (
+        <Text size="1" color="gray" mx="1" mt="1">
+          Contiguity updates when the map saves.
+        </Text>
+      )}
       {/* Otherwise a failed check reads like a row of unstarted districts. */}
       {contiguity?.ok === false && (
         <Text size="1" color="red" mx="1" mt="1">
