@@ -27,6 +27,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import {FragmentMovePlan, planFragmentMoves} from '@/app/utils/map/fragmentMoves';
 import {ACCESS_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 interface ContiguityDetailProps {
   zone: number;
@@ -174,6 +175,8 @@ const getPopLookup = () => {
 function MoveFragments({zone}: {zone: number}) {
   const mapDocument = useMapStore(store => store.mapDocument);
   const mapLock = useMapStore(store => store.mapLock);
+  // Ingest needs the map; before it loads, staged moves would wait for the next stroke.
+  const mapLoaded = useMapStore(state => state.mapRenderingState === RENDERING_STATES.LOADED);
   // Block view only re-merges the focused parent, and Heal can move units outside it.
   const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   // Like Paint and Erase: nothing is edited out of sight.
@@ -216,7 +219,7 @@ function MoveFragments({zone}: {zone: number}) {
   };
 
   const apply = () => {
-    if (!plan) return;
+    if (!plan || !useMapStore.getState().getMapRef()) return setPlan(null);
     const {setAccumulatedAssignments, ingestAccumulatedAssignments} =
       useAssignmentsStore.getState();
     // Stage, then ingest once, like a brush stroke: one undo entry, IDB, autosave.
@@ -235,11 +238,13 @@ function MoveFragments({zone}: {zone: number}) {
     <>
       <Tooltip
         content={
-          inBlockView
-            ? 'Exit block view to heal'
-            : districtsHidden
-              ? 'Show painted districts to heal'
-              : 'Move every piece outside the main body into the district it borders most'
+          !mapLoaded
+            ? 'Waiting for the map to load'
+            : inBlockView
+              ? 'Exit block view to heal'
+              : districtsHidden
+                ? 'Show painted districts to heal'
+                : 'Move every piece outside the main body into the district it borders most'
         }
       >
         <Button
@@ -247,7 +252,7 @@ function MoveFragments({zone}: {zone: number}) {
           variant="soft"
           ml="auto"
           loading={loading}
-          disabled={inBlockView || districtsHidden || !!mapLock}
+          disabled={!mapLoaded || inBlockView || districtsHidden || !!mapLock}
           onClick={preview}
         >
           Heal
