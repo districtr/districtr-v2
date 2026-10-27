@@ -199,6 +199,28 @@ export const maskAreaAt = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   return e.target.queryRenderedFeatures(e.point, {layers: [layer]}).slice(0, 1);
 };
 
+/**
+ * The Mask tool's map click and hover, shared by the districts and community
+ * handlers. A Boundaries-row "Mask" picked while the tool is open (a pending
+ * selectingLayerId) takes precedence: they return false and the caller's
+ * one-shot selection path handles the event (MaskControls then follows the
+ * new mask's layer).
+ */
+export const handleMaskToolClick = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {selectingLayerId, maskByLayerId, setPaintConstraint} = useOverlayStore.getState();
+  if (selectingLayerId) return false;
+  // Sets the mask, or moves it to the clicked area.
+  const [area] = maskAreaAt(e);
+  if (area && maskByLayerId) setPaintConstraint(maskByLayerId, String(area.id));
+  return true;
+};
+export const handleMaskToolHover = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  if (useOverlayStore.getState().selectingLayerId) return false;
+  setHoverFeatures(maskAreaAt(e));
+  useTooltipStore.getState().setTooltip(null);
+  return true;
+};
+
 /** Paint by overlay area is a click tool for Paint/Erase: hover highlights the
  * area, a click paints it (paintOverlayArea), and there's no drag stroke. */
 const isPaintingByArea = () => {
@@ -277,13 +299,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
   }
 
-  if (activeTool === ACTIVE_TOOLS.MASK) {
-    // Sets the mask, or moves it to the clicked area.
-    const [area] = maskAreaAt(e);
-    const {maskByLayerId} = useOverlayStore.getState();
-    if (area && maskByLayerId) setPaintConstraint(maskByLayerId, String(area.id));
-    return;
-  }
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolClick(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],
@@ -488,11 +504,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   setZoneDescriptionTooltip(null);
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
-  if (activeTool === ACTIVE_TOOLS.MASK) {
-    setHoverFeatures(maskAreaAt(e));
-    setTooltip(null);
-    return;
-  }
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolHover(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],

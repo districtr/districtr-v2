@@ -27,18 +27,14 @@ export const MaskControls = () => {
   // when the tool opens, and again after a release (which restores the layers
   // from before, usually without it). An active mask stays as it is. Closing
   // the tool without masking puts the hidden layers back.
+  const showMaskTool = useOverlayStore(state => state.showMaskTool);
+  const closeMaskTool = useOverlayStore(state => state.closeMaskTool);
   useEffect(() => {
-    if (maskedLayerId) {
-      useOverlayStore.setState({maskByLayerId: maskedLayerId});
-      return;
-    }
     if (!maskBy) return;
-    setMaskBy(maskBy);
-    return () => {
-      const {paintConstraint, _layersBeforeMask, clearPaintConstraint} = useOverlayStore.getState();
-      if (!paintConstraint && _layersBeforeMask) clearPaintConstraint();
-    };
-  }, [maskedLayerId, maskBy, setMaskBy]);
+    showMaskTool(maskBy);
+    // No cleanup with a mask up: it stays, with its layer, after the tool closes.
+    return maskedLayerId ? undefined : closeMaskTool;
+  }, [maskedLayerId, maskBy, showMaskTool, closeMaskTool]);
 
   if (!layers.length) {
     return (

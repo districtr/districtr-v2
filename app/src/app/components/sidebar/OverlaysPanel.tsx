@@ -135,6 +135,7 @@ export const OverlaysPanel = () => {
                   showCountyBoundaries: checked,
                   prominentCountyNames: checked,
                 });
+                useOverlayStore.getState().setCountyLinesAfterMask(checked);
               }}
             />
             {superDraw && <MaskButton layerId={COUNTY_SOURCE_ID} />}

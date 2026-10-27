@@ -79,6 +79,13 @@ export interface OverlayStore {
   /** Choose the Mask tool's layer: shows only it (like arming a mask, and
    * releasing any current one), without arming the one-shot selection. */
   setMaskBy: (layerId: string) => void;
+  /** The Mask tool opened, or its mask released while open: show the Mask by
+   * layer so its areas can be clicked; with a mask up, follow its layer. */
+  showMaskTool: (layerId: string) => void;
+  /** The Mask tool closed: without a mask, put back the layers it hid. */
+  closeMaskTool: () => void;
+  /** The county lines switched while a mask is up: release keeps that choice. */
+  setCountyLinesAfterMask: (show: boolean) => void;
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
@@ -134,10 +141,15 @@ export const useOverlayStore = create(
       },
 
       enableOverlay: (overlayId: string) => {
-        const {enabledOverlayIds} = get();
+        const {enabledOverlayIds, _layersBeforeMask} = get();
         const newEnabledIds = new Set(enabledOverlayIds);
         newEnabledIds.add(overlayId);
         set({enabledOverlayIds: newEnabledIds});
+        // Turned on while a mask is up: keep it on after the mask is released.
+        if (_layersBeforeMask && !_layersBeforeMask.enabledOverlayIds.has(overlayId)) {
+          const restoreIds = new Set(_layersBeforeMask.enabledOverlayIds).add(overlayId);
+          set({_layersBeforeMask: {..._layersBeforeMask, enabledOverlayIds: restoreIds}});
+        }
       },
 
       disableOverlay: (overlayId: string) => {
@@ -248,6 +260,26 @@ export const useOverlayStore = create(
       },
 
       maskByLayerId: null,
+      showMaskTool: layerId => {
+        const {paintConstraint, setMaskBy} = get();
+        if (paintConstraint) set({maskByLayerId: paintConstraint.overlayId});
+        else setMaskBy(layerId);
+      },
+      closeMaskTool: () => {
+        const {paintConstraint, _layersBeforeMask, clearPaintConstraint} = get();
+        if (!paintConstraint && _layersBeforeMask) clearPaintConstraint();
+      },
+      setCountyLinesAfterMask: show => {
+        const {_layersBeforeMask} = get();
+        if (!_layersBeforeMask) return;
+        set({
+          _layersBeforeMask: {
+            ..._layersBeforeMask,
+            showCountyBoundaries: show,
+            prominentCountyNames: show,
+          },
+        });
+      },
       setMaskBy: layerId => {
         showMaskLayer(layerId);
         set({selectingLayerId: null, maskByLayerId: layerId});

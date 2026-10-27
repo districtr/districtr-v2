@@ -147,4 +147,34 @@ describe('mask layers', () => {
     expect(state().paintConstraint).toBeNull();
     expect(state().selectingLayerId).toBeNull();
   });
+
+  test('a layer turned on while a mask is up stays on after the release', () => {
+    useMapControlsStore.getState().setMapOptions({showCountyBoundaries: false});
+    state().selectOverlayFeature('metro');
+    mask('metro');
+    state().enableOverlay('School districts');
+    state().setCountyLinesAfterMask(true);
+    state().clearPaintConstraint();
+    expect(state().enabledOverlayIds.has('School districts')).toBe(true);
+    expect(useMapControlsStore.getState().mapOptions.showCountyBoundaries).toBe(true);
+  });
+
+  test('the Mask tool shows its layer on open and puts the others back on close', () => {
+    state().enableOverlay('School districts');
+    state().showMaskTool('metro');
+    expect([...state().enabledOverlayIds]).toEqual(['Metro areas']);
+    expect(state().maskByLayerId).toBe('metro');
+    state().closeMaskTool();
+    expect([...state().enabledOverlayIds]).toEqual(['School districts']);
+  });
+
+  test('closing the Mask tool keeps an active mask; reopening follows its layer', () => {
+    state().showMaskTool('metro');
+    mask('metro');
+    state().closeMaskTool();
+    expect(state().paintConstraint?.overlayId).toBe('metro');
+    state().showMaskTool('school');
+    expect(state().maskByLayerId).toBe('metro');
+    expect(state().paintConstraint?.overlayId).toBe('metro');
+  });
 });

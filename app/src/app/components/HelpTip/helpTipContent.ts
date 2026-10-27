@@ -42,6 +42,7 @@ export const helpTipContent = {
   superdrawToolsCombination: {
     title: 'Super Draw tools',
     text: 'After drawing a district in approximation, switch Paint by to Blocks and paint the units on its edge block by block to fine-tune its population balance:',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',
@@ -68,6 +69,7 @@ export const helpTipContent = {
   paintBy: {
     title: 'Paint by',
     text: 'Choose what one brush stroke paints: single units, or whole counties. Blocks lets you paint inside one unit: click a unit to break it into blocks, paint them, then click another unit to move on. A boundary layer such as school districts paints one whole area per click, exactly: units on its edge are broken and only their blocks inside it are painted.',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
     videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on painting by county',
@@ -183,6 +185,7 @@ export const helpTipContent = {
   paintMask: {
     title: 'Masking painting to an area',
     text: 'With the Mask tool, choose a layer under Mask by, then click one of its areas on the map (a county, a district, a metro area…). Paint and Erase then only change units inside that area until you release the mask or press Esc.',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
     videoFile: 'mask_area.webm',
     guideAnchor: 'additional-controls',
   },

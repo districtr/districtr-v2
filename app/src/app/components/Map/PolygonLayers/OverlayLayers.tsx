@@ -150,7 +150,8 @@ const OverlayLayer = ({
       id: `${selectedLayerId}-outline`,
       type: 'line' as const,
       paint: SELECTED_LINE_STYLE,
-      filter: ['==', ['get', idProperty], selectedFeatureId],
+      // String compare: masks store String(id), promoteId keeps numbers.
+      filter: ['==', ['to-string', ['get', idProperty]], String(selectedFeatureId)],
     };
 
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {

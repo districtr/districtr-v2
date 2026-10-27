@@ -64,6 +64,7 @@ mock.module('../api/apiHandlers/getChildEdges', () => ({
 let zoom = 10;
 const map = {
   getZoom: () => zoom,
+  once: () => {},
   getLayer: () => ({}),
   querySourceFeatures: (source: string) =>
     source === 'blocks'
@@ -86,6 +87,9 @@ beforeEach(() => {
   healed = [];
   broke = [];
   zoom = 10;
+  // Districts mode explicitly: another file (assignmentIntegrity) can leave
+  // 'coi' behind, and breakUnits pauses the mode's own undo recorder.
+  useMapControlsStore.setState({mapMode: 'districts'});
   useMapStore.setState({
     mapLock: null,
     mapDocument: {

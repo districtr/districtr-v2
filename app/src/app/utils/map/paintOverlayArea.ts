@@ -10,6 +10,7 @@ import {BLOCK_SOURCE_ID, OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/la
 import {overlayIdOf} from '@constants/map/paintBy';
 import {MAP_MODES} from '@constants/map/mode';
 import {filterFeatures} from '@utils/map/filterFeatures';
+import {bboxesOverlap} from '@utils/map/isMostlyInside';
 import {getPointSelectionData} from '@utils/api/apiHandlers/getPointSelectionData';
 import {temporalManager} from '@utils/temporal';
 import {useMapStore} from '@/app/store/mapStore';
@@ -24,8 +25,6 @@ export type UnitClass = 'whole' | 'break' | 'skip';
 
 const inBox = ([x, y]: Position, box: BBox) =>
   x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3];
-const boxesOverlap = (a: BBox, b: BBox) =>
-  a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
 export const inArea = (point: Position, {pieces}: AreaShape) =>
   pieces.some(({polygon, box}) => inBox(point, box) && booleanPointInPolygon(point, polygon));
 
@@ -43,7 +42,7 @@ export const toAreaShape = (polygons: Array<Polygon | MultiPolygon>): AreaShape 
  * all end up in one zone.
  */
 export const classifyUnit = (unit: {box: BBox; point: Position}, area: AreaShape): UnitClass => {
-  if (!area.pieces.some(piece => boxesOverlap(piece.box, unit.box))) return 'skip';
+  if (!area.pieces.some(piece => bboxesOverlap(piece.box, unit.box))) return 'skip';
   const [w, s, e, n] = unit.box;
   const cornersIn = [
     [w, s],
@@ -73,6 +72,16 @@ export const getOverlayAreaUnderCursor = (
   return map.queryRenderedFeatures(e.point, {layers: [clickLayerId]}).slice(0, 1);
 };
 
+// Below this zoom the loaded tiles' outlines are too simplified to sort blocks
+// near an area's edge. ponytail: a tuning knob, picked by eye on TIGER tiles.
+export const MIN_AREA_PAINT_ZOOM = 8;
+
+// One click at a time, start to finish: the shatter render drops the map lock
+// mid-click, so the lock alone can't keep a second click (or an undo) from
+// interleaving with this one's break, paint and heal.
+let inFlight = false;
+export const isAreaPaintInFlight = () => inFlight;
+
 /**
  * Paint (or erase) one overlay area on click, exactly: units inside it paint
  * whole; units on its edge are broken, and only their blocks whose center lies
@@ -84,18 +93,8 @@ export const getOverlayAreaUnderCursor = (
  * ponytail: candidates are the parent units in loaded tiles, so an area that
  * runs off-screen paints only its loaded part, and the area's outline is the
  * tiles' (simplified at low zoom, hence MIN_AREA_PAINT_ZOOM); a server-side
- * block/area crosswalk would make this exact and geometry-free.
+ * block/area crosswalk would make this exact and geometry-free (districtr_v2-c23).
  */
-// Below this zoom the loaded tiles' outlines are too simplified to sort blocks
-// near an area's edge. ponytail: a tuning knob, picked by eye on TIGER tiles.
-export const MIN_AREA_PAINT_ZOOM = 8;
-
-// One click at a time, start to finish: the shatter render drops the map lock
-// mid-click, so the lock alone can't keep a second click (or an undo) from
-// interleaving with this one's break, paint and heal.
-let inFlight = false;
-export const isAreaPaintInFlight = () => inFlight;
-
 export const paintOverlayArea = async (
   map: MaplibreMap,
   area: MapGeoJSONFeature,
@@ -144,7 +143,7 @@ export const paintOverlayArea = async (
       }
     });
     const near = [...candidates.entries()].filter(([, {box}]) =>
-      shape.pieces.some(piece => boxesOverlap(piece.box, box))
+      shape.pieces.some(piece => bboxesOverlap(piece.box, box))
     );
     if (!near.length) return;
 
@@ -174,11 +173,16 @@ export const paintOverlayArea = async (
     });
 
     if (toBreak.length) {
+      // Before the await: if breakUnits throws after recording the break, the
+      // catch still heals these (healing ids that never broke does nothing).
+      brokenNow = toBreak;
       const edges = await breakUnits(toBreak);
       if (!edges) return; // breakUnits notified
-      brokenNow = toBreak;
-      // The shatter render can clear the lock; hold it through the block fetch.
-      useMapStore.getState().setMapLock({isLocked: true, reason: lockReason});
+      // The break's shatter render clears the map lock on its next frame
+      // (renderShatter); take it back after that render, through the fetch.
+      map.once('render', () => {
+        if (inFlight) useMapStore.getState().setMapLock({isLocked: true, reason: lockReason});
+      });
     }
 
     // Blocks of the edge units: paint those whose center lies inside.
