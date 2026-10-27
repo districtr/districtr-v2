@@ -176,6 +176,9 @@ export const DistrictMeters = () => {
   // there are any, replace started as the default subset at every plan size.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
   const pinning = pinnedZones.length > 0;
+  // A new round of pins (or unpinning everything) drops the old choice, so
+  // the first pin narrows the meters even after an earlier "Show all".
+  useEffect(() => setShowAllOverride(null), [pinning]);
   const showAll = showAllOverride ?? (!pinning && populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const inSubset = (d: (typeof populationData)[number]) =>

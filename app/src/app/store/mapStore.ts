@@ -764,6 +764,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           metadata: true,
         },
       });
+      // Pins on districts that no longer exist would filter tables down to
+      // rows that aren't there.
+      useMapControlsStore.setState(state => ({
+        pinnedZones: state.pinnedZones.filter(zone => zone <= numDistricts),
+      }));
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
         const newClientLastUpdated = new Date().toISOString();
