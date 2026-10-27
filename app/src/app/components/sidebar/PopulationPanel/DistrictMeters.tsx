@@ -43,9 +43,6 @@ const PIN_TRAIL = 4;
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
 
-// Bars stop growing on wide sidebars; everything (label strip, rows,
-// scoreboard) shares the cap so columns stay aligned.
-const MAX_METERS_WIDTH = 560;
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
 // started-only.
@@ -257,14 +254,7 @@ export const DistrictMeters = () => {
       : undefined;
 
   return (
-    <Flex
-      direction="column"
-      gap="0"
-      mt="2"
-      // Centered once the sidebar is wider than the cap, rather than left-hugging
-      // with all the slack on one side.
-      style={{maxWidth: MAX_METERS_WIDTH, width: '100%', marginInline: 'auto'}}
-    >
+    <Flex direction="column" gap="0" mt="2" style={{width: '100%'}}>
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
