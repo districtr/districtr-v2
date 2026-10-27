@@ -125,8 +125,10 @@ Five GitHub Actions workflows (`.github/workflows/`):
 
 - **AWS Infrastructure (Pulumi)** — `infra.yml`: `pulumi up` for the stack.
 - **AWS Deploy API (Pulumi)** — `deploy-api.yml`: build → ECR → run alembic
-  migrations as a one-off task → `pulumi up` → verify the service stabilized
-  on the new image (a circuit-breaker rollback fails the run).
+  migrations as a one-off task (skipped when alembic, `requirements.txt`, and
+  the Dockerfile are unchanged since the SHA in the SSM image tag; dispatch
+  with `force_migrations` to override) → `pulumi up` → verify the service
+  stabilized on the new image (a circuit-breaker rollback fails the run).
 - **AWS Deploy App (Pulumi)** — `deploy-app.yml`: build → ECR → `pulumi up` →
   verify.
 - **AWS Deploy CMS (Pulumi)** — `deploy-cms.yml`: build → ECR → run
@@ -209,7 +211,10 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
   last 20 images. An image rollback can't cross a migration that dropped
   something the old code reads; the Wagtail cutover's legacy-comment drop is
   one, and rolling it back means restoring the pre-deploy RDS snapshot
-  (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`).
+  (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`). After a snapshot restore or a manual
+  `alembic downgrade`, the next API deploy must be dispatched with
+  `force_migrations`: the SSM tag still names the newer SHA, so the
+  migration check would otherwise skip.
 - **Secrets**: `pulumi config set --secret <key> <value>` then `pulumi up`; the
   encrypted value is committed to the stack YAML and lands in SSM.
 - **Database**: the password is Pulumi-generated; `pulumi stack output

@@ -1,5 +1,6 @@
 'use client';
-import maplibregl, {FilterSpecification} from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
+import {FilterSpecification} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/map/viewDefaults';
