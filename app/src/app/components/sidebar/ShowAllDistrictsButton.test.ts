@@ -9,7 +9,7 @@ describe('pinned districts', () => {
   // bun shares module state across test files; don't leak pins or the fake map.
   afterEach(() => {
     useMapStore.setState(initialMapState);
-    useMapControlsStore.getState().clearPinnedZones();
+    useMapControlsStore.setState({pinnedZones: []});
   });
 
   test('filterPinnedRows keeps pinned districts and non-district rows', () => {
@@ -17,14 +17,12 @@ describe('pinned districts', () => {
     expect(filterPinnedRows(rows, [3])).toEqual([{zone: 3}, {zone: null}, {zone: 'Statewide'}]);
   });
 
-  test('togglePinnedZone adds and removes; clearPinnedZones empties', () => {
-    const {togglePinnedZone, clearPinnedZones} = useMapControlsStore.getState();
+  test('togglePinnedZone adds and removes', () => {
+    const {togglePinnedZone} = useMapControlsStore.getState();
     togglePinnedZone(3);
     togglePinnedZone(7);
     togglePinnedZone(3);
     expect(useMapControlsStore.getState().pinnedZones).toEqual([7]);
-    clearPinnedZones();
-    expect(useMapControlsStore.getState().pinnedZones).toEqual([]);
   });
 
   test('lowering the district count drops pins on removed districts', () => {

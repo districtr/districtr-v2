@@ -35,8 +35,10 @@ const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
 // Width of the rows' Super Draw icon cluster (pin, comment, lock), shared by
 // the header strip so its x-scale matches the bars'. The three ghost buttons
-// render about 64px wide; the rest is slack before the bar.
-const ICONS_WIDTH = 76;
+// and their trailing space render about 69px wide.
+const ICONS_WIDTH = 72;
+// Extra space after the pin, so it doesn't crowd the comment button.
+const PIN_TRAIL = 4;
 // ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
@@ -107,8 +109,8 @@ const overflowColorFor = (color: string, population: number, ideal?: number) => 
 const chevronCount = (population: number, ideal: number) =>
   Math.min(MAX_CHEVRONS, Math.floor((population - ideal) / ideal / CHEVRON_STEP));
 
-// The Super Draw icon cluster minus the lock button (24px) and cluster gap (4px).
-const COMMENT_COL_WIDTH = ICONS_WIDTH - 28;
+// Plain Draw's comment column: the comment button alone.
+const COMMENT_COL_WIDTH = 28;
 
 /** "Keeps going" marker on an off-the-scale bar's end. */
 const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
@@ -147,7 +149,6 @@ export const DistrictMeters = () => {
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
   const pinnedZones = usePinnedZones();
   const togglePinnedZone = useMapControlsStore(state => state.togglePinnedZone);
-  const clearPinnedZones = useMapControlsStore(state => state.clearPinnedZones);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
@@ -292,24 +293,20 @@ export const DistrictMeters = () => {
               <Box style={{width: numColWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}} />
             )}
             {showRowIcons && (
-              /* Mirrors the rows' icon cluster exactly — unpin-all (invisible
-                 while nothing is pinned), an invisible twin of the comment
-                 button, then the lock — so each lands directly above the
-                 rows' icons (ghost-margin quirks included). */
+              /* Mirrors the rows' icon cluster exactly — invisible twins of the
+                 pin and comment buttons, then the lock — so the lock-all lands
+                 directly above the rows' lock icons (ghost-margin quirks
+                 included). */
               <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
-                <Tooltip content="Unpin all districts">
-                  <IconButton
-                    onClick={clearPinnedZones}
-                    variant="ghost"
-                    size="1"
-                    aria-label="Unpin all districts"
-                    aria-hidden={!pinning}
-                    tabIndex={pinning ? undefined : -1}
-                    style={pinning ? undefined : {visibility: 'hidden'}}
-                  >
-                    <DrawingPinFilledIcon />
-                  </IconButton>
-                </Tooltip>
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  aria-hidden
+                  tabIndex={-1}
+                  style={{visibility: 'hidden', marginRight: PIN_TRAIL}}
+                >
+                  <DrawingPinIcon />
+                </IconButton>
                 <IconButton
                   variant="ghost"
                   size="1"
@@ -444,12 +441,21 @@ export const DistrictMeters = () => {
                               : 'Pin this district to show only pinned districts in the tables'
                           }
                         >
+                          {/* Unpinned pins stay hidden until the row is hovered
+                              or focused (opacity, not visibility, so they
+                              remain focusable). */}
                           <IconButton
                             onClick={() => togglePinnedZone(d.zone)}
                             variant="ghost"
                             size="1"
                             aria-pressed={pinned}
                             aria-label={`Pin district ${d.zone}`}
+                            className={
+                              pinned
+                                ? undefined
+                                : 'opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100'
+                            }
+                            style={{marginRight: PIN_TRAIL}}
                           >
                             {pinned ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
                           </IconButton>

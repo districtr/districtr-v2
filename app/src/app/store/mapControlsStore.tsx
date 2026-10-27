@@ -75,7 +75,6 @@ export interface MapControlsStore {
    * usePinnedZones). Cleared when a map loads. */
   pinnedZones: Zone[];
   togglePinnedZone: (zone: Zone) => void;
-  clearPinnedZones: () => void;
   /** Workflow-tab sections a user collapsed (sections default open, so absent
    * = open). Lives here rather than in TabSection state because tab content
    * unmounts on switch. */
@@ -228,7 +227,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
           ? state.pinnedZones.filter(z => z !== zone)
           : [...state.pinnedZones, zone],
       })),
-    clearPinnedZones: () => set({pinnedZones: []}),
     collapsedTabSections: [],
     openTabSection: id =>
       set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),
