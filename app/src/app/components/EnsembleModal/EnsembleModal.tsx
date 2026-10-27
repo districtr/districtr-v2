@@ -21,6 +21,7 @@ import {formatElectionKey} from '@utils/elections';
 import {
   ensembleExtremeThumbUrl,
   useEnsembleBounds,
+  useEnsembleJointIndex,
   useEnsembleSegment,
   useEnsembleSummary,
 } from './ensembleData';
@@ -39,6 +40,7 @@ import {compareToEnsemble} from '@utils/ensembleStats';
 import {EnsembleComparisonText} from './EnsembleComparisonText';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
 import {EnsembleHistogram, type HistogramExtreme} from './EnsembleHistogram';
+import {JointSection, resolvePairs} from './JointSection';
 import {SegmentTables} from './SegmentTables';
 import {SegmentThumbnail} from './SegmentThumbnail';
 
@@ -52,7 +54,8 @@ const CHART_HEIGHT = 320;
 const CHART_MAX_WIDTH = 760;
 /** Which of the collapsible sections are open, remembered per browser. */
 const SECTIONS_KEY = 'districtr-ensemble-modal-sections';
-const DEFAULT_SECTIONS = ['demonstration'];
+const JOINT_SECTION = 'joint';
+const DEFAULT_SECTIONS = ['demonstration', JOINT_SECTION];
 
 const readStoredSections = (): string[] => {
   try {
@@ -130,9 +133,14 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   const summaryQuery = useEnsembleSummary(moduleSlug, presetKey, open);
   const segmentQuery = useEnsembleSegment(moduleSlug, presetKey, open);
   const boundsQuery = useEnsembleBounds(moduleSlug, presetKey, open && !!analysis?.bounds);
+  const jointIndexQuery = useEnsembleJointIndex(moduleSlug, presetKey, open && !!analysis?.joint);
   const summary = summaryQuery.data;
   const segment = segmentQuery.data;
   const bounds = boundsQuery.data;
+  const jointPairs = useMemo(
+    () => resolvePairs(jointIndexQuery.data?.pairs ?? []),
+    [jointIndexQuery.data]
+  );
   const [showAllExtremes, setShowAllExtremes] = useState(false);
 
   const [selection, setSelection] = useState<EnsembleMetricFocus | null>(focus ?? null);
@@ -477,6 +485,35 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                   {ENSEMBLE_MODAL_TEXT.noPlanValue}
                 </Text>
               )}
+            </>
+          )}
+
+          {jointPairs.length > 0 && (
+            <>
+              <Separator size="4" my="2" />
+              <Accordion.Root
+                type="multiple"
+                value={openSections}
+                onValueChange={handleSectionsChange}
+              >
+                <CollapsibleSection
+                  value={JOINT_SECTION}
+                  heading={ENSEMBLE_MODAL_TEXT.jointHeading}
+                >
+                  <JointSection
+                    moduleSlug={moduleSlug}
+                    presetKey={presetKey}
+                    presetLabel={presetLabel}
+                    planCountText={planCountText}
+                    pairs={jointPairs}
+                    open={open && openSections.includes(JOINT_SECTION)}
+                    evaluation={evaluation}
+                    step={step}
+                    planLabel={ENSEMBLE_MODAL_TEXT.thisPlanMarker}
+                    stepLabel={stepLabel}
+                  />
+                </CollapsibleSection>
+              </Accordion.Root>
             </>
           )}
         </Flex>
