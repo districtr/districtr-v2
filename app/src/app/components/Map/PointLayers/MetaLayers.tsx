@@ -391,6 +391,7 @@ const ZoneNumbersLayer = () => {
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.ALIAS}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
