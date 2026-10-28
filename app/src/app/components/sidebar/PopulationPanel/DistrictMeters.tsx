@@ -218,6 +218,21 @@ export const DistrictMeters = () => {
     }
   };
 
+  // Shared by the bars header and the tuning table's lock column.
+  const lockAllButton = (
+    <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
+      <IconButton
+        onClick={toggleLockAllAreas}
+        variant="ghost"
+        size="1"
+        disabled={isReadOnly}
+        aria-label={allLocked ? 'Unlock all districts' : 'Lock all districts'}
+      >
+        {allLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+      </IconButton>
+    </HelpTip>
+  );
+
   // Fixed number column sized to the widest district number so every bar
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
@@ -290,9 +305,10 @@ export const DistrictMeters = () => {
           <DistrictTuningTable
             rows={visibleData}
             idealPopulation={idealPopulation}
-            showLocks={showRowIcons}
+            showRowIcons={showRowIcons}
             isReadOnly={isReadOnly}
             onToggleLock={handleLockChange}
+            lockAllButton={lockAllButton}
           />
           {footer}
         </>
@@ -330,17 +346,7 @@ export const DistrictMeters = () => {
                 >
                   <LockOpen2Icon />
                 </IconButton>
-                <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
-                  <IconButton
-                    onClick={toggleLockAllAreas}
-                    variant="ghost"
-                    size="1"
-                    disabled={isReadOnly}
-                    aria-label={allLocked ? 'Unlock all districts' : 'Lock all districts'}
-                  >
-                    {allLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                  </IconButton>
-                </HelpTip>
+                {lockAllButton}
               </Flex>
             )}
             {showCommentCol && <Box style={{width: COMMENT_COL_WIDTH, flexShrink: 0}} />}
