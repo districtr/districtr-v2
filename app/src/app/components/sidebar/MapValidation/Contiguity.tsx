@@ -72,6 +72,7 @@ export const Contiguity = () => {
 
   return (
     <Box>
+      {pinFilter.line}
       {/* One row per district — scroll past ten, like the population panel. */}
       <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
         <Table.Root size="1">
@@ -113,7 +114,6 @@ export const Contiguity = () => {
           </Table.Body>
         </Table.Root>
       </ConditionalScrollArea>
-      {pinFilter.toggle}
     </Box>
   );
 };

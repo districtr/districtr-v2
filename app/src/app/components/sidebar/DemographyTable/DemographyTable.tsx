@@ -332,6 +332,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
           </Text>
         </Flex>
       )}
+      {pinFilter.line}
       {/* One row per district/community — scroll past ten, like the
           population panel. */}
       <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
@@ -358,7 +359,6 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
           </Table.Root>
         </Box>
       </ConditionalScrollArea>
-      {pinFilter.toggle}
     </Box>
   );
 };

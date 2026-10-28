@@ -24,7 +24,7 @@ import {
   FlatRowsContext,
   SCROLL_RESERVED_WIDTH,
 } from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton, usePinnedZones} from '../ShowAllDistrictsButton';
+import {ShowAllDistrictsButton, usePinnedFilter, usePinnedZones} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
@@ -171,13 +171,14 @@ export const DistrictMeters = () => {
 
   // Both Draw and Super Draw default to started-districts-only (small plans
   // default to all); null = no explicit choice yet. Pinned districts, when
-  // there are any, replace started as the default subset at every plan size.
+  // there are any, replace started as the subset at every plan size, and the
+  // shared pinned "show all" (in the line atop each table) replaces the choice.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
+  const pinFilter = usePinnedFilter(populationData.length);
   const pinning = pinnedZones.length > 0;
-  // A new round of pins (or unpinning everything) drops the old choice, so
-  // the first pin narrows the meters even after an earlier "Show all".
-  useEffect(() => setShowAllOverride(null), [pinning]);
-  const showAll = showAllOverride ?? (!pinning && populationData.length < SHOW_ALL_DEFAULT_MAX);
+  const showAll = pinning
+    ? !pinFilter.filtering
+    : (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const inSubset = (d: (typeof populationData)[number]) =>
     pinning ? pinnedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
@@ -255,6 +256,9 @@ export const DistrictMeters = () => {
 
   return (
     <Flex direction="column" gap="0" mt="2" style={{width: '100%'}}>
+      {/* Above the empty state too: with every district erased, it's the way
+          out of a pinned filter the other tables still apply. */}
+      {pinFilter.line}
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
@@ -635,13 +639,14 @@ export const DistrictMeters = () => {
             </Flex>
           </ConditionalScrollArea>
           <Flex align="center" justify="between" mt="1">
-            <ShowAllDistrictsButton
-              showAll={showAll}
-              onToggle={() => setShowAllOverride(!showAll)}
-              total={populationData.length}
-              hiddenCount={hiddenCount}
-              subset={pinning ? 'pinned' : 'started'}
-            />
+            {!pinning && (
+              <ShowAllDistrictsButton
+                showAll={showAll}
+                onToggle={() => setShowAllOverride(!showAll)}
+                total={populationData.length}
+                hiddenCount={hiddenCount}
+              />
+            )}
             {superDraw && (
               <span style={{marginLeft: 'auto'}}>
                 <PopulationPanelOptions
