@@ -23,6 +23,8 @@ const CSS_NAMES: Record<string, string> = {
   rebeccapurple: '#663399',
   lime: '#00ff00',
   red: '#ff0000',
+  green: '#008000',
+  forestgreen: '#228b22',
   'rgb(255 0 0 / 50%)': 'rgba(255, 0, 0, 0.5)',
 };
 let fillStyle = '#000000';
@@ -46,15 +48,17 @@ describe('resolveColorInput', () => {
     expect(resolveColorInput('RebeccaPurple')).toBe('#663399');
   });
 
-  test('resolves dvipsnames exactly and case-insensitively', () => {
-    expect(resolveColorInput('ForestGreen')).toBe('#00e000');
+  test('resolves dvipsnames CSS lacks, exactly and case-insensitively', () => {
     expect(resolveColorInput('  BrickRed ')).toBe('#b80000');
     expect(resolveColorInput('brickred')).toBe('#b80000');
   });
 
-  test('exact-case dvipsnames beat CSS, and CSS beats case-insensitive dvipsnames', () => {
-    expect(resolveColorInput('Orange')).toBe('#ff6321');
+  test('CSS wins for bare names in any case; latex: reaches the dvipsname', () => {
+    expect(resolveColorInput('Orange')).toBe('#ffa500');
     expect(resolveColorInput('orange')).toBe('#ffa500');
+    expect(resolveColorInput('Green')).toBe('#008000');
+    expect(resolveColorInput('ForestGreen')).toBe('#228b22');
+    expect(resolveColorInput('latex:ForestGreen')).toBe('#00e000');
   });
 
   test('rejects translucent colors', () => {
@@ -83,11 +87,15 @@ describe('resolveColorInput', () => {
     expect(resolveColorInput('latex:rebeccapurple')).toBeNull();
   });
 
-  test('offers the LaTeX value only when a bare base name means something else', () => {
+  test('offers the LaTeX value only when a bare name means something else there', () => {
     expect(resolveColorInput('lime')).toBe('#00ff00');
     expect(latexBaseAlternative('lime')).toEqual({input: 'latex:lime', hex: '#bfff00'});
+    expect(latexBaseAlternative('Green')).toEqual({input: 'latex:Green', hex: '#00ff00'});
+    expect(latexBaseAlternative('Orange')).toEqual({input: 'latex:Orange', hex: '#ff6321'});
     expect(latexBaseAlternative('red')).toBeNull();
+    expect(latexBaseAlternative('BrickRed')).toBeNull();
     expect(latexBaseAlternative('rebeccapurple')).toBeNull();
+    expect(latexBaseAlternative('latex:lime')).toBeNull();
   });
 
   test('rejects empty and unknown input, including Object prototype keys', () => {

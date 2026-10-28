@@ -255,6 +255,9 @@ export const ColorChangeModal: React.FC<{
                 onBlur={() => commitColorText()}
                 onKeyDown={event => event.key === 'Enter' && commitColorText()}
                 placeholder="rebeccapurple, BrickRed, #ff8800"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 aria-label={`Color for District ${colorSelectIndex + 1}`}
                 aria-invalid={colorTextInvalid || !!typedOwner}
               />
@@ -285,7 +288,7 @@ export const ColorChangeModal: React.FC<{
                 : typedOwner
                   ? `District ${typedOwner} already uses this color. Pick another.`
                   : latexAlternative
-                    ? `LaTeX's base color by this name is different (${latexAlternative.hex}). Type ${latexAlternative.input} to use it.`
+                    ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
                     : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
             </Text>
             {currentPalette && freePaletteColors.length > 0 && (

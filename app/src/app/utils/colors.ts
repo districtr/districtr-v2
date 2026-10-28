@@ -39,9 +39,9 @@ function parseColorToRgb(color: string): [number, number, number] | null {
 // LaTeX xcolor `dvipsnames` (the 68 CMYK colors in dvipsnam.def), converted
 // to RGB with xcolor's own rule, rgb = 1 - min(1, cmy + k). That rule runs more
 // saturated than PDF viewers render these (ForestGreen is #00e000 here).
-// svgnames are spelled like CSS names, so the browser resolves them, except
-// where a CamelCase svgname such as ForestGreen is also a dvipsname: the
-// exact-case dvipsnames match wins (see resolveColorInput).
+// svgnames are spelled like CSS names, so the browser resolves them. Where a
+// dvipsname is also a CSS name (Orange, ForestGreen, Violet), CSS wins and
+// `latex:` reaches the dvipsname (see resolveColorInput).
 const LATEX_DVIPS_COLORS = new Map<string, string>(
   Object.entries({
     GreenYellow: '#d9ff4f',
@@ -182,9 +182,9 @@ function latexColorToHex(name: string): string | null {
 /**
  * Resolves typed color text to #rrggbb, or null if unrecognized.
  * - `latex:<name>` looks up only LaTeX names (`latex:lime` is xcolor's #bfff00).
- * - Otherwise an exact-case dvipsnames match wins (so `Orange` is LaTeX's and
- *   `orange` is CSS's), then CSS, then a case-insensitive dvipsnames match
- *   (`brickred`).
+ * - Otherwise CSS wins, so `Green` is CSS's #008000 however a phone
+ *   capitalizes it, and a LaTeX name applies only when CSS doesn't know it
+ *   (`BrickRed`, `brickred`).
  */
 export function resolveColorInput(input: string): string | null {
   const color = input.trim();
@@ -192,22 +192,18 @@ export function resolveColorInput(input: string): string | null {
   if (color.toLowerCase().startsWith(LATEX_PREFIX)) {
     return latexColorToHex(color.slice(LATEX_PREFIX.length).trim());
   }
-  return (
-    LATEX_DVIPS_COLORS.get(color) ??
-    cssColorToHex(color) ??
-    LATEX_DVIPS_COLORS_LOWER.get(color.toLowerCase()) ??
-    null
-  );
+  return cssColorToHex(color) ?? latexColorToHex(color);
 }
 
 /**
- * For a bare name that is both a CSS name and an xcolor base name with a
- * different value (`lime`), the LaTeX alternative, so the UI can offer it.
+ * For a bare name that CSS and LaTeX both know with different values (`lime`,
+ * `Orange`), the LaTeX alternative, so the UI can offer it.
  */
 export function latexBaseAlternative(input: string): {input: string; hex: string} | null {
-  const name = input.trim().toLowerCase();
-  const hex = LATEX_BASE_COLORS.get(name);
-  if (!hex || hex === resolveColorInput(input)) return null;
+  const name = input.trim();
+  if (name.toLowerCase().startsWith(LATEX_PREFIX)) return null;
+  const hex = latexColorToHex(name);
+  if (!hex || hex === resolveColorInput(name)) return null;
   return {input: `${LATEX_PREFIX}${name}`, hex};
 }
 
