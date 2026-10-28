@@ -9,7 +9,7 @@ import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
-import {formatNumber, signedDeviationPct, signedNumber} from '@utils/numbers';
+import {formatNumber, signedNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
@@ -73,7 +73,6 @@ export const DistrictTuningTable: React.FC<{
               <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Pop</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Deviation</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>%</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Contiguous</Table.ColumnHeaderCell>
               {showLocks && (
                 <Table.ColumnHeaderCell>
@@ -123,13 +122,6 @@ export const DistrictTuningTable: React.FC<{
                   </Table.Cell>
                   <Table.Cell style={NUM_CELL_STYLE}>
                     {deviation !== undefined ? signedNumber(deviation) : '—'}
-                  </Table.Cell>
-                  <Table.Cell style={NUM_CELL_STYLE}>
-                    <Text color="gray">
-                      {deviation !== undefined && idealPopulation
-                        ? signedDeviationPct(deviation, idealPopulation)
-                        : '—'}
-                    </Text>
                   </Table.Cell>
                   {/* Dimmed while unsaved edits make it stale, or a post-save
                       recheck is in flight. */}

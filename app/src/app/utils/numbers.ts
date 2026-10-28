@@ -21,8 +21,6 @@ export const signedNumber = (value: number) =>
   `${sign(value)}${Math.round(Math.abs(value)).toLocaleString()}`;
 export const signedPercent = (value: number, ideal: number) =>
   `${sign(value)}${percentFormatter.format(Math.abs(value / ideal))}`;
-export const signedDeviationPct = (value: number, ideal: number) =>
-  `${sign(value)}${formatDeviationPct(Math.abs(value / ideal))}`;
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
