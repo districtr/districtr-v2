@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, spyOn, test} from 'bun:test';
+import {afterEach, beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -30,6 +30,12 @@ beforeEach(() => {
   });
   setZoneLocks.mockClear();
   spyOn(idb, 'updateIdbDocumentMetadata').mockImplementation(async () => {});
+  spyOn(idb, 'getDocument').mockImplementation(async () => undefined);
+});
+
+// Spies outlive a test file in bun; restore them so other files see fresh call counts.
+afterEach(() => {
+  mock.restore();
 });
 
 describe('district locks', () => {
@@ -66,6 +72,16 @@ describe('district locks', () => {
     await flush();
     expect(locks()).toEqual([3, 4]);
     expect(setZoneLocks).not.toHaveBeenCalled();
+  });
+
+  test('lowering the district count drops locks on the removed districts', async () => {
+    useMapStore.getState().setMapDocument({...docA, num_districts: 5});
+    await flush();
+    useMapControlsStore.getState().setLockedZones([2, 5]);
+
+    useMapStore.getState().setNumDistricts(3);
+    expect(locks()).toEqual([2]);
+    expect(saved.a).toEqual([2]);
   });
 
   test('a late restore never overrides newer locks or lands on another map', async () => {

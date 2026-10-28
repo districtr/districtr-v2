@@ -789,6 +789,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           metadata: true,
         },
       });
+      // Locks on districts that no longer exist would come back if the count is
+      // raised again; dropping them through setLockedZones updates the saved copy too.
+      const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
+      const keptLocks = lockPaintedAreas.filter(zone => !zone || zone <= numDistricts);
+      if (keptLocks.length < lockPaintedAreas.length) {
+        useMapControlsStore.getState().setLockedZones(keptLocks);
+      }
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
         const newClientLastUpdated = new Date().toISOString();
