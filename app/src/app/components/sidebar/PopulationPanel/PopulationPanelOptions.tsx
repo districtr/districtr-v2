@@ -3,6 +3,7 @@ import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {ChartStore} from '@store/chartStore';
+import {ColorChangeModal, DistrictColorsButton} from '../../Toolbar/ColorChangeModal';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
 
@@ -11,6 +12,7 @@ export const PopulationPanelOptions: React.FC<{
   setChartOptions: ChartStore['setChartOptions'];
   idealPopulation?: number;
 }> = ({chartOptions, setChartOptions, idealPopulation}) => {
+  const [colorModalOpen, setColorModalOpen] = React.useState(false);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const zoneLabel = MAP_MODE_LABELS[mapMode];
   const isCommunityMode = mapMode === MAP_MODES.COI;
@@ -80,6 +82,7 @@ export const PopulationPanelOptions: React.FC<{
               {`Show ${zoneLabel} numbers`}
             </CheckboxGroup.Item>
           </CheckboxGroup.Root>
+          {!isCommunityMode && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}
           {!isCommunityMode && (
             <Flex direction="column" gap="1" py="2" mt="2">
               {!!idealPopulation && (
@@ -153,6 +156,7 @@ export const PopulationPanelOptions: React.FC<{
           )}
         </Popover.Content>
       </Popover.Root>
+      <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
     </>
   );
 };

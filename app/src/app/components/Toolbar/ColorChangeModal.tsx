@@ -1,6 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
+import {ACCESS_STATES} from '@constants/document/state';
 import {
   AlertDialog,
   Box,
@@ -394,6 +395,26 @@ export const ColorChangeModal: React.FC<{
         </AlertDialog.Root>
       </Dialog.Content>
     </Dialog.Root>
+  );
+};
+
+/**
+ * The display options' way into the dialog, showing the districts' current
+ * colors. Callers own the dialog, outside any popover that would unmount it.
+ */
+export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick}) => {
+  const colorScheme = useColorScheme();
+  const numDistricts = useMapStore(store => store.mapDocument?.num_districts ?? 4);
+  const disabled = useMapStore(store => store.mapStatus?.access) === ACCESS_STATES.READ;
+  return (
+    <Button onClick={onClick} variant="outline" size="1" mt="2" disabled={disabled}>
+      <Flex aria-hidden className={`overflow-hidden rounded-sm ${disabled ? 'opacity-50' : ''}`}>
+        {colorScheme.slice(0, Math.min(numDistricts, 12)).map((color, i) => (
+          <Box key={i} width="10px" height="10px" style={{backgroundColor: color}} />
+        ))}
+      </Flex>
+      Customize colors
+    </Button>
   );
 };
 

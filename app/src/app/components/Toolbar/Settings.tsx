@@ -7,6 +7,7 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
+import {ColorChangeModal, DistrictColorsButton} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
@@ -36,6 +37,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings) && !isSingleCounty;
   const variable = useDemographyStore(state => state.variable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
+
+  const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
@@ -185,6 +188,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
               Highlight broken precincts
             </CheckboxGroup.Item>
           )}
+
+          {superDraw && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}
         </CheckboxGroup.Root>
         {!inWorkflowTab && overlayGroups.length > 0 && (
           <Flex direction="row" align="center" gap="3" wrap="wrap">
@@ -247,6 +252,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
           </>
         )}
       </Flex>
+
+      <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
     </>
   );
 };
