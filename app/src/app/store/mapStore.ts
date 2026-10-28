@@ -516,6 +516,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
               : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
+        pinnedZones: [],
+        showAllPinned: false,
         isPainting: false,
         // Drop a remembered viewport when loading a different map so a fresh map
         // fits to its extent; keep it across same-map view switches.
@@ -762,6 +764,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...updated,
           metadata: true,
         },
+      });
+      // Pins on districts that no longer exist would filter tables down to
+      // rows that aren't there.
+      useMapControlsStore.setState(state => {
+        const pinnedZones = state.pinnedZones.filter(zone => zone <= numDistricts);
+        return {pinnedZones, showAllPinned: pinnedZones.length > 0 && state.showAllPinned};
       });
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {

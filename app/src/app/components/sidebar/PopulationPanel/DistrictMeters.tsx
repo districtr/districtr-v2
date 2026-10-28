@@ -3,6 +3,8 @@ import React, {useContext, useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
+  DrawingPinFilledIcon,
+  DrawingPinIcon,
   EyeNoneIcon,
   EyeOpenIcon,
   LockClosedIcon,
@@ -22,7 +24,7 @@ import {
   FlatRowsContext,
   SCROLL_RESERVED_WIDTH,
 } from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
+import {ShowAllDistrictsButton, usePinnedFilter, usePinnedZones} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
@@ -31,19 +33,16 @@ import {ACCESS_STATES} from '@constants/document/state';
 
 const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
-// Mirrors the rows' Super Draw icon cluster so the header strip's x-scale
-// matches the bars' when icons are showing: two size-1 icon buttons (24px), the
-// cluster gap (4px), and the comment button's trailing space (TWIN_TRAIL).
-const ICONS_WIDTH = 56;
-// ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
-// margin eats half of it: measured against the rendered rows, its real trailing
-// space is 6px, not 8. The header's invisible twin uses the measured value —
-// copying the mr-2 class instead puts the lock-all 4px right of the rows'.
-const TWIN_TRAIL = 6;
+// Width of the rows' Super Draw icon cluster (pin, comment, lock), shared by
+// the header strip so its x-scale matches the bars'. The three ghost buttons
+// and their trailing space render about 69px wide.
+const ICONS_WIDTH = 72;
+// Extra space after the pin, so it doesn't crowd the comment button.
+const PIN_TRAIL = 4;
+// ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
+// twin copies it so the lock-all sits over the rows' locks.
+const TWIN_TRAIL = 8;
 
-// Bars stop growing on wide sidebars; everything (label strip, rows,
-// scoreboard) shares the cap so columns stay aligned.
-const MAX_METERS_WIDTH = 560;
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
 // started-only.
@@ -107,8 +106,8 @@ const overflowColorFor = (color: string, population: number, ideal?: number) => 
 const chevronCount = (population: number, ideal: number) =>
   Math.min(MAX_CHEVRONS, Math.floor((population - ideal) / ideal / CHEVRON_STEP));
 
-// The Super Draw icon cluster minus the lock button (24px) and cluster gap (4px).
-const COMMENT_COL_WIDTH = ICONS_WIDTH - 28;
+// Plain Draw's comment column: the comment button alone.
+const COMMENT_COL_WIDTH = 28;
 
 /** "Keeps going" marker on an off-the-scale bar's end. */
 const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
@@ -145,6 +144,8 @@ export const DistrictMeters = () => {
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
+  const pinnedZones = usePinnedZones();
+  const togglePinnedZone = useMapControlsStore(state => state.togglePinnedZone);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
@@ -169,17 +170,26 @@ export const DistrictMeters = () => {
   const selectCommunity = useSelectCommunity();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
-  // default to all); null = no explicit choice yet.
+  // default to all); null = no explicit choice yet. Pinned districts, when
+  // there are any, replace started as the subset at every plan size, and the
+  // shared pinned "show all" (in the line atop each table) replaces the choice.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
-  const showAll = showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX;
+  const pinFilter = usePinnedFilter(populationData.length);
+  const pinning = pinnedZones.length > 0;
+  const showAll = pinning
+    ? !pinFilter.filtering
+    : (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
-  // The selected district always gets a row, started or not: picking an empty
-  // district to draw into and having no bar appear reads as a broken panel.
+  const inSubset = (d: (typeof populationData)[number]) =>
+    pinning ? pinnedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
+  // The selected district always gets a row, in the subset or not: picking an
+  // empty district to draw into and having no bar appear reads as a broken
+  // panel, and it's how an unpinned district shows up to be pinned.
   const visibleData = showAll
     ? populationData
-    : populationData.filter(d => (d.total_pop_20 ?? 0) > 0 || d.zone === selectedZone);
+    : populationData.filter(d => inSubset(d) || d.zone === selectedZone);
   const hiddenCount = showAll
-    ? populationData.length - startedData.length
+    ? populationData.length - populationData.filter(inSubset).length
     : populationData.length - visibleData.length;
   const nothingStarted = startedData.length === 0;
 
@@ -245,14 +255,10 @@ export const DistrictMeters = () => {
       : undefined;
 
   return (
-    <Flex
-      direction="column"
-      gap="0"
-      mt="2"
-      // Centered once the sidebar is wider than the cap, rather than left-hugging
-      // with all the slack on one side.
-      style={{maxWidth: MAX_METERS_WIDTH, width: '100%', marginInline: 'auto'}}
-    >
+    <Flex direction="column" gap="0" mt="2" style={{width: '100%'}}>
+      {/* Above the empty state too: with every district erased, it's the way
+          out of a pinned filter the other tables still apply. */}
+      {pinFilter.line}
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
@@ -275,13 +281,26 @@ export const DistrictMeters = () => {
                 : undefined
             }
           >
-            {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
+            {/* numColWidth is in ch, so the spacer takes the rows' size-2 font
+                or it comes out wider than their number cells. */}
+            {showDistrictNumbers && (
+              <Box style={{width: numColWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}} />
+            )}
             {showRowIcons && (
-              /* Mirrors the rows' icon cluster exactly — an invisible twin of
-                 the comment button, then the lock — so the lock-all lands
+              /* Mirrors the rows' icon cluster exactly — invisible twins of the
+                 pin and comment buttons, then the lock — so the lock-all lands
                  directly above the rows' lock icons (ghost-margin quirks
                  included). */
               <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  aria-hidden
+                  tabIndex={-1}
+                  style={{visibility: 'hidden', marginRight: PIN_TRAIL}}
+                >
+                  <DrawingPinIcon />
+                </IconButton>
                 <IconButton
                   variant="ghost"
                   size="1"
@@ -366,6 +385,7 @@ export const DistrictMeters = () => {
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
+                const pinned = pinnedZones.includes(d.zone);
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -408,6 +428,34 @@ export const DistrictMeters = () => {
                         style={{width: ICONS_WIDTH}}
                         onClick={e => e.stopPropagation()}
                       >
+                        <HelpTip
+                          tip="districtPin"
+                          openDelay={HELP_TIP_FAST_DELAY}
+                          text={
+                            pinned
+                              ? 'Unpin this district. With no pins left, the district tables show every district again.'
+                              : undefined
+                          }
+                        >
+                          {/* Unpinned pins stay hidden until the row is hovered
+                              or focused (opacity, not visibility, so they
+                              remain focusable). */}
+                          <IconButton
+                            onClick={() => togglePinnedZone(d.zone)}
+                            variant="ghost"
+                            size="1"
+                            aria-pressed={pinned}
+                            aria-label={`Pin district ${d.zone}`}
+                            className={
+                              pinned
+                                ? undefined
+                                : 'opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100'
+                            }
+                            style={{marginRight: PIN_TRAIL}}
+                          >
+                            {pinned ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
+                          </IconButton>
+                        </HelpTip>
                         <ZoneDescriptionPopover zone={d.zone} color={color} />
                         <Tooltip
                           content={
@@ -591,12 +639,14 @@ export const DistrictMeters = () => {
             </Flex>
           </ConditionalScrollArea>
           <Flex align="center" justify="between" mt="1">
-            <ShowAllDistrictsButton
-              showAll={showAll}
-              onToggle={() => setShowAllOverride(!showAll)}
-              total={populationData.length}
-              hiddenCount={hiddenCount}
-            />
+            {!pinning && (
+              <ShowAllDistrictsButton
+                showAll={showAll}
+                onToggle={() => setShowAllOverride(!showAll)}
+                total={populationData.length}
+                hiddenCount={hiddenCount}
+              />
+            )}
             {superDraw && (
               <span style={{marginLeft: 'auto'}}>
                 <PopulationPanelOptions

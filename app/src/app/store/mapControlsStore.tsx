@@ -70,6 +70,17 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  /** Districts the user pinned in Super Draw's population meters. While any
+   * are pinned, the sidebar's district tables show only those rows (see
+   * usePinnedZones). Cleared when a map loads. */
+  pinnedZones: Zone[];
+  togglePinnedZone: (zone: Zone) => void;
+  clearPinnedZones: () => void;
+  /** "Show all" over the pinned filter, shared by every district table so it
+   * survives tab switches. Resets whenever pinning starts or stops, so each
+   * round of pins filters from the first one. */
+  showAllPinned: boolean;
+  setShowAllPinned: (showAllPinned: boolean) => void;
   /** Workflow-tab sections a user collapsed (sections default open, so absent
    * = open). Lives here rather than in TabSection state because tab content
    * unmounts on switch. */
@@ -215,6 +226,18 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+    pinnedZones: [],
+    togglePinnedZone: zone =>
+      set(state => {
+        const pinnedZones = state.pinnedZones.includes(zone)
+          ? state.pinnedZones.filter(z => z !== zone)
+          : [...state.pinnedZones, zone];
+        const stillPinning = state.pinnedZones.length > 0 && pinnedZones.length > 0;
+        return {pinnedZones, showAllPinned: stillPinning && state.showAllPinned};
+      }),
+    clearPinnedZones: () => set({pinnedZones: [], showAllPinned: false}),
+    showAllPinned: false,
+    setShowAllPinned: showAllPinned => set({showAllPinned}),
     collapsedTabSections: [],
     openTabSection: id =>
       set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),
