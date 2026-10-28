@@ -80,6 +80,21 @@ describe('createIdleSaveTimer', () => {
     timer.cancel();
   });
 
+  test('a postponed save fires shortly after, without a new cap', () => {
+    // The hook postpones a save that comes due mid-brushstroke.
+    const counter = {fired: 0};
+    const timer = createIdleSaveTimer(IDLE, CAP, () => {
+      if (counter.fired++ === 0) timer.postpone(1000);
+    });
+    timer.arm();
+    jest.advanceTimersByTime(IDLE);
+    expect(counter.fired).toBe(1);
+    timer.arm(); // the stroke ends and is ingested: still the same cycle
+    timer.activity();
+    jest.advanceTimersByTime(1000);
+    expect(counter.fired).toBe(2);
+  });
+
   test('cancel stops a pending save', () => {
     const {counter, timer} = setup();
     timer.arm();

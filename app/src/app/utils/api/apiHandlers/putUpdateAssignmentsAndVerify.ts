@@ -34,6 +34,11 @@ export const putUpdateAssignmentsAndVerify = async ({
   childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
+  // Callers hand over the store's current assignments synchronously, so this is the
+  // stamp of the state being saved. An edit or undo during the awaits below changes it.
+  const clientLastUpdatedAtCopy = useAssignmentsStore.getState().clientLastUpdated;
+  const editedDuringSave = () =>
+    useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtCopy;
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
@@ -155,23 +160,46 @@ export const putUpdateAssignmentsAndVerify = async ({
     });
   }
 
-  await idb.updateDocument({
-    id: mapDocument.document_id,
-    document_metadata: {
-      ...mapDocument,
-      updated_at: assignmentsPostResponse.response.updated_at,
-      ...(document_comments && {document_comments}),
-    },
-    assignments: freshServerAssignments.response,
-    clientLastUpdated: assignmentsPostResponse.response.updated_at,
-  });
+  const documentMetadata = {
+    ...mapDocument,
+    updated_at: assignmentsPostResponse.response.updated_at,
+    ...(document_comments && {document_comments}),
+  };
+  if (!editedDuringSave()) {
+    // A debounced write still pending is from an edit this save already carries;
+    // landing after the write below, it would put the old updated_at back.
+    await idb.flushPendingUpdate();
+    await idb.updateDocument({
+      id: mapDocument.document_id,
+      document_metadata: documentMetadata,
+      assignments: freshServerAssignments.response,
+      clientLastUpdated: assignmentsPostResponse.response.updated_at,
+    });
+  }
   // Pause zundo before syncing clientLastUpdated to the server timestamp.
   // setClientLastUpdated triggers temporalDiff, which would otherwise treat this
   // server-sync as a user edit: pushing a snapshot onto pastStates and clearing
   // futureStates, corrupting undo/redo history after a save.
   useAssignmentsStore.temporal.getState().pause();
   useCoiAssignmentsStore.temporal.getState().pause();
-  useAssignmentsStore.getState().setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  if (!editedDuringSave()) {
+    useAssignmentsStore
+      .getState()
+      .setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  } else {
+    // An edit (a stroke the save lock ended, an undo) landed after the copy was taken,
+    // so the server doesn't have it: keep it unsaved, in the store and in IndexedDB
+    // (under the new updated_at, so a reload doesn't see a conflict). The fresh stamp
+    // also tells the autosave hook to start a new cycle.
+    const clientLastUpdated = new Date().toISOString();
+    useAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+    idb.updateIdbAssignments(
+      documentMetadata,
+      useAssignmentsStore.getState().zoneAssignments,
+      clientLastUpdated,
+      true
+    );
+  }
   useAssignmentsStore.temporal.getState().resume();
   useCoiAssignmentsStore.temporal.getState().resume();
   useMapStore.getState().mutateMapDocument({

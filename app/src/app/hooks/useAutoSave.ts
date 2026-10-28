@@ -21,11 +21,15 @@ const ACTIVITY_EVENTS = [
   'touchstart',
 ] as const;
 
+// A save that comes due mid-brushstroke checks again this often until the stroke ends.
+const PAINTING_RETRY_MS = 1000;
+
 /**
  * Auto-saves pending changes while editing: once the user has been idle for 30
- * seconds (any pointer, key, scroll or map move resets the wait, so it never
- * fires mid-brushstroke or mid-pan), but no later than 3 minutes after the first
- * unsaved edit; and immediately on tab close/hide or window unfocus.
+ * seconds (any pointer, key, scroll or map move resets the wait), but no later
+ * than 3 minutes after the first unsaved edit; and immediately on tab close/hide
+ * or window unfocus. The cap can land mid-gesture: mid-brushstroke it waits for
+ * the stroke to end, and an edit made while a save runs stays unsaved for the next.
  *
  * Returns `isAutoSaving`, true while a timer-driven save runs (held for a
  * minimum beat so an instant save doesn't read as a UI glitch) — drives the
@@ -91,6 +95,11 @@ export function useAutoSave() {
       map = undefined;
     };
     const timer = createIdleSaveTimer(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS, () => {
+      // The cap can come due mid-brushstroke; the save's lock would cut the stroke off.
+      if (useMapControlsStore.getState().isPainting) {
+        timer.postpone(PAINTING_RETRY_MS);
+        return;
+      }
       endCycle();
       saveWithNotice();
     });
