@@ -2,6 +2,7 @@ import {afterAll, describe, expect, test} from 'bun:test';
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
 import {
   extendColorArray,
+  isNearGray,
   latexBaseAlternative,
   randomColorsInRange,
   resolveColorInput,
@@ -179,4 +180,21 @@ test('ColorBrewer palettes contain no grays', () => {
   }
   // Set1 keeps its 8 hues after losing #999999.
   expect(DISTRICT_PALETTES.find(p => p.name === 'ColorBrewer Set1')!.colors).toHaveLength(8);
+});
+
+test('near-grays, including the unassigned fill, count as gray; pale tints do not', () => {
+  for (const color of [
+    '#cecece',
+    '#c0c0c0',
+    '#d3d3d3',
+    '#000000',
+    '#ffffff',
+    '#bab0ab',
+    '#d0cec4',
+  ]) {
+    expect(isNearGray(color), color).toBe(true);
+  }
+  for (const color of ['#cbd5e8', '#bebada', '#ffca5d', '#0099cd', '#a6cee3']) {
+    expect(isNearGray(color), color).toBe(false);
+  }
 });

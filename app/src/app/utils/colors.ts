@@ -219,12 +219,36 @@ const sourcePalette = (colors: Set<string>) => {
   let bestHits = 0;
   for (const palette of DISTRICT_PALETTES) {
     const hits = palette.colors.filter(color => colors.has(color.toLowerCase())).length;
-    if (hits > bestHits || (hits && hits === bestHits && palette.colors.length < best.colors.length)) {
+    if (
+      hits > bestHits ||
+      (hits && hits === bestHits && palette.colors.length < best.colors.length)
+    ) {
       [best, bestHits] = [palette, hits];
     }
   }
   return best.colors;
 };
+
+/**
+ * Whether a color reads as gray, so as unassigned land (filled #cecece) or,
+ * at the dark end, as no fill over the basemap. Gray here is CIELAB chroma
+ * under 10: a just-noticeable difference is about 2, and the cut keeps the
+ * palest palette tints (Pastel2's #cbd5e8 is 10.5). Every color within
+ * ΔE*ab 10 of the unassigned fill falls under it too.
+ */
+export function isNearGray(color: string): boolean {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return false;
+  const [r, g, b] = rgb.map(channel => {
+    const c = channel / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116);
+  const fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  const a = 500 * (f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047) - fy);
+  const bStar = 200 * (fy - f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883));
+  return Math.hypot(a, bStar) < 10;
+}
 
 const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
@@ -293,7 +317,7 @@ export function randomColorsInRange(
       clamp(sLo + random() * (sHi - sLo), 0, 1),
       clamp(lLo + random() * (lHi - lLo), 0.05, 0.95)
     );
-    if (seen.has(hex)) continue;
+    if (seen.has(hex) || isNearGray(hex)) continue;
     seen.add(hex);
     out.push([hue, hex]);
   }
@@ -341,7 +365,7 @@ export const extendColorArray = (colorArray: string[], numDistricts: number) => 
     const hue = (i * GOLDEN_RATIO_CONJUGATE * 360) % 360;
     if (hues.some(used => hueDistance(used, hue) < minGap)) continue;
     const hex = hslToHex(hue, saturation, clamp(lightness + lightnessShifts[lap % 5], 0.15, 0.9));
-    if (seen.has(hex)) continue;
+    if (seen.has(hex) || isNearGray(hex)) continue;
     seen.add(hex);
     hues.push(hue);
     result.push(hex);

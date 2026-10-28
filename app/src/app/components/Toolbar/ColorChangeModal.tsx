@@ -6,6 +6,7 @@ import {DISTRICT_PALETTES} from '@constants/colors';
 import {
   extendColorArray,
   getReadableTextColor,
+  isNearGray,
   latexBaseAlternative,
   randomColorsInRange,
   resolveColorInput,
@@ -88,10 +89,12 @@ export const ColorChangeModal: React.FC<{
   const typedColor = resolveColorInput(colorText);
   const colorTextInvalid = colorTextTouched && !typedColor;
   const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
+  const typedGray = !!typedColor && isNearGray(typedColor);
   const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
 
   const setDistrictColor = (hex: string) => {
-    if (otherOwner(hex)) return;
+    // Grays read as unassigned land, like the palettes' grays.
+    if (otherOwner(hex) || isNearGray(hex)) return;
     // Preserve the full scheme length — slicing to numDistricts here used to
     // truncate the saved color_scheme.
     const dupe = [...innerColorScheme];
@@ -145,13 +148,20 @@ export const ColorChangeModal: React.FC<{
 
   const suggestionSwatch = (color: string, fill?: boolean) => {
     const owner = otherOwner(color);
+    const gray = isNearGray(color);
     return (
       <ColorSwatch
         key={color}
         color={color}
-        label={owner ? `${color}, used by District ${owner}` : color}
+        label={
+          owner
+            ? `${color}, used by District ${owner}`
+            : gray
+              ? `${color}, too close to gray`
+              : color
+        }
         selected={color.toLowerCase() === selectedColor.toLowerCase()}
-        disabled={!!owner}
+        disabled={!!owner || gray}
         onClick={() => setDistrictColor(color)}
         round
         fill={fill}
@@ -259,7 +269,7 @@ export const ColorChangeModal: React.FC<{
                 autoCorrect="off"
                 spellCheck={false}
                 aria-label={`Color for District ${colorSelectIndex + 1}`}
-                aria-invalid={colorTextInvalid || !!typedOwner}
+                aria-invalid={colorTextInvalid || !!typedOwner || typedGray}
               />
               {/* Button size 2 matches the TextField's height. */}
               <Button
@@ -282,14 +292,16 @@ export const ColorChangeModal: React.FC<{
                 </label>
               </Button>
             </Flex>
-            <Text size="1" color={colorTextInvalid || typedOwner ? 'red' : 'gray'}>
+            <Text size="1" color={colorTextInvalid || typedOwner || typedGray ? 'red' : 'gray'}>
               {colorTextInvalid
                 ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
                 : typedOwner
                   ? `District ${typedOwner} already uses this color. Pick another.`
-                  : latexAlternative
-                    ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
-                    : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
+                  : typedGray
+                    ? 'Too close to gray, which reads as unassigned land. Pick another.'
+                    : latexAlternative
+                      ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
+                      : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
             </Text>
             {currentPalette && freePaletteColors.length > 0 && (
               <>
