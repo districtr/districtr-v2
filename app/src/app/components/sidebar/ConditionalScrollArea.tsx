@@ -23,8 +23,9 @@ export const SCROLL_RESERVED_WIDTH = `calc(${DATA_GUTTER} + ${OUTER_SCROLLBAR_GA
 /** True inside the stacked panels layout, where several panels sit open in the
  * sidebar's one scroller. A capped inner scroller there catches the wheel
  * partway down the sidebar, then hands it back at its end, so rows render flat
- * and the sidebar scrolls them. The tabbed layout shows one panel at a time,
- * so its inner scrollers stay. */
+ * and the sidebar scrolls them. The tabbed layout's Stats tab stacks three
+ * sections the same way, so it sets this too; the other tabs show one panel
+ * and keep their inner scrollers. */
 export const FlatRowsContext = createContext(false);
 
 export const ConditionalScrollArea: React.FC<{
