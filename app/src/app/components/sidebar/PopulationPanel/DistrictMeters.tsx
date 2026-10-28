@@ -424,11 +424,13 @@ export const DistrictMeters = () => {
                         style={{width: ICONS_WIDTH}}
                         onClick={e => e.stopPropagation()}
                       >
-                        <Tooltip
-                          content={
+                        <HelpTip
+                          tip="districtPin"
+                          openDelay={HELP_TIP_FAST_DELAY}
+                          text={
                             pinned
-                              ? 'Unpin this district'
-                              : 'Pin this district to show only pinned districts in the tables'
+                              ? 'Unpin this district. With no pins left, the district tables show every district again.'
+                              : undefined
                           }
                         >
                           {/* Unpinned pins stay hidden until the row is hovered
@@ -449,7 +451,7 @@ export const DistrictMeters = () => {
                           >
                             {pinned ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
                           </IconButton>
-                        </Tooltip>
+                        </HelpTip>
                         <ZoneDescriptionPopover zone={d.zone} color={color} />
                         <Tooltip
                           content={
