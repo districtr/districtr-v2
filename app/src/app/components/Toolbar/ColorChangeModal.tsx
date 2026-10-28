@@ -2,6 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
 import {
+  AlertDialog,
   Box,
   Flex,
   Dialog,
@@ -38,11 +39,8 @@ export const ColorChangeModal: React.FC<{
   const [colorText, setColorText] = useState('');
   const [colorTextTouched, setColorTextTouched] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const setNotification = useMapStore(store => store.setNotification);
-
-  useEffect(() => {
-    setInnerColorScheme(colorScheme);
-  }, [colorScheme]);
 
   const selectedColor = innerColorScheme[colorSelectIndex] ?? '#000000';
   // The text field mirrors the selected district's color whenever something
@@ -100,6 +98,17 @@ export const ColorChangeModal: React.FC<{
   const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
   const typedGray = !!typedColor && isNearGray(typedColor);
   const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
+  // Text in the field that isn't the selected district's color yet: typed and
+  // not applied, or refused.
+  const pendingText =
+    colorText.trim() !== '' && typedColor?.toLowerCase() !== selectedColor.toLowerCase();
+  const pendingRefused = pendingText && (!typedColor || !!typedOwner || typedGray);
+  const lowerScheme = (scheme: string[]) =>
+    scheme
+      .slice(0, numDistricts)
+      .map(color => color.toLowerCase())
+      .join();
+  const dirty = pendingText || lowerScheme(innerColorScheme) !== lowerScheme(colorScheme);
 
   const setDistrictColor = (hex: string) => {
     // Grays read as unassigned land, like the palettes' grays.
@@ -130,27 +139,38 @@ export const ColorChangeModal: React.FC<{
     shuffleSuggestions(scheme);
   };
 
-  const handleSave = async () => {
-    if (!mapDocument?.document_id) return;
-    const _idbResult = await idb.updateColorScheme(mapDocument.document_id, innerColorScheme);
-    mutateMapDocument({color_scheme: innerColorScheme});
-    onClose?.();
+  const closeDialog = () => {
+    setConfirmDiscard(false);
+    onClose ? onClose() : setDialogOpen(false);
   };
 
-  const resetDraft = () => {
+  const handleSave = async () => {
+    if (!mapDocument?.document_id) return;
+    // A refused entry stays in the field with its message; saving now would
+    // drop it without a word.
+    if (pendingRefused) {
+      setColorTextTouched(true);
+      return;
+    }
+    const _idbResult = await idb.updateColorScheme(mapDocument.document_id, innerColorScheme);
+    mutateMapDocument({color_scheme: innerColorScheme});
+    closeDialog();
+  };
+
+  // Cancel, X, Escape and overlay clicks all come here, and ask first when
+  // there is something to lose.
+  const requestClose = () => (dirty ? setConfirmDiscard(true) : closeDialog());
+
+  // The draft loads once per opening. Keyed on `open`, not the scheme: an
+  // autosave rebuilds color_scheme as a new array and would reset the draft.
+  useEffect(() => {
+    setDialogOpen(open || false);
+    if (!open) return;
     setInnerColorScheme(colorScheme);
     setColorText(colorScheme[colorSelectIndex] ?? '');
     setColorTextTouched(false);
-  };
-
-  const handleCancel = () => {
-    resetDraft();
-    onClose?.();
-  };
-
-  useEffect(() => {
-    setDialogOpen(open || false);
-    if (open) shuffleSuggestions(colorScheme);
+    setConfirmDiscard(false);
+    shuffleSuggestions(colorScheme);
   }, [open]);
 
   const suggestionSwatch = (color: string, fill?: boolean) => {
@@ -179,11 +199,7 @@ export const ColorChangeModal: React.FC<{
   return (
     <Dialog.Root
       open={dialogOpen}
-      onOpenChange={isOpen => {
-        // X, Escape and overlay clicks discard the draft just like Cancel.
-        if (!isOpen) resetDraft();
-        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen);
-      }}
+      onOpenChange={isOpen => (isOpen ? setDialogOpen(true) : requestClose())}
     >
       <Dialog.Content className="max-w-[600px]">
         <Flex align="start">
@@ -351,11 +367,31 @@ export const ColorChangeModal: React.FC<{
           </Flex>
         </Flex>
         <Flex justify="end" gapX="2" mt="4">
-          <Button variant="soft" color="gray" onClick={handleCancel}>
+          <Button variant="soft" color="gray" onClick={requestClose}>
             Cancel
           </Button>
           <Button onClick={handleSave}>Save</Button>
         </Flex>
+        <AlertDialog.Root open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+          <AlertDialog.Content maxWidth="400px">
+            <AlertDialog.Title>Discard color changes?</AlertDialog.Title>
+            <AlertDialog.Description size="2">
+              Your district color changes haven&apos;t been saved.
+            </AlertDialog.Description>
+            <Flex gap="3" mt="4" justify="end">
+              <AlertDialog.Cancel>
+                <Button variant="soft" color="gray">
+                  Keep editing
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action>
+                <Button variant="solid" color="red" onClick={closeDialog}>
+                  Discard
+                </Button>
+              </AlertDialog.Action>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
       </Dialog.Content>
     </Dialog.Root>
   );
