@@ -1,7 +1,16 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, Button, IconButton, Select, Text, TextField} from '@radix-ui/themes';
+import {
+  Box,
+  Flex,
+  Dialog,
+  Button,
+  DropdownMenu,
+  IconButton,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import {DISTRICT_PALETTES} from '@constants/colors';
 import {
   extendColorArray,
@@ -110,9 +119,7 @@ export const ColorChangeModal: React.FC<{
     if (hex && hex !== selectedColor.toLowerCase()) setDistrictColor(hex);
   };
 
-  const handleApplyPalette = (name: string) => {
-    const palette = DISTRICT_PALETTES.find(p => p.name === name);
-    if (!palette) return;
+  const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
     // A palette shorter than the scheme is extended with new hues in its own
     // style rather than cycled, so no two districts end up sharing a color.
     const scheme = extendColorArray(
@@ -196,13 +203,23 @@ export const ColorChangeModal: React.FC<{
             <Text size="2" weight="medium">
               All districts
             </Text>
-            {/* Controlled to the placeholder: this is an action, so re-picking the
-                same palette must fire again and no stale name should linger. */}
-            <Select.Root value="" onValueChange={handleApplyPalette}>
-              <Select.Trigger placeholder="Apply a palette" />
-              <Select.Content>
+            {/* A menu, not a Select: a Select's closed trigger applies the
+                typeahead match at once, so typing "t" would recolor every
+                district. Menu items apply only on click or Enter. */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <Button variant="surface" color="gray">
+                  Apply a palette
+                  <DropdownMenu.TriggerIcon />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content>
                 {DISTRICT_PALETTES.map(palette => (
-                  <Select.Item key={palette.name} value={palette.name}>
+                  <DropdownMenu.Item
+                    key={palette.name}
+                    className="cursor-pointer"
+                    onSelect={() => handleApplyPalette(palette)}
+                  >
                     <Flex align="center" gapX="2">
                       <Flex>
                         {palette.colors.slice(0, 12).map(color => (
@@ -216,10 +233,10 @@ export const ColorChangeModal: React.FC<{
                       </Flex>
                       {palette.name}
                     </Flex>
-                  </Select.Item>
+                  </DropdownMenu.Item>
                 ))}
-              </Select.Content>
-            </Select.Root>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
           </Flex>
 
           <Box>
