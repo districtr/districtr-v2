@@ -81,6 +81,14 @@ describe('district locks', () => {
     expect(setZoneLocks).not.toHaveBeenCalled();
   });
 
+  test('a reload with the selected district locked selects the first unlocked one', async () => {
+    saved.a = [1, 2];
+    useMapStore.getState().setMapDocument({...docA, num_districts: 4});
+    expect(useMapControlsStore.getState().selectedZone).toBe(1);
+    await flush();
+    expect(useMapControlsStore.getState().selectedZone).toBe(3);
+  });
+
   test('lowering the district count drops locks on the removed districts', async () => {
     useMapStore.getState().setMapDocument({...docA, num_districts: 5});
     await flush();
@@ -118,6 +126,17 @@ describe('district locks', () => {
 
     useToolbarStore.getState().setSuperDraw(true);
     expect(brushPaints(2)).toBe(false);
+  });
+
+  test('back in Super Draw, a locked selected district gives way to an unlocked one', async () => {
+    useMapStore.getState().setMapDocument({...docA, num_districts: 4});
+    await flush();
+    useMapControlsStore.getState().setLockedZones([2]);
+    useToolbarStore.getState().setSuperDraw(false);
+    useMapControlsStore.getState().setSelectedZone(2);
+
+    useToolbarStore.getState().setSuperDraw(true);
+    expect(useMapControlsStore.getState().selectedZone).toBe(1);
   });
 
   test('opening a plan in plain Draw keeps its saved locks for Super Draw', async () => {

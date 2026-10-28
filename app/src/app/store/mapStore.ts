@@ -541,6 +541,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             !mapOptions.lockPaintedAreas.length
           ) {
             useMapControlsStore.setState({mapOptions: {...mapOptions, lockPaintedAreas: zones}});
+            useMapControlsStore.getState().selectUnlockedZone();
           }
         });
       }
