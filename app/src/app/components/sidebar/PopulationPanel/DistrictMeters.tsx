@@ -275,11 +275,12 @@ export const DistrictMeters = () => {
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
   const canReorder = showRowIcons && !isReadOnly;
-  // Width of the leading cell: drag handle, gap, then the number column.
+  // Width of the leading cell: drag handle, gap, then the number column. With the
+  // handle, the column drops its spare 1ch so the handle doesn't float off left.
   const numCellWidth = !canReorder
     ? numColWidth
     : showDistrictNumbers
-      ? `calc(${HANDLE_WIDTH}px + var(--space-2) + ${numColWidth})`
+      ? `calc(${HANDLE_WIDTH}px + var(--space-2) + ${String(populationData.length).length}ch)`
       : HANDLE_WIDTH;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
@@ -310,12 +311,12 @@ export const DistrictMeters = () => {
               from under their labels. */}
           <Flex
             gap="2"
-            px="1"
+            px="2"
             pb="1"
             align="end"
             style={
               rowsScroll
-                ? {paddingRight: `calc(var(--space-1) + ${SCROLL_RESERVED_WIDTH})`}
+                ? {paddingRight: `calc(var(--space-2) + ${SCROLL_RESERVED_WIDTH})`}
                 : undefined
             }
           >
@@ -429,7 +430,7 @@ export const DistrictMeters = () => {
                     key={d.zone}
                     align="center"
                     gap="2"
-                    px="1"
+                    px="2"
                     // Clicking anywhere on the row selects it, but the row
                     // itself stays a plain div: a role="button" wrapping the
                     // lock/comment controls is invalid ARIA and hides them
@@ -734,7 +735,7 @@ export const DistrictMeters = () => {
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
       <Flex
         gap="4"
-        px="1"
+        px="2"
         pt="3"
         mt="2"
         justify="between"
