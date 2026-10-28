@@ -15,7 +15,6 @@ import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {paintFunctionFor} from '@utils/map/paintBy';
 import {shallow} from 'zustand/shallow';
-import {overlayIdOf} from '@constants/map/paintBy';
 import {ACCESS_STATES} from '@constants/document/state';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
@@ -258,12 +257,7 @@ useMapControlsStore.subscribe(
   ([activeTool, paintBy]) =>
     useMapControlsStore.setState({
       paintFunction:
-        activeTool === ACTIVE_TOOLS.SHATTER
-          ? getFeatureUnderCursor
-          : // Inspecting reads units; an overlay area is a Paint/Erase click.
-            activeTool === ACTIVE_TOOLS.INSPECTOR && overlayIdOf(paintBy)
-            ? getFeaturesInBbox
-            : paintFunctionFor(paintBy),
+        activeTool === ACTIVE_TOOLS.SHATTER ? getFeatureUnderCursor : paintFunctionFor(paintBy),
     }),
   {equalityFn: shallow}
 );

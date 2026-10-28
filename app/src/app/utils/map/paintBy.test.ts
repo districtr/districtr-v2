@@ -7,7 +7,6 @@ import {useOverlayStore} from '@/app/store/overlayStore';
 import {getFeaturesIntersectingCounties} from './getFeaturesIntersectingCounties';
 import {getOverlayAreaUnderCursor} from './paintOverlayArea';
 import {getFeatureUnderCursor} from './getFeatureUnderCursor';
-import {getFeaturesInBbox} from './getFeaturesInBbox';
 
 const initialMap = useMapStore.getState();
 const initialControls = useMapControlsStore.getState();
@@ -67,12 +66,13 @@ test('Counties releases a mask; an overlay area shows only its layer', () => {
   expect(controls().paintFunction).toBe(getOverlayAreaUnderCursor);
 });
 
-test('the brush function follows the tool: picking a unit, and inspecting an area mode', () => {
+test('the brush function follows the tool: picking a unit, and inspecting by area', () => {
   setPaintBy('blocks');
   expect(controls().activeTool).toBe('shatter');
   expect(controls().paintFunction).toBe(getFeatureUnderCursor);
 
   setPaintBy(paintByOverlay('sd'));
   controls().setActiveTool('inspector');
-  expect(controls().paintFunction).toBe(getFeaturesInBbox);
+  // Inspect by area reads the area under the cursor, as painting does.
+  expect(controls().paintFunction).toBe(getOverlayAreaUnderCursor);
 });

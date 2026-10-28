@@ -133,7 +133,7 @@ PaintByButton.displayName = 'PaintByButton';
  */
 export const PaintByControl: React.FC<{
   label?: string;
-  /** Inspect by: blocks and overlay areas are Paint/Erase modes, not readings. */
+  /** Inspect by: Blocks is a Paint/Erase mode, not a reading. */
   forInspector?: boolean;
 }> = ({label = 'Paint by', forInspector = false}) => {
   const superDraw = useToolbarStore(state => state.superDraw);
@@ -155,10 +155,11 @@ export const PaintByControl: React.FC<{
     {value: 'units', label: unitName.charAt(0).toUpperCase() + unitName.slice(1)},
     ...(countyPaintAvailable ? [{value: 'counties', label: 'Counties'}] : []),
   ];
-  // Whole areas of a boundary layer, behind the "…" segment. They paint
-  // exactly by breaking edge units, a districts-mode flow.
+  // Whole areas of a boundary layer, behind the "…" button. They paint
+  // exactly by breaking edge units, a districts-mode flow; inspecting one
+  // reads it without breaking anything (inspectOverlayArea).
   const moreAreas: Option[] =
-    superDraw && !forInspector && mapMode === MAP_MODES.DISTRICTS
+    superDraw && mapMode === MAP_MODES.DISTRICTS
       ? maskLayers
           .filter(layer => layer.id !== COUNTY_SOURCE_ID)
           .map(layer => ({value: paintByOverlay(layer.id), label: optionLabel(layer.name)}))
@@ -192,8 +193,8 @@ export const PaintByControl: React.FC<{
                   chosen; then it reads that area's name. */}
               <PaintByButton
                 active={!!moreSelected}
-                aria-label="More areas to paint by"
-                title={moreSelected?.label ?? 'More areas to paint by'}
+                aria-label={`More areas to ${label.toLowerCase()}`}
+                title={moreSelected?.label ?? `More areas to ${label.toLowerCase()}`}
                 style={moreSelected ? undefined : {paddingInline: 0, width: 30}}
               >
                 {moreSelected ? (

@@ -1,7 +1,18 @@
 import {TooltipState} from '@utils/map/types';
 import {SUMMARY_TYPES, type SummaryType} from '@constants/demography/summary';
 import {NUMBER_FORMATS, type InspectorFormat} from '@constants/demography/format';
+import type {ColumnarTableData} from '@utils/ParquetWorker/parquetWorker.types';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
+
+/** Inspect by overlay area's reading of one area (inspectOverlayArea): the
+ * loaded rows inside it, plus block rows read on the side when exact. */
+export interface AreaReading {
+  key: string;
+  exact: boolean;
+  ids: string[];
+  extraRows?: ColumnarTableData;
+  loading: boolean;
+}
 
 export interface ZoneDescriptionTooltipState {
   zone: number;
@@ -22,6 +33,8 @@ export interface TooltipStore {
   setZoneDescriptionTooltip: (tooltip: ZoneDescriptionTooltipState | null) => void;
   zoneDescriptionModalZone: number | null;
   setZoneDescriptionModalZone: (zone: number | null) => void;
+  areaReading: AreaReading | null;
+  setAreaReading: (reading: AreaReading | null) => void;
 }
 
 export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
@@ -43,4 +56,6 @@ export const useTooltipStore = createWithDevWrapperAndSubscribe<TooltipStore>(
   setZoneDescriptionTooltip: tooltip => set({zoneDescriptionTooltip: tooltip}),
   zoneDescriptionModalZone: null,
   setZoneDescriptionModalZone: zone => set({zoneDescriptionModalZone: zone}),
+  areaReading: null,
+  setAreaReading: areaReading => set({areaReading}),
 }));

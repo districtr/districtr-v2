@@ -3,6 +3,10 @@ import {classifyUnit, paintOverlayArea, toAreaShape} from './paintOverlayArea';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useTooltipStore} from '@/app/store/tooltipStore';
+import {inspectOverlayArea, pickRows} from './inspectOverlayArea';
+import {demographyService} from '@utils/demography/demographyService';
+import {table} from 'arquero';
 
 const square = (x: number, y: number, size: number) => ({
   type: 'Polygon' as const,
@@ -52,6 +56,22 @@ mock.module('../api/apiHandlers/getPointSelectionData', () => ({
   }),
 }));
 
+// The edge unit's block rows, read on the side by an exact inspection.
+let sideReads: string[][] = [];
+mock.module('../api/apiHandlers/getDemography', () => ({
+  getDemography: async ({brokenIds}: {brokenIds: string[]}) => {
+    sideReads.push(brokenIds);
+    return {
+      columns: ['path', 'sourceLayer', 'total_pop_20'],
+      results: {
+        path: ['b:edge-a', 'b:edge-b'],
+        sourceLayer: ['blocks-layer', 'blocks-layer'],
+        total_pop_20: [5, 7],
+      },
+    };
+  },
+}));
+
 const unit = (id: string, geometry: ReturnType<typeof square>) => ({id, geometry, properties: {}});
 // The real breakUnits' edge fetch, for the undo-recorder test.
 mock.module('../api/apiHandlers/getChildEdges', () => ({
@@ -84,6 +104,8 @@ let healed: string[] = [];
 let broke: string[][] = [];
 
 beforeEach(() => {
+  sideReads = [];
+  useTooltipStore.setState({areaReading: null});
   healed = [];
   broke = [];
   zoom = 10;
@@ -178,4 +200,58 @@ test('the break pauses undo until the paint, and a click resumes it either way',
   expect(trackingDuringPaint as boolean | null).toBe(false);
   // Nothing was ingested (the paint above is a no-op): the click still resumes it.
   expect(temporal().isTracking).toBe(true);
+});
+
+const reading = () => useTooltipStore.getState().areaReading;
+
+test('inspecting an area roughly counts edge units by center, and breaks nothing', async () => {
+  await inspectOverlayArea(map, {id: 'sd-1'} as any, false);
+  // Locks don't matter for reading; the edge unit's center is on the outline.
+  expect([...reading()!.ids].sort()).toEqual(['p:edge', 'p:in', 'p:locked']);
+  expect(reading()).toMatchObject({exact: false, loading: false});
+  expect(sideReads).toEqual([]);
+  expect(broke).toEqual([]);
+});
+
+test("an exact inspection reads the edge unit's blocks on the side, by block center", async () => {
+  await inspectOverlayArea(map, {id: 'sd-1'} as any, true);
+  expect([...reading()!.ids].sort()).toEqual(['p:in', 'p:locked']);
+  expect(reading()!.extraRows).toEqual({
+    path: ['b:edge-a'],
+    sourceLayer: ['blocks-layer'],
+    total_pop_20: [5],
+  });
+  expect(sideReads).toEqual([['p:edge']]);
+  expect(broke).toEqual([]);
+});
+
+test("an exact inspection uses an already broken unit's loaded blocks", async () => {
+  useAssignmentsStore.setState({
+    shatterIds: {parents: new Set(['p:edge']), children: new Set(['b:edge-a', 'b:edge-b'])},
+    parentToChild: new Map([['p:edge', new Set(['b:edge-a', 'b:edge-b'])]]),
+  });
+  await inspectOverlayArea(map, {id: 'sd-1'} as any, true);
+  expect([...reading()!.ids].sort()).toEqual(['b:edge-a', 'p:in', 'p:locked']);
+  expect(reading()!.extraRows).toBeUndefined();
+  expect(sideReads).toEqual([]);
+});
+
+test('a rough reading never replaces an exact one of the same area', async () => {
+  await inspectOverlayArea(map, {id: 'sd-1'} as any, true);
+  await inspectOverlayArea(map, {id: 'sd-1'} as any, false);
+  expect(reading()!.exact).toBe(true);
+});
+
+test('summary stats add the side rows to the loaded ones', () => {
+  const saved = {table: demographyService.table, columns: demographyService.availableColumns};
+  demographyService.table = table({path: ['p:in', 'p:out'], total_pop_20: [10, 100]});
+  demographyService.availableColumns = ['path', 'total_pop_20'] as any;
+  const side = pickRows(
+    {path: ['b:1', 'b:2'], sourceLayer: ['x', 'x'], total_pop_20: [5, 7]} as any,
+    path => path === 'b:1'
+  );
+  const [sums] = demographyService.calculateSummaryStats(['p:in'], ['total_pop_20'], side);
+  expect(sums.total_pop_20).toBe(15);
+  demographyService.table = saved.table;
+  demographyService.availableColumns = saved.columns;
 });

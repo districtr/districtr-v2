@@ -64,10 +64,7 @@ export const ToolControlsScaffold = () => {
   // zone can still be set before the first stroke inside it.
   // Painting a whole overlay area is a click on it, also with no brush size.
   const paintingByArea = useMapControlsStore(state => !!overlayIdOf(state.mapOptions.paintBy));
-  const sliderDisabled =
-    activeTool === ACTIVE_TOOLS.PAN ||
-    pickingUnit ||
-    (paintingByArea && activeTool !== ACTIVE_TOOLS.INSPECTOR);
+  const sliderDisabled = activeTool === ACTIVE_TOOLS.PAN || pickingUnit || paintingByArea;
   const zonePickerDisabled =
     activeTool === ACTIVE_TOOLS.PAN ||
     (activeTool === ACTIVE_TOOLS.ERASER && mapMode === MAP_MODES.DISTRICTS);

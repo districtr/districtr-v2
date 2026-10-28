@@ -36,6 +36,7 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {filterFeatures} from '../map/filterFeatures';
 import {paintOverlayArea} from '../map/paintOverlayArea';
+import {inspectOverlayArea} from '../map/inspectOverlayArea';
 import {overlayIdOf} from '@constants/map/paintBy';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -231,6 +232,13 @@ const isPaintingByArea = () => {
   );
 };
 
+/** Inspect by overlay area: hover reads the area under the cursor roughly, a
+ * click reads it exactly (inspectOverlayArea). */
+const isInspectingByArea = () => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  return activeTool === ACTIVE_TOOLS.INSPECTOR && !!overlayIdOf(mapOptions.paintBy);
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -308,6 +316,11 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
       setPaintConstraint(selectingLayerId, features[0].id as string);
       setHoverFeatures(EMPTY_FEATURE_ARRAY);
     }
+    return;
+  }
+  if (isInspectingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    if (area) inspectOverlayArea(mapRef, area, true);
     return;
   }
   if (isPaintingByArea()) {
@@ -523,6 +536,17 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (isPaintingByArea()) {
     setHoverFeatures(paintFunction(mapRef, e, brushSize) ?? EMPTY_FEATURE_ARRAY);
     setTooltip(null);
+    return;
+  }
+  if (isInspectingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    setHoverFeatures(area ? [area] : EMPTY_FEATURE_ARRAY);
+    if (!area) {
+      setTooltip(null);
+      return;
+    }
+    setTooltip({...e.point, data: []});
+    inspectOverlayArea(mapRef, area, false);
     return;
   }
 

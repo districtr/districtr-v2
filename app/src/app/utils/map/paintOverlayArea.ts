@@ -72,6 +72,67 @@ export const getOverlayAreaUnderCursor = (
   return map.queryRenderedFeatures(e.point, {layers: [clickLayerId]}).slice(0, 1);
 };
 
+type Unit = [id: string, feature: MapGeoJSONFeature];
+
+/**
+ * The parent units in the loaded tiles against one overlay area: `whole`
+ * inside it, `edge` on its outline (classifyUnit), each with its center
+ * point. Null when no unit is near. Shared by paint and inspect by area.
+ */
+export const sortAreaUnits = async (map: MaplibreMap, overlayId: string, areaId: string) => {
+  const parentLayer = useMapStore.getState().mapDocument?.parent_layer;
+  if (!parentLayer) return null;
+  const shape = toAreaShape(
+    queryAreaFeatures(map, overlayId, areaId).map(f => f.geometry as Polygon | MultiPolygon)
+  );
+
+  // Candidate parents from the loaded tiles, bboxes merged across tile pieces.
+  const candidates = new Map<string, {feature: MapGeoJSONFeature; box: BBox}>();
+  map.querySourceFeatures(BLOCK_SOURCE_ID, {sourceLayer: parentLayer}).forEach(f => {
+    const id = String(f.id);
+    const box = bbox(f.geometry) as BBox;
+    const seen = candidates.get(id);
+    if (seen) {
+      seen.box = [
+        Math.min(seen.box[0], box[0]),
+        Math.min(seen.box[1], box[1]),
+        Math.max(seen.box[2], box[2]),
+        Math.max(seen.box[3], box[3]),
+      ];
+    } else {
+      // querySourceFeatures leaves source/sourceLayer unset; painting reads them.
+      const feature = Object.assign(f, {source: BLOCK_SOURCE_ID, sourceLayer: parentLayer});
+      candidates.set(id, {feature: feature as unknown as MapGeoJSONFeature, box});
+    }
+  });
+  const near = [...candidates.entries()].filter(([, {box}]) =>
+    shape.pieces.some(piece => bboxesOverlap(piece.box, box))
+  );
+  if (!near.length) return null;
+
+  // Unit centers from the point parquet: tile geometry is clipped at tile edges.
+  const points = await getPointSelectionData({
+    layer: parentLayer,
+    columns: ['path', 'x', 'y'],
+    source: BLOCK_SOURCE_ID,
+    filterIds: new Set(near.map(([id]) => id)),
+  });
+  const pointOf = new Map(
+    points.features.map(f => [String(f.properties?.path), f.geometry.coordinates])
+  );
+
+  const whole: Unit[] = [];
+  const edge: Unit[] = [];
+  near.forEach(([id, {feature, box}]) => {
+    const point = pointOf.get(id);
+    if (!point) return;
+    const unitClass = classifyUnit({box, point}, shape);
+    if (unitClass === 'whole') whole.push([id, feature]);
+    else if (unitClass === 'break') edge.push([id, feature]);
+  });
+  return {shape, whole, edge, pointOf};
+};
+
 // Below this zoom the loaded tiles' outlines are too simplified to sort blocks
 // near an area's edge. ponytail: a tuning knob, picked by eye on TIGER tiles.
 export const MIN_AREA_PAINT_ZOOM = 8;
@@ -116,59 +177,17 @@ export const paintOverlayArea = async (
   setMapLock({isLocked: true, reason: lockReason});
   let brokenNow: string[] = [];
   try {
-    const shape = toAreaShape(
-      queryAreaFeatures(map, overlayId, String(area.id)).map(
-        f => f.geometry as Polygon | MultiPolygon
-      )
-    );
-    const {parent_layer: parentLayer, child_layer: childLayer} = mapDocument;
-
-    // Candidate parents from the loaded tiles, bboxes merged across tile pieces.
-    const candidates = new Map<string, {feature: MapGeoJSONFeature; box: BBox}>();
-    map.querySourceFeatures(BLOCK_SOURCE_ID, {sourceLayer: parentLayer}).forEach(f => {
-      const id = String(f.id);
-      const box = bbox(f.geometry) as BBox;
-      const seen = candidates.get(id);
-      if (seen) {
-        seen.box = [
-          Math.min(seen.box[0], box[0]),
-          Math.min(seen.box[1], box[1]),
-          Math.max(seen.box[2], box[2]),
-          Math.max(seen.box[3], box[3]),
-        ];
-      } else {
-        // querySourceFeatures leaves source/sourceLayer unset; painting reads them.
-        const feature = Object.assign(f, {source: BLOCK_SOURCE_ID, sourceLayer: parentLayer});
-        candidates.set(id, {feature: feature as unknown as MapGeoJSONFeature, box});
-      }
-    });
-    const near = [...candidates.entries()].filter(([, {box}]) =>
-      shape.pieces.some(piece => bboxesOverlap(piece.box, box))
-    );
-    if (!near.length) return;
-
-    // Unit centers from the point parquet: tile geometry is clipped at tile edges.
-    const points = await getPointSelectionData({
-      layer: parentLayer,
-      columns: ['path', 'x', 'y'],
-      source: BLOCK_SOURCE_ID,
-      filterIds: new Set(near.map(([id]) => id)),
-    });
-    const pointOf = new Map(
-      points.features.map(f => [String(f.properties?.path), f.geometry.coordinates])
-    );
-
+    const sorted = await sortAreaUnits(map, overlayId, String(area.id));
+    if (!sorted) return;
+    const {shape, whole, edge} = sorted;
+    const {child_layer: childLayer} = mapDocument;
     const {shatterIds} = useAssignmentsStore.getState();
-    const whole: MapGeoJSONFeature[] = [];
+    const features: MapGeoJSONFeature[] = [];
     const toBreak: string[] = [];
     const alreadyBroken: string[] = [];
-    near.forEach(([id, {feature, box}]) => {
-      const point = pointOf.get(id);
-      if (!point) return;
-      const unitClass = classifyUnit({box, point}, shape);
-      if (unitClass === 'skip') return;
+    [...whole, ...edge].forEach(([id, feature], i) => {
       if (shatterIds.parents.has(id)) alreadyBroken.push(id);
-      else if (unitClass === 'whole' || !childLayer) whole.push(feature);
+      else if (i < whole.length || !childLayer) features.push(feature);
       else toBreak.push(id);
     });
 
@@ -215,8 +234,8 @@ export const paintOverlayArea = async (
         : [];
 
     // Locks, Forbid paint-over and the paint mask still apply.
-    const features = filterFeatures({_features: [...whole, ...blocks]});
-    if (features.length) paint(features);
+    const toPaint = filterFeatures({_features: [...features, ...blocks]});
+    if (toPaint.length) paint(toPaint);
 
     // Units broken here whose blocks all kept one zone go back to whole.
     if (brokenNow.length) {
