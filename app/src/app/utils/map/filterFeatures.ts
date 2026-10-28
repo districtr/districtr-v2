@@ -6,6 +6,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {booleanIntersects, area, intersect} from '@turf/turf';
 import {MultiPolygon, Polygon} from 'geojson';
 import {MAP_MODES} from '@constants/map/mode';
@@ -63,10 +64,11 @@ export const filterFeatures = ({
     ) {
       filterFunctions.push(f => !zoneAssignments.get(f.id?.toString() || ''));
     }
-    if (activeTool === ACTIVE_TOOLS.BRUSH && mapOptions.lockPaintedAreas.includes(selectedZone)) {
+    // Locks are a Super Draw tool; plain Draw keeps them for later but ignores them.
+    const lockedAreas = useToolbarStore.getState().superDraw ? mapOptions.lockPaintedAreas : [];
+    if (activeTool === ACTIVE_TOOLS.BRUSH && lockedAreas.includes(selectedZone)) {
       return [];
-    } else if (mapOptions.lockPaintedAreas.length) {
-      const lockedAreas = mapOptions.lockPaintedAreas;
+    } else if (lockedAreas.length) {
       filterFunctions.push(
         f => !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );

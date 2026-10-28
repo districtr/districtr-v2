@@ -39,8 +39,6 @@ export const useToolbarStore = create(
         if (SUPER_DRAW_TOOLS.includes(controls.activeTool)) {
           controls.setActiveTool(ACTIVE_TOOLS.PAN);
         }
-        // District locks are a Super Draw tool: release them, saved copy included.
-        controls.setLockedZones([]);
         const {demographicDisplayMode} = controls.mapOptions;
         controls.setMapOptions({
           basemap: MAP_MODE_DEFAULT_OPTIONS[controls.mapMode].basemap,
