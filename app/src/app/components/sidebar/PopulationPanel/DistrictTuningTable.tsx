@@ -1,18 +1,21 @@
 'use client';
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {Flex, IconButton, Table, Text, Tooltip} from '@radix-ui/themes';
-import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
-import {useQuery} from '@tanstack/react-query';
+import {LockClosedIcon, LockOpen2Icon, ZoomInIcon} from '@radix-ui/react-icons';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
+import {getZoneConnectedComponentBBoxes} from '@utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
+import {zoomToBounds} from '@utils/map/fitBounds';
 import {formatNumber, signedNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
+import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
 
 const NUM_CELL_STYLE: React.CSSProperties = {
   textAlign: 'right',
@@ -61,6 +64,39 @@ export const DistrictTuningTable: React.FC<{
   // a viewer's map can't be out of date with itself.
   const {isOutdated, save} = useMapSaveStatus();
   const stale = isOutdated && !isReadOnly;
+
+  // Zoom to a non-contiguous district's stray pieces: the validation panel's
+  // component bboxes arrive largest first, so repeat clicks cycle through
+  // features[1..] and skip the main body.
+  const queryClient = useQueryClient();
+  const mapRef = useMapStore(state => state.getMapRef());
+  const strayIndex = useRef<Record<number, number>>({});
+  const cancelPendingFly = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelPendingFly.current?.(), []);
+  const zoomToStrayPiece = async (zone: number) => {
+    if (!mapDocument || !mapRef) return;
+    const features = await queryClient
+      .fetchQuery({
+        queryKey: ['TuningStrayPieces', mapDocument.document_id, mapDocument.updated_at, zone],
+        queryFn: async () => {
+          const result = await getZoneConnectedComponentBBoxes(mapDocument, zone);
+          if (!result.ok) throw new Error(result.error.detail);
+          return result.response.features;
+        },
+        staleTime: Infinity,
+        retry: false,
+      })
+      .catch(() => undefined);
+    if (!features || features.length < 2) return;
+    const index = ((strayIndex.current[zone] ?? 0) % (features.length - 1)) + 1;
+    strayIndex.current[zone] = index;
+    const feature = features[index];
+    const bounds = getFeatureBounds(feature);
+    if (!bounds) return;
+    const geoIds = 'properties' in feature ? feature.properties?.geo_ids : undefined;
+    cancelPendingFly.current?.();
+    cancelPendingFly.current = zoomToBounds(mapRef, mapDocument, {bounds, geoIds});
+  };
 
   return (
     <Flex direction="column">
@@ -136,18 +172,36 @@ export const DistrictTuningTable: React.FC<{
                     {pieces === undefined ? (
                       <Text color="gray">—</Text>
                     ) : (
-                      <Text color={stale ? 'gray' : pieces === 1 ? 'green' : 'red'}>
-                        {/* Visually "No (3)"; read as "No (3 components)". */}
-                        {pieces === 1 ? (
-                          'Yes'
-                        ) : (
-                          <>
-                            No ({pieces}
-                            <span className="sr-only">&nbsp;components</span>)
-                          </>
+                      <Flex align="center" gap="2">
+                        <Text color={stale ? 'gray' : pieces === 1 ? 'green' : 'red'}>
+                          {/* Visually "No (3)"; read as "No (3 components)". */}
+                          {pieces === 1 ? (
+                            'Yes'
+                          ) : (
+                            <>
+                              No ({pieces}
+                              <span className="sr-only">&nbsp;components</span>)
+                            </>
+                          )}
+                          {stale && <span className="sr-only">, as of the last save</span>}
+                        </Text>
+                        {pieces > 1 && (
+                          <Tooltip content="Zoom to a piece other than the largest">
+                            <IconButton
+                              variant="ghost"
+                              size="1"
+                              aria-label={`Zoom to a stray piece of district ${d.zone}`}
+                              onClick={e => {
+                                // Zoom only; don't switch the brush to this district.
+                                e.stopPropagation();
+                                zoomToStrayPiece(d.zone);
+                              }}
+                            >
+                              <ZoomInIcon />
+                            </IconButton>
+                          </Tooltip>
                         )}
-                        {stale && <span className="sr-only">, as of the last save</span>}
-                      </Text>
+                      </Flex>
                     )}
                   </Table.Cell>
                   {showRowIcons && (
@@ -186,8 +240,7 @@ export const DistrictTuningTable: React.FC<{
       </ConditionalScrollArea>
       {stale && (
         <Text size="1" color="gray" mx="1" mt="1">
-          Contiguity is from the last save.{' '}
-          {/* The topbar cloud button's save. */}
+          Contiguity is from the last save. {/* The topbar cloud button's save. */}
           <button
             type="button"
             onClick={() => save(false, {silent: true})}
