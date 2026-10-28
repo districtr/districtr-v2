@@ -7,7 +7,6 @@ import {Checkbox, Flex, Text} from '@radix-ui/themes';
 import React from 'react';
 import ZoomToFeature from './ZoomToFeature';
 import {NUMBER_FORMATS} from '@constants/demography/format';
-import {ConditionalScrollArea} from '../ConditionalScrollArea';
 
 export const ZoomToUnassigned = () => {
   const {selectedIndex, setSelectedIndex} = useUnassignFeaturesStore(state => state);
@@ -45,25 +44,18 @@ export const ZoomToUnassigned = () => {
           Zoom to unassigned area
         </Text>
       )}
-      {/* A map can have hundreds of unassigned areas — scroll the grid once
-          it's more than a few rows of buttons. */}
-      <ConditionalScrollArea
-        shouldUseScrollableRows={unassignedFeatureBboxes.length > 20}
-        maxHeight="40vh"
-      >
-        <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
-          <ZoomToFeature
-            features={unassignedFeatureBboxes}
-            selectedIndex={selectedIndex}
-            setSelectedIndex={setSelectedIndex}
-            padding={100}
-            labels={unassignedFeatureBboxes.map(feature => {
-              const n = feature.properties?.geo_ids?.length;
-              return n ? `Area · ${n} unit${n === 1 ? '' : 's'}` : 'Area';
-            })}
-          />
-        </Flex>
-      </ConditionalScrollArea>
+      <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
+        <ZoomToFeature
+          features={unassignedFeatureBboxes}
+          selectedIndex={selectedIndex}
+          setSelectedIndex={setSelectedIndex}
+          padding={100}
+          labels={unassignedFeatureBboxes.map(feature => {
+            const n = feature.properties?.geo_ids?.length;
+            return n ? `Area · ${n} unit${n === 1 ? '' : 's'}` : 'Area';
+          })}
+        />
+      </Flex>
     </Flex>
   );
 };
