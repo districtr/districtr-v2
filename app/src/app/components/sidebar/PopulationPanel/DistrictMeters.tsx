@@ -278,6 +278,12 @@ export const DistrictMeters = () => {
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
   const canReorder = showRowIcons && !isReadOnly;
+  // Width of the leading cell: drag handle, gap, then the number column.
+  const numCellWidth = !canReorder
+    ? numColWidth
+    : showDistrictNumbers
+      ? `calc(${HANDLE_WIDTH}px + var(--space-2) + ${numColWidth})`
+      : HANDLE_WIDTH;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
@@ -323,8 +329,9 @@ export const DistrictMeters = () => {
                 : undefined
             }
           >
-            {canReorder && <Box style={{width: HANDLE_WIDTH, flexShrink: 0}} />}
-            {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
+            {(canReorder || showDistrictNumbers) && (
+              <Box style={{width: numCellWidth, flexShrink: 0}} />
+            )}
             {showRowIcons && (
               /* Mirrors the rows' icon cluster exactly — an invisible twin of
                  the comment button, then the lock — so the lock-all lands
@@ -461,38 +468,59 @@ export const DistrictMeters = () => {
                     }}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
-                    {canReorder && (
-                      <Tooltip content="Drag to renumber">
-                        <Flex
-                          draggable
-                          role="img"
-                          aria-label={`Drag to renumber district ${d.zone}`}
-                          className="cursor-grab text-[var(--gray-9)]"
-                          style={{width: HANDLE_WIDTH, flexShrink: 0}}
-                          onClick={e => e.stopPropagation()}
-                          onDragStart={e => {
-                            // Firefox won't start a drag without data.
-                            e.dataTransfer.setData('text/plain', String(d.zone));
-                            e.dataTransfer.effectAllowed = 'move';
-                            const row = e.currentTarget.parentElement;
-                            row && e.dataTransfer.setDragImage(row, 8, ROW_HEIGHT / 2);
-                            setDragZone(d.zone);
-                          }}
-                          onDragEnd={endDrag}
-                        >
-                          <DragHandleDots2Icon />
-                        </Flex>
-                      </Tooltip>
-                    )}
-                    {showDistrictNumbers && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{...NUM_CELL_STYLE, width: numColWidth}}
+                    {/* One right-aligned cell: the handle hugs the number at the
+                        same 8px the comment bubble sits after it, whatever the
+                        digit count. */}
+                    {(canReorder || showDistrictNumbers) && (
+                      <Flex
+                        align="center"
+                        justify="end"
+                        gap="2"
+                        flexShrink="0"
+                        style={{width: numCellWidth}}
                       >
-                        {d.zone}
-                      </Text>
+                        {canReorder && (
+                          <Tooltip content="Drag to renumber">
+                            <Flex
+                              draggable
+                              role="img"
+                              aria-label={`Drag to renumber district ${d.zone}`}
+                              // Like the comment bubble: shown for the selected row,
+                              // otherwise only while the row is hovered.
+                              className={`cursor-grab text-[var(--gray-9)] transition-opacity duration-200 ${
+                                selectedZone === d.zone
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              style={{width: HANDLE_WIDTH, flexShrink: 0}}
+                              onClick={e => e.stopPropagation()}
+                              onDragStart={e => {
+                                // Firefox won't start a drag without data.
+                                e.dataTransfer.setData('text/plain', String(d.zone));
+                                e.dataTransfer.effectAllowed = 'move';
+                                const row = e.currentTarget.closest<HTMLElement>(
+                                  '[data-testid^="district-meter-row-"]'
+                                );
+                                row && e.dataTransfer.setDragImage(row, 8, ROW_HEIGHT / 2);
+                                setDragZone(d.zone);
+                              }}
+                              onDragEnd={endDrag}
+                            >
+                              <DragHandleDots2Icon />
+                            </Flex>
+                          </Tooltip>
+                        )}
+                        {showDistrictNumbers && (
+                          <Text
+                            size="2"
+                            color={offScale ? 'red' : 'gray'}
+                            weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                            style={NUM_CELL_STYLE}
+                          >
+                            {d.zone}
+                          </Text>
+                        )}
+                      </Flex>
                     )}
                     {/* Comment and per-district lock are Super Draw features.
                         Icons manage their own interactions; don't let clicks
