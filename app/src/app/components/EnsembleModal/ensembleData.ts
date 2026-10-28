@@ -3,6 +3,9 @@ import {useQuery} from '@tanstack/react-query';
 import {CDN_URL} from '@utils/api/constants';
 import type {
   EnsembleBounds,
+  EnsembleChunk,
+  EnsembleFrontier,
+  EnsembleGeometry,
   EnsembleIndex,
   EnsembleJoint,
   EnsembleJointIndex,
@@ -24,7 +27,9 @@ import type {
  * 100) are loaded only once the modal is open. The analysis files (bounds,
  * the joint-pair index) are a few KB each and load with the modal; a pair's
  * counts file loads only once that pair is chosen, and an extreme plan's
- * thumbnail only once its popover opens.
+ * thumbnail only once its popover opens. A chunk of sampled plans (≈100 KB
+ * gzipped, mostly assignments) and the unit geometry (≈60 KB gzipped) load
+ * once the individual-plans section asks for them.
  */
 const ensembleBase = (moduleSlug: string) => `${CDN_URL}/ensembles/${moduleSlug}`;
 
@@ -75,6 +80,12 @@ export const ensembleExtremeThumbUrl = (
     resolvePresetPath(listed, `extremes/${objective}`, `extremes/${objective}/${rank}.svg`)
   );
 
+export const ensembleChunkUrl = (moduleSlug: string, preset: string, chunk: number) =>
+  presetFileUrl(moduleSlug, preset, `chunks/${chunk}.json`);
+
+export const ensembleGeometryUrl = (moduleSlug: string, preset: string) =>
+  presetFileUrl(moduleSlug, preset, 'geometry.json');
+
 export const ensembleJointIndexUrl = (moduleSlug: string, preset: string) =>
   presetFileUrl(moduleSlug, preset, 'joint/index.json');
 
@@ -99,6 +110,12 @@ export const ensembleQueryKeys = {
     ['ensemble', 'joint-index', moduleSlug, preset] as const,
   joint: (moduleSlug: string, preset: string, pairId: string) =>
     ['ensemble', 'joint', moduleSlug, preset, pairId] as const,
+  frontier: (moduleSlug: string, preset: string, pairId: string) =>
+    ['ensemble', 'frontier', moduleSlug, preset, pairId] as const,
+  chunk: (moduleSlug: string, preset: string, chunk: number) =>
+    ['ensemble', 'chunk', moduleSlug, preset, chunk] as const,
+  geometry: (moduleSlug: string, preset: string) =>
+    ['ensemble', 'geometry', moduleSlug, preset] as const,
 };
 
 const fetchJson = async <T>(url: string): Promise<T> => {
@@ -137,6 +154,19 @@ export const fetchEnsembleJoint = (
   preset: string,
   pair: {id: string; file?: string}
 ) => fetchOptionalJson<EnsembleJoint>(ensembleJointUrl(moduleSlug, preset, pair));
+
+/** A file the package lists by a preset-relative path, such as a frontier point's thumbnail. */
+export const ensembleListedFileUrl = (moduleSlug: string, preset: string, listed: string) =>
+  presetFileUrl(moduleSlug, preset, listed);
+
+export const fetchEnsembleFrontier = (moduleSlug: string, preset: string, path: string) =>
+  fetchOptionalJson<EnsembleFrontier>(`${ensembleBase(moduleSlug)}/${preset}/${path}`);
+
+export const fetchEnsembleChunk = (moduleSlug: string, preset: string, chunk: number) =>
+  fetchJson<EnsembleChunk>(ensembleChunkUrl(moduleSlug, preset, chunk));
+
+export const fetchEnsembleGeometry = (moduleSlug: string, preset: string) =>
+  fetchOptionalJson<EnsembleGeometry>(ensembleGeometryUrl(moduleSlug, preset));
 
 const STATIC_QUERY_OPTIONS = {
   staleTime: Infinity,
@@ -189,5 +219,41 @@ export const useEnsembleJoint = (
     queryKey: ensembleQueryKeys.joint(moduleSlug ?? '', preset ?? '', pair?.id ?? ''),
     queryFn: () => fetchEnsembleJoint(moduleSlug!, preset!, pair!),
     enabled: enabled && !!moduleSlug && !!preset && !!pair,
+    ...STATIC_QUERY_OPTIONS,
+  });
+
+export const useEnsembleFrontier = (
+  moduleSlug?: string,
+  preset?: string,
+  pair?: {id: string; frontier?: string} | null,
+  enabled = true
+) =>
+  useQuery({
+    queryKey: ensembleQueryKeys.frontier(moduleSlug ?? '', preset ?? '', pair?.id ?? ''),
+    queryFn: () => fetchEnsembleFrontier(moduleSlug!, preset!, pair!.frontier!),
+    enabled: enabled && !!moduleSlug && !!preset && !!pair?.frontier,
+    ...STATIC_QUERY_OPTIONS,
+  });
+
+/** `chunk` null fetches nothing. A chunk is immutable, so every chunk the
+ * reader has drawn stays cached for the session. */
+export const useEnsembleChunk = (
+  moduleSlug?: string,
+  preset?: string,
+  chunk?: number | null,
+  enabled = true
+) =>
+  useQuery({
+    queryKey: ensembleQueryKeys.chunk(moduleSlug ?? '', preset ?? '', chunk ?? -1),
+    queryFn: () => fetchEnsembleChunk(moduleSlug!, preset!, chunk!),
+    enabled: enabled && !!moduleSlug && !!preset && chunk !== null && chunk !== undefined,
+    ...STATIC_QUERY_OPTIONS,
+  });
+
+export const useEnsembleGeometry = (moduleSlug?: string, preset?: string, enabled = true) =>
+  useQuery({
+    queryKey: ensembleQueryKeys.geometry(moduleSlug ?? '', preset ?? ''),
+    queryFn: () => fetchEnsembleGeometry(moduleSlug!, preset!),
+    enabled: enabled && !!moduleSlug && !!preset,
     ...STATIC_QUERY_OPTIONS,
   });

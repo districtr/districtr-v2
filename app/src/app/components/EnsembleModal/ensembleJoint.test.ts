@@ -183,7 +183,9 @@ describe('axes and grid', () => {
     const axis = rawAxis('discrete', [-0.18, -0.06, 0.07], 3);
     expect(axisCoordinate(axis, -0.06)).toBe(1);
     expect(axisCoordinate(axis, 0.005)).toBeCloseTo(1.5);
-    expect(axisCoordinate(axis, -0.5)).toBe(-0.5);
+    // Beyond the ends the axis continues at the nearest spacing: 0.12 per column.
+    expect(axisCoordinate(axis, -0.5)).toBeCloseTo(-2.667, 2);
+    expect(axisCoordinate(axis, 0.19)).toBeCloseTo(2.923, 2);
   });
 
   test('series references resolve to the modal metrics', () => {

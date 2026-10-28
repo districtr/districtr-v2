@@ -35,11 +35,17 @@ const SHADES = [
   'var(--teal-11)',
 ];
 const PLAN_COLOR = 'var(--accent-9)';
-const STEP_COLOR = 'var(--amber-10)';
+const SELECTED_COLOR = 'var(--amber-10)';
+const SAMPLE_COLOR = 'var(--amber-9)';
 const AXIS_COLOR = 'var(--gray-a8)';
 const INK = 'var(--gray-12)';
 const MUTED_INK = 'var(--gray-11)';
 const MARKER_RADIUS = 5;
+const SAMPLE_RADIUS = 2.5;
+/** Sampled plans sharing a cell of an integer or discrete axis are spread
+ * this far, as a fraction of the cell, so a stack of equal values reads as
+ * many dots rather than one. */
+const SAMPLE_JITTER = 0.35;
 
 const shade = (share: number, maxShare: number) => {
   if (share <= 0 || maxShare <= 0) return undefined;
@@ -53,6 +59,34 @@ export interface JointPoint {
   y?: number;
 }
 
+/** An extreme plan a search found, marked at its two values. */
+export interface JointExtreme extends JointPoint {
+  key: string;
+  /** The objective's label, for the legend. */
+  label: string;
+  color: string;
+  thumbUrl?: string;
+}
+
+/** A frontier plan: the label names what it is extreme on, for the hover card. */
+export interface JointFrontierPoint extends JointPoint {
+  label: string;
+  thumbUrl?: string;
+}
+
+/** A plotted plan under the pointer. */
+interface HoveredPoint {
+  label: string;
+  x?: number;
+  y?: number;
+  thumbUrl?: string;
+  cx: number;
+  cy: number;
+}
+const CARD_WIDTH = 200;
+
+const NO_EXTREMES: JointExtreme[] = [];
+
 export interface JointDensityProps {
   joint: EnsembleJoint;
   xLabel: string;
@@ -61,41 +95,97 @@ export interface JointDensityProps {
   yFormat: EnsembleValueFormat;
   plan?: JointPoint;
   planLabel: string;
-  step?: JointPoint;
-  stepLabel: string;
+  /** The plan selected in the individual-plans section, as a dashed ring. */
+  selected?: JointPoint;
+  selectedLabel: string;
+  /** The sampled plans of the individual-plans section, as small dots. */
+  sample?: JointPoint[];
+  sampleLabel: string;
+  /** Extreme plans drawn as filled diamonds, so they read apart from the two rings. */
+  extremes?: JointExtreme[];
+  /** Plans a search found at the edge of the feasible space, as hollow squares. */
+  frontier?: JointFrontierPoint[];
   width: number;
   height: number;
 }
 
+const NO_SAMPLE: JointPoint[] = [];
+
+/** A fixed pseudo-random offset in [-1, 1) for the i-th sampled plan, so the
+ * dots settle in the same places on every render. */
+const jitter = (index: number, salt: number) => {
+  const n = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return 2 * (n - Math.floor(n)) - 1;
+};
+
+const NO_FRONTIER: JointFrontierPoint[] = [];
+const FRONTIER_COLOR = 'var(--gray-12)';
+const FRONTIER_SIDE = 7;
+
+/** A diamond path centred on the origin, used for the extreme-plan markers. */
+const diamond = (r: number) => `M0,${-r} L${r},0 L0,${r} L${-r},0 Z`;
+
 const finite = (value: number | undefined): value is number =>
   value !== undefined && Number.isFinite(value);
 
-/** Domain of an axis in its own coordinate, stretched to hold the markers. */
+/** Domain of an axis in its own coordinate, stretched to hold the markers
+ * with half a cell to spare, so a plan beyond the sample sits at its value
+ * rather than on the edge. */
 const axisDomain = (axis: JointAxis, values: (number | undefined)[]): [number, number] => {
-  let low = cellSpan(axis, 0)[0];
+  const [first0, first1] = cellSpan(axis, 0);
+  let low = first0;
   let high = cellSpan(axis, axis.cells.length - 1)[1];
+  const pad = (first1 - first0) / 2 || 0.5;
   values.filter(finite).forEach(value => {
     const coordinate = axisCoordinate(axis, value);
-    low = Math.min(low, coordinate);
-    high = Math.max(high, coordinate);
+    low = Math.min(low, coordinate - pad);
+    high = Math.max(high, coordinate + pad);
   });
   if (high <= low) high = low + 1;
   return [low, high];
 };
 
+/** Extra ticks for marked values a discrete axis has no cell for. */
+const outsideTicks = (
+  axis: JointAxis,
+  values: (number | undefined)[],
+  format: EnsembleValueFormat
+) => {
+  if (axis.kind !== 'discrete') return [];
+  const known = new Set(axis.cells.map(cell => cell.value ?? cell.from));
+  const seen = new Set<number>();
+  return values
+    .filter(finite)
+    .filter(value => !known.has(value) && !seen.has(value) && seen.add(value))
+    .map(value => ({
+      coordinate: axisCoordinate(axis, value),
+      label: formatEnsembleValue(value, format),
+    }));
+};
+
 /** Tick positions and labels for an axis: every cell when there are few
  * exact values, evenly spaced values otherwise. */
-const axisTicks = (axis: JointAxis, format: EnsembleValueFormat) => {
+const axisTicks = (
+  axis: JointAxis,
+  format: EnsembleValueFormat,
+  marked: (number | undefined)[] = []
+) => {
   const exact = axis.cells.every(cell => cell.value !== undefined);
   if (axis.kind === 'discrete' || (exact && axis.cells.length <= LABEL_EVERY_CELL)) {
+    const outside = outsideTicks(axis, marked, format);
+    const outsideLabel = new Map(outside.map(tick => [tick.coordinate, tick.label]));
     return {
-      tickValues: axis.cells.map((_, index) =>
-        axis.kind === 'discrete' ? index : axis.cells[index].value!
-      ),
+      tickValues: [
+        ...axis.cells.map((_, index) =>
+          axis.kind === 'discrete' ? index : axis.cells[index].value!
+        ),
+        ...outside.map(tick => tick.coordinate),
+      ].sort((a, b) => a - b),
       tickFormat: (value: number) =>
-        axis.kind === 'discrete'
+        outsideLabel.get(value) ??
+        (axis.kind === 'discrete'
           ? cellLabel(axis, Math.round(value), format)
-          : formatEnsembleValue(value, format),
+          : formatEnsembleValue(value, format)),
     };
   }
   return {tickValues: undefined, tickFormat: (value: number) => formatEnsembleValue(value, format)};
@@ -103,7 +193,7 @@ const axisTicks = (axis: JointAxis, format: EnsembleValueFormat) => {
 
 /**
  * The ensemble's plans by two scores at once, as a grid of cells shaded by
- * share of plans, with the evaluated plan and the selected step marked.
+ * share of plans, with the evaluated plan and the selected plan marked.
  *
  * The grid is laid out once per pair and size; hover moves a highlight and a
  * caption and recomputes nothing else.
@@ -116,12 +206,17 @@ export const JointDensity: React.FC<JointDensityProps> = ({
   yFormat,
   plan,
   planLabel,
-  step,
-  stepLabel,
+  selected,
+  selectedLabel,
+  sample = NO_SAMPLE,
+  sampleLabel,
+  extremes = NO_EXTREMES,
+  frontier = NO_FRONTIER,
   width,
   height,
 }) => {
   const [hovered, setHovered] = useState<{row: number; column: number} | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom);
 
@@ -129,12 +224,13 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   const layout = useMemo(() => {
     if (!grid) return null;
+    const marked = [...extremes, ...frontier];
     const xScale = scaleLinear<number>({
-      domain: axisDomain(grid.x, [plan?.x, step?.x]),
+      domain: axisDomain(grid.x, [plan?.x, selected?.x, ...marked.map(point => point.x)]),
       range: [0, innerWidth],
     });
     const yScale = scaleLinear<number>({
-      domain: axisDomain(grid.y, [plan?.y, step?.y]),
+      domain: axisDomain(grid.y, [plan?.y, selected?.y, ...marked.map(point => point.y)]),
       range: [innerHeight, 0],
     });
     const cells = grid.shares.flatMap((row, rowIndex) =>
@@ -154,7 +250,17 @@ export const JointDensity: React.FC<JointDensityProps> = ({
       })
     );
     return {xScale, yScale, cells};
-  }, [grid, plan?.x, plan?.y, step?.x, step?.y, innerWidth, innerHeight]);
+  }, [
+    grid,
+    plan?.x,
+    plan?.y,
+    selected?.x,
+    selected?.y,
+    extremes,
+    frontier,
+    innerWidth,
+    innerHeight,
+  ]);
 
   // The cells are the bulk of the drawing; hover leaves them untouched.
   const cellLayer = useMemo(
@@ -176,15 +282,39 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   if (!grid || !layout || innerWidth <= 0 || innerHeight <= 0) return null;
   const {xScale, yScale, cells} = layout;
-  const xTicks = axisTicks(grid.x, xFormat);
-  const yTicks = axisTicks(grid.y, yFormat);
+  const markedX = [plan?.x, selected?.x, ...extremes.map(p => p.x), ...frontier.map(p => p.x)];
+  const markedY = [plan?.y, selected?.y, ...extremes.map(p => p.y), ...frontier.map(p => p.y)];
+  const xTicks = axisTicks(grid.x, xFormat, markedX);
+  const yTicks = axisTicks(grid.y, yFormat, markedY);
 
   const position = (point: JointPoint | undefined) => ({
     x: point && finite(point.x) ? xScale(axisCoordinate(grid.x, point.x)) : undefined,
     y: point && finite(point.y) ? yScale(axisCoordinate(grid.y, point.y)) : undefined,
   });
   const planAt = position(plan);
-  const stepAt = position(step);
+  const selectedAt = position(selected);
+  // A dot sits at its plan's two values, spread a little within a cell of an
+  // axis whose values repeat; a continuous axis places it exactly.
+  const spread = (axis: JointAxis, index: number, salt: number) =>
+    axis.kind === 'continuous' ? 0 : SAMPLE_JITTER * jitter(index, salt);
+  const sampleAt = sample.flatMap((point, index) => {
+    if (!finite(point.x) || !finite(point.y)) return [];
+    return [
+      {
+        index,
+        cx: xScale(axisCoordinate(grid.x, point.x) + spread(grid.x, index, 1)),
+        cy: yScale(axisCoordinate(grid.y, point.y) + spread(grid.y, index, 2)),
+      },
+    ];
+  });
+  const extremesAt = extremes.flatMap(extreme => {
+    const at = position(extreme);
+    return at.x === undefined || at.y === undefined ? [] : [{...extreme, cx: at.x, cy: at.y}];
+  });
+  const frontierAt = frontier.flatMap((point, index) => {
+    const at = position(point);
+    return at.x === undefined || at.y === undefined ? [] : [{index, cx: at.x, cy: at.y}];
+  });
 
   const handleMove = (event: React.MouseEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -198,18 +328,22 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   const hoveredCell = hovered ? cells[hovered.row * grid.x.cells.length + hovered.column] : null;
 
-  const legendLine = (color: string, label: string, dashed: boolean) => (
+  const legendLine = (color: string, label: string, dashed: boolean, filled = false) => (
     <span key={label} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
       <svg width={14} height={14} aria-hidden="true">
-        <circle
-          cx={7}
-          cy={7}
-          r={MARKER_RADIUS}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeDasharray={dashed ? '2 2' : undefined}
-        />
+        {filled ? (
+          <path d={diamond(MARKER_RADIUS)} transform="translate(7 7)" fill={color} />
+        ) : (
+          <circle
+            cx={7}
+            cy={7}
+            r={MARKER_RADIUS}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeDasharray={dashed ? '2 2' : undefined}
+          />
+        )}
       </svg>
       <ThemeText size="1" style={{color: INK}}>
         {label}
@@ -268,13 +402,24 @@ export const JointDensity: React.FC<JointDensityProps> = ({
               pointerEvents="none"
             />
           )}
-          {stepAt.x !== undefined && stepAt.y !== undefined && (
+          {sampleAt.map(point => (
             <circle
-              cx={stepAt.x}
-              cy={stepAt.y}
+              key={`sample:${point.index}`}
+              cx={point.cx}
+              cy={point.cy}
+              r={SAMPLE_RADIUS}
+              fill={SAMPLE_COLOR}
+              fillOpacity={0.75}
+              pointerEvents="none"
+            />
+          ))}
+          {selectedAt.x !== undefined && selectedAt.y !== undefined && (
+            <circle
+              cx={selectedAt.x}
+              cy={selectedAt.y}
               r={MARKER_RADIUS}
               fill="none"
-              stroke={STEP_COLOR}
+              stroke={SELECTED_COLOR}
               strokeWidth={2}
               strokeDasharray="2 2"
               pointerEvents="none"
@@ -287,6 +432,36 @@ export const JointDensity: React.FC<JointDensityProps> = ({
             onMouseMove={handleMove}
             onMouseLeave={() => setHovered(null)}
           />
+          {frontierAt.map(point => (
+            <rect
+              key={`frontier:${point.index}`}
+              x={point.cx - FRONTIER_SIDE / 2}
+              y={point.cy - FRONTIER_SIDE / 2}
+              width={FRONTIER_SIDE}
+              height={FRONTIER_SIDE}
+              fill="var(--color-panel-solid)"
+              stroke={FRONTIER_COLOR}
+              strokeWidth={1.5}
+              style={{cursor: 'default'}}
+              onMouseEnter={() =>
+                setHoveredPoint({...frontier[point.index], cx: point.cx, cy: point.cy})
+              }
+              onMouseLeave={() => setHoveredPoint(null)}
+            />
+          ))}
+          {extremesAt.map(extreme => (
+            <path
+              key={extreme.key}
+              d={diamond(MARKER_RADIUS)}
+              transform={`translate(${extreme.cx} ${extreme.cy})`}
+              fill={extreme.color}
+              stroke="var(--color-panel-solid)"
+              strokeWidth={1}
+              style={{cursor: 'default'}}
+              onMouseEnter={() => setHoveredPoint({...extreme, cx: extreme.cx, cy: extreme.cy})}
+              onMouseLeave={() => setHoveredPoint(null)}
+            />
+          ))}
           <AxisLeft
             scale={yScale}
             numTicks={yTicks.tickValues ? undefined : 5}
@@ -343,11 +518,73 @@ export const JointDensity: React.FC<JointDensityProps> = ({
         {planAt.x !== undefined || planAt.y !== undefined
           ? legendLine(PLAN_COLOR, planLabel, false)
           : null}
-        {stepAt.x !== undefined && stepAt.y !== undefined
-          ? legendLine(STEP_COLOR, stepLabel, true)
+        {sampleAt.length > 0 && (
+          <span style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+            <svg width={14} height={14} aria-hidden="true">
+              <circle cx={7} cy={7} r={SAMPLE_RADIUS} fill={SAMPLE_COLOR} fillOpacity={0.75} />
+            </svg>
+            <ThemeText size="1" style={{color: INK}}>
+              {sampleLabel}
+            </ThemeText>
+          </span>
+        )}
+        {selectedAt.x !== undefined && selectedAt.y !== undefined
+          ? legendLine(SELECTED_COLOR, selectedLabel, true)
           : null}
+        {extremesAt.map(extreme => legendLine(extreme.color, extreme.label, false, true))}
+        {frontierAt.length > 0 && (
+          <span style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+            <svg width={14} height={14} aria-hidden="true">
+              <rect
+                x={(14 - FRONTIER_SIDE) / 2}
+                y={(14 - FRONTIER_SIDE) / 2}
+                width={FRONTIER_SIDE}
+                height={FRONTIER_SIDE}
+                fill="none"
+                stroke={FRONTIER_COLOR}
+                strokeWidth={1.5}
+              />
+            </svg>
+            <ThemeText size="1" style={{color: INK}}>
+              {ENSEMBLE_MODAL_TEXT.jointFrontierLegend}
+            </ThemeText>
+          </span>
+        )}
       </div>
-      {hoveredCell && (
+      {hoveredPoint && (
+        <div
+          style={{
+            position: 'absolute',
+            left: Math.min(MARGIN.left + hoveredPoint.cx + 10, Math.max(0, width - CARD_WIDTH - 4)),
+            top: Math.max(0, MARGIN.top + hoveredPoint.cy - 24),
+            width: CARD_WIDTH,
+            background: 'var(--color-panel-solid)',
+            border: '1px solid var(--gray-a6)',
+            borderRadius: 4,
+            padding: '4px 6px',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        >
+          <ThemeText size="1" weight="medium" as="div" style={{color: INK}}>
+            {hoveredPoint.label}
+          </ThemeText>
+          <ThemeText size="1" as="div" style={{color: MUTED_INK}}>
+            {xLabel}: {finite(hoveredPoint.x) ? formatEnsembleValue(hoveredPoint.x, xFormat) : '—'}
+          </ThemeText>
+          <ThemeText size="1" as="div" style={{color: MUTED_INK}}>
+            {yLabel}: {finite(hoveredPoint.y) ? formatEnsembleValue(hoveredPoint.y, yFormat) : '—'}
+          </ThemeText>
+          {hoveredPoint.thumbUrl && (
+            <img
+              src={hoveredPoint.thumbUrl}
+              alt=""
+              style={{display: 'block', width: '100%', marginTop: 4}}
+            />
+          )}
+        </div>
+      )}
+      {hoveredCell && !hoveredPoint && (
         <div
           style={{
             position: 'absolute',

@@ -155,8 +155,8 @@ OBJECTIVES: dict[str, Objective] = {
             "polsby_popper",
             "Highest mean Polsby-Popper",
             "max",
-            "Mean over districts of 4 * pi * area / perimeter^2, from EPSG:5070 "
-            "geometry.",
+            "Mean over districts of 4 * pi * area / perimeter^2, measured in the "
+            "state's UTM zone.",
             lambda a, e: np.asarray(a["polsby_popper_mean"]),
         ),
     )

@@ -2,9 +2,9 @@
 
 Scoring uses gerrytools' engine-backed ``PlanEvaluator`` (gerrytools.scoring), which
 prepares VTD geometry and columns once and then evaluates every plan with a compiled
-Rust engine. Geometry is reprojected to EPSG:5070 (the equal-area projection the app's
-evaluation panel uses, ``backend/app/evaluation/context.py``) before any area or
-perimeter is measured. Every metric is a gerrytools metric class; ``SERIES`` names the
+Rust engine. Geometry is reprojected to the module's UTM zone (``package.utm_crs``,
+the projection the app's evaluation panel measures compactness in) before any area
+or perimeter is measured. Every metric is a gerrytools metric class; ``SERIES`` names the
 class behind each stored array.
 
 Stored arrays (``<preset>.scores.npz``), all with one row per plan:
@@ -52,12 +52,12 @@ from gerrytools.scoring import (
     SwingDistricts,
 )
 
+from ensembles import package
 from ensembles.graph import COUNTY_COL, POP_COL, county_of, election_columns
 from transforms.graph import _gpkg_layer_name
 
 logger = logging.getLogger(__name__)
 
-TARGET_CRS = "EPSG:5070"
 COMPETITIVE_MARGIN = 0.03
 CHUNK_PLANS = 10_000
 COMPACTNESS = ("polsby_popper", "reock")
@@ -121,10 +121,11 @@ DEFINITIONS = {
     "county_pieces": f"gerrytools.scoring.RegionPieces('{COUNTY_COL}'): occupied "
     "(county, district) pairs; a county entirely inside one district counts 1.",
     "polsby_popper": "gerrytools.scoring.PolsbyPopper: 4 * pi * area / perimeter^2 per "
-    "district, from EPSG:5070 geometry; _mean, _min and _max are across districts.",
+    "district, measured in the state's UTM zone (the manifest's crs); _mean, _min "
+    "and _max are across districts.",
     "reock": "gerrytools.scoring.Reock: district area divided by the area of its minimum "
-    "enclosing circle, from EPSG:5070 geometry; _mean, _min and _max are across "
-    "districts.",
+    "enclosing circle, measured in the state's UTM zone (the manifest's crs); _mean, "
+    "_min and _max are across districts.",
 }
 
 
@@ -184,8 +185,10 @@ def make_evaluator(
 
     graph = nx.Graph()
     graph.add_nodes_from(node_ids)  # no edges: these metrics don't need adjacency
-    evaluator = PlanEvaluator(graph, geometry=gdf, target_crs=TARGET_CRS)
+    crs = package.utm_crs(gdf)
+    evaluator = PlanEvaluator(graph, geometry=gdf, target_crs=crs)
     evaluator.add_metrics(*build_metrics(elections))
+    evaluator.target_crs = crs
     return evaluator, elections
 
 
@@ -210,7 +213,7 @@ def score_ensemble(
     """Score the first ``n_plans`` plans of a packed ensemble npz (``None`` for all).
 
     Returns ``{"arrays": {name: array}, "elections": [...], "n_plans", "num_dists",
-    "wall_time_seconds"}``.
+    "crs", "wall_time_seconds"}``.
     """
     data = np.load(npz_path)
     node_ids = data["node_ids"]
@@ -246,6 +249,7 @@ def score_ensemble(
         "elections": elections,
         "n_plans": int(len(assignments)),
         "num_dists": int(arrays["reock"].shape[1]),
+        "crs": evaluator.target_crs,
         "wall_time_seconds": wall_time,
     }
 
@@ -277,7 +281,7 @@ def write_manifest(
         "num_dists": facts["num_dists"],
         "elections": facts["elections"],
         "gerrytools_version": importlib.metadata.version("gerrytools"),
-        "crs": TARGET_CRS,
+        "crs": facts["crs"],
         "definitions": DEFINITIONS,
         "wall_time_seconds": facts["wall_time_seconds"],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

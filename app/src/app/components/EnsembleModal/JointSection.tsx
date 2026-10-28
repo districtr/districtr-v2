@@ -4,12 +4,18 @@ import {Flex, Select, Spinner, Text} from '@radix-ui/themes';
 import {ParentSize} from '@visx/responsive';
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@utils/elections';
-import {useEnsembleJoint} from './ensembleData';
+import {
+  ensembleExtremeThumbUrl,
+  ensembleListedFileUrl,
+  useEnsembleFrontier,
+  useEnsembleJoint,
+} from './ensembleData';
 import {metricForRef, type EnsembleMetricDef} from './ensembleMetrics';
 import {sliceComparison, sliceGoal, sliceSentence} from './ensembleJoint';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
-import {JointDensity} from './JointDensity';
-import type {EnsembleJointPair, EnsembleMetricsPayload} from './ensembleTypes';
+import {JointDensity, type JointExtreme, type JointFrontierPoint} from './JointDensity';
+import {isRelevantObjective, objectiveColor, objectiveRank} from './ensembleExtremes';
+import type {EnsembleJointPair, EnsembleMetricsPayload, EnsembleObjective} from './ensembleTypes';
 
 const CHART_HEIGHT = 360;
 const CHART_MAX_WIDTH = 760;
@@ -60,16 +66,27 @@ export interface JointSectionProps {
   /** The section is expanded: only then is the chosen pair's file fetched. */
   open: boolean;
   evaluation?: DocumentEvaluation;
-  /** The demonstration step selected above, marked as a second point. */
-  step?: EnsembleMetricsPayload;
+  /** The plan selected in the individual-plans section, marked as a second point. */
+  selectedPlan?: EnsembleMetricsPayload;
+  /** That section's sampled plans, dotted onto the density. */
+  sample?: EnsembleMetricsPayload[];
   planLabel: string;
-  stepLabel: string;
+  selectedLabel: string;
+  sampleLabel: string;
+  /** The searches' extreme plans; each is marked at its two values. */
+  objectives?: EnsembleObjective[];
+  /** Mark every search's plan, not only the ones bearing on the pair's series. */
+  showAllExtremes?: boolean;
 }
+
+const NO_OBJECTIVES: EnsembleObjective[] = [];
+const NO_SAMPLE: EnsembleMetricsPayload[] = [];
 
 /**
  * "Two metrics at once": the joint density of a chosen pair of series, with
- * the evaluated plan and the selected step marked, and one sentence comparing
- * the plans that score best on the first series with the rest.
+ * the evaluated plan and the selected plan marked, the sampled plans dotted,
+ * and one sentence comparing the plans that score best on the first series
+ * with the rest.
  */
 export const JointSection: React.FC<JointSectionProps> = ({
   moduleSlug,
@@ -79,14 +96,60 @@ export const JointSection: React.FC<JointSectionProps> = ({
   pairs,
   open,
   evaluation,
-  step,
+  selectedPlan,
+  sample = NO_SAMPLE,
   planLabel,
-  stepLabel,
+  selectedLabel,
+  sampleLabel,
+  objectives = NO_OBJECTIVES,
+  showAllExtremes = false,
 }) => {
   const [pairId, setPairId] = useState<string | null>(null);
   const selected = pairs.find(entry => entry.pair.id === pairId) ?? pairs[0];
   const jointQuery = useEnsembleJoint(moduleSlug, presetKey, selected?.pair, open);
   const joint = jointQuery.data;
+  // Fetched only for a pair whose index entry names a frontier file.
+  const frontierQuery = useEnsembleFrontier(moduleSlug, presetKey, selected?.pair, open);
+  const frontier = useMemo((): JointFrontierPoint[] | undefined => {
+    const points = frontierQuery.data?.points;
+    if (!points) return undefined;
+    return points.map(point => ({
+      x: point.x,
+      y: point.y,
+      label: ENSEMBLE_MODAL_TEXT.jointFrontierLegend,
+      thumbUrl: point.thumb ? ensembleListedFileUrl(moduleSlug, presetKey, point.thumb) : undefined,
+    }));
+  }, [frontierQuery.data, moduleSlug, presetKey]);
+
+  // Each search's best plan at its two values; by default only the searches
+  // that bear on either series of the pair.
+  const extremes = useMemo((): JointExtreme[] => {
+    if (!selected) return [];
+    const {x, y} = selected;
+    return objectives
+      .filter(
+        objective =>
+          objective.plans.length > 0 &&
+          (showAllExtremes ||
+            isRelevantObjective(x.def.id, objective.key) ||
+            isRelevantObjective(y.def.id, objective.key))
+      )
+      .sort((a, b) => objectiveRank(a.key) - objectiveRank(b.key))
+      .flatMap(objective => {
+        const best = objective.plans[0];
+        if (!best.metrics) return [];
+        return [
+          {
+            key: objective.key,
+            label: objective.label,
+            color: objectiveColor(objective.key),
+            x: x.def.stepValue(best.metrics, x.election),
+            y: y.def.stepValue(best.metrics, y.election),
+            thumbUrl: ensembleExtremeThumbUrl(moduleSlug, presetKey, objective.key, 0, best.thumb),
+          },
+        ];
+      });
+  }, [objectives, selected, showAllExtremes, moduleSlug, presetKey]);
 
   const sentence = useMemo(() => {
     if (!joint || !selected) return null;
@@ -101,9 +164,16 @@ export const JointSection: React.FC<JointSectionProps> = ({
   const plan = evaluation
     ? {x: x.def.planValue(evaluation, x.election), y: y.def.planValue(evaluation, y.election)}
     : undefined;
-  const stepPoint = step
-    ? {x: x.def.stepValue(step, x.election), y: y.def.stepValue(step, y.election)}
+  const selectedPoint = selectedPlan
+    ? {
+        x: x.def.stepValue(selectedPlan, x.election),
+        y: y.def.stepValue(selectedPlan, y.election),
+      }
     : undefined;
+  const samplePoints = sample.map(metrics => ({
+    x: x.def.stepValue(metrics, x.election),
+    y: y.def.stepValue(metrics, y.election),
+  }));
 
   return (
     <Flex direction="column" gap="2" pb="2">
@@ -155,8 +225,12 @@ export const JointSection: React.FC<JointSectionProps> = ({
                   yFormat={y.def.format}
                   plan={plan}
                   planLabel={planLabel}
-                  step={stepPoint}
-                  stepLabel={stepLabel}
+                  selected={selectedPoint}
+                  selectedLabel={selectedLabel}
+                  sample={samplePoints}
+                  sampleLabel={sampleLabel}
+                  extremes={extremes}
+                  frontier={frontier}
                   width={width}
                   height={CHART_HEIGHT}
                 />

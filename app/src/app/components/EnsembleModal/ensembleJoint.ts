@@ -101,15 +101,22 @@ export const buildJointGrid = (joint: EnsembleJoint, maxCells: number): JointGri
  * Position along an axis in the axis's own coordinate: the value itself on an
  * integer or continuous axis, a fractional column index on a discrete one
  * (whose columns are drawn evenly spaced). A value beyond a discrete axis's
- * ends is held at its outer edge.
+ * ends continues at the spacing of the nearest two values, so a plan outside
+ * everything the sample reached sits where its value belongs.
  */
 export const axisCoordinate = (axis: JointAxis, value: number): number => {
   if (axis.kind !== 'discrete') return value;
   const values = axis.cells.map(cell => cell.value ?? cell.from);
   if (!values.length) return 0;
-  if (value <= values[0]) return value < values[0] ? -0.5 : 0;
   const last = values.length - 1;
-  if (value >= values[last]) return value > values[last] ? last + 0.5 : last;
+  const step = last > 0 ? values[last] - values[0] : 1;
+  const spacing = (lower: number, upper: number) => (upper > lower ? upper - lower : step || 1);
+  if (value <= values[0]) {
+    return last > 0 ? (value - values[0]) / spacing(values[0], values[1]) : 0;
+  }
+  if (value >= values[last]) {
+    return last + (last > 0 ? (value - values[last]) / spacing(values[last - 1], values[last]) : 0);
+  }
   let i = 0;
   while (values[i + 1] < value) i += 1;
   return i + (value - values[i]) / (values[i + 1] - values[i]);

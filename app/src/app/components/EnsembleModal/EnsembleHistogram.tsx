@@ -27,7 +27,10 @@ const DEFAULT_HEIGHT = 280;
 const BAR_FILL = 'var(--gray-a7)';
 const BAR_FILL_HOVER = 'var(--gray-a9)';
 const PLAN_COLOR = 'var(--accent-9)';
-const STEP_COLOR = 'var(--amber-10)';
+const SELECTED_COLOR = 'var(--amber-10)';
+/** The sample's bars sit inside the ensemble's, this fraction of their width. */
+const SAMPLE_BAR_FILL = 'var(--amber-a8)';
+const SAMPLE_BAR_SHARE = 0.5;
 const AXIS_COLOR = 'var(--gray-a8)';
 const INK = 'var(--gray-12)';
 const MUTED_INK = 'var(--gray-11)';
@@ -38,6 +41,8 @@ interface Bucket {
   to: number;
   percent: number;
   count: number;
+  /** Percent of the sampled plans in the span; absent without a sample. */
+  samplePercent?: number;
 }
 
 /** An extreme plan a search found, marked at its value of the charted series. */
@@ -53,6 +58,7 @@ export interface HistogramExtreme {
 }
 
 const NO_EXTREMES: HistogramExtreme[] = [];
+const NO_SAMPLE: number[] = [];
 
 export interface EnsembleHistogramProps {
   dist: EnsembleDistribution;
@@ -60,9 +66,13 @@ export interface EnsembleHistogramProps {
   /** Value for the plan being evaluated; drawn as the "Evaluated plan" marker. */
   planValue?: number;
   planLabel: string;
-  /** Value for the segment step selected in the demonstration section. */
-  stepValue?: number;
-  stepLabel: string;
+  /** Value for the plan selected in the individual-plans section. */
+  selectedValue?: number;
+  selectedLabel: string;
+  /** Values of the sampled plans of that section, drawn as a second set of
+   * bars: the share of the sample in each bucket. */
+  sample?: number[];
+  sampleLabel: string;
   width: number;
   height?: number;
   /** Named on the vertical axis, so the chart reads on its own. */
@@ -103,6 +113,26 @@ const buildBuckets = (dist: EnsembleDistribution): Bucket[] => {
   }));
 };
 
+/** The sample's share of each bucket, by the same spans; the last span is
+ * closed so a value at the top edge still counts. */
+const withSample = (buckets: Bucket[], sample: number[]): Bucket[] => {
+  const values = sample.filter(value => Number.isFinite(value));
+  if (!values.length) return buckets;
+  const counts = buckets.map(() => 0);
+  values.forEach(value => {
+    const index = buckets.findIndex(
+      (bucket, i) =>
+        value >= bucket.from &&
+        (value < bucket.to || (i === buckets.length - 1 && value <= bucket.to))
+    );
+    if (index >= 0) counts[index] += 1;
+  });
+  return buckets.map((bucket, index) => ({
+    ...bucket,
+    samplePercent: (counts[index] / values.length) * 100,
+  }));
+};
+
 /** Label for the span a bar covers: the integer itself, or the bucket's range. */
 const bucketLabel = (bucket: Bucket, dist: EnsembleDistribution, format: EnsembleValueFormat) =>
   dist.kind === 'continuous'
@@ -116,7 +146,7 @@ const bucketLabel = (bucket: Bucket, dist: EnsembleDistribution, format: Ensembl
 
 /**
  * The ensemble's distribution for one metric, with the current plan and the
- * selected demonstration step marked on it.
+ * selected plan marked on it, and the sampled plans' own shares inside the bars.
  *
  * Layout is computed once per metric, size or marker change and then only read
  * during hover, so moving the pointer over the bars re-renders a fill and a
@@ -127,8 +157,10 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
   format,
   planValue,
   planLabel,
-  stepValue,
-  stepLabel,
+  selectedValue,
+  selectedLabel,
+  sample = NO_SAMPLE,
+  sampleLabel,
   width,
   height = DEFAULT_HEIGHT,
   percentAxisLabel,
@@ -141,12 +173,12 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom);
 
   const layout = useMemo(() => {
-    const buckets = buildBuckets(dist);
+    const buckets = withSample(buildBuckets(dist), sample);
     let domainMin = buckets.length ? buckets[0].from : 0;
     let domainMax = buckets.length ? buckets[buckets.length - 1].to : 1;
     // The axis stretches to hold a plan whose value falls outside everything the
     // ensemble reached — that gap is the whole point of the comparison.
-    [planValue, stepValue, ...extremes.map(extreme => extreme.value)].forEach(value => {
+    [planValue, selectedValue, ...extremes.map(extreme => extreme.value)].forEach(value => {
       if (value === undefined || !Number.isFinite(value)) return;
       const low = dist.kind === 'integer' ? Math.floor(value) - 0.5 : value;
       const high = dist.kind === 'integer' ? Math.ceil(value) + 0.5 : value;
@@ -154,7 +186,10 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
       domainMax = Math.max(domainMax, high);
     });
     if (domainMax <= domainMin) domainMax = domainMin + 1;
-    const maxPercent = buckets.reduce((max, bucket) => Math.max(max, bucket.percent), 0);
+    const maxPercent = buckets.reduce(
+      (max, bucket) => Math.max(max, bucket.percent, bucket.samplePercent ?? 0),
+      0
+    );
     const xScale = scaleLinear<number>({domain: [domainMin, domainMax], range: [0, innerWidth]});
     // The tallest bar reaches two thirds of the plot, so a full-height marker
     // line cannot be mistaken for a bar: bars encode share, markers position.
@@ -174,7 +209,7 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
       : undefined;
     const percentDigits = maxPercent < 5 ? 1 : 0;
     return {buckets, xScale, yScale, tickValues, percentDigits, widen};
-  }, [dist, planValue, stepValue, extremes, innerWidth, innerHeight]);
+  }, [dist, planValue, selectedValue, sample, extremes, innerWidth, innerHeight]);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
   const {buckets, xScale, yScale, tickValues, percentDigits, widen} = layout;
@@ -185,7 +220,7 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
     value !== undefined && Number.isFinite(value);
   const placed = [
     finite(planValue) ? {id: 'plan', x: xScale(planValue)} : null,
-    finite(stepValue) ? {id: 'step', x: xScale(stepValue)} : null,
+    finite(selectedValue) ? {id: 'selected', x: xScale(selectedValue)} : null,
     ...extremes.map(extreme =>
       finite(extreme.value) ? {id: `extreme:${extreme.key}`, x: xScale(extreme.value)} : null
     ),
@@ -196,7 +231,10 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
   );
   const positions = new Map(placed.map((item, index) => [item.id, spread[index]]));
   const planX = positions.get('plan');
-  const stepX = positions.get('step');
+  const selectedX = positions.get('selected');
+  const sampleLow = buckets.length ? buckets[0].from : 0;
+  const sampleHigh = buckets.length ? buckets[buckets.length - 1].to : 0;
+  const outsideSample = (value: number) => value < sampleLow || value > sampleHigh;
 
   const marker = (
     x: number | undefined,
@@ -262,18 +300,31 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
               ? Math.min(innerWidth - barWidth, Math.max(0, (left + right) / 2 - barWidth / 2))
               : left + gap / 2;
             const barHeight = innerHeight - yScale(bucket.percent);
+            const sampleWidth = Math.max(1, barWidth * SAMPLE_BAR_SHARE);
+            const samplePercent = bucket.samplePercent ?? 0;
             return (
-              <Bar
-                key={index}
-                x={barX}
-                y={yScale(bucket.percent)}
-                width={barWidth}
-                height={Math.max(barHeight, bucket.count > 0 ? 1 : 0)}
-                rx={barWidth >= 4 ? 2 : 0}
-                fill={hovered === index ? BAR_FILL_HOVER : BAR_FILL}
-                onMouseEnter={() => setHovered(index)}
-                onMouseLeave={() => setHovered(null)}
-              />
+              <React.Fragment key={index}>
+                <Bar
+                  x={barX}
+                  y={yScale(bucket.percent)}
+                  width={barWidth}
+                  height={Math.max(barHeight, bucket.count > 0 ? 1 : 0)}
+                  rx={barWidth >= 4 ? 2 : 0}
+                  fill={hovered === index ? BAR_FILL_HOVER : BAR_FILL}
+                  onMouseEnter={() => setHovered(index)}
+                  onMouseLeave={() => setHovered(null)}
+                />
+                {samplePercent > 0 && (
+                  <Bar
+                    x={barX + (barWidth - sampleWidth) / 2}
+                    y={yScale(samplePercent)}
+                    width={sampleWidth}
+                    height={Math.max(1, innerHeight - yScale(samplePercent))}
+                    fill={SAMPLE_BAR_FILL}
+                    pointerEvents="none"
+                  />
+                )}
+              </React.Fragment>
             );
           })}
           {extremes.map(extreme =>
@@ -285,7 +336,27 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
               1.5
             )
           )}
-          {marker(stepX, 'step', STEP_COLOR, '4 3')}
+          {extremes.map(extreme => {
+            // An extreme beyond everything the sample reached stands alone on
+            // the axis, so its value is written beside the line.
+            const x = positions.get(`extreme:${extreme.key}`);
+            if (x === undefined || !outsideSample(extreme.value)) return null;
+            const rightSide = x > innerWidth / 2;
+            return (
+              <text
+                key={`extreme-label:${extreme.key}`}
+                x={x + (rightSide ? -4 : 4)}
+                y={10}
+                fontSize={10}
+                fill={extreme.color}
+                textAnchor={rightSide ? 'end' : 'start'}
+                pointerEvents="none"
+              >
+                {formatEnsembleValue(extreme.value, format)}
+              </text>
+            );
+          })}
+          {marker(selectedX, 'selected', SELECTED_COLOR, '4 3')}
           {marker(planX, 'plan', PLAN_COLOR, undefined)}
           <AxisLeft
             scale={yScale}
@@ -324,7 +395,17 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
         }}
       >
         {legendItem(planValue, planLabel, PLAN_COLOR, false)}
-        {legendItem(stepValue, stepLabel, STEP_COLOR, true)}
+        {sample.length > 0 && (
+          <span style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+            <svg width={22} height={10} aria-hidden="true">
+              <rect x={6} y={0} width={10} height={10} fill={SAMPLE_BAR_FILL} />
+            </svg>
+            <ThemeText size="1" style={{color: INK}}>
+              {sampleLabel}
+            </ThemeText>
+          </span>
+        )}
+        {legendItem(selectedValue, selectedLabel, SELECTED_COLOR, true)}
         {extremes.map(extreme => (
           <ExtremeLegendItem
             key={extreme.key}
@@ -351,6 +432,10 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
           <ThemeText size="1" style={{color: INK}}>
             {bucketLabel(hoveredBucket, dist, format)} · {hoveredBucket.percent.toFixed(1)}% of
             plans
+            {hoveredBucket.samplePercent !== undefined &&
+              ` · ${fillEnsembleText(ENSEMBLE_MODAL_TEXT.sampleHover, {
+                share: `${hoveredBucket.samplePercent.toFixed(0)}%`,
+              })}`}
           </ThemeText>
         </div>
       )}

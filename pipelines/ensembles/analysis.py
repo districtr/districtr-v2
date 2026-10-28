@@ -11,6 +11,8 @@ Layout under ``<ensemble dir>/package/<preset>/``:
   sample for each selected pair of series.
 - ``chunks/<k>.json`` — the sampled plans in shuffled order, ``CHUNK_SIZE``
   per chunk, each with its assignment and metrics.
+- ``geometry.json`` — every unit's outline as SVG path data in the thumbnails'
+  viewBox, in ``node_ids`` order, so the app draws any assignment itself.
 - ``trajectory/<objective>.json`` and ``trajectory/<objective>/<i>.svg`` —
   ``TRAJECTORY_STEPS`` steps of the chain path by which the best restart
   reached its best plan.
@@ -45,6 +47,9 @@ CHUNK_SIZE = 100
 SHUFFLE_SEED = 20261027
 TRAJECTORY_STEPS = 200
 ANALYSIS_DIRS = ("extremes", "joint", "chunks", "trajectory")
+# Simplification tolerance of the unit outlines, in viewBox units; a thumbnail is
+# drawn a quarter of the viewBox wide, so two units is under a pixel.
+GEOMETRY_TOLERANCE = 2
 
 
 def ref(metric: str, election: str | None = None, stat: str | None = None) -> dict:
@@ -53,7 +58,7 @@ def ref(metric: str, election: str | None = None, stat: str | None = None) -> di
 
 # Pairs drawn as density maps, with the reason each is informative. Selected
 # for Colorado's geography and constitution; a pair whose series a module
-# lacks is skipped.
+# lacks is skipped. Disproportionality, the partisan axis, is always x.
 JOINT_PAIRS = (
     (
         ref("disproportionality", "pres_24"),
@@ -62,8 +67,8 @@ JOINT_PAIRS = (
         "share tracks the statewide vote may have to divide it.",
     ),
     (
-        ref("n_competitive_contests"),
         ref("disproportionality", "pres_24"),
+        ref("n_competitive_contests"),
         "Colorado's constitution ranks competitiveness after its other criteria, "
         "and in a state that votes about 55 to 45 competitive districts and "
         "proportional seats pull apart.",
@@ -75,10 +80,10 @@ JOINT_PAIRS = (
         "together, which calibrates the reading of the other pairs.",
     ),
     (
-        ref("seats", "pres_24"),
+        ref("disproportionality", "pres_24"),
         ref("cut_edges"),
-        "What a partisan advantage costs in shape, for either party: Republican "
-        "seats are the remaining districts.",
+        "What a partisan advantage costs in shape, for either party: a seat "
+        "share far from the vote share in either direction.",
     ),
 )
 
@@ -230,6 +235,29 @@ def write_chunks(
         if n_chunks % 100 == 0:
             logger.info("Wrote %d chunks", n_chunks)
     return n_chunks
+
+
+# ── Unit geometry ─────────────────────────────────────────────────────────────
+
+
+def unit_geometry(coverage: np.ndarray) -> dict:
+    """``{"width", "height", "paths"}``: the thumbnails' viewBox and one SVG path
+    per unit of ``coverage`` (in its order), simplified together as a coverage so
+    neighbours keep a shared edge. A unit too small to draw gets an empty path."""
+    minx, miny, maxx, maxy = shapely.total_bounds(coverage)
+    scale = package.THUMB_VIEWBOX_WIDTH / (maxx - minx)
+    simplified = shapely.coverage_simplify(
+        np.asarray(coverage), GEOMETRY_TOLERANCE / scale
+    )
+    return {
+        "width": package.THUMB_VIEWBOX_WIDTH,
+        "height": round((maxy - miny) * scale),
+        "paths": [package._path_data(g, minx, maxy, scale) for g in simplified],
+    }
+
+
+def write_geometry(out: Path, coverage: np.ndarray) -> None:
+    _write_json(out / "geometry.json", unit_geometry(coverage))
 
 
 # ── Optimization results ──────────────────────────────────────────────────────
@@ -413,6 +441,7 @@ def write_analysis(
     for name in ANALYSIS_DIRS:
         shutil.rmtree(out / name, ignore_errors=True)
     (out / "bounds.json").unlink(missing_ok=True)
+    (out / "geometry.json").unlink(missing_ok=True)
 
     chain_npz = np.load(ensemble_dir / f"{preset_key}.npz")
     node_ids, assignments = chain_npz["node_ids"], chain_npz["assignments"]
@@ -440,8 +469,10 @@ def write_analysis(
     logger.info("%s: joint counts for %d pairs", preset_key, len(pair_ids))
     n_chunks = write_chunks(out, assignments, scores, cut_edges, unit, shuffle_seed)
     logger.info("%s: %d chunks", preset_key, n_chunks)
+    coverage = package.load_coverage(vtd_gpkg, node_ids)
+    write_geometry(out, coverage)
     if runs:
-        thumbs = Thumbnails(package.load_coverage(vtd_gpkg, node_ids), num_dists)
+        thumbs = Thumbnails(coverage, num_dists)
         write_bounds(out, runs, num_dists, thumbs)
         write_trajectories(out, runs, num_dists, thumbs)
         logger.info("%s: bounds and trajectories for %s", preset_key, sorted(runs))
@@ -450,6 +481,7 @@ def write_analysis(
         "bounds": bool(runs),
         "joint": bool(pair_ids),
         "chunks": n_chunks,
+        "geometry": True,
         "trajectory": bool(runs),
     }
     chain_manifest = json.loads((ensemble_dir / f"{preset_key}.json").read_text())
@@ -474,6 +506,10 @@ def write_analysis(
                 "chunk_size": CHUNK_SIZE,
                 "shuffle_seed": shuffle_seed,
                 "order": "numpy.random.default_rng(shuffle_seed).permutation(n_plans)",
+            },
+            "geometry": {
+                "viewbox_width": package.THUMB_VIEWBOX_WIDTH,
+                "tolerance": GEOMETRY_TOLERANCE,
             },
             "trajectory": {
                 "steps": TRAJECTORY_STEPS,

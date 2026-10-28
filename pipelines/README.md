@@ -158,8 +158,9 @@ pack (roughly 30 MB), 100 seconds to score and 10 to 30 seconds to package.
 `score` (run by `run`; also standalone, with `--n-plans N` to score only the
 first N plans) evaluates every plan with gerrytools' engine-backed
 `PlanEvaluator`, which prepares VTD geometry and columns once (reprojected to
-EPSG:5070, the equal-area projection the app's evaluation panel uses) and then
-scores plans with its compiled Rust engine, at roughly 1 ms per plan. Every
+the state's UTM zone, the zone most VTD centroids fall in, as the app's
+evaluation panel measures compactness) and then scores plans with its
+compiled Rust engine, at roughly 1 ms per plan. Every
 series is a gerrytools metric class, from the Democratic point of view:
 
 | Series in `<preset>.scores.npz` | gerrytools class | Shape |
@@ -214,8 +215,8 @@ distribution and on every segment step.
   `cut_edges`), plus `county_splits` as `{splits, pieces}`. District keys are
   the app's 1-based zone numbers.
 - `<preset>/thumbs/000.svg` … `099.svg` — each segment step's districts,
-  dissolved from the VTDs in EPSG:5070, filled with the app's zone palette and
-  simplified to at most 10 KB.
+  dissolved from the VTDs in the state's UTM zone, filled with the app's zone
+  palette and simplified to at most 10 KB.
 - `<preset>/manifest.json` — package version, segment, and the chain and
   scoring manifests.
 
@@ -229,7 +230,9 @@ ensemble this way (Colorado: `--alias co_custom_districts_v2`); the app's
 district-count gate admits only plans of the ensemble's size.
 
 `publish` uploads every file under `package/`, the analysis files below
-included.
+included, each gzip-encoded (`Content-Encoding: gzip`): the CDN serves
+objects as stored, and a chunk of sampled plans is 840 KB of JSON against
+100 KB compressed.
 
 ### Optimization
 
@@ -306,6 +309,10 @@ series reference is `{"metric", "election", "stat"}`, the nesting of
   (`numpy.random.default_rng(shuffle_seed).permutation`) and cut into chunks
   of 100: `chunk` and `plans`, each `plan` (chain index), `assignment` and
   `metrics`. Each chunk is a random sample of 100 plans.
+- `geometry.json` — `width`, `height` (the thumbnails' viewBox) and `paths`,
+  one SVG path per unit in `node_ids` order, simplified as a coverage at two
+  viewBox units, so the app draws any assignment itself by filling each path
+  with its zone's colour (about 200 KB, 60 KB gzipped).
 - `trajectory/<objective>.json` and `trajectory/<objective>/<i>.svg` — the
   chain path by which the best restart reached its best plan, each step one
   recombination from the last, subsampled evenly to at most 200 steps with
@@ -314,10 +321,11 @@ series reference is `{"metric", "election", "stat"}`, the nesting of
 - `config.json` — `analysis` (the flags below), the chain and scoring
   manifests, `cut_edges_unit_type`, every objective's run configuration and
   per-restart results, the joint bucket count and pairs, the chunk size and
-  shuffle seed, the trajectory rule, software versions and `node_ids`.
+  shuffle seed, the geometry's viewBox width and tolerance, the trajectory
+  rule, software versions and `node_ids`.
 
 `index.json` gives each analysed preset `"analysis": {"bounds", "joint",
-"chunks", "trajectory"}` (`chunks` is the chunk count). On Colorado `analyze`
+"chunks", "geometry", "trajectory"}` (`chunks` is the chunk count). On Colorado `analyze`
 takes two to five minutes per preset, and a preset's analysis files take about
 815 MB: 800 MB of chunks (about 840 KB each, 100 KB gzipped), 11 to 15 MB of
 trajectories, 0.7 MB of extremes, and tens of KB for bounds, joint counts and

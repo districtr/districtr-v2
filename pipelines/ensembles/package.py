@@ -414,11 +414,23 @@ def segment(
 # ── Thumbnails ────────────────────────────────────────────────────────────────
 
 
+def utm_crs(gdf: gpd.GeoDataFrame) -> str:
+    """The WGS 84 / UTM zone most of ``gdf``'s units fall in, as an EPSG code: the
+    projection the app's evaluation measures compactness in
+    (``backend/app/evaluation/context.py``, ``STATE_UTM_EPSG``, which applies this
+    rule per state). UTM is conformal, so shapes keep their proportions."""
+    centroids = gdf.geometry.centroid.to_crs("EPSG:4326")
+    zones = np.floor((centroids.x.to_numpy() + 180) / 6).astype(int) % 60 + 1
+    zone = int(np.bincount(zones).argmax())
+    north = float(np.median(centroids.y.to_numpy())) >= 0
+    return f"EPSG:{(32600 if north else 32700) + zone}"
+
+
 def load_coverage(vtd_gpkg: str | Path, node_ids: np.ndarray) -> np.ndarray:
-    """VTD polygons in EPSG:5070, in ``node_ids`` order."""
+    """VTD polygons in the module's UTM zone (``utm_crs``), in ``node_ids`` order."""
     gdf = gpd.read_file(vtd_gpkg, layer=_gpkg_layer_name(vtd_gpkg))
-    gdf = gdf[["path", "geometry"]].set_index("path").to_crs("EPSG:5070")
-    return gdf.loc[node_ids].geometry.to_numpy()
+    gdf = gdf[["path", "geometry"]].set_index("path")
+    return gdf.to_crs(utm_crs(gdf)).loc[node_ids].geometry.to_numpy()
 
 
 class DistrictDissolver:

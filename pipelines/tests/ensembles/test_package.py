@@ -1,6 +1,7 @@
 import json
 import xml.etree.ElementTree as ET
 
+import geopandas as gpd
 import numpy as np
 import pytest
 import shapely
@@ -211,6 +212,24 @@ def test_thumbnail_svg_draws_one_coloured_path_per_district():
     assert "<text" not in svg
     # y points down: the bottom edge (y = 0 in map units) sits at the viewBox's bottom
     assert paths[0].get("d").startswith("M") and " 500" in paths[0].get("d")
+
+
+def test_utm_crs_takes_the_zone_most_units_fall_in():
+    # Two units in zone 13 (Colorado's), one across the line in zone 14.
+    gdf = gpd.GeoDataFrame(
+        geometry=[
+            box(-106, 39, -105.5, 39.5),
+            box(-105.5, 39, -105, 39.5),
+            box(-102, 39, -101.5, 39.5),
+        ],
+        crs="EPSG:4326",
+    )
+    assert package.utm_crs(gdf) == "EPSG:32613"
+
+
+def test_utm_crs_uses_the_southern_series_below_the_equator():
+    gdf = gpd.GeoDataFrame(geometry=[box(-70, -34, -69, -33)], crs="EPSG:4326")
+    assert package.utm_crs(gdf) == "EPSG:32719"
 
 
 def test_thumbnail_svg_simplifies_until_it_fits():

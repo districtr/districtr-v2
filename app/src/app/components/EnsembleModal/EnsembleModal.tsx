@@ -21,6 +21,8 @@ import {formatElectionKey} from '@utils/elections';
 import {
   ensembleExtremeThumbUrl,
   useEnsembleBounds,
+  useEnsembleChunk,
+  useEnsembleGeometry,
   useEnsembleJointIndex,
   useEnsembleSegment,
   useEnsembleSummary,
@@ -41,7 +43,8 @@ import {EnsembleComparisonText} from './EnsembleComparisonText';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
 import {EnsembleHistogram, type HistogramExtreme} from './EnsembleHistogram';
 import {JointSection, resolvePairs} from './JointSection';
-import {SegmentTables} from './SegmentTables';
+import {anotherChunk, selectedPlanOf, type PlanSource} from './ensemblePlans';
+import {PlanSection} from './PlanSection';
 import {SegmentThumbnail} from './SegmentThumbnail';
 
 /** Matches the help-tip demonstration modal, the app's other wide explainer. */
@@ -55,7 +58,8 @@ const CHART_MAX_WIDTH = 760;
 /** Which of the collapsible sections are open, remembered per browser. */
 const SECTIONS_KEY = 'districtr-ensemble-modal-sections';
 const JOINT_SECTION = 'joint';
-const DEFAULT_SECTIONS = ['demonstration', JOINT_SECTION];
+const PLANS_SECTION = 'plans';
+const DEFAULT_SECTIONS = ['demonstration', PLANS_SECTION, JOINT_SECTION];
 
 const readStoredSections = (): string[] => {
   try {
@@ -110,9 +114,10 @@ export interface EnsembleModalProps {
 
 /**
  * The explanation behind the ensemble comparison: how the plans are made, a
- * hundred consecutive plans to look at, the full distribution of any metric
- * with the reader's plan marked on it, and, where the package holds them, the
- * extreme plans a search found and the joint density of pairs of metrics.
+ * hundred consecutive plans to watch, individual plans with their scores (a
+ * random sample, or the extreme plans a search found), the full distribution
+ * of any metric with the reader's plan marked on it, and the joint density of
+ * pairs of metrics.
  *
  * The segment and its thumbnails are an order of magnitude larger than the
  * summary the panel loads, so they are fetched only once this is open. Each
@@ -134,6 +139,7 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   const segmentQuery = useEnsembleSegment(moduleSlug, presetKey, open);
   const boundsQuery = useEnsembleBounds(moduleSlug, presetKey, open && !!analysis?.bounds);
   const jointIndexQuery = useEnsembleJointIndex(moduleSlug, presetKey, open && !!analysis?.joint);
+  const chunkCount = analysis?.chunks ?? 0;
   const summary = summaryQuery.data;
   const segment = segmentQuery.data;
   const bounds = boundsQuery.data;
@@ -147,6 +153,21 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   const [stepIndex, setStepIndex] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [openSections, setOpenSections] = useState<string[]>(DEFAULT_SECTIONS);
+  // The individual-plans section: which plans, and which one of them.
+  const [planSource, setPlanSource] = useState<PlanSource>({kind: 'sample', chunk: 0});
+  const [planIndex, setPlanIndex] = useState(0);
+  const plansOpen = open && openSections.includes(PLANS_SECTION);
+  const chunkQuery = useEnsembleChunk(
+    moduleSlug,
+    presetKey,
+    planSource.kind === 'sample' ? planSource.chunk : null,
+    plansOpen && chunkCount > 0
+  );
+  const geometryQuery = useEnsembleGeometry(
+    moduleSlug,
+    presetKey,
+    plansOpen && chunkCount > 0 && !!analysis?.geometry
+  );
 
   useEffect(() => {
     setOpenSections(readStoredSections());
@@ -184,6 +205,19 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
     setStepIndex(0);
     setAnimating(false);
   }, [presetKey, moduleSlug]);
+  // Each preset opens on a sample of its own choosing, so two readers, or two
+  // openings, see different plans; a package without chunks opens on the
+  // first search instead once the bounds arrive.
+  useEffect(() => {
+    setPlanIndex(0);
+    setPlanSource({kind: 'sample', chunk: chunkCount > 0 ? anotherChunk(-1, chunkCount) : 0});
+  }, [presetKey, moduleSlug, chunkCount]);
+  const firstObjective = bounds?.objectives.find(objective => objective.plans.length > 0)?.key;
+  useEffect(() => {
+    if (chunkCount === 0 && firstObjective) {
+      setPlanSource({kind: 'extreme', objective: firstObjective});
+    }
+  }, [chunkCount, firstObjective]);
 
   const handleSelectMetric = useCallback((next: EnsembleMetricFocus) => setSelection(next), []);
 
@@ -193,19 +227,29 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
   const steps = segment?.steps ?? [];
   const step = steps[Math.min(stepIndex, Math.max(0, steps.length - 1))];
   const planValue = evaluation ? metric.planValue(evaluation, resolved.election) : undefined;
-  const stepValue = step ? metric.stepValue(step, resolved.election) : undefined;
   const planCount = nPlans ?? summary?.n_plans;
   const planCountText = planCount ? planCount.toLocaleString() : 'the ensemble’s';
   const stepNumber = step ? step.plan : 0;
   const elections = summary?.elections ?? [];
 
   const substitutions = {plans: planCountText, preset: presetLabel};
-  const stepLabel = fillEnsembleText(ENSEMBLE_MODAL_TEXT.stepLabel, {
-    step: stepNumber.toLocaleString(),
-  });
 
   // Each objective's best plan, marked at its own value of the charted series.
   const objectives = bounds?.objectives ?? [];
+  // The individual-plans section's selection, as the charts mark it: the
+  // selected plan's value, and the sample's values.
+  const selectedPlan = selectedPlanOf(planSource, planIndex, chunkQuery.data, objectives);
+  const selectedValue = selectedPlan
+    ? metric.stepValue(selectedPlan.metrics, resolved.election)
+    : undefined;
+  const sampleValues = useMemo(
+    () =>
+      (selectedPlan?.sample ?? [])
+        .map(metrics => metric.stepValue(metrics, resolved.election))
+        .filter((value): value is number => value !== undefined && Number.isFinite(value)),
+    [selectedPlan?.sample, metric, resolved.election]
+  );
+  const showPlans = chunkCount > 0 || objectives.some(objective => objective.plans.length > 0);
   const hasMoreExtremes = objectives.some(
     objective => !isRelevantObjective(metric.id, objective.key)
   );
@@ -311,30 +355,44 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                       last: (segment.start + segment.steps.length - 1).toLocaleString(),
                     })}
                   </Text>
-                  <Flex gap="4" align="start" wrap="wrap">
-                    <div style={{flex: '0 0 28%', minWidth: 200}}>
-                      <SegmentThumbnail
-                        moduleSlug={moduleSlug}
-                        presetKey={presetKey}
-                        stepCount={segment.steps.length}
-                        index={stepIndex}
-                        onIndexChange={setStepIndex}
-                        planNumber={stepNumber}
-                        animating={animating}
-                        onAnimatingChange={setAnimating}
-                      />
-                    </div>
-                    <div style={{flex: '1 1 0', minWidth: 280}}>
-                      <SegmentTables
-                        step={step}
-                        focus={resolved}
-                        onSelectMetric={handleSelectMetric}
-                      />
-                    </div>
-                  </Flex>
+                  <div style={{width: '28%', minWidth: 200}}>
+                    <SegmentThumbnail
+                      moduleSlug={moduleSlug}
+                      presetKey={presetKey}
+                      stepCount={segment.steps.length}
+                      index={stepIndex}
+                      onIndexChange={setStepIndex}
+                      planNumber={stepNumber}
+                      animating={animating}
+                      onAnimatingChange={setAnimating}
+                    />
+                  </div>
                 </Flex>
               )}
             </CollapsibleSection>
+
+            {showPlans && (
+              <CollapsibleSection value={PLANS_SECTION} heading={ENSEMBLE_MODAL_TEXT.plansHeading}>
+                <PlanSection
+                  moduleSlug={moduleSlug}
+                  presetKey={presetKey}
+                  presetLabel={presetLabel}
+                  planCountText={planCountText}
+                  chunkCount={chunkCount}
+                  objectives={objectives}
+                  source={planSource}
+                  onSourceChange={setPlanSource}
+                  planIndex={planIndex}
+                  onPlanIndexChange={setPlanIndex}
+                  chunk={chunkQuery.data}
+                  chunkLoading={planSource.kind === 'sample' && chunkQuery.isLoading}
+                  chunkFailed={planSource.kind === 'sample' && chunkQuery.isError}
+                  geometry={geometryQuery.data}
+                  focus={resolved}
+                  onSelectMetric={handleSelectMetric}
+                />
+              </CollapsibleSection>
+            )}
           </Accordion.Root>
 
           <Separator size="4" my="2" />
@@ -432,8 +490,10 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                       format={metric.format}
                       planValue={planValue}
                       planLabel={ENSEMBLE_MODAL_TEXT.thisPlanMarker}
-                      stepValue={stepValue}
-                      stepLabel={stepLabel}
+                      selectedValue={selectedValue}
+                      selectedLabel={ENSEMBLE_MODAL_TEXT.selectedPlanMarker}
+                      sample={sampleValues}
+                      sampleLabel={ENSEMBLE_MODAL_TEXT.sampleMarker}
                       width={width}
                       height={CHART_HEIGHT}
                       percentAxisLabel={ENSEMBLE_MODAL_TEXT.axisLabel}
@@ -508,9 +568,13 @@ export const EnsembleModal: React.FC<EnsembleModalProps> = ({
                     pairs={jointPairs}
                     open={open && openSections.includes(JOINT_SECTION)}
                     evaluation={evaluation}
-                    step={step}
+                    selectedPlan={selectedPlan?.metrics}
+                    sample={selectedPlan?.sample}
                     planLabel={ENSEMBLE_MODAL_TEXT.thisPlanMarker}
-                    stepLabel={stepLabel}
+                    selectedLabel={ENSEMBLE_MODAL_TEXT.selectedPlanMarker}
+                    sampleLabel={ENSEMBLE_MODAL_TEXT.sampleMarker}
+                    objectives={objectives}
+                    showAllExtremes={showAllExtremes}
                   />
                 </CollapsibleSection>
               </Accordion.Root>

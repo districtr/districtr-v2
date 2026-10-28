@@ -30,12 +30,32 @@ export const ENSEMBLE_MODAL_TEXT = {
 
   demonstrationHeading: 'A hundred consecutive steps',
   demonstrationIntro:
-    'These are steps {first} to {last} of the chain, in order, with the metrics of each one. Move the slider, or let it run, to watch how a single merge-and-split changes the map and its scores. Select any score to chart it below.',
+    'These are steps {first} to {last} of the chain, in order. Move the slider, or let it run, to watch how a single merge-and-split changes the map.',
   thumbnailAlt: 'Districts of step {step}',
   animateLabel: 'Animate',
   pauseLabel: 'Pause',
   stepForwardLabel: '+1 step',
   stepLabel: 'Step {step}',
+
+  plansHeading: 'Individual plans',
+  plansIntro:
+    'Read the scores of single plans: a random sample of 100 of the {plans} plans drawn by the {preset} recipe, or a plan a search found by pursuing one goal. Select any score to chart it below.',
+  plansSourceLabel: 'Plans',
+  plansSampleOption: 'A random sample of 100 plans',
+  plansExtremeOption: 'Search: {label}',
+  plansAnotherSample: 'Another sample',
+  plansSampleCaption: 'Sampled plan {n} of {count}',
+  plansSampleNote: 'Step {step} of the chain; sample {sample} of {samples}.',
+  plansExtremeCaption: '{label}: plan {n} of {count}',
+  plansExtremeNote:
+    'The plans a search found, best first; each differs from the others in at least a tenth of the units.',
+  plansSliderLabel: 'Plan',
+  plansLoading: 'Loading the sample…',
+  plansFailed: 'The sampled plans are unavailable right now. The rest of this page still works.',
+  planThumbnailAlt: 'Districts of the selected plan',
+  selectedPlanMarker: 'Selected plan',
+  sampleMarker: 'The 100 sampled plans',
+  sampleHover: '{share} of the sample',
 
   partisanTableHeading: 'Election results and partisanship',
   otherTableHeading: 'Competitiveness, splits and compactness',
@@ -45,7 +65,7 @@ export const ENSEMBLE_MODAL_TEXT = {
 
   histogramHeading: 'Where the evaluated plan sits',
   histogramIntro:
-    'Pick a metric here, or click any value in the tables above, to see where the evaluated plan sits. Each bar is the percent of the {plans} ensemble plans whose score falls in that range.',
+    'Pick a metric here, or click any value in the tables above, to see where the evaluated plan sits. Each grey bar is the percent of the {plans} ensemble plans whose score falls in that range; the narrow bars are the same share among the 100 sampled plans above.',
   thisPlanMarker: 'Evaluated plan',
   axisLabel: 'Percent of plans',
 
@@ -65,6 +85,7 @@ export const ENSEMBLE_MODAL_TEXT = {
   jointLegendFew: 'Fewer plans',
   jointLegendMany: 'More plans (up to {share} per cell)',
   jointLoading: 'Loading the pair…',
+  jointFrontierLegend: 'Plans a search found at the edge',
 
   sliceSentence:
     'Among the {plans} plans drawn by the {preset} recipe, {group} {measure}, {comparison}.',

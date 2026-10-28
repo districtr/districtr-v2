@@ -31,6 +31,8 @@ export interface EnsembleAnalysis {
   joint?: boolean;
   /** Number of `chunks/<k>.json` files. */
   chunks?: number;
+  /** `geometry.json`, the unit outlines any assignment is drawn with. */
+  geometry?: boolean;
   /** `trajectory/`. */
   trajectory?: boolean;
 }
@@ -144,6 +146,31 @@ export interface EnsembleSegment {
  */
 export type EnsembleMetricsPayload = Omit<EnsembleSegmentStep, 'plan'>;
 
+/** One sampled plan of a chunk: its chain index, its districts and its scores. */
+export interface EnsembleChunkPlan {
+  plan: number;
+  /** The app's 1-based zone number of every unit, in `geometry.json` order. */
+  assignment: number[];
+  metrics: EnsembleMetricsPayload;
+}
+
+/** `chunks/<k>.json`: a random sample of the chain, 100 plans in shuffled order. */
+export interface EnsembleChunk {
+  chunk: number;
+  plans: EnsembleChunkPlan[];
+}
+
+/**
+ * `geometry.json`: every unit's outline as SVG path data inside a
+ * `width` × `height` viewBox, in the order assignments list units, so the
+ * browser draws any plan by filling each path with its zone's colour.
+ */
+export interface EnsembleGeometry {
+  width: number;
+  height: number;
+  paths: string[];
+}
+
 /**
  * Names one series of `summary.json` by its nesting: `metric` is the summary
  * key, `election` the per-election key beneath it, `stat` the compactness
@@ -217,6 +244,35 @@ export interface EnsembleJointPair {
   file?: string;
   /** Why the pair is worth reading, in plain words. */
   why: string;
+  /** Path of the pair's frontier file, when a search traced one. */
+  frontier?: string;
+}
+
+/** One plan a frontier search found, at its two values. */
+export interface EnsembleFrontierPoint {
+  x: number;
+  y: number;
+  /** Path of the plan's file (assignment and metrics payload). */
+  file?: string;
+  /** Path of the plan's thumbnail. */
+  thumb?: string;
+  /** Which run or set the plan came from, for the expert. */
+  source?: string;
+}
+
+/**
+ * `frontier/<pair>.json`: plans a search found at the edge of the feasible
+ * space for one pair. Possibilities, not samples: each point says such a plan
+ * exists, nothing about how common it is.
+ */
+export interface EnsembleFrontier {
+  pair: string;
+  x: EnsembleSeriesRef;
+  y: EnsembleSeriesRef;
+  method: string;
+  /** Which edge the points trace, in plain words. */
+  envelope?: string;
+  points: EnsembleFrontierPoint[];
 }
 
 /** `joint/index.json`. */

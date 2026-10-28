@@ -132,6 +132,23 @@ def test_chunks_hold_every_plan_exactly_once(tmp_path, monkeypatch):
     }
 
 
+def test_unit_geometry_draws_one_path_per_unit_in_the_thumbnail_viewbox(tmp_path):
+    from shapely.geometry import box
+
+    coverage = np.array([box(0, 0, 1000, 1000), box(1000, 0, 2000, 1000)])
+
+    analysis.write_geometry(tmp_path, coverage)
+
+    geometry = json.loads((tmp_path / "geometry.json").read_text())
+    assert geometry["width"] == package.THUMB_VIEWBOX_WIDTH
+    assert geometry["height"] == 500
+    assert len(geometry["paths"]) == 2
+    # Unit order is the coverage's; y points down, so the first unit's bottom
+    # edge sits at the viewBox's bottom.
+    assert geometry["paths"][0].startswith("M") and " 500" in geometry["paths"][0]
+    assert all(p.endswith("Z") for p in geometry["paths"])
+
+
 def test_subsample_keeps_both_ends():
     assert analysis.subsample(5).tolist() == [0, 1, 2, 3, 4]
     picked = analysis.subsample(1_000)
@@ -254,7 +271,13 @@ def test_trajectory_subsamples_a_long_path(monkeypatch):
 
 def test_write_index_carries_the_analysis_flags(tmp_path):
     _write_preset_manifest(tmp_path, "recom_b", "ReCom-B", 100)
-    flags = {"bounds": True, "joint": True, "chunks": 1000, "trajectory": True}
+    flags = {
+        "bounds": True,
+        "joint": True,
+        "chunks": 1000,
+        "geometry": True,
+        "trajectory": True,
+    }
     (tmp_path / "recom_b" / "config.json").write_text(json.dumps({"analysis": flags}))
 
     index = package.write_index(tmp_path, "co")

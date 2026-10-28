@@ -9,7 +9,7 @@ import {
   type EnsembleMetricFocus,
 } from './ensembleMetrics';
 import {ENSEMBLE_MODAL_TEXT} from './ensembleModalText';
-import type {EnsembleSegmentStep} from './ensembleTypes';
+import type {EnsembleMetricsPayload} from './ensembleTypes';
 
 /** Statewide offices, most to least prominent; other keys are left out of the
  * table, as the evaluation panel leaves them out. */
@@ -102,15 +102,16 @@ const selectedStyle = (selected: boolean): React.CSSProperties =>
   selected ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
 
 export interface SegmentTablesProps {
-  step: EnsembleSegmentStep;
+  /** The scores of one plan of the package: a sampled plan, an extreme plan. */
+  step: EnsembleMetricsPayload;
   focus: EnsembleMetricFocus;
   onSelectMetric: (focus: EnsembleMetricFocus) => void;
 }
 
 /**
- * The selected step's scores, laid out as the evaluation panel lays out the
- * reader's own plan. Every value is read from the package; selecting a cell
- * charts that metric below.
+ * One plan's scores, laid out as the evaluation panel lays out the reader's
+ * own plan. Every value is read from the package; selecting a cell charts
+ * that metric below.
  */
 export const SegmentTables: React.FC<SegmentTablesProps> = ({step, focus, onSelectMetric}) => {
   const elections = sortStatewideElections(Object.keys(step.seats ?? {}));

@@ -3,15 +3,21 @@ import math
 
 import geopandas as gpd
 import numpy as np
+import shapely.affinity
 from shapely.geometry import box
 
 from ensembles import score
 
 
+# Test units are laid out in metres on Colorado's UTM zone, around its central
+# meridian, so scoring reprojects them onto themselves and closed forms hold exactly.
+TEST_CRS = "EPSG:32613"
+TEST_ORIGIN = (500_000, 4_300_000)
+
+
 def _write_vtd_gpkg(path, paths, geometries, **columns):
-    gdf = gpd.GeoDataFrame(
-        {"path": paths, **columns, "geometry": geometries}, crs="EPSG:5070"
-    )
+    placed = [shapely.affinity.translate(g, *TEST_ORIGIN) for g in geometries]
+    gdf = gpd.GeoDataFrame({"path": paths, **columns, "geometry": placed}, crs=TEST_CRS)
     gdf.to_file(path, layer=path.stem, driver="GPKG")
 
 
@@ -159,6 +165,7 @@ def test_write_npz_and_manifest_round_trip(tmp_path):
         "elections": ["pres_24"],
         "n_plans": 1,
         "num_dists": 2,
+        "crs": "EPSG:32613",
         "wall_time_seconds": 0.01,
     }
     out_npz = tmp_path / "recom_b.scores.npz"
@@ -173,5 +180,6 @@ def test_write_npz_and_manifest_round_trip(tmp_path):
 
     manifest = json.loads(out_npz.with_suffix(".json").read_text())
     assert manifest["gerrytools_version"]
+    assert manifest["crs"] == "EPSG:32613"
     assert manifest["elections"] == ["pres_24"]
     assert "county_splits" in manifest["definitions"]
