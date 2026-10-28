@@ -118,6 +118,15 @@ describe('extendColorArray', () => {
     }
   });
 
+  test('a default-colored plan grows into the next default colors', () => {
+    const defaults = [...DISTRICT_PALETTES[0].colors];
+    expect(extendColorArray(defaults.slice(0, 4), 8)).toEqual(defaults.slice(0, 8));
+    // An applied palette grows from its own unused colors, even where the
+    // default shares them.
+    const set3 = [...DISTRICT_PALETTES.find(p => p.name === 'ColorBrewer Set3')!.colors];
+    expect(extendColorArray(set3.slice(0, 6), 11)).toEqual(set3);
+  });
+
   test('is deterministic', () => {
     expect(extendColorArray(okabeIto, 100)).toEqual(extendColorArray(okabeIto, 100));
   });

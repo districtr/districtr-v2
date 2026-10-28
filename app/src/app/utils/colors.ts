@@ -1,3 +1,5 @@
+import {DISTRICT_PALETTES} from '@/app/constants/colors';
+
 /**
  * Picks readable text color for a given background: 'white' if the background
  * (blended toward white by 1 - alpha, since alpha'd cells sit on a white/
@@ -207,6 +209,23 @@ export function latexBaseAlternative(input: string): {input: string; hex: string
   return {input: `${LATEX_PREFIX}${name}`, hex};
 }
 
+/**
+ * The palette sharing the most colors with `colors` (lowercased), the shorter
+ * on a tie (the default holds most of ColorBrewer Set3), and the Districtr
+ * default when none shares any.
+ */
+const sourcePalette = (colors: Set<string>) => {
+  let best = DISTRICT_PALETTES[0];
+  let bestHits = 0;
+  for (const palette of DISTRICT_PALETTES) {
+    const hits = palette.colors.filter(color => colors.has(color.toLowerCase())).length;
+    if (hits > bestHits || (hits && hits === bestHits && palette.colors.length < best.colors.length)) {
+      [best, bestHits] = [palette, hits];
+    }
+  }
+  return best.colors;
+};
+
 const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
 function hexToHsl(color: string): [number, number, number] | null {
@@ -284,15 +303,24 @@ export function randomColorsInRange(
 /**
  * Pads `colorArray` to `numDistricts` colors (or truncates it). Existing
  * entries are kept as they are, duplicates included, so no district's color
- * moves. New colors take the palette's average saturation and lightness and
- * step around the hue wheel by the golden ratio, skipping hues too close to
- * one already in use (the allowed gap halves each lap). Later laps also
- * nudge lightness. Every added color is distinct (case-insensitively) and
- * the result is the same on every call.
+ * moves. The unused colors of the palette `colorArray` mostly comes from (the
+ * Districtr default when none matches) come first, in palette order, so a
+ * default-colored plan grows into the next default colors. Past those, new
+ * colors take the scheme's average saturation and lightness and step around
+ * the hue wheel by the golden ratio, skipping hues too close to one already
+ * in use (the allowed gap halves each lap). Later laps also nudge lightness.
+ * Every added color is distinct (case-insensitively) and the result is the
+ * same on every call.
  */
 export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   const result = colorArray.slice(0, numDistricts);
   const seen = new Set(result.map(color => color.toLowerCase()));
+  for (const color of sourcePalette(seen)) {
+    if (result.length >= numDistricts) break;
+    if (seen.has(color.toLowerCase())) continue;
+    seen.add(color.toLowerCase());
+    result.push(color);
+  }
   // Grays have no meaningful hue, so they don't set the style or block hues.
   const chromatic = result
     .map(hexToHsl)
