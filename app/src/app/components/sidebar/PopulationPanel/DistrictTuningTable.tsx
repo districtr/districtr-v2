@@ -56,7 +56,7 @@ export const DistrictTuningTable: React.FC<{
   const components = contiguity?.ok ? contiguity.response : undefined;
   // Population updates as you paint, contiguity only on save. Editors only:
   // a viewer's map can't be out of date with itself.
-  const {isOutdated} = useMapSaveStatus();
+  const {isOutdated, save} = useMapSaveStatus();
   const stale = isOutdated && !isReadOnly;
 
   return (
@@ -123,18 +123,23 @@ export const DistrictTuningTable: React.FC<{
                   <Table.Cell style={NUM_CELL_STYLE}>
                     {deviation !== undefined ? signedNumber(deviation) : '—'}
                   </Table.Cell>
-                  {/* Dimmed while unsaved edits make it stale, or a post-save
-                      recheck is in flight. */}
-                  <Table.Cell style={{opacity: stale || isFetching ? 0.5 : 1}}>
+                  {/* Grey while unsaved edits make the last verdict stale;
+                      dimmed while a post-save recheck is in flight. */}
+                  <Table.Cell style={{opacity: isFetching ? 0.5 : 1}}>
                     {pieces === undefined ? (
                       <Text color="gray">—</Text>
-                    ) : pieces === 1 ? (
-                      <Text color="green">Yes</Text>
                     ) : (
-                      <Text color="red">
+                      <Text color={stale ? 'gray' : pieces === 1 ? 'green' : 'red'}>
                         {/* Visually "No (3)"; read as "No (3 components)". */}
-                        No ({pieces}
-                        <span className="sr-only">&nbsp;components</span>)
+                        {pieces === 1 ? (
+                          'Yes'
+                        ) : (
+                          <>
+                            No ({pieces}
+                            <span className="sr-only">&nbsp;components</span>)
+                          </>
+                        )}
+                        {stale && <span className="sr-only">, as of the last save</span>}
                       </Text>
                     )}
                   </Table.Cell>
@@ -169,7 +174,15 @@ export const DistrictTuningTable: React.FC<{
       </ConditionalScrollArea>
       {stale && (
         <Text size="1" color="gray" mx="1" mt="1">
-          Contiguity updates when the map saves.
+          Contiguity is from the last save.{' '}
+          {/* The topbar cloud button's save. */}
+          <button
+            type="button"
+            onClick={() => save(false, {silent: true})}
+            className="inline cursor-pointer font-semibold text-districtrBlue hover:underline underline-offset-2"
+          >
+            Save now
+          </button>
         </Text>
       )}
       {/* Otherwise a failed check reads like a row of unstarted districts. */}
