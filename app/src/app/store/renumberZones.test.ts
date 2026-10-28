@@ -5,6 +5,7 @@ import {useMapControlsStore} from './mapControlsStore';
 import {followZoneRenumber} from './temporalStore';
 import {temporalManager} from '../utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
+import {moveZoneMapping} from '../utils/map/moveZone';
 
 const swap12 = () =>
   new Map([
@@ -196,5 +197,13 @@ describe('setZoneAlias', () => {
     // 39 letters then emoji: a UTF-16 slice at 40 would leave half an emoji.
     setZoneAlias(3, 'a'.repeat(39) + '😀😀');
     expect(aliases()?.['3']).toBe('a'.repeat(39) + '😀');
+  });
+});
+
+describe('moveZoneMapping', () => {
+  test('moves a district and shifts the ones in between', () => {
+    expect(Object.fromEntries(moveZoneMapping(4, 2))).toEqual({4: 2, 2: 3, 3: 4});
+    expect(Object.fromEntries(moveZoneMapping(1, 3))).toEqual({1: 3, 3: 2, 2: 1});
+    expect(moveZoneMapping(2, 2).size).toBe(0);
   });
 });

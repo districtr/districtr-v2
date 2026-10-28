@@ -1,11 +1,12 @@
 'use client';
-import {Flex, Text, Button, TextArea, IconButton, Box} from '@radix-ui/themes';
+import {Flex, Text, Button, TextArea, TextField, IconButton, Box} from '@radix-ui/themes';
 import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
-import {useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
+import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
@@ -124,6 +125,61 @@ const DescriptionDisplay: React.FC<DescriptionDisplayProps> = ({
   </Flex>
 );
 
+/** A text draft that commits when the field loses focus or the popover closes
+ * (closing unmounts the field, which skips blur). */
+const useCommittedDraft = (value: string, commit: (draft: string) => void) => {
+  const [draft, setDraft] = useState(value);
+  const latest = useRef({draft, value, commit});
+  latest.current = {draft, value, commit};
+  useEffect(() => setDraft(value), [value]);
+  const flush = () => {
+    const {draft, value, commit} = latest.current;
+    if (draft.trim() !== value) commit(draft);
+  };
+  useEffect(() => flush, []);
+  return {draft, setDraft, flush};
+};
+
+/** District title and description, always editable (no add/edit/save steps). */
+const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone, maxLength}) => {
+  const alias = useZoneAlias(zone) ?? '';
+  const description = useMapStore(state => state.getZoneDescriptionForZone(zone))?.text ?? '';
+  const {setZoneAlias, setZoneDescription, clearZoneDescription} = useMapStore.getState();
+  const title = useCommittedDraft(alias, draft => setZoneAlias(zone, draft));
+  const body = useCommittedDraft(description, draft =>
+    draft.trim() ? setZoneDescription(zone, draft) : clearZoneDescription(zone)
+  );
+  return (
+    <Flex direction="column" gap="2">
+      <TextField.Root
+        size="1"
+        placeholder="Title"
+        aria-label={`Title for district ${zone}`}
+        value={title.draft}
+        maxLength={MAX_COMMUNITY_NAME_LENGTH}
+        onChange={e => title.setDraft(e.target.value)}
+        onBlur={title.flush}
+        onKeyUp={e => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+      <Box className="relative">
+        <TextArea
+          size="1"
+          rows={5}
+          placeholder="Description"
+          aria-label={`Description for district ${zone}`}
+          value={body.draft}
+          maxLength={maxLength}
+          onChange={e => body.setDraft(e.target.value)}
+          onBlur={body.flush}
+        />
+        <Text size="1" color="gray" className="absolute bottom-0 right-0 pr-2">
+          {body.draft.length}/{maxLength}
+        </Text>
+      </Box>
+    </Flex>
+  );
+};
+
 export interface ZoneDescriptionContentProps {
   zone: number;
   color: string;
@@ -152,6 +208,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   }
 
   const zoneLabel = mapMode === MAP_MODES.COI ? 'Community' : 'District';
+  const isDistrictForm = showEditingControls && mapMode !== MAP_MODES.COI;
   const displayZone =
     mapMode === MAP_MODES.COI ? getCommunityDisplayNumber(communities, zone) : zone;
 
@@ -176,17 +233,20 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
             style={{backgroundColor: color}}
           />
           <Text size="2" weight="bold">
-            {zoneLabel} {displayZone} {alias ? `· ${alias}` : 'Description'}
+            {zoneLabel} {displayZone}
+            {alias && !isDistrictForm ? ` · ${alias}` : ''}
           </Text>
         </Flex>
-        {showEditingControls && !isEditing && !description && (
+        {showEditingControls && !isDistrictForm && !isEditing && !description && (
           <IconButton size="1" variant="ghost" onClick={() => setIsEditing(true)}>
             <PlusIcon />
           </IconButton>
         )}
       </Flex>
 
-      {isEditing ? (
+      {isDistrictForm ? (
+        <DistrictDetailsForm zone={zone} maxLength={commentLengthLimit} />
+      ) : isEditing ? (
         <DescriptionEditor
           existingText={description?.text}
           maxLength={commentLengthLimit}

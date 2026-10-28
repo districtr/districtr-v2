@@ -3,6 +3,7 @@ import React, {useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
+  DragHandleDots2Icon,
   EyeNoneIcon,
   EyeOpenIcon,
   LockClosedIcon,
@@ -10,6 +11,8 @@ import {
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useAssignmentsStore} from '@store/assignmentsStore';
+import {moveZoneMapping} from '@utils/map/moveZone';
 import {useToolbarStore} from '@store/toolbarStore';
 import {DEFAULT_CHART_OPTIONS, useChartStore} from '@store/chartStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
@@ -21,6 +24,7 @@ import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScroll
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
+import {getReadableTextColor} from '@utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -31,6 +35,8 @@ const DEV_COL_WIDTH = 76;
 // matches the bars' when icons are showing: two size-1 icon buttons (24px), the
 // cluster gap (4px), and the comment button's trailing space (TWIN_TRAIL).
 const ICONS_WIDTH = 56;
+// The drag handle that reorders (renumbers) districts.
+const HANDLE_WIDTH = 15;
 // ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
 // margin eats half of it: measured against the rendered rows, its real trailing
 // space is 6px, not 8. The header's invisible twin uses the measured value —
@@ -120,6 +126,43 @@ const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
   </Flex>
 );
 
+/** A district's title printed on its bar, two-toned like a progress label: the
+ * contrast color over the filled part and dark text over the empty track. */
+const BarTitle: React.FC<{text: string; color: string; fillPct: number}> = ({
+  text,
+  color,
+  fillPct,
+}) => {
+  const label = (textColor: string, clipPath?: string) => (
+    <span
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: 0,
+        padding: '0 8px',
+        display: 'flex',
+        alignItems: 'center',
+        fontSize: 'var(--font-size-1)',
+        fontWeight: 600,
+        color: textColor,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        pointerEvents: 'none',
+        clipPath,
+      }}
+    >
+      {text}
+    </span>
+  );
+  return (
+    <>
+      {label('var(--gray-12)', `inset(0 0 0 ${fillPct}%)`)}
+      {label(getReadableTextColor(color) ?? 'var(--gray-12)', `inset(0 ${100 - fillPct}% 0 0)`)}
+    </>
+  );
+};
+
 /**
  * District overview as a set of population meters: each district's colored bar
  * fills toward a shared ideal line; population past ideal renders in a darker
@@ -164,6 +207,14 @@ export const DistrictMeters = () => {
   }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
+  const renumberZones = useAssignmentsStore(state => state.renumberZones);
+  // Drag-to-renumber: the district being dragged, and the row it's over.
+  const [dragZone, setDragZone] = useState<number | null>(null);
+  const [dropZone, setDropZone] = useState<number | null>(null);
+  const endDrag = () => {
+    setDragZone(null);
+    setDropZone(null);
+  };
 
   // Both Draw and Super Draw default to started-districts-only (small plans
   // default to all); null = no explicit choice yet.
@@ -226,6 +277,7 @@ export const DistrictMeters = () => {
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
+  const canReorder = showRowIcons && !isReadOnly;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
@@ -271,6 +323,7 @@ export const DistrictMeters = () => {
                 : undefined
             }
           >
+            {canReorder && <Box style={{width: HANDLE_WIDTH, flexShrink: 0}} />}
             {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
             {showRowIcons && (
               /* Mirrors the rows' icon cluster exactly — an invisible twin of
@@ -363,6 +416,14 @@ export const DistrictMeters = () => {
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
                 const alias = zoneAliases?.[d.zone];
+                // Where the dragged district would land: a line on the edge it
+                // would take this row's place from.
+                const dropEdge =
+                  dragZone !== null && dropZone === d.zone && dragZone !== d.zone
+                    ? dragZone < d.zone
+                      ? 'bottom'
+                      : 'top'
+                    : null;
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -377,13 +438,52 @@ export const DistrictMeters = () => {
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
                     onClick={() => selectCommunity(d.zone)}
+                    onDragOver={e => {
+                      if (dragZone === null) return;
+                      e.preventDefault();
+                      setDropZone(d.zone);
+                    }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      if (dragZone !== null) renumberZones(moveZoneMapping(dragZone, d.zone));
+                      endDrag();
+                    }}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                     }`}
-                    style={{height: ROW_HEIGHT}}
+                    style={{
+                      height: ROW_HEIGHT,
+                      opacity: dragZone === d.zone ? 0.5 : 1,
+                      boxShadow: dropEdge
+                        ? `inset 0 ${dropEdge === 'top' ? 2 : -2}px 0 var(--accent-9)`
+                        : undefined,
+                    }}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
+                    {canReorder && (
+                      <Tooltip content="Drag to renumber">
+                        <Flex
+                          draggable
+                          role="img"
+                          aria-label={`Drag to renumber district ${d.zone}`}
+                          className="cursor-grab text-[var(--gray-9)]"
+                          style={{width: HANDLE_WIDTH, flexShrink: 0}}
+                          onClick={e => e.stopPropagation()}
+                          onDragStart={e => {
+                            // Firefox won't start a drag without data.
+                            e.dataTransfer.setData('text/plain', String(d.zone));
+                            e.dataTransfer.effectAllowed = 'move';
+                            const row = e.currentTarget.parentElement;
+                            row && e.dataTransfer.setDragImage(row, 8, ROW_HEIGHT / 2);
+                            setDragZone(d.zone);
+                          }}
+                          onDragEnd={endDrag}
+                        >
+                          <DragHandleDots2Icon />
+                        </Flex>
+                      </Tooltip>
+                    )}
                     {showDistrictNumbers && (
                       <Text
                         size="2"
@@ -561,13 +661,11 @@ export const DistrictMeters = () => {
                         />
                       )}
                       {alias && (
-                        <Text
-                          size="1"
-                          weight="medium"
-                          className="absolute left-2 top-1/2 -translate-y-1/2 max-w-[70%] truncate rounded-sm bg-white/80 px-1 pointer-events-none"
-                        >
-                          {alias}
-                        </Text>
+                        <BarTitle
+                          text={alias}
+                          color={color}
+                          fillPct={offScale ? 100 : Math.min(fill, 1) * 100}
+                        />
                       )}
                     </button>
                     {showPopNumbers && (

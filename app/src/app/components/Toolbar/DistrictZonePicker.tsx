@@ -13,7 +13,6 @@ import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
 import {ColorPicker} from './ColorPicker';
-import {DistrictAliasControls} from './DistrictAliasControls';
 import {
   FALLBACK_NUM_DISTRICTS,
   MAX_NUM_DISTRICTS,
@@ -184,7 +183,6 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
           value={selectedZone - 1}
           disabled={disabled}
         />
-        {superDraw && <DistrictAliasControls />}
       </Flex>
       <AlertDialog.Root
         open={pendingDecrease !== null}
