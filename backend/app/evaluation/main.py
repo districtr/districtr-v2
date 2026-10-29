@@ -149,10 +149,9 @@ def _try_eval_lock(engine: Engine, doc_id: str) -> Connection | None:
     """Take the per-document evaluation lock, or return None if another holds it.
 
     Session-level on a dedicated connection, not an xact lock on the request
-    session: compute_metrics commits that session mid-compute (district stats,
-    county data), which would release an xact lock early, and a Session hands
-    its connection back to the pool on commit, so it can't own a session-level
-    lock either.
+    session: compute_metrics commits that session mid-compute (district stats),
+    which would release an xact lock early, and a Session hands its connection
+    back to the pool on commit, so it can't own a session-level lock either.
     """
     # Each winner holds two pooled connections (lock, then request session)
     # for its compute, so ~30 concurrent cold evals on distinct documents in

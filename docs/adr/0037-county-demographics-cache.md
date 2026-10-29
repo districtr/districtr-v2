@@ -4,7 +4,7 @@ Date: 2026-05-13 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted.
+Superseded by [0065](0065-county-data-in-process-memory.md).
 
 ## Context
 

@@ -31,6 +31,11 @@ from management.load_data import (
     Config,
     import_gerrydb_view as _import_gerrydb_view,
 )
+from management.gerrydb_columns import (
+    add_gerrydb_columns as _add_gerrydb_columns,
+    invalidate_document_caches as _invalidate_document_caches,
+    rebuild_shatterable_view as _rebuild_shatterable_view,
+)
 from os import environ
 from app.models import DistrictrMap, Overlay
 from datetime import datetime, timezone
@@ -335,6 +340,102 @@ def create_shatterable_gerrydb_view(
     logger.info(
         f"Materialized shatterable gerrydb view created successfully {inserted_uuid}"
     )
+
+
+@cli.command("add-gerrydb-columns")
+@click.option(
+    "--gpkg",
+    "-g",
+    help="Path or s3:// URI to the GeoPackage; its file name is the table to extend",
+    required=True,
+)
+@click.option(
+    "--columns",
+    "-c",
+    help="Comma-separated columns to fill; each must be missing or all NULL",
+    required=True,
+)
+@with_session
+def add_gerrydb_columns(session: Session, gpkg: str, columns: str):
+    """Add GeoPackage columns to an onboarded GerryDB table, joined on path.
+
+    Run rebuild-shatterable-view on every view built on the table, then
+    invalidate-document-caches on the view and its tables: maps that read the
+    table directly see the new columns at once.
+    """
+    result = _add_gerrydb_columns(
+        session=session,
+        gpkg=gpkg,
+        columns=[c.strip() for c in columns.split(",") if c.strip()],
+    )
+    click.echo(f"Table: {GERRY_DB_SCHEMA}.{result.table}")
+    click.echo(f"Filled columns: {', '.join(result.filled)}")
+    click.echo(f"Newly added: {', '.join(result.added) or '(none)'}")
+    click.echo(f"Rows updated: {result.rows_updated}")
+
+
+@cli.command("rebuild-shatterable-view")
+@click.option(
+    "--gerrydb-table-name",
+    "-n",
+    help="Name of the shatterable materialized view",
+    required=True,
+)
+@with_session
+def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
+    """Recreate a shatterable view so it carries its layers' current columns.
+
+    The new view is built under a temporary name and swapped in within one
+    transaction; readers keep the old view until commit.
+    """
+    result = _rebuild_shatterable_view(
+        session=session, gerrydb_table_name=gerrydb_table_name
+    )
+    click.echo(
+        f"Rebuilt {GERRY_DB_SCHEMA}.{gerrydb_table_name} from "
+        f"{result.parent_layer} + {result.child_layer}"
+    )
+    click.echo(f"Columns ({len(result.columns)}): {', '.join(result.columns)}")
+
+
+@cli.command("invalidate-document-caches")
+@click.option(
+    "--gerrydb-table-name",
+    "-n",
+    "gerrydb_table_names",
+    multiple=True,
+    help="GerryDB table or shatterable view whose documents to invalidate; "
+    "repeat for each table and view whose columns changed",
+    required=True,
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print the counts and change nothing",
+)
+@with_session
+def invalidate_document_caches(
+    session: Session, gerrydb_table_names: tuple[str, ...], dry_run: bool
+):
+    """Drop cached stats and evaluations of documents on GerryDB tables or views.
+
+    Affected documents recompute district stats and evaluation metrics on their
+    next read. After adding columns, name the shatterable view and both of its
+    tables, so maps that read a table directly are included.
+    """
+    counts = _invalidate_document_caches(
+        session=session,
+        gerrydb_table_names=list(gerrydb_table_names),
+        dry_run=dry_run,
+    )
+    verb = "Would affect" if dry_run else "Affected"
+    for name, c in counts.items():
+        click.echo(f"{verb}, for maps on {name}:")
+        click.echo(f"  documents: {c.documents}")
+        click.echo(f"  document.district_unions rows: {c.district_unions}")
+        click.echo(f"  document.evaluation rows: {c.evaluations}")
+        click.echo(f"  stats_published_at cleared: {c.stats_published}")
 
 
 @cli.command("add-extent-to-districtr-map")

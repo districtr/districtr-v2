@@ -67,8 +67,8 @@ What follows, including what a later change would have to undo.
 | [0033](0033-centralized-frontend-constants.md) | Centralized constants directory with domain subfolders | 2026-04-24 | Accepted |
 | [0034](0034-evaluation-metrics-json-payload.md) | Evaluation metrics as versioned JSON payload | 2026-04-29 | Accepted |
 | [0035](0035-graph-lru-cache.md) | Graph LRU cache in the API process | 2026-05-06 | Accepted |
-| [0036](0036-eguia-state-ideal-cache.md) | In-memory singleton cache for Eguia state ideals | 2026-05-13 | Accepted |
-| [0037](0037-county-demographics-cache.md) | County demographics materialized in DB, keyed by GerryDB table name | 2026-05-13 | Accepted |
+| [0036](0036-eguia-state-ideal-cache.md) | In-memory singleton cache for Eguia state ideals | 2026-05-13 | Accepted. Amended by 0065 |
+| [0037](0037-county-demographics-cache.md) | County demographics materialized in DB, keyed by GerryDB table name | 2026-05-13 | Superseded by 0065 |
 | [0038](0038-backend-reliability-policy.md) | Backend reliability policy: DB timeouts, slow-request logging, self-owned background sessions | 2026-05-28 | Accepted |
 | [0039](0039-pipeline-built-hybrid-graph.md) | Single hybrid dual-level graph, built by the pipeline | 2026-06-10 | Accepted |
 | [0040](0040-msgpack-wire-format.md) | msgpack wire format for assignment-heavy endpoints | 2026-06-10 | Accepted |
@@ -96,3 +96,4 @@ What follows, including what a later change would have to undo.
 | [0062](0062-deterministic-moderation-submissions-only.md) | Moderation is a deterministic word list, applied to portal submissions only | 2026-09-30 | Accepted. Amends 0058 and 0060 |
 | [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
+| [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
