@@ -187,6 +187,23 @@ def test_add_gerrydb_columns_reads_gpkg_outside_a_transaction(
     assert in_transaction == [False]
 
 
+def test_add_gerrydb_columns_fill_leaves_readers_unblocked(
+    engine, tmp_path, target_table
+):
+    """The column addition commits before the fill, so its exclusive lock is
+    gone while the fill's transaction is still open."""
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
+    with Session(engine) as session:
+        add_gerrydb_columns(session, str(gpkg), ["pres_24_dem", "pres_24_rep"])
+        with engine.connect() as reader:
+            reader.execute(text("SET lock_timeout = '500ms'"))
+            rows = reader.execute(
+                text(f"SELECT count(*) FROM {GERRY_DB_SCHEMA}.{TARGET_TABLE}")
+            ).scalar_one()
+        session.rollback()
+    assert rows == len(BASE_ROWS)
+
+
 def test_add_gerrydb_columns_refuses_existing_columns(engine, tmp_path, target_table):
     gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
     columns = ("--columns", "pres_24_dem,pres_24_rep")
