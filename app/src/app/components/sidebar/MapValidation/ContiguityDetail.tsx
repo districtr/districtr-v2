@@ -1,7 +1,17 @@
 import ZoomToFeature from './ZoomToFeature';
 import {useMapStore} from '@/app/store/mapStore';
 import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
-import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
+import {getZoneConnectedComponents} from '@/app/utils/api/apiHandlers/getZoneConnectedComponents';
+import {
+  AlertDialog,
+  Blockquote,
+  Button,
+  Flex,
+  IconButton,
+  Spinner,
+  Text,
+  Tooltip,
+} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useState} from 'react';
 import {
@@ -13,6 +23,11 @@ import {
   QuestionMarkCircledIcon,
 } from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {demographyService} from '@/app/utils/demography/demographyService';
+import {FragmentMovePlan, planFragmentMoves} from '@/app/utils/map/fragmentMoves';
+import {ACCESS_STATES} from '@constants/document/state';
+import {RENDERING_STATES} from '@constants/map/renderingState';
 
 interface ContiguityDetailProps {
   zone: number;
@@ -86,6 +101,9 @@ export default function ContiguityDetail({
             </IconButton>
           </Tooltip>
         )}
+        {contiguity > 1 && mapDocument?.access === ACCESS_STATES.EDIT && (
+          <MoveFragments zone={zone} />
+        )}
       </Flex>
       {showZoom && !data && !error && <Spinner />}
       {showZoom && error && <Blockquote color="red">Error fetching components</Blockquote>}
@@ -136,5 +154,160 @@ function ComponentZoomList({
         labels={labels}
       />
     </Flex>
+  );
+}
+
+/** Population per unit from the loaded demography table; undefined when it isn't loaded. */
+const getPopLookup = () => {
+  const table = demographyService.table;
+  if (!table?.columnNames().includes('total_pop_20')) return () => undefined;
+  const paths = table.array(demographyService.id_col);
+  const pops = table.array('total_pop_20');
+  const pop = new Map<string, number>();
+  for (let i = 0; i < paths.length; i++) pop.set(paths[i], pops[i]);
+  return (id: string) => pop.get(id);
+};
+
+/**
+ * "Heal": moves every unit outside the district's main body into the neighboring
+ * district it borders most, as one paint (one undo step, autosaved like any edit).
+ */
+function MoveFragments({zone}: {zone: number}) {
+  const mapDocument = useMapStore(store => store.mapDocument);
+  const mapLock = useMapStore(store => store.mapLock);
+  // Ingest needs the map; before it loads, staged moves would wait for the next stroke.
+  const mapLoaded = useMapStore(state => state.mapRenderingState === RENDERING_STATES.LOADED);
+  // Block view only re-merges the focused parent, and Heal can move units outside it.
+  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
+  // Like Paint and Erase: nothing is edited out of sight.
+  const districtsHidden = useMapControlsStore(
+    state => state.mapOptions.showPaintedDistricts === false
+  );
+  const [plan, setPlan] = useState<FragmentMovePlan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const preview = async () => {
+    if (!mapDocument) return;
+    setLoading(true);
+    setError(null);
+    // The server plans from the saved map, so save local edits (including undo/redo) first.
+    const {clientLastUpdated, handlePutAssignments} = useAssignmentsStore.getState();
+    if (clientLastUpdated !== '' && clientLastUpdated !== mapDocument.updated_at) {
+      const saved = await handlePutAssignments(false, {silent: true});
+      if (!saved.ok) {
+        setLoading(false);
+        setError(saved.error.detail);
+        return;
+      }
+    }
+    const result = await getZoneConnectedComponents(mapDocument, zone);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error.detail);
+      return;
+    }
+    setPlan(
+      planFragmentMoves(
+        zone,
+        result.response.components,
+        useAssignmentsStore.getState().zoneAssignments,
+        useMapControlsStore.getState().mapOptions.lockPaintedAreas,
+        getPopLookup()
+      )
+    );
+  };
+
+  const apply = () => {
+    if (!plan || !useMapStore.getState().getMapRef()) return setPlan(null);
+    const {setAccumulatedAssignments, ingestAccumulatedAssignments} =
+      useAssignmentsStore.getState();
+    // Stage, then ingest once, like a brush stroke: one undo entry, IDB, autosave.
+    setAccumulatedAssignments(plan.moves, new Set([zone, ...plan.byTarget.map(t => t.zone)]));
+    ingestAccumulatedAssignments();
+    setPlan(null);
+  };
+
+  const moved = plan?.byTarget.reduce(
+    (acc, t) => ({units: acc.units + t.units, population: acc.population + t.population}),
+    {units: 0, population: 0}
+  );
+  const plural = (n: number) => `${n.toLocaleString()} unit${n === 1 ? '' : 's'}`;
+
+  return (
+    <>
+      <Tooltip
+        content={
+          !mapLoaded
+            ? 'Waiting for the map to load'
+            : inBlockView
+              ? 'Exit block view to heal'
+              : districtsHidden
+                ? 'Show painted districts to heal'
+                : 'Move every piece outside the main body into the district it borders most'
+        }
+      >
+        <Button
+          size="1"
+          variant="soft"
+          ml="auto"
+          loading={loading}
+          disabled={!mapLoaded || inBlockView || districtsHidden || !!mapLock}
+          onClick={preview}
+        >
+          Heal
+        </Button>
+      </Tooltip>
+      {error && (
+        <Text color="red" size="1">
+          {error}
+        </Text>
+      )}
+      <AlertDialog.Root open={!!plan} onOpenChange={open => !open && setPlan(null)}>
+        <AlertDialog.Content maxWidth="450px">
+          <AlertDialog.Title>Heal district {zone}</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            {moved?.units
+              ? `Move ${plural(moved.units)} (${moved.population.toLocaleString()} people) out of district ${zone}'s smaller pieces. Its most populous piece stays.`
+              : `Nothing can be moved out of district ${zone}.`}
+          </AlertDialog.Description>
+          <Flex direction="column" gap="1" mt="3">
+            {plan?.byTarget.map(t => (
+              <Text size="2" key={t.zone}>
+                To district {t.zone}: {plural(t.units)}, {t.population.toLocaleString()} people
+              </Text>
+            ))}
+            {!!plan?.skippedLocked && (
+              <Text size="1" color="gray">
+                Skipped {plural(plan.skippedLocked)}: locked district.
+              </Text>
+            )}
+            {!!plan?.skippedNoNeighbor && (
+              <Text size="1" color="gray">
+                Skipped {plural(plan.skippedNoNeighbor)}: no neighboring district.
+              </Text>
+            )}
+            {!!plan?.skippedNotOnMap && (
+              <Text size="1" color="gray">
+                Skipped {plural(plan.skippedNotOnMap)}: changed since the last check, or part of a
+                larger unbroken unit.
+              </Text>
+            )}
+          </Flex>
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button disabled={!moved?.units} onClick={apply}>
+                Move units
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+    </>
   );
 }

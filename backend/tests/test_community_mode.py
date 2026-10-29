@@ -707,6 +707,19 @@ def test_contiguity_bboxes_rejected_for_community_map(
     assert "not supported for community maps" in response.json()["detail"]
 
 
+def test_contiguity_components_rejected_for_community_map(
+    client, community_document_id: str
+):
+    """
+    Map Validation: contiguity/{zone}/components should return 400 for community maps.
+    """
+    response = client.get(
+        f"/api/document/{community_document_id}/contiguity/1/components"
+    )
+    assert response.status_code == 400
+    assert "not supported for community maps" in response.json()["detail"]
+
+
 def test_community_submission_clone_copies_community_assignments(
     client, session, community_document_id: str
 ):
