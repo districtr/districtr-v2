@@ -63,7 +63,7 @@ export function BrushSizeSelector() {
     >
       <Flex direction="column" width="100%" gap="1">
         <Text size="2">Brush Size</Text>
-        <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
+        <Flex direction="row" gapX="2" align="center" width="100%" height="32px">
           <Slider
             defaultValue={[brushSize]}
             size="3"

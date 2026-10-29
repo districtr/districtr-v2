@@ -4,14 +4,18 @@ import {create} from 'zustand';
 import {AlertDialog, Button, Flex, IconButton, Text} from '@radix-ui/themes';
 import {CheckIcon, ChevronDownIcon, Cross2Icon, MinusIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
-import {useMapControlsStore, type MapControlsStore} from '@/app/store/mapControlsStore';
+import {
+  selectShownTool,
+  useMapControlsStore,
+  type MapControlsStore,
+} from '@/app/store/mapControlsStore';
 import {useIsDesktop} from '@/app/hooks/useIsDesktop';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useUiHintStore, type ValidationTab} from '@/app/store/uiHintStore';
 import {useDraftStatusCriteria, BALANCE_DEVIATION} from '@/app/hooks/useDraftStatusCriteria';
 import {useMetadataChange} from '@/app/hooks/useMetadataChange';
 import {statusIcons} from '@components/Topbar/MapStatus';
-import {useCountyPaintAvailable} from '@components/Toolbar/PaintByCounty';
+import {useCountyPaintAvailable} from '@components/Toolbar/ToolControls/PaintByControls';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {
@@ -187,7 +191,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
   const countyPaintAvailable = useCountyPaintAvailable();
   // Hints that point at a toggle are suppressed once it's already on —
   // guiding the user to a checked checkbox invites turning it off.
-  const paintByCounty = useMapControlsStore(state => !!state.mapOptions.paintByCounty);
+  const paintByCounty = useMapControlsStore(state => state.mapOptions.paintBy === 'counties');
   const showPopulationTooltip = useMapControlsStore(
     state => state.mapOptions.showPopulationTooltip === true
   );
@@ -313,7 +317,7 @@ export const DraftStatusHelper: React.FC<{onNavigate?: () => void; collapsible?:
    * painting tool is armed, so the guide starts at the brush button unless a
    * paint-capable tool is already active. */
   const guideToBrushControl = (target: string) => {
-    const {activeTool} = useMapControlsStore.getState();
+    const activeTool = selectShownTool(useMapControlsStore.getState());
     const paintCapable = activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER;
     startGuide(paintCapable ? [target] : [`tool:${ACTIVE_TOOLS.BRUSH}`, target]);
   };

@@ -12,6 +12,9 @@ import {DistrictrMapOptions} from './types';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
+import {paintFunctionFor} from '@utils/map/paintBy';
+import {shallow} from 'zustand/shallow';
 import {ACCESS_STATES} from '@constants/document/state';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
@@ -54,11 +57,18 @@ export interface MapControlsStore {
   passwordUnlockable: boolean;
   setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
+  /** Paint by blocks before a unit is broken: Paint or Erase first picks the
+   * unit (activeTool is then the internal break tool), and this is the tool to
+   * return to inside it. The toolbar shows it as the active tool meanwhile. */
+  blockPaintTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
+  /** Re-apply the Paint by blocks rule to the current tool: back to picking a
+   * unit after leaving block view, or out of it after leaving Blocks. */
+  syncBlockPicking: () => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
+  /** Derived from activeTool + mapOptions.paintBy (subscription below). */
   paintFunction: PaintEventHandler;
-  setPaintFunction: (paintFunction: PaintEventHandler) => void;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
   setStateFp: (stateFp: string) => void;
@@ -100,7 +110,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   // Real default is computed per-document in useDocumentWithSync (multi-county
   // unless the map is DC or already has assignments) — this is just the
   // pre-load fallback before that runs.
-  paintByCounty: false,
+  paintBy: 'units',
   prominentCountyNames: true,
   showCountyBoundaries: true,
   showPaintedDistricts: true,
@@ -113,6 +123,11 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   zonesOpacity: 1,
   basemap: MAP_MODE_DEFAULT_OPTIONS.districts.basemap,
 };
+
+/** The tool the UI shows as active: while Paint by blocks is picking a unit,
+ * activeTool is the internal SHATTER and this is the Paint/Erase it stands in for. */
+export const selectShownTool = (state: Pick<MapControlsStore, 'activeTool' | 'blockPaintTool'>) =>
+  state.activeTool === ACTIVE_TOOLS.SHATTER ? state.blockPaintTool : state.activeTool;
 
 export const useMapControlsStore = create<MapControlsStore>()(
   subscribeWithSelector((set, get) => ({
@@ -144,16 +159,24 @@ export const useMapControlsStore = create<MapControlsStore>()(
     passwordUnlockable: false,
     setPasswordUnlockable: passwordUnlockable => set({passwordUnlockable}),
     activeTool: ACTIVE_TOOLS.PAN,
+    blockPaintTool: ACTIVE_TOOLS.BRUSH,
     setActiveTool: tool => {
-      const canEdit = useMapStore.getState().mapStatus?.access === ACCESS_STATES.EDIT;
-      if (canEdit) {
-        set({activeTool: tool});
-      }
+      const {mapStatus, captiveIds} = useMapStore.getState();
+      if (mapStatus?.access !== ACCESS_STATES.EDIT) return;
+      const pickUnitToBreak =
+        (tool === ACTIVE_TOOLS.BRUSH || tool === ACTIVE_TOOLS.ERASER) &&
+        get().mapOptions.paintBy === 'blocks' &&
+        !captiveIds.size;
+      set(
+        pickUnitToBreak
+          ? {activeTool: ACTIVE_TOOLS.SHATTER, blockPaintTool: tool}
+          : {activeTool: tool}
+      );
     },
+    syncBlockPicking: () => get().setActiveTool(selectShownTool(get())),
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),
     paintFunction: getFeaturesInBbox,
-    setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => {
       const mapOptions = {...get().mapOptions, ...options};
@@ -225,6 +248,18 @@ export const useMapControlsStore = create<MapControlsStore>()(
           : [...state.collapsedTabSections, id],
       })),
   }))
+);
+
+// The brush's feature picker follows the active tool and Paint by, however
+// either changes (an action or a plain setState), so no writer keeps it in step.
+useMapControlsStore.subscribe(
+  state => [state.activeTool, state.mapOptions.paintBy] as const,
+  ([activeTool, paintBy]) =>
+    useMapControlsStore.setState({
+      paintFunction:
+        activeTool === ACTIVE_TOOLS.SHATTER ? getFeatureUnderCursor : paintFunctionFor(paintBy),
+    }),
+  {equalityFn: shallow}
 );
 
 _exposeControlsStore('mapControlsStore', useMapControlsStore);

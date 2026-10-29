@@ -618,14 +618,28 @@ class DemographyService {
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
 
-  calculateSummaryStats(ids: string[], _columns?: string[]): Array<Record<string, number>> {
+  /** Sums for these loaded rows, plus `extraRows` (rows read on the side, such
+   * as the blocks of unbroken units an area inspection reads). */
+  calculateSummaryStats(
+    ids: string[],
+    _columns?: string[],
+    extraRows?: ColumnarTableData
+  ): Array<Record<string, number>> {
     if (!this.table) return [];
     const columns = this.table.columnNames().filter(f => !_columns || _columns.includes(f));
-    const rows = this.table
+    const loaded = this.table
       .params({
         _hoverIds: ids,
       }) // @ts-expect-error
-      .filter((d, $) => op.includes($._hoverIds, d.path))
+      .filter((d, $) => op.includes($._hoverIds, d.path));
+    const extra = extraRows?.path.length
+      ? table(extraRows).derive(getColumnDerives(this.availableColumns))
+      : null;
+    const rows = (
+      extra
+        ? loaded.concat(extra.select(extra.columnNames().filter(c => columns.includes(c))))
+        : loaded
+    )
       .rollup(getRollups(columns, 'sum'))
       .derive(getPctDerives(columns));
     return rows.objects();

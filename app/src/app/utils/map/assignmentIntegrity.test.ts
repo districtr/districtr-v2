@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
+import {afterEach, beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
 import {
   checkAssignments,
   districtSnapshot,
@@ -67,6 +67,11 @@ const choices = {'vtd:A': 'blocks', 'vtd:B': 'whole'} as const;
 const populationLoadedFor = (parents: Set<string>) => {
   demographyService.hash = demographyDataHash(parents, 'd1');
 };
+
+// Some cases switch to 'coi'; don't leave it for the next test file.
+afterEach(() => {
+  useMapControlsStore.setState({mapMode: 'districts'} as any);
+});
 
 beforeEach(() => {
   edgesMock.mockReset();

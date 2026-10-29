@@ -143,7 +143,7 @@ const ParquetWorker: ParquetWorkerInternals = {
     } as GeoJSON.FeatureCollection<GeoJSON.Point>;
   },
 
-  async getDemography(mapDocument, brokenIds) {
+  async getDemography(mapDocument, brokenIds, childrenOnly = false) {
     if (!mapDocument?.gerrydb_table) {
       return {columns: [], results: {path: [], sourceLayer: []}};
     }
@@ -153,7 +153,7 @@ const ParquetWorker: ParquetWorkerInternals = {
     // Read only the row groups that can hold these rows. Reading through a
     // metadata copy with just those groups, rather than by row offsets, keeps
     // hyparquet 1.12 from also fetching the group before each offset.
-    const searchValues = ['__parent', ...(brokenIds || [])];
+    const searchValues = childrenOnly ? brokenIds || [] : ['__parent', ...(brokenIds || [])];
     const rowGroups = rowGroupsContaining(meta.metadata, 'parent_path', searchValues);
     const columns = ['parent_path', 'path', 'column_name', 'value'];
     const file = await prefetchAsyncBuffer(
@@ -167,7 +167,12 @@ const ParquetWorker: ParquetWorkerInternals = {
       columns,
       compressors,
     })) as DemographyParquetData[];
-    const parsed = this.parseDemographyData(data, mapDocument, brokenIds);
+    const parsed = this.parseDemographyData(
+      // A row group can mix in other units' rows: keep only the blocks.
+      childrenOnly ? data.filter(row => row.parent_path !== '__parent') : data,
+      mapDocument,
+      brokenIds
+    );
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
   },
 

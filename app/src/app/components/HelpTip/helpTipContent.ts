@@ -32,16 +32,17 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    text: 'Paint by counties to draw the basic outline, and use smaller brushes/erasers to refine the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
   },
-  // Super Draw's basic tools (pan, paint, erase, county brush, break, inspect)
+  // Super Draw's basic tools (pan, paint, erase, inspect)
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
+    text: 'After drawing a district in approximation, switch Paint by to Blocks and paint the units on its edge block by block to fine-tune its population balance:',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',
@@ -64,11 +65,14 @@ export const helpTipContent = {
     videoFile: 'brush_size.webm',
     guideAnchor: 'drawing-the-districts',
   },
-  countyBrush: {
-    title: 'Painting by county',
-    text: 'Toggle this to paint whole counties at once instead of individual units.',
+  // Draw mode passes its own shorter text (no blocks or overlay areas there).
+  paintBy: {
+    title: 'Paint by',
+    text: 'Choose what one brush stroke paints: single units, or whole counties. Blocks lets you paint inside one unit: click a unit to break it into blocks, paint them, then click another unit to move on. A boundary layer such as school districts paints one whole area per click, exactly: units on its edge are broken and only their blocks inside it are painted.',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
     videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
+    linkSuffix: 'on painting by county',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
   showPopulationTooltip: {
@@ -178,13 +182,20 @@ export const helpTipContent = {
     title: 'Boundaries and areas',
     text: 'Click here to see optional toggles for reference overlays relevant to redistricting, such as existing political boundaries.',
   },
+  paintMask: {
+    title: 'Masking painting to an area',
+    text: 'With the Mask tool, choose a layer under Mask by, then click one of its areas on the map (a county, a district, a metro area…). Paint and Erase then only change units inside that area until you release the mask or press Esc.',
+    // Shows the earlier tools; re-record (districtr_v2-6i4).
+    videoFile: 'mask_area.webm',
+    guideAnchor: 'additional-controls',
+  },
   // Text-only on purpose (no videoFile): this renders inside the Mode switcher's
   // DropdownMenu.Item, whose own pointer handling closes the hover card before the
   // cursor can reach an interactive link inside it. Without a video there's no
   // link, so nothing ever needs to travel into the card.
   superDraw: {
     title: 'Super Draw',
-    text: 'Super Draw unlocks additional tools for fine-tuning your districts, including the break tool and a side-by-side view of demographic or election data next to your map.',
+    text: 'Super Draw unlocks additional tools for fine-tuning your districts, including the break and mask tools, painting by area, and a side-by-side view of demographic or election data next to your map.',
     guideAnchor: 'super-draw',
   },
   editMapDetails: {

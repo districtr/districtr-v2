@@ -1,25 +1,22 @@
 import {Box, Flex} from '@radix-ui/themes';
-import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
-import PaintByCounty from '@components/Toolbar/PaintByCounty';
+import {PaintByControl} from '@components/Toolbar/ToolControls/PaintByControls';
+import {overlayIdOf} from '@constants/map/paintBy';
+import {useMapControlsStore} from '@store/mapControlsStore';
 
+/** The inspector's brush row: what one footprint reads, and its size. */
 export const BrushControls = () => {
-  const paintCounties = useFeatureFlagStore(state => state.paintCounties);
-
+  // Inspecting a whole area reads the area under the cursor: no brush size.
+  const byArea = useMapControlsStore(state => !!overlayIdOf(state.mapOptions.paintBy));
   return (
-    <Flex direction="column" gapY="2" justify="between" wrap="wrap">
-      <Flex direction="row" gapX="4" wrap="wrap" align="center">
-        {paintCounties && (
-          // mt centers the card on the slider track, offsetting the "Brush Size"
-          // label above it (flex centering shifts content by half the margin)
-          <Box className="mt-3">
-            <PaintByCounty />
-          </Box>
-        )}
-        <Box className="flex-grow" style={{flexGrow: 1}}>
-          <BrushSizeSelector />
-        </Box>
-      </Flex>
+    <Flex direction="row" gapX="4" gapY="2" wrap="wrap" align="start">
+      <PaintByControl label="Inspect by" forInspector />
+      <Box
+        className="flex-grow"
+        style={{flexGrow: 1, ...(byArea ? {opacity: 0.5, pointerEvents: 'none'} : {})}}
+      >
+        <BrushSizeSelector />
+      </Box>
     </Flex>
   );
 };

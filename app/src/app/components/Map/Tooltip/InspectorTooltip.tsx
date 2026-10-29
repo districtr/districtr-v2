@@ -1,5 +1,5 @@
 'use client';
-import {Table} from '@radix-ui/themes';
+import {Flex, Table, Text} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -10,6 +10,8 @@ import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatu
 import {SUMMARY_TYPES, TOTAL_COLUMN} from '@constants/demography/summary';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {INSPECTOR_TITLE} from '@constants/demography/inspectorLabels';
+import {overlayIdOf} from '@constants/map/paintBy';
+import {useMapControlsStore} from '@store/mapControlsStore';
 
 const withOpacity = (color: string, opacity: number) => {
   if (color.startsWith('rgba(')) return color;
@@ -41,7 +43,10 @@ export const InspectorTooltip = () => {
     inspectorFormat === NUMBER_FORMATS.PERCENT || inspectorMode === SUMMARY_TYPES.VOTERHISTORY;
   const columnSuffix = usePercent ? '_pct' : '';
   const standardFormat = usePercent ? NUMBER_FORMATS.PERCENT : NUMBER_FORMATS.STANDARD;
-  const ids = hoverFeatures.map(f => f.id as string);
+  // Inspect by overlay area reads the area's rows (inspectOverlayArea), not the hover.
+  const byArea = useMapControlsStore(state => !!overlayIdOf(state.mapOptions.paintBy));
+  const areaReading = useTooltipStore(state => state.areaReading);
+  const ids = byArea ? [] : hoverFeatures.map(f => f.id as string);
   const stableIds = useMemo(() => ids, [ids.join(',')]);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   // Total is pinned above; order by universe totals, voter history stays chronological.
@@ -73,23 +78,37 @@ export const InspectorTooltip = () => {
   };
 
   useEffect(() => {
-    if (stableIds.length > 0) {
+    const rowIds = byArea ? (areaReading?.ids ?? []) : stableIds;
+    const extraRows = byArea ? areaReading?.extraRows : undefined;
+    if (rowIds.length > 0 || extraRows?.path.length) {
       const _activeColumns =
         inspectorMode === SUMMARY_TYPES.VOTERHISTORY
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_dem', '_total'))]
           : activeColumns;
-      const data = demographyService.calculateSummaryStats(stableIds, _activeColumns);
+      const data = demographyService.calculateSummaryStats(rowIds, _activeColumns, extraRows);
       if (data.length === 1) {
         setInspectorData(data[0]);
       }
     } else {
       setInspectorData({});
     }
-  }, [activeColumns, inspectorMode, stableIds]);
+  }, [activeColumns, inspectorMode, stableIds, byArea, areaReading]);
 
-  if (Object.keys(inspectorData).length === 0) return null;
+  const areaNote =
+    byArea && areaReading
+      ? areaReading.loading
+        ? areaReading.exact
+          ? 'Reading blocks for exact numbers…'
+          : 'Reading this area…'
+        : areaReading.exact
+          ? 'Exact: blocks whose center is inside.'
+          : 'Approximate. Click the area for exact numbers.'
+      : null;
+  if (Object.keys(inspectorData).length === 0) {
+    return areaNote ? <Text size="1">{areaNote}</Text> : null;
+  }
 
-  return (
+  const table = (
     <Table.Root variant="surface" size="1" style={{margin: 0}} className="max-w-[50vw] w-64 ">
       <Table.Header>
         <Table.Row>
@@ -118,5 +137,15 @@ export const InspectorTooltip = () => {
           ))}
       </Table.Body>
     </Table.Root>
+  );
+  return areaNote ? (
+    <Flex direction="column" gap="1" className="max-w-[50vw] w-64">
+      {table}
+      <Text size="1" color="gray">
+        {areaNote}
+      </Text>
+    </Flex>
+  ) : (
+    table
   );
 };
