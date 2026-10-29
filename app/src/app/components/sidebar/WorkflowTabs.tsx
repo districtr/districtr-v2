@@ -8,6 +8,7 @@ import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 import {AnimatedCollapse} from './AnimatedCollapse';
 import {CoalitionExpander} from './CoalitionExpander';
+import {FlatRowsContext} from './ConditionalScrollArea';
 import {ToolSettings} from '../Toolbar/Settings';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
@@ -118,36 +119,40 @@ const StatsPanel: React.FC = () => {
   const mapMode = useMapControlsStore(state => state.mapMode);
   const isCoi = mapMode === MAP_MODES.COI;
   const demographicsColumnSets = useDemographicsColumnSets();
+  // Three sections stack in this tab, so their tables render flat and the
+  // sidebar scrolls them, as in the stacked layout.
   return (
-    <Flex direction="column" px="2">
-      {!isCoi && (
-        <TabSection id="stats-validity" label="Validity check" helpTip="mapValidation">
-          <MapValidation />
+    <FlatRowsContext.Provider value>
+      <Flex direction="column" px="2">
+        {!isCoi && (
+          <TabSection id="stats-validity" label="Validity check" helpTip="mapValidation">
+            <MapValidation />
+          </TabSection>
+        )}
+        <TabSection id="stats-demographics" label="Demographics" helpTip="demographicsStats">
+          <Flex direction="column" gap="2">
+            <CoalitionExpander
+              defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+              displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
+            />
+            <SummaryPanel
+              defaultColumnSet={SUMMARY_TYPES.TOTPOP}
+              displayedColumnSets={demographicsColumnSets}
+              sections={['evaluation']}
+            />
+          </Flex>
         </TabSection>
-      )}
-      <TabSection id="stats-demographics" label="Demographics" helpTip="demographicsStats">
-        <Flex direction="column" gap="2">
-          <CoalitionExpander
-            defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-            displayedColumnSets={[SUMMARY_TYPES.TOTPOP, SUMMARY_TYPES.VAP]}
-          />
-          <SummaryPanel
-            defaultColumnSet={SUMMARY_TYPES.TOTPOP}
-            displayedColumnSets={demographicsColumnSets}
-            sections={['evaluation']}
-          />
-        </Flex>
-      </TabSection>
-      {!isCoi && (
-        <TabSection id="stats-elections" label="Elections" helpTip="electionsStats">
-          <SummaryPanel
-            defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
-            displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
-            sections={['evaluation']}
-          />
-        </TabSection>
-      )}
-    </Flex>
+        {!isCoi && (
+          <TabSection id="stats-elections" label="Elections" helpTip="electionsStats">
+            <SummaryPanel
+              defaultColumnSet={SUMMARY_TYPES.VOTERHISTORY}
+              displayedColumnSets={[SUMMARY_TYPES.VOTERHISTORY]}
+              sections={['evaluation']}
+            />
+          </TabSection>
+        )}
+      </Flex>
+    </FlatRowsContext.Provider>
   );
 };
 
