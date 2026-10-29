@@ -168,6 +168,24 @@ def test_refuses_non_numeric_cell(tmp_path):
     assert not out.exists()
 
 
+def test_refuses_uppercase_column(tmp_path):
+    blocks_path, parent_path, graph_path = _write_gpkgs(tmp_path)
+    csv_path = _write_csv(tmp_path)
+    df = pd.read_csv(csv_path).rename(columns={"pres_24_dem": "PRES_24_DEM"})
+    df.to_csv(csv_path, index=False)
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="lowercase"):
+        add_block_columns(
+            str(blocks_path),
+            str(parent_path),
+            str(csv_path),
+            graph=str(graph_path),
+            columns=["PRES_24_DEM", "pres_24_rep"],
+            out_dir=out,
+        )
+    assert not out.exists()
+
+
 def test_refuses_block_without_parent_in_graph(tmp_path):
     blocks_path, parent_path, _ = _write_gpkgs(tmp_path)
     partial = {b: p for b, p in PARENT_OF.items() if b != "block_21"}

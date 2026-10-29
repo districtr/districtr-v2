@@ -218,6 +218,17 @@ def test_add_gerrydb_columns_refuses_text_column(engine, tmp_path, target_table)
     assert _table_rows(engine) == rows_before
 
 
+def test_add_gerrydb_columns_refuses_uppercase_column(engine, tmp_path, target_table):
+    columns_before = _table_columns(engine)
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
+
+    result = _add_columns("--columns", "pres_24_dem,PRES_24_REP", gpkg=gpkg)
+
+    assert result.returncode != 0
+    assert "lowercase" in result.stderr, result.stderr
+    assert _table_columns(engine) == columns_before
+
+
 def test_add_gerrydb_columns_refuses_gpkg_named_for_no_table(
     engine, tmp_path, target_table
 ):

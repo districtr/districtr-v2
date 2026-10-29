@@ -7,6 +7,7 @@ layer, column and geometry stays byte-identical.
 """
 
 import logging
+import re
 import shutil
 import sqlite3
 from pathlib import Path
@@ -21,6 +22,10 @@ from core.settings import settings
 from transforms.graph import GRAPH_NPZ_FORMAT_VERSION
 
 LOGGER = logging.getLogger(__name__)
+
+# Lowercase only: the backend's queries name columns unquoted, which Postgres
+# folds to lowercase, so an uppercase column would be invisible to them.
+_NEW_COLUMN_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 # GeoPackage rtree triggers reference SpatiaLite functions. The triggers that
 # call them fire only when geometry or fid changes, which this module never
@@ -104,12 +109,16 @@ def add_block_columns(
 
     `graph` is the map's graph npz (local path or s3 URI), the source of which
     parent each block belongs to. Refuses to write anything if the CSV and the
-    block layer don't cover exactly the same blocks, if a named column has a
-    blank or non-numeric cell, if a block has no parent in the graph, or if a
-    parent named by the graph is missing from the parent layer.
+    block layer don't cover exactly the same blocks, if a column name isn't a
+    lowercase identifier, if a named column has a blank or non-numeric cell,
+    if a block has no parent in the graph, or if a parent named by the graph is
+    missing from the parent layer.
 
     Returns the paths of the new block and parent GeoPackages.
     """
+    invalid = [c for c in columns if not _NEW_COLUMN_RE.match(c)]
+    if invalid:
+        raise ValueError(f"Column names must be lowercase identifiers: {invalid}")
     out_dir = Path(out_dir or settings.OUT_SCRATCH)
     blocks_layer, parent_layer = _layer_name(blocks_gpkg), _layer_name(parent_gpkg)
     blocks_src, parent_src = _resolve_local(blocks_gpkg), _resolve_local(parent_gpkg)

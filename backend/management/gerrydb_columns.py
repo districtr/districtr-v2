@@ -12,6 +12,7 @@ to the table.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -36,6 +37,10 @@ REBUILD_PREFIX = "_rebuild_"
 # How long an exclusive lock on a live table or view waits for its current
 # readers before the command gives up and rolls back; a re-run is safe.
 LOCK_TIMEOUT = "10s"
+
+# Lowercase only: other queries name columns unquoted, which Postgres folds to
+# lowercase, so a quoted uppercase column would be invisible to them.
+_NEW_COLUMN_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
 def _relkind(session: Session, name: str) -> str | None:
@@ -126,8 +131,9 @@ def add_gerrydb_columns(
     without a GeoPackage row keep NULL. The caller commits the fill.
     """
     table = assert_safe_ident(Path(urlparse(gpkg).path).stem)
-    for name in columns:
-        assert_safe_ident(name)
+    invalid = [c for c in columns if not _NEW_COLUMN_RE.match(c)]
+    if invalid:
+        raise ValueError(f"Column names must be lowercase identifiers: {invalid}")
     if _relkind(session, table) != "r":
         raise ValueError(f"{GERRY_DB_SCHEMA}.{table} is not an existing table")
     table_types = _column_types(session, table)
