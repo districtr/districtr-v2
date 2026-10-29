@@ -472,11 +472,18 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
 export const handleMapIdle = (e: MapEvent) => {
+  // data-idle="true" once tiles, transitions, and feature-state repaints have settled.
+  e.target.getContainer().dataset.idle = 'true';
   const mapDocument = useMapStore.getState().mapDocument;
   const currentZoom = e.target.getZoom();
   if (GeometryWorker && mapDocument) {
     GeometryWorker.setMaxParentZoom(currentZoom);
   }
+};
+
+export const handleMapRender = (e: MapEvent) => {
+  const container = e.target.getContainer();
+  if (container.dataset.idle !== 'false') container.dataset.idle = 'false';
 };
 
 export const handleMapMoveEnd = (e: ViewStateChangeEvent) => {
@@ -535,6 +542,7 @@ export const mapEventHandlers = {
   onMouseMove: handleMapMouseMove,
   onZoom: handleMapZoom,
   onIdle: handleMapIdle,
+  onRender: handleMapRender,
   onMoveEnd: handleMapMoveEnd,
   onZoomEnd: handleMapZoomEnd,
   onContextMenu: handleMapContextMenu,
