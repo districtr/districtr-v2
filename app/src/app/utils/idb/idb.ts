@@ -22,10 +22,18 @@ export interface CoalitionConfig {
   updatedAt: string;
 }
 
+/** Zones locked against painting, per document. Its own table so the whole-record
+ * assignment writes on `documents` can't drop it. */
+export interface ZoneLocks {
+  document_id: string;
+  zones: NullableZone[];
+}
+
 // --- Dexie Setup ---
 export class DocumentsDB extends Dexie {
   documents!: Table<StoredDocument, string>;
   coalition_configs!: Table<CoalitionConfig, string>;
+  zone_locks!: Table<ZoneLocks, string>;
 
   constructor() {
     super('DocumentsDB');
@@ -35,6 +43,11 @@ export class DocumentsDB extends Dexie {
     this.version(2).stores({
       documents: 'id, clientLastUpdated',
       coalition_configs: 'districtr_map_slug, updatedAt',
+    });
+    this.version(3).stores({
+      documents: 'id, clientLastUpdated',
+      coalition_configs: 'districtr_map_slug, updatedAt',
+      zone_locks: 'document_id',
     });
 
     if (typeof window !== 'undefined') {
@@ -61,7 +74,10 @@ export class DocumentsDB extends Dexie {
   }
 
   async deleteDocument(document_id: string) {
-    await this.documents.delete(document_id);
+    await this.transaction('rw', this.documents, this.zone_locks, async () => {
+      await this.documents.delete(document_id);
+      await this.zone_locks.delete(document_id);
+    });
   }
 
   async getAllDocuments(): Promise<StoredDocument[]> {
@@ -323,6 +339,13 @@ export class DocumentsDB extends Dexie {
   clearCoalitionConfigBySlug = async (districtr_map_slug: string) => {
     if (!districtr_map_slug) return;
     await this.coalition_configs.delete(districtr_map_slug);
+  };
+
+  getZoneLocks = async (document_id: string) =>
+    (await this.zone_locks.get(document_id))?.zones ?? [];
+
+  setZoneLocks = async (document_id: string, zones: NullableZone[]) => {
+    await this.zone_locks.put({document_id, zones: [...zones]});
   };
 
   /**

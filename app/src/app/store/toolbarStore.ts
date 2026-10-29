@@ -31,7 +31,11 @@ export const useToolbarStore = create(
       superDraw: false,
       setSuperDraw: superDraw => {
         set({superDraw});
-        if (superDraw) return;
+        if (superDraw) {
+          // The plan's locks apply again; don't leave the brush on a locked district.
+          useMapControlsStore.getState().selectUnlockedZone();
+          return;
+        }
         // Leaving Super Draw: back out of super-only state so the user isn't
         // stranded on a hidden tool or a setting Draw has no control for.
         // Draw mode always runs on the global defaults for these.

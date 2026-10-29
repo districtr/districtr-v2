@@ -13,6 +13,8 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {ACCESS_STATES} from '@constants/document/state';
+import {idb} from '@utils/idb/idb';
+import {useToolbarStore} from './toolbarStore';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
@@ -65,6 +67,9 @@ export interface MapControlsStore {
   hoveredCountyGeoid: string | null;
   setHoveredCountyGeoid: (geoid: string | null) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
+  /** Move the selection off a locked district (Super Draw only), since the brush
+   * paints nothing there. Used where saved locks start applying again. */
+  selectUnlockedZone: () => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
   setSpatialUnit: (unit: SpatialUnit) => void;
@@ -179,13 +184,34 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
       }
     },
-    setLockedZones: zones =>
+    setLockedZones: zones => {
       set({
         mapOptions: {
           ...get().mapOptions,
           lockPaintedAreas: zones,
         },
-      }),
+      });
+      // Remembered per document so locks survive a reload (restored in setMapDocument).
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (mapDocument?.access === ACCESS_STATES.EDIT && mapDocument.document_id) {
+        idb.setZoneLocks(mapDocument.document_id, zones);
+      }
+    },
+    selectUnlockedZone: () => {
+      const {mapMode, mapOptions, selectedZone, setSelectedZone} = get();
+      const locked = mapOptions.lockPaintedAreas;
+      if (!useToolbarStore.getState().superDraw || !locked.includes(selectedZone)) return;
+      const mapStore = useMapStore.getState();
+      const zones =
+        mapMode === MAP_MODES.COI
+          ? mapStore.communities.map(community => community.id)
+          : Array.from(
+              {length: mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+              (_, i) => i + 1
+            );
+      const unlocked = zones.find(zone => !locked.includes(zone));
+      if (unlocked !== undefined) setSelectedZone(unlocked);
+    },
     toggleLockAllAreas: () => {
       const {mapMode, mapOptions} = get();
       const mapStore = useMapStore.getState();
@@ -204,12 +230,7 @@ export const useMapControlsStore = create<MapControlsStore>()(
         );
       }
 
-      set({
-        mapOptions: {
-          ...mapOptions,
-          lockPaintedAreas: nextLockPaintedAreas,
-        },
-      });
+      get().setLockedZones(nextLockPaintedAreas);
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
