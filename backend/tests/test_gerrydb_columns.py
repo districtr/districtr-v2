@@ -21,8 +21,10 @@ from app.constants import GERRY_DB_SCHEMA
 from app.evaluation.models import Evaluation
 from app.models import DistrictUnions, Document
 from app.utils import get_gerrydb_numeric_cols
+import management.gerrydb_columns as gerrydb_columns
 from management.gerrydb_columns import (
     REBUILD_PREFIX,
+    add_gerrydb_columns,
     invalidate_document_caches,
     rebuild_shatterable_view,
 )
@@ -163,6 +165,26 @@ def test_add_gerrydb_columns_preserves_existing_values(engine, tmp_path, target_
         assert after[source["path"]]["pres_24_dem"] == source["pres_24_dem"]
         assert after[source["path"]]["pres_24_rep"] == source["pres_24_rep"]
     assert "county_name" not in _table_columns(engine)
+
+
+def test_add_gerrydb_columns_reads_gpkg_outside_a_transaction(
+    engine, tmp_path, target_table, monkeypatch
+):
+    """A slow download inside an open transaction would hit the pool's
+    idle-in-transaction timeout."""
+    gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
+    read = gerrydb_columns._read_gpkg_columns
+    in_transaction = []
+
+    def spy(*args, **kwargs):
+        in_transaction.append(session.in_transaction())
+        return read(*args, **kwargs)
+
+    monkeypatch.setattr(gerrydb_columns, "_read_gpkg_columns", spy)
+    with Session(engine) as session:
+        add_gerrydb_columns(session, str(gpkg), ["pres_24_dem", "pres_24_rep"])
+        session.commit()
+    assert in_transaction == [False]
 
 
 def test_add_gerrydb_columns_refuses_existing_columns(engine, tmp_path, target_table):

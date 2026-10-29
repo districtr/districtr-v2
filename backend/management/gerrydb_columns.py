@@ -134,6 +134,12 @@ def add_gerrydb_columns(
     invalid = [c for c in columns if not _NEW_COLUMN_RE.match(c)]
     if invalid:
         raise ValueError(f"Column names must be lowercase identifiers: {invalid}")
+    # Read before the first query: a download outlasting the pool's 60s
+    # idle-in-transaction timeout would otherwise kill the session.
+    logger.info("Reading %s", gpkg)
+    values = _read_gpkg_columns(gpkg, table, columns)
+    sql_types = {c: _SQL_TYPES[str(values[c].dtype)] for c in columns}
+
     if _relkind(session, table) != "r":
         raise ValueError(f"{GERRY_DB_SCHEMA}.{table} is not an existing table")
     table_types = _column_types(session, table)
@@ -153,10 +159,6 @@ def add_gerrydb_columns(
                 f"Columns already hold data in {GERRY_DB_SCHEMA}.{table}: {with_data}"
             )
     to_add = [c for c in columns if c not in table_types]
-
-    logger.info("Reading %s", gpkg)
-    values = _read_gpkg_columns(gpkg, table, columns)
-    sql_types = {c: _SQL_TYPES[str(values[c].dtype)] for c in columns}
 
     # Adding a nullable column is instant but needs an exclusive lock, which
     # would block every reader of the table until the UPDATE finished. It is
