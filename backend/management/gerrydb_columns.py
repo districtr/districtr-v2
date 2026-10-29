@@ -127,8 +127,9 @@ def add_gerrydb_columns(
     interrupted before its fill committed can simply be re-run. Missing columns
     are committed first; then one transaction copies the values into a
     temporary table and fills every named column with `UPDATE ... FROM` it.
-    If the fill fails, the columns this run added are dropped again. Table rows
-    without a GeoPackage row keep NULL. The caller commits the fill.
+    The fill fails unless every table row and every GeoPackage row match on
+    `path`. If the fill fails, the columns this run added are dropped again.
+    The caller commits the fill.
     """
     table = assert_safe_ident(Path(urlparse(gpkg).path).stem)
     invalid = [c for c in columns if not _NEW_COLUMN_RE.match(c)]
@@ -201,6 +202,15 @@ def add_gerrydb_columns(
                 "FROM new_values AS v WHERE t.path = v.path"
             )
         ).rowcount
+        table_rows = session.execute(
+            sa.text(f"SELECT count(*) FROM {GERRY_DB_SCHEMA}.{table}")
+        ).scalar_one()
+        if not rows_updated == len(values) == table_rows:
+            raise ValueError(
+                f"GeoPackage and {GERRY_DB_SCHEMA}.{table} cover different paths: "
+                f"{rows_updated} matched of {len(values)} GeoPackage rows and "
+                f"{table_rows} table rows"
+            )
     except Exception:
         session.rollback()
         _drop_columns_autocommit(session, table, to_add)

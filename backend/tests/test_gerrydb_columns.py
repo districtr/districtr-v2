@@ -240,6 +240,32 @@ def test_add_gerrydb_columns_refuses_text_column(engine, tmp_path, target_table)
     assert _table_rows(engine) == rows_before
 
 
+@pytest.mark.parametrize(
+    "source_rows",
+    [
+        pytest.param(SOURCE_ROWS[:-1], id="table_row_missing_from_gpkg"),
+        pytest.param(
+            [*SOURCE_ROWS, {**SOURCE_ROWS[0], "path": "blk_z"}],
+            id="gpkg_row_missing_from_table",
+        ),
+    ],
+)
+def test_add_gerrydb_columns_refuses_partial_coverage(
+    engine, tmp_path, target_table, source_rows
+):
+    columns_before = _table_columns(engine)
+    rows_before = _table_rows(engine)
+    gpkg = _write_gpkg(tmp_path, "source", source_rows)
+
+    result = _add_columns("--columns", "pres_24_dem,pres_24_rep", gpkg=gpkg)
+
+    assert result.returncode != 0
+    assert "cover different paths" in result.stderr, result.stderr
+    # The columns this run added are dropped again.
+    assert _table_columns(engine) == columns_before
+    assert _table_rows(engine) == rows_before
+
+
 def test_add_gerrydb_columns_refuses_uppercase_column(engine, tmp_path, target_table):
     columns_before = _table_columns(engine)
     gpkg = _write_gpkg(tmp_path, "source", SOURCE_ROWS)
