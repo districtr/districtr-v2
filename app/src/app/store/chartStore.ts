@@ -16,6 +16,7 @@ export const DEFAULT_CHART_OPTIONS: DistrictrChartOptions = {
   popShowPopNumbers: true,
   popShowTopBottomDeviation: true,
   popShowDistrictNumbers: true,
+  popTuningView: false,
   popBarScaleToCurrent: false,
   popTargetPopDeviation: undefined,
   popTargetPopDeviationPct: undefined,

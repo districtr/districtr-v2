@@ -14,6 +14,13 @@ const deviationPctFormatter = new Intl.NumberFormat('en-US', {
 const MIN_DEVIATION_PCT = 0.00001;
 export const formatDeviationPct = (value: number) =>
   value > 0 && value < MIN_DEVIATION_PCT ? '<0.001%' : deviationPctFormatter.format(value);
+
+// Signed deviations. Unicode minus to match the tabular figures.
+const sign = (value: number) => (value < 0 ? '−' : '+');
+export const signedNumber = (value: number) =>
+  `${sign(value)}${Math.round(Math.abs(value)).toLocaleString()}`;
+export const signedPercent = (value: number, ideal: number) =>
+  `${sign(value)}${percentFormatter.format(Math.abs(value / ideal))}`;
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
