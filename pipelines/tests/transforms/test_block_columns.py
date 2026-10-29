@@ -156,6 +156,18 @@ def test_refuses_blank_cell(tmp_path):
     assert not out.exists()
 
 
+def test_refuses_non_numeric_cell(tmp_path):
+    blocks_path, parent_path, graph_path = _write_gpkgs(tmp_path)
+    csv_path = _write_csv(tmp_path)
+    df = pd.read_csv(csv_path, dtype={"pres_24_dem": object})
+    df.loc[df["geoid20"] == "block_01", "pres_24_dem"] = "1,000"
+    df.to_csv(csv_path, index=False)
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="not numeric"):
+        _run(blocks_path, parent_path, csv_path, graph_path, out)
+    assert not out.exists()
+
+
 def test_refuses_block_without_parent_in_graph(tmp_path):
     blocks_path, parent_path, _ = _write_gpkgs(tmp_path)
     partial = {b: p for b, p in PARENT_OF.items() if b != "block_21"}

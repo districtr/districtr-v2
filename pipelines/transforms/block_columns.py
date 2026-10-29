@@ -105,8 +105,8 @@ def add_block_columns(
     `graph` is the map's graph npz (local path or s3 URI), the source of which
     parent each block belongs to. Refuses to write anything if the CSV and the
     block layer don't cover exactly the same blocks, if a named column has a
-    blank cell, if a block has no parent in the graph, or if a parent named by
-    the graph is missing from the parent layer.
+    blank or non-numeric cell, if a block has no parent in the graph, or if a
+    parent named by the graph is missing from the parent layer.
 
     Returns the paths of the new block and parent GeoPackages.
     """
@@ -132,6 +132,9 @@ def add_block_columns(
     blank = csv[columns].isna().sum()
     if blank.any():
         raise ValueError(f"CSV has blank cells: {blank[blank > 0].to_dict()}")
+    non_numeric = [c for c in columns if not pd.api.types.is_numeric_dtype(csv[c])]
+    if non_numeric:
+        raise ValueError(f"CSV columns are not numeric: {non_numeric}")
 
     mapping = _parent_map(graph).reindex(csv["path"])
     if mapping.isna().any():
