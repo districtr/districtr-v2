@@ -9,6 +9,7 @@ export type AssignmentsTemporalSnapshot = {
   childToParent: Map<string, string>;
   zoneAssignments: Map<string, NullableZone>;
   clientLastUpdated: string;
+  lastZoneRenumber: Map<number, number> | null;
 };
 
 /**
@@ -32,4 +33,6 @@ export const cloneTemporalSnapshot = (
   childToParent: new Map(snapshot.childToParent),
   zoneAssignments: new Map(snapshot.zoneAssignments),
   clientLastUpdated: snapshot.clientLastUpdated,
+  // Copied by reference: undo compares it by identity to spot renumber steps.
+  lastZoneRenumber: snapshot.lastZoneRenumber,
 });

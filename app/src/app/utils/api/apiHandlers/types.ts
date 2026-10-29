@@ -30,6 +30,7 @@ export interface AssignmentsCreate {
     num_districts?: number | null;
     num_communities?: number | null;
     community_metadata_list?: Community[] | null;
+    zone_aliases?: Record<string, string> | null;
   };
   comments?: DocumentCommentCreate[] | null;
 }
@@ -68,6 +69,8 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
+  /** User-set district display names, keyed by zone number. */
+  zone_aliases?: Record<string, string> | null;
 }
 
 export interface Community {

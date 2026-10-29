@@ -85,6 +85,16 @@ export interface AssignmentsStore {
   clientLastUpdated: string;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
+  /** The zone mapping of the latest renumber. Tracked by undo; a new reference
+   * between two history states marks that step as a renumber, so undo/redo can
+   * move the per-district metadata (colors, aliases, ...) with it. */
+  lastZoneRenumber: Map<Zone, Zone> | null;
+  /** Reassign district numbers: every unit (shattered children included) in a key
+   * zone moves to its mapped zone, and the per-district metadata follows. The
+   * mapping must be a permutation (every value is also a key, e.g. a swap); a
+   * merge or a move into an unused number is ignored, since colors and undo
+   * would have nothing to swap back. */
+  renumberZones: (mapping: Map<Zone, Zone>) => void;
   setClientLastUpdated: (updated_at: string) => void;
 
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -248,7 +258,7 @@ const resolveUseLocal = async (
         'Failed to post local assignments when resolving conflict.'
       );
     }
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
   } finally {
     setMapLock(null);
   }
@@ -326,9 +336,17 @@ const resolveFork = async ({
       zone: c.zone,
       text: c.text,
     }));
+    // The copy is of the server's version, so also carry over the local colors and
+    // aliases (a local renumber permutes both).
+    const {localDocument} = syncConflictInfo;
     const newDocWithLocalComments = {
       ...createMapDocumentResponse.response,
       document_comments: localComments,
+      color_scheme: localDocument.color_scheme ?? createMapDocumentResponse.response.color_scheme,
+      map_metadata: {
+        ...createMapDocumentResponse.response.map_metadata,
+        zone_aliases: localDocument.map_metadata?.zone_aliases ?? {},
+      },
     };
     setMapDocument(newDocWithLocalComments);
     const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
@@ -349,7 +367,7 @@ const resolveFork = async ({
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
       onNavigate(createMapDocumentResponse.response);
@@ -377,6 +395,38 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
   pendingShatterUndoState: null,
+  lastZoneRenumber: null,
+  renumberZones: mapping => {
+    const {zoneAssignments, zonesLastUpdated} = get();
+    // Locked while saving or breaking: an in-flight break would overwrite the result.
+    const {mapDocument, mapLock} = useMapStore.getState();
+    if (!mapping.size || !mapDocument || mapLock) return;
+    if (![...mapping.values()].every(zone => mapping.has(zone))) return;
+    useMapStore.getState().permuteZoneMetadata(mapping);
+    const nextAssignments = new Map(zoneAssignments);
+    zoneAssignments.forEach((zone, geoid) => {
+      const to = zone == null ? undefined : mapping.get(zone);
+      to !== undefined && nextAssignments.set(geoid, to);
+    });
+    const timestamp = new Date().toISOString();
+    const nextZonesLastUpdated = new Map(zonesLastUpdated);
+    mapping.forEach((to, from) => {
+      nextZonesLastUpdated.set(from, timestamp);
+      nextZonesLastUpdated.set(to, timestamp);
+    });
+    // Re-read: permuteZoneMetadata replaced mapDocument, and IDB needs the permuted one.
+    idb.updateIdbAssignments(useMapStore.getState().mapDocument!, nextAssignments, timestamp);
+    // A break leaves tracking paused until the next edit; like a paint, this edit
+    // resumes it and folds a pending break into its undo step.
+    temporalManager.resume(MAP_MODES.DISTRICTS);
+    set({
+      zoneAssignments: nextAssignments,
+      zonesLastUpdated: nextZonesLastUpdated,
+      lastZoneRenumber: new Map(mapping),
+      clientLastUpdated: timestamp,
+      pendingShatterUndoState: null,
+    });
+  },
   setClientLastUpdated: (updated_at: string) => {
     set({
       clientLastUpdated: updated_at,
@@ -493,6 +543,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       // Save immediately when loading from document (not during painting)
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
+      // The document's numbering, colors and aliases just replaced this tab's, and
+      // either tab may have renumbered, so history from before this load would
+      // restore old numbering under the new metadata.
+      set({lastZoneRenumber: null});
+      useAssignmentsStore.temporal.getState().clear();
     }
     demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,
@@ -713,6 +768,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     } = get();
     const preShatterSnapshot = cloneTemporalSnapshot({
       shatterIds: currShatterIds,
@@ -720,6 +776,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     });
 
     // Ensure both maps are provided or build from each other
@@ -902,6 +959,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
+    // Read with mapDocument: any edit after this point supersedes this save.
+    const clientLastUpdatedAtStart = get().clientLastUpdated;
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
       setNotification({
         message: 'Unable to save: no map document loaded.',
@@ -956,6 +1015,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         shatterIds,
         childToParent,
         overwrite,
+        clientLastUpdatedAtStart,
       });
 
       if (
@@ -983,7 +1043,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         };
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        if (hasPendingChanges && !silent) {
+        if (hasPendingChanges && !silent && !assignmentsPostResponse.response.superseded) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
           return {
             ok: true,

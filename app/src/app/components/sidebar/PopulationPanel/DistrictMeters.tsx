@@ -3,6 +3,7 @@ import React, {useEffect, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
+  DragHandleDots2Icon,
   EyeNoneIcon,
   EyeOpenIcon,
   LockClosedIcon,
@@ -10,6 +11,8 @@ import {
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
+import {useAssignmentsStore} from '@store/assignmentsStore';
+import {moveZoneMapping} from '@utils/map/moveZone';
 import {useToolbarStore} from '@store/toolbarStore';
 import {DEFAULT_CHART_OPTIONS, useChartStore} from '@store/chartStore';
 import {useZonePopulations} from '@/app/hooks/useDemography';
@@ -21,6 +24,7 @@ import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScroll
 import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {formatNumber} from '@utils/numbers';
+import {getReadableTextColor} from '@utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -31,15 +35,14 @@ const DEV_COL_WIDTH = 76;
 // matches the bars' when icons are showing: two size-1 icon buttons (24px), the
 // cluster gap (4px), and the comment button's trailing space (TWIN_TRAIL).
 const ICONS_WIDTH = 56;
+// The drag handle that reorders (renumbers) districts.
+const HANDLE_WIDTH = 15;
 // ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
 // margin eats half of it: measured against the rendered rows, its real trailing
 // space is 6px, not 8. The header's invisible twin uses the measured value —
 // copying the mr-2 class instead puts the lock-all 4px right of the rows'.
 const TWIN_TRAIL = 6;
 
-// Bars stop growing on wide sidebars; everything (label strip, rows,
-// scoreboard) shares the cap so columns stay aligned.
-const MAX_METERS_WIDTH = 560;
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
 // started-only.
@@ -120,6 +123,43 @@ const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
   </Flex>
 );
 
+/** A district's title printed on its bar, two-toned like a progress label: the
+ * contrast color over the filled part and dark text over the empty track. */
+const BarTitle: React.FC<{text: string; color: string; fillPct: number}> = ({
+  text,
+  color,
+  fillPct,
+}) => {
+  const label = (textColor: string, clipPath?: string) => (
+    <span
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: 0,
+        padding: '0 8px',
+        display: 'flex',
+        alignItems: 'center',
+        fontSize: 'var(--font-size-1)',
+        fontWeight: 600,
+        color: textColor,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        pointerEvents: 'none',
+        clipPath,
+      }}
+    >
+      {text}
+    </span>
+  );
+  return (
+    <>
+      {label('var(--gray-12)', `inset(0 0 0 ${fillPct}%)`)}
+      {label(getReadableTextColor(color) ?? 'var(--gray-12)', `inset(0 ${100 - fillPct}% 0 0)`)}
+    </>
+  );
+};
+
 /**
  * District overview as a set of population meters: each district's colored bar
  * fills toward a shared ideal line; population past ideal renders in a darker
@@ -149,6 +189,7 @@ export const DistrictMeters = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const access = useMapStore(state => state.mapStatus?.access);
   const documentComments = useMapStore(state => state.mapDocument?.document_comments);
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
   // comment_length_limit 0/null disables descriptions — gate the icon so it
   // can't open empty.
   const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
@@ -163,6 +204,14 @@ export const DistrictMeters = () => {
   }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
+  const renumberZones = useAssignmentsStore(state => state.renumberZones);
+  // Drag-to-renumber: the district being dragged, and the row it's over.
+  const [dragZone, setDragZone] = useState<number | null>(null);
+  const [dropZone, setDropZone] = useState<number | null>(null);
+  const endDrag = () => {
+    setDragZone(null);
+    setDropZone(null);
+  };
 
   // Both Draw and Super Draw default to started-districts-only (small plans
   // default to all); null = no explicit choice yet.
@@ -225,6 +274,14 @@ export const DistrictMeters = () => {
   // starts at the same x.
   const numColWidth = `${String(populationData.length).length + 1}ch`;
   const showRowIcons = superDraw && isEditing;
+  const canReorder = showRowIcons && !isReadOnly;
+  // Width of the leading cell: drag handle, gap, then the number column. With the
+  // handle, the column drops its spare 1ch so the handle doesn't float off left.
+  const numCellWidth = !canReorder
+    ? numColWidth
+    : showDistrictNumbers
+      ? `calc(${HANDLE_WIDTH}px + var(--space-2) + ${String(populationData.length).length}ch)`
+      : HANDLE_WIDTH;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
@@ -240,14 +297,7 @@ export const DistrictMeters = () => {
       : undefined;
 
   return (
-    <Flex
-      direction="column"
-      gap="0"
-      mt="2"
-      // Centered once the sidebar is wider than the cap, rather than left-hugging
-      // with all the slack on one side.
-      style={{maxWidth: MAX_METERS_WIDTH, width: '100%', marginInline: 'auto'}}
-    >
+    <Flex direction="column" gap="0" mt="2" width="100%">
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
@@ -261,16 +311,18 @@ export const DistrictMeters = () => {
               from under their labels. */}
           <Flex
             gap="2"
-            px="1"
+            px="2"
             pb="1"
             align="end"
             style={
               rowsScroll
-                ? {paddingRight: `calc(var(--space-1) + ${SCROLL_RESERVED_WIDTH})`}
+                ? {paddingRight: `calc(var(--space-2) + ${SCROLL_RESERVED_WIDTH})`}
                 : undefined
             }
           >
-            {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
+            {(canReorder || showDistrictNumbers) && (
+              <Box style={{width: numCellWidth, flexShrink: 0}} />
+            )}
             {showRowIcons && (
               /* Mirrors the rows' icon cluster exactly — an invisible twin of
                  the comment button, then the lock — so the lock-all lands
@@ -361,6 +413,15 @@ export const DistrictMeters = () => {
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
+                const alias = zoneAliases?.[d.zone];
+                // Where the dragged district would land: a line on the edge it
+                // would take this row's place from.
+                const dropEdge =
+                  dragZone !== null && dropZone === d.zone && dragZone !== d.zone
+                    ? dragZone < d.zone
+                      ? 'bottom'
+                      : 'top'
+                    : null;
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -369,28 +430,88 @@ export const DistrictMeters = () => {
                     key={d.zone}
                     align="center"
                     gap="2"
-                    px="1"
+                    px="2"
                     // Clicking anywhere on the row selects it, but the row
                     // itself stays a plain div: a role="button" wrapping the
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
                     onClick={() => selectCommunity(d.zone)}
+                    onDragOver={e => {
+                      if (dragZone === null) return;
+                      e.preventDefault();
+                      setDropZone(d.zone);
+                    }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      if (dragZone !== null) renumberZones(moveZoneMapping(dragZone, d.zone));
+                      endDrag();
+                    }}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                     }`}
-                    style={{height: ROW_HEIGHT}}
+                    style={{
+                      height: ROW_HEIGHT,
+                      opacity: dragZone === d.zone ? 0.5 : 1,
+                      boxShadow: dropEdge
+                        ? `inset 0 ${dropEdge === 'top' ? 2 : -2}px 0 var(--accent-9)`
+                        : undefined,
+                    }}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
-                    {showDistrictNumbers && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{...NUM_CELL_STYLE, width: numColWidth}}
+                    {/* One right-aligned cell: the handle hugs the number at the
+                        same 8px the comment bubble sits after it, whatever the
+                        digit count. */}
+                    {(canReorder || showDistrictNumbers) && (
+                      <Flex
+                        align="center"
+                        justify="end"
+                        gap="2"
+                        flexShrink="0"
+                        style={{width: numCellWidth}}
                       >
-                        {d.zone}
-                      </Text>
+                        {canReorder && (
+                          <Tooltip content="Drag to renumber">
+                            <Flex
+                              draggable
+                              role="img"
+                              aria-label={`Drag to renumber district ${d.zone}`}
+                              // Like the comment bubble: shown for the selected row,
+                              // otherwise only while the row is hovered.
+                              className={`cursor-grab text-[var(--gray-9)] transition-opacity duration-200 ${
+                                selectedZone === d.zone
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              style={{width: HANDLE_WIDTH, flexShrink: 0}}
+                              onClick={e => e.stopPropagation()}
+                              onDragStart={e => {
+                                // Firefox won't start a drag without data.
+                                e.dataTransfer.setData('text/plain', String(d.zone));
+                                e.dataTransfer.effectAllowed = 'move';
+                                const row = e.currentTarget.closest<HTMLElement>(
+                                  '[data-testid^="district-meter-row-"]'
+                                );
+                                row && e.dataTransfer.setDragImage(row, 8, ROW_HEIGHT / 2);
+                                setDragZone(d.zone);
+                              }}
+                              onDragEnd={endDrag}
+                            >
+                              <DragHandleDots2Icon />
+                            </Flex>
+                          </Tooltip>
+                        )}
+                        {showDistrictNumbers && (
+                          <Text
+                            size="2"
+                            color={offScale ? 'red' : 'gray'}
+                            weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                            style={NUM_CELL_STYLE}
+                          >
+                            {d.zone}
+                          </Text>
+                        )}
+                      </Flex>
                     )}
                     {/* Comment and per-district lock are Super Draw features.
                         Icons manage their own interactions; don't let clicks
@@ -442,7 +563,7 @@ export const DistrictMeters = () => {
                         so it needs no onClick of its own. */}
                     <button
                       type="button"
-                      aria-label={`Select district ${d.zone}`}
+                      aria-label={`Select district ${d.zone}${alias ? ` (${alias})` : ''}`}
                       className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
                       style={{
                         flexGrow: 1,
@@ -558,6 +679,13 @@ export const DistrictMeters = () => {
                           }}
                         />
                       )}
+                      {alias && (
+                        <BarTitle
+                          text={alias}
+                          color={color}
+                          fillPct={offScale ? 100 : Math.min(fill, 1) * 100}
+                        />
+                      )}
                     </button>
                     {showPopNumbers && (
                       <Text
@@ -607,7 +735,7 @@ export const DistrictMeters = () => {
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
       <Flex
         gap="4"
-        px="1"
+        px="2"
         pt="3"
         mt="2"
         justify="between"

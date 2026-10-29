@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any, Literal
 import anyio
+import json
 import msgpack
 import psutil
 import time
@@ -998,11 +999,29 @@ def _sync_update_assignments(
                 stmt,
             )
 
+        if data.metadata.zone_aliases is not None:
+            stmt = text("""UPDATE document.document
+                SET map_metadata = jsonb_set(
+                    COALESCE(map_metadata::jsonb, '{}'::jsonb),
+                    '{zone_aliases}', CAST(:aliases AS jsonb)
+                )::json
+                WHERE document_id = :document_id""").bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+            )
+            session.connection().execute(
+                stmt,
+                {
+                    "document_id": document_id,
+                    "aliases": json.dumps(data.metadata.zone_aliases),
+                },
+            )
+
     if data.metadata is not None and (
         data.metadata.num_districts is not None
         or data.metadata.color_scheme is not None
         or data.metadata.num_communities is not None
         or data.metadata.community_metadata_list is not None
+        or data.metadata.zone_aliases is not None
     ):
         mutated = True
 
@@ -1852,7 +1871,10 @@ def update_districtrmap_metadata(
         previous = document.map_metadata or {}
         merged = {
             **previous,
-            **metadata.model_dump(exclude_unset=True),
+            # zone_aliases follow the district numbering, so they are written only by
+            # the conflict-checked PUT /api/assignments; a stale tab's form here would
+            # otherwise silently overwrite them.
+            **metadata.model_dump(exclude_unset=True, exclude={"zone_aliases"}),
         }
         stmt = (
             update(Document)

@@ -15,6 +15,9 @@ type PutUpdateAssignmentsAndVerifyResponse =
       ok: true;
       response: {
         updated_at: string;
+        /** An edit landed while the save was in flight: the map stays dirty and the
+         * next save sends it, so callers mustn't mark it clean or announce a save. */
+        superseded?: boolean;
       };
     }
   | {
@@ -27,12 +30,16 @@ export const putUpdateAssignmentsAndVerify = async ({
   shatterIds,
   childToParent,
   overwrite = false,
+  clientLastUpdatedAtStart = useAssignmentsStore.getState().clientLastUpdated,
 }: {
   mapDocument: DocumentObject;
   zoneAssignments: Map<string, NullableZone>;
   shatterIds: AssignmentsStore['shatterIds'];
   childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
+  /** The client clock when the caller read the state being saved; an edit after it
+   * means this save is superseded. */
+  clientLastUpdatedAtStart?: string;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
@@ -72,6 +79,9 @@ export const putUpdateAssignmentsAndVerify = async ({
         mapDocument.num_districts && mapDocument.num_districts_modifiable
           ? mapDocument.num_districts
           : undefined,
+      // {} rather than null for "no aliases": the server reads null as "leave them",
+      // which would keep another tab's aliases after a "Use local" overwrite.
+      zone_aliases: mapDocument.map_metadata?.zone_aliases ?? {},
     },
     comments,
   });
@@ -155,6 +165,29 @@ export const putUpdateAssignmentsAndVerify = async ({
     });
   }
 
+  const updated_at = assignmentsPostResponse.response.updated_at;
+  // The user may have left this map mid-save; then only its IDB copy gets the result,
+  // and the map now open keeps its own state.
+  const stillOpen = () =>
+    useMapStore.getState().mapDocument?.document_id === mapDocument.document_id;
+  // The sidebar stays live while a save is in flight (an alias, a description, an
+  // undo). If anything changed meanwhile, don't overwrite it with this save's
+  // snapshot or mark it clean: adopt the new server timestamp, re-stamp IDB with
+  // the current state as a local edit, and let the next save send it.
+  const editedSinceStart = () =>
+    stillOpen() && useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtStart;
+  const supersede = (): PutUpdateAssignmentsAndVerifyResponse => {
+    useMapStore.getState().mutateMapDocument({updated_at});
+    idb.updateIdbAssignments(
+      useMapStore.getState().mapDocument!,
+      useAssignmentsStore.getState().zoneAssignments,
+      new Date().toISOString(),
+      true
+    );
+    return {ok: true, response: {updated_at, superseded: true}};
+  };
+  if (editedSinceStart()) return supersede();
+
   await idb.updateDocument({
     id: mapDocument.document_id,
     document_metadata: {
@@ -165,6 +198,9 @@ export const putUpdateAssignmentsAndVerify = async ({
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
   });
+  if (!stillOpen()) return {ok: true, response: {updated_at}};
+  // Re-check across the IDB write's await.
+  if (editedSinceStart()) return supersede();
   // Pause zundo before syncing clientLastUpdated to the server timestamp.
   // setClientLastUpdated triggers temporalDiff, which would otherwise treat this
   // server-sync as a user edit: pushing a snapshot onto pastStates and clearing
