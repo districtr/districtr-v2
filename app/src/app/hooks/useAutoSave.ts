@@ -1,5 +1,6 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
+import type {Map as MapLibreMap} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -7,12 +8,28 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useAssignmentRepairStore} from '@/app/store/assignmentRepairStore';
 import {useMapSaveStatus} from './useMapSaveStatus';
 import {ACCESS_STATES} from '@constants/document/state';
-import {AUTOSAVE_DEBOUNCE_MS} from '@constants/document/sync';
+import {AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS} from '@constants/document/sync';
+import {createIdleSaveTimer} from '@utils/sync/idleSaveTimer';
+
+// Any of these counts as the user still working, pushing the save back.
+const ACTIVITY_EVENTS = [
+  'pointerdown',
+  'pointermove',
+  'keydown',
+  'wheel',
+  'scroll',
+  'touchstart',
+] as const;
+
+// A save that comes due mid-brushstroke checks again this often until the stroke ends.
+const PAINTING_RETRY_MS = 1000;
 
 /**
- * Auto-saves pending changes while editing: 30 seconds after a painting session
- * ends (each edit resets the timer, so it never fires mid-brushstroke), and
- * immediately on tab close/hide or window unfocus.
+ * Auto-saves pending changes while editing: once the user has been idle for 30
+ * seconds (any pointer, key, scroll or map move resets the wait), but no later
+ * than 3 minutes after the first unsaved edit; and immediately on tab close/hide
+ * or window unfocus. The cap can land mid-gesture: mid-brushstroke it waits for
+ * the stroke to end, and an edit made while a save runs stays unsaved for the next.
  *
  * Returns `isAutoSaving`, true while a timer-driven save runs (held for a
  * minimum beat so an instant save doesn't read as a UI glitch) — drives the
@@ -67,16 +84,43 @@ export function useAutoSave() {
       }
     };
 
-    // Debounced save: each client edit (paint, comment, undo) bumps the store's
-    // clientLastUpdated and resets this timer, so the save lands 30s after the
-    // painting session ends. Post-save server syncs also bump clientLastUpdated
-    // — those match mapDocument.updated_at and are skipped so a save doesn't
-    // reschedule itself.
-    let idleTimer: ReturnType<typeof setTimeout>;
+    // Idle save: the first client edit (paint, comment, undo) after a save arms
+    // the timer, and any interaction pushes it back until the user goes idle or
+    // the cap since that first edit runs out.
+    let map: MapLibreMap | undefined;
+    let disposed = false;
+    const endCycle = () => {
+      timer.cancel();
+      map?.off('move', timer.activity);
+      map = undefined;
+    };
+    const timer = createIdleSaveTimer(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS, () => {
+      // The cap can come due mid-brushstroke; the save's lock would cut the stroke off.
+      if (useMapControlsStore.getState().isPainting) {
+        timer.postpone(PAINTING_RETRY_MS);
+        return;
+      }
+      endCycle();
+      saveWithNotice();
+    });
     const onClientLastUpdated = (clientLastUpdated: string) => {
-      if (clientLastUpdated === useMapStore.getState().mapDocument?.updated_at) return;
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(saveWithNotice, AUTOSAVE_DEBOUNCE_MS);
+      // Every save (this one, the Save button, blur) ends by setting clientLastUpdated
+      // to the server's updated_at, then copying that onto mapDocument in the same
+      // tick. Check once both have landed: a match means the changes are saved, so
+      // end the cycle and let the next edit start a fresh cap.
+      queueMicrotask(() => {
+        if (disposed) return;
+        if (clientLastUpdated === useMapStore.getState().mapDocument?.updated_at) {
+          endCycle();
+          return;
+        }
+        if (!map) {
+          // Programmatic moves (fly-to, keyboard pan) don't come through the DOM.
+          map = useMapStore.getState().getMapRef();
+          map?.on('move', timer.activity);
+        }
+        timer.arm();
+      });
     };
     const unsubDistrict = useAssignmentsStore.subscribe((state, prev) => {
       if (state.clientLastUpdated !== prev.clientLastUpdated) {
@@ -95,10 +139,15 @@ export function useAutoSave() {
     window.addEventListener('pagehide', saveNow);
     window.addEventListener('blur', saveNow);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    // Capture so scrolls inside panes (which don't bubble) count too.
+    const activityOpts = {capture: true, passive: true};
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, timer.activity, activityOpts));
     return () => {
       unsubDistrict();
       unsubCoi();
-      clearTimeout(idleTimer);
+      disposed = true;
+      endCycle();
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, timer.activity, activityOpts));
       window.removeEventListener('pagehide', saveNow);
       window.removeEventListener('blur', saveNow);
       document.removeEventListener('visibilitychange', onVisibilityChange);
