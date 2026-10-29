@@ -1,6 +1,6 @@
 ---
 name: run-map-onboarding
-description: Walks through onboarding a new geographic layer (a state's blocks/VTDs, a new district plan's base geography, or a COI-module geography) into a usable Districtr map module — from raw GeoPackage through GerryDB import, tileset and graph generation, map-record creation, and shatter-edge wiring. Use when adding a new map/module, changing which commands or order the onboarding pipeline runs in, or debugging why a newly onboarded map won't load, shatter, or pass contiguity checks.
+description: Walks through onboarding a new geographic layer (a state's blocks/VTDs, a new district plan's base geography, or a COI-module geography) into a usable Districtr map module — from raw GeoPackage through GerryDB import, tileset and graph generation, map-record creation, and shatter-edge wiring. Use when adding a new map/module, adding columns such as a new election to an onboarded layer, changing which commands or order the onboarding pipeline runs in, or debugging why a newly onboarded map won't load, shatter, or pass contiguity checks.
 ---
 
 # Map onboarding
@@ -62,7 +62,7 @@ docker-compose exec pipelines python cli.py transforms create-graph \
   --gerrydb-name <gerrydb-table-name> --upload
 ```
 
-The child GeoPackage must contain a `gerrydb_graph_edge` layer (produced by the aggregate/transform step upstream, if the child geography wasn't produced directly with one). `--gerrydb-name` becomes the S3 key (`graphs/<gerrydb-name>.npz`, read at runtime by `app/evaluation/graph_loader.get_graph`) — it must match the `gerrydb-table-name` used in step 5, or contiguity lookups for the finished map will silently miss the graph.
+The child GeoPackage must contain a `gerrydb_graph_edge` layer. It comes with the source GeoPackage; no command in this repo produces one. `--gerrydb-name` becomes the S3 key (`graphs/<gerrydb-name>.npz`, read at runtime by `app/evaluation/graph_loader.get_graph`) — it must match the `gerrydb-table-name` used in step 5, or contiguity lookups for the finished map will silently miss the graph.
 
 **Verify**: the command reports a written path; if `--upload`, confirm the object lands at `s3://<bucket>/graphs/<gerrydb-name>.npz`.
 
@@ -85,6 +85,46 @@ docker-compose exec backend python cli.py create-districtr-map \
 - `docker-compose exec backend python cli.py check-missing-graphs --skip-alert` confirms the graph npz this map needs is actually reachable in S3.
 - Hit `GET /api/gerrydb/views` and create a test `Document` via `POST /api/document` against the new slug; confirm the map loads, shatters (if applicable), and a contiguity check returns without error.
 - Only then flip `visible` to `true` (via `update-districtr-map --visibility true`, or leave it visible from creation).
+
+## Adding columns to an onboarded layer
+
+For new data on a state that is already onboarded, such as a new election. Existing values are never changed: every named column must be new, or hold only NULLs left by an interrupted run. Steps 3–5 run in the backend container of each environment, one environment at a time.
+
+1. **Merge the CSV into the GeoPackages** (pipelines). Block values join on the CSV's `geoid20`; each parent's values are the sums of its blocks, with membership read from the map's graph npz. Writes copies of both files to `--out-dir`; the inputs are untouched.
+
+   ```bash
+   docker-compose exec pipelines python cli.py transforms add-block-columns \
+     -b <block.gpkg> -p <parent.gpkg> --csv <blocks.csv> \
+     --graph <graphs/view.npz> --columns <c1,c2> --out-dir <dir>
+   ```
+
+2. **Replace the GeoPackages in the bucket's `gerrydb/` prefix** with the two copies, after backing up the originals. The backend reads them only when a command runs.
+3. **Fill both tables**, parent and child. The table is the GeoPackage's file name. The command refuses a GeoPackage whose paths don't match the table's exactly.
+
+   ```bash
+   docker-compose exec backend python cli.py add-gerrydb-columns \
+     --gpkg <s3://…/gerrydb/table.gpkg> --columns <c1,c2>
+   ```
+
+4. **Rebuild the shatterable view.** It is built under a temporary name and swapped in; the swap waits up to 10 s for current readers, so run it off-peak.
+
+   ```bash
+   docker-compose exec backend python cli.py rebuild-shatterable-view \
+     --gerrydb-table-name <view>
+   ```
+
+5. **Invalidate cached stats and evaluations**, naming the view and both tables (maps that read a table directly see the columns right after its fill). Run with `--dry-run` first to see the counts per name.
+
+   ```bash
+   docker-compose exec backend python cli.py invalidate-document-caches \
+     -n <view> -n <parent-table> -n <child-table> [--dry-run]
+   ```
+
+6. **Rebuild and upload the view's parquet**, which feeds the frontend's demography table (`tabular build-parquet --parent-layer … --child-layer … -o <view>.parquet -f --upload`), then invalidate its CDN cache key. Do this last: the CDN serves the parquet to every environment reading the bucket, so upload it only once every environment's database has the columns.
+
+No backend restart is needed: county data for the splits and Eguia metrics reloads itself when an evaluation asks for a new election. A correction to the values of an existing column shows in those metrics only after a restart.
+
+**Verify**: a document created before the change shows the new columns in its district stats and its evaluation metrics.
 
 ## Batch onboarding
 
