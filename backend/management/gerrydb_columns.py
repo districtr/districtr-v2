@@ -4,8 +4,9 @@ The three steps run in this order for each layer pair of a shatterable view:
 
 1. `add_gerrydb_columns` on the parent and the child table.
 2. `rebuild_shatterable_view` on the view that unions them.
-3. `invalidate_document_caches` on the same view, so documents recompute
-   their cached stats and evaluations on next read.
+3. `invalidate_document_caches` on the view and both tables, so documents on
+   maps that read any of them recompute their cached stats and evaluations on
+   next read.
 
 Values already in a GerryDB table never change: every added column must be new
 to the table.
@@ -163,8 +164,9 @@ def add_gerrydb_columns(
 
     # Adding a nullable column is instant but needs an exclusive lock, which
     # would block every reader of the table until the UPDATE finished. It is
-    # committed on its own; the new columns stay invisible to requests until
-    # the shatterable view is rebuilt, because stats read the view.
+    # committed on its own. Maps on the shatterable view see the new columns
+    # only after the rebuild; maps that read this table directly see them at
+    # once, as NULL until the fill commits.
     if to_add:
         session.execute(sa.text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
         session.execute(
@@ -286,53 +288,58 @@ class InvalidationCounts:
 
 
 def invalidate_document_caches(
-    session: Session, gerrydb_table_name: str, dry_run: bool = False
-) -> InvalidationCounts:
-    """Drop cached derivatives of `gerrydb_table_name` so they recompute on next read.
+    session: Session, gerrydb_table_names: list[str], dry_run: bool = False
+) -> dict[str, InvalidationCounts]:
+    """Drop the cached derivatives of the named tables and views.
 
-    For every document on a districtr map with this `gerrydb_table_name`:
-    deletes its `document.district_unions` and `document.evaluation` rows and
-    clears `stats_published_at`, so `/stats` computes inline and republishes
-    instead of redirecting to the published GeoJSON. Documents on other gerrydb
-    tables keep all their rows. With `dry_run`, only counts. County aggregates
-    refresh themselves when an evaluation asks for a new column
-    (`CountyContext.eguia_ideal`).
+    For every document on a districtr map whose `gerrydb_table_name` is one of
+    the names: deletes its `document.district_unions` and `document.evaluation`
+    rows and clears `stats_published_at`, so `/stats` computes inline and
+    republishes instead of redirecting to the published GeoJSON. Documents on
+    other gerrydb tables keep all their rows. Returns the counts per name; with
+    `dry_run`, only counts. A name no map reads counts zero, but at least one
+    name must have maps. County aggregates refresh themselves when an
+    evaluation asks for a new column (`CountyContext.eguia_ideal`).
     """
-    slugs = session.exec(
-        select(DistrictrMap.districtr_map_slug).where(
-            DistrictrMap.gerrydb_table_name == gerrydb_table_name
-        )
-    ).all()
-    if not slugs:
-        raise ValueError(f"No districtr maps use gerrydb table {gerrydb_table_name}")
-
-    document_ids = select(Document.document_id).where(
-        col(Document.districtr_map_slug).in_(slugs)
-    )
-    unions_filter = col(DistrictUnions.document_id).in_(document_ids)
-    evaluations_filter = col(Evaluation.document_id).in_(document_ids)
-    published_filter = sa.and_(
-        col(Document.districtr_map_slug).in_(slugs),
-        col(Document.stats_published_at).is_not(None),
-    )
 
     def count(model, condition) -> int:
         return session.exec(
             select(func.count()).select_from(model).where(condition)
         ).one()
 
-    counts = InvalidationCounts(
-        documents=count(Document, col(Document.districtr_map_slug).in_(slugs)),
-        district_unions=count(DistrictUnions, unions_filter),
-        evaluations=count(Evaluation, evaluations_filter),
-        stats_published=count(Document, published_filter),
-    )
+    def filters(slugs: list[str]):
+        on_maps = col(Document.districtr_map_slug).in_(slugs)
+        document_ids = select(Document.document_id).where(on_maps)
+        return (
+            on_maps,
+            col(DistrictUnions.document_id).in_(document_ids),
+            col(Evaluation.document_id).in_(document_ids),
+            sa.and_(on_maps, col(Document.stats_published_at).is_not(None)),
+        )
+
+    all_slugs: list[str] = []
+    counts: dict[str, InvalidationCounts] = {}
+    for name in gerrydb_table_names:
+        slugs = session.exec(
+            select(DistrictrMap.districtr_map_slug).where(
+                DistrictrMap.gerrydb_table_name == name
+            )
+        ).all()
+        all_slugs.extend(slugs)
+        documents, unions, evaluations, published = filters(slugs)
+        counts[name] = InvalidationCounts(
+            documents=count(Document, documents),
+            district_unions=count(DistrictUnions, unions),
+            evaluations=count(Evaluation, evaluations),
+            stats_published=count(Document, published),
+        )
+    if not all_slugs:
+        raise ValueError(f"No districtr maps use any of {gerrydb_table_names}")
     if dry_run:
         return counts
 
-    session.execute(delete(DistrictUnions).where(unions_filter))
-    session.execute(delete(Evaluation).where(evaluations_filter))
-    session.execute(
-        update(Document).where(published_filter).values(stats_published_at=None)
-    )
+    _, unions, evaluations, published = filters(all_slugs)
+    session.execute(delete(DistrictUnions).where(unions))
+    session.execute(delete(Evaluation).where(evaluations))
+    session.execute(update(Document).where(published).values(stats_published_at=None))
     return counts

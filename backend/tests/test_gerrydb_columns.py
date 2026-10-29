@@ -440,7 +440,9 @@ def test_invalidate_document_caches_scoped_to_target_table(
     assert target_before[0] > 0 and target_before[1:] == (1, True)
     assert other_before[0] > 0 and other_before[1:] == (1, True)
 
-    dry = invalidate_document_caches(session, "simple_geos", dry_run=True)
+    dry = invalidate_document_caches(session, ["simple_geos"], dry_run=True)[
+        "simple_geos"
+    ]
     assert (
         dry.documents,
         dry.district_unions,
@@ -449,18 +451,46 @@ def test_invalidate_document_caches_scoped_to_target_table(
     ) == (1, target_before[0], 1, 1)
     assert _cache_state(session, target) == target_before
 
-    counts = invalidate_document_caches(session, "simple_geos")
+    counts = invalidate_document_caches(session, ["simple_geos"])["simple_geos"]
     assert counts == dry
     assert _cache_state(session, target) == (0, 0, False)
     assert _cache_state(session, other) == other_before
 
     # Re-running over already-invalidated documents is a no-op.
-    again = invalidate_document_caches(session, "simple_geos")
+    again = invalidate_document_caches(session, ["simple_geos"])["simple_geos"]
     assert (again.district_unions, again.evaluations, again.stats_published) == (
         0,
         0,
         0,
     )
+
+
+def test_invalidate_document_caches_covers_every_named_table(
+    client,
+    session: Session,
+    simple_shatterable_districtr_map,
+    ks_demo_view_census_blocks_districtrmap,
+):
+    """A view and a table read directly by another map, plus a table no map
+    reads, are invalidated in one call."""
+    on_view = _create_document(client, "simple_geos")
+    on_table = _create_document(client, GERRY_DB_FIXTURE_NAME)
+    _seed_caches(session, on_view)
+    _seed_caches(session, on_table)
+    names = ["simple_geos", GERRY_DB_FIXTURE_NAME, "simple_parent_geos"]
+
+    counts = invalidate_document_caches(session, names)
+
+    assert [counts[n].documents for n in names] == [1, 1, 0]
+    assert _cache_state(session, on_view) == (0, 0, False)
+    assert _cache_state(session, on_table) == (0, 0, False)
+
+
+def test_invalidate_document_caches_refuses_names_no_map_reads(
+    session: Session, simple_shatterable_districtr_map
+):
+    with pytest.raises(ValueError, match="No districtr maps use any of"):
+        invalidate_document_caches(session, ["simple_parent_geos", "no_such_table"])
 
 
 def test_stats_recompute_after_invalidation_include_new_columns(
@@ -482,7 +512,7 @@ def test_stats_recompute_after_invalidation_include_new_columns(
         for zone in _read_stats(client, document_id)
     )
 
-    invalidate_document_caches(session, "simple_geos")
+    invalidate_document_caches(session, ["simple_geos"])
     zones = {zone["zone"]: zone for zone in _read_stats(client, document_id)}
 
     assert set(zones) == {1, 2, None}

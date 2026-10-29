@@ -359,8 +359,9 @@ def create_shatterable_gerrydb_view(
 def add_gerrydb_columns(session: Session, gpkg: str, columns: str):
     """Add GeoPackage columns to an onboarded GerryDB table, joined on path.
 
-    Run rebuild-shatterable-view and invalidate-document-caches afterwards
-    for every view built on the table.
+    Run rebuild-shatterable-view on every view built on the table, then
+    invalidate-document-caches on the view and its tables: maps that read the
+    table directly see the new columns at once.
     """
     result = _add_gerrydb_columns(
         session=session,
@@ -401,7 +402,10 @@ def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
 @click.option(
     "--gerrydb-table-name",
     "-n",
-    help="GerryDB table or shatterable view whose documents to invalidate",
+    "gerrydb_table_names",
+    multiple=True,
+    help="GerryDB table or shatterable view whose documents to invalidate; "
+    "repeat for each table and view whose columns changed",
     required=True,
 )
 @click.option(
@@ -412,22 +416,26 @@ def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
 )
 @with_session
 def invalidate_document_caches(
-    session: Session, gerrydb_table_name: str, dry_run: bool
+    session: Session, gerrydb_table_names: tuple[str, ...], dry_run: bool
 ):
-    """Drop cached stats and evaluations of documents on a GerryDB table.
+    """Drop cached stats and evaluations of documents on GerryDB tables or views.
 
     Affected documents recompute district stats and evaluation metrics on their
-    next read.
+    next read. After adding columns, name the shatterable view and both of its
+    tables, so maps that read a table directly are included.
     """
     counts = _invalidate_document_caches(
-        session=session, gerrydb_table_name=gerrydb_table_name, dry_run=dry_run
+        session=session,
+        gerrydb_table_names=list(gerrydb_table_names),
+        dry_run=dry_run,
     )
     verb = "Would affect" if dry_run else "Affected"
-    click.echo(f"{verb}, for maps on {gerrydb_table_name}:")
-    click.echo(f"  documents: {counts.documents}")
-    click.echo(f"  document.district_unions rows: {counts.district_unions}")
-    click.echo(f"  document.evaluation rows: {counts.evaluations}")
-    click.echo(f"  stats_published_at cleared: {counts.stats_published}")
+    for name, c in counts.items():
+        click.echo(f"{verb}, for maps on {name}:")
+        click.echo(f"  documents: {c.documents}")
+        click.echo(f"  document.district_unions rows: {c.district_unions}")
+        click.echo(f"  document.evaluation rows: {c.evaluations}")
+        click.echo(f"  stats_published_at cleared: {c.stats_published}")
 
 
 @cli.command("add-extent-to-districtr-map")
