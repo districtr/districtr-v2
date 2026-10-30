@@ -1,10 +1,6 @@
-import {VectorSourceSpecification} from 'maplibre-gl';
-import {TILESET_URL} from '../../utils/api/constants';
+import {TILESET_URL, TILES_WORKER_URL} from '../../utils/api/constants';
 
-export function getBlocksSource(layer_subpath: string): VectorSourceSpecification {
-  return {
-    type: 'vector',
-    url: `pmtiles://${TILESET_URL}/${layer_subpath}`,
-    promoteId: 'path',
-  };
-}
+/** Source URL for a district tileset. Both forms contain `tilesPath`, which
+ * handleDataLoad matches against the map document's tiles_s3_path. */
+export const blocksTilesUrl = (tilesPath: string) =>
+  TILES_WORKER_URL ? `${TILES_WORKER_URL}/${tilesPath}` : `pmtiles://${TILESET_URL}/${tilesPath}`;
