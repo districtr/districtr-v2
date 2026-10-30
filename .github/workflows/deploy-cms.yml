@@ -27,7 +27,8 @@ concurrency:
 jobs:
   deploy:
     name: Deploy CMS
-    runs-on: ubuntu-latest
+    # Native arm64 build: the Fargate tasks run ARM64 (Graviton).
+    runs-on: ubuntu-24.04-arm
     # Prod is gated by its own variable (AWS_DEPLOY_CMS_PROD, not the shared
     # AWS_DEPLOY_PROD): the CMS must stay dev-only until cutover without
     # having to disable the existing production API/app deploys.
@@ -91,6 +92,7 @@ jobs:
               --query taskDefinition |
             jq --arg IMAGE "${{ steps.image.outputs.image }}" \
               '.containerDefinitions[0].image = $IMAGE
+               | .runtimePlatform.cpuArchitecture = "ARM64"
                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                      .compatibilities, .registeredAt, .registeredBy)')
           TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" \

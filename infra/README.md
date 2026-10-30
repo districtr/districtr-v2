@@ -156,6 +156,10 @@ Mechanics:
   branches never run (and could not assume the deploy role regardless).
 - Per-workflow concurrency groups + state-lock retry let a push touching
   backend + app + infra run all three, serialized on the S3 state lock.
+- **ARM64 (Graviton)**: every task definition is `ARM64`, and the image
+  builds run on `ubuntu-24.04-arm` runners, so the images are arm64-only. The
+  migrate and preview steps clone the live task definition *before*
+  `pulumi up`, so they set `cpuArchitecture` themselves.
 
 ### PR previews
 
@@ -208,7 +212,8 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
 
 - **Rollback**: set `backendImageTag` / `frontendImageTag` / `cmsImageTag` to a known-good SHA
   and `pulumi up` (or re-run the deploy workflow for that SHA). ECR keeps the
-  last 20 images. An image rollback can't cross a migration that dropped
+  last 20 images. A SHA from before the ARM64 switch is an x86 image and
+  fails to start (`exec format error`), so roll back only to a SHA built after it. An image rollback can't cross a migration that dropped
   something the old code reads; the Wagtail cutover's legacy-comment drop is
   one, and rolling it back means restoring the pre-deploy RDS snapshot
   (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`). After a snapshot restore or a manual

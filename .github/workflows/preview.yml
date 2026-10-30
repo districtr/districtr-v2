@@ -54,7 +54,8 @@ env:
 jobs:
   preview:
     name: AWS preview
-    runs-on: ubuntu-latest
+    # Native arm64 build: the Fargate tasks run ARM64 (Graviton).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     # Act when a preview label is present (deploy; also covers close/merge
     # while still labeled -> teardown), or when a preview label was just
@@ -219,6 +220,7 @@ jobs:
                --arg PARAM "$PARAM_ARN" --arg PREFIX "pr-${PR}" \
               '.family = $FAMILY
                | .containerDefinitions[0].image = $IMAGE
+               | .runtimePlatform.cpuArchitecture = "ARM64"
                | (.containerDefinitions[0].secrets[] | select(.name == "DATABASE_URL") | .valueFrom) = $PARAM
                | .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = $PREFIX
                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
@@ -265,6 +267,7 @@ jobs:
                --arg PREFIX "pr-${PR}" \
               '.family = $FAMILY
                | .containerDefinitions[0].image = $IMAGE
+               | .runtimePlatform.cpuArchitecture = "ARM64"
                | (.containerDefinitions[0].secrets[] | select(.name == "DATABASE_URL") | .valueFrom) = $PARAM
                | (.containerDefinitions[0].environment[] | select(.name == "DOMAIN") | .value) = $HOST
                | (.containerDefinitions[0].environment[] | select(.name == "BACKEND_CORS_ORIGINS") | .value) = $CORS
@@ -392,6 +395,7 @@ jobs:
                --arg BASE "$FE_URL" --arg API "$API_URL" --arg PREFIX "pr-${PR}" \
               '.family = $FAMILY
                | .containerDefinitions[0].image = $IMAGE
+               | .runtimePlatform.cpuArchitecture = "ARM64"
                | (.containerDefinitions[0].environment[] | select(.name == "APP_BASE_URL") | .value) = $BASE
                | (.containerDefinitions[0].environment[] | select(.name == "NEXT_SERVER_API_URL") | .value) = $API
                | .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = $PREFIX

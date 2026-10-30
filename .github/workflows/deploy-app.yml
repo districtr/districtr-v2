@@ -27,7 +27,8 @@ env:
 jobs:
   deploy:
     name: Deploy app
-    runs-on: ubuntu-latest
+    # Native arm64 build: the Fargate tasks run ARM64 (Graviton).
+    runs-on: ubuntu-24.04-arm
     # Runs only on dev/main (other branches can't assume the deploy role via
     # OIDC anyway). On push, gated by the per-stack repo var (AWS_DEPLOY_DEV /
     # AWS_DEPLOY_PROD); workflow_dispatch runs on dev/main without the var.

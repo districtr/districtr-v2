@@ -57,7 +57,7 @@ export function createGraphCheck(
     memory: "1024",
     networkMode: "awsvpc",
     requiresCompatibilities: ["FARGATE"],
-    runtimePlatform: {cpuArchitecture: "X86_64", operatingSystemFamily: "LINUX"},
+    runtimePlatform: {cpuArchitecture: "ARM64", operatingSystemFamily: "LINUX"},
     executionRoleArn: executionRole.arn,
     taskRoleArn: taskRole.arn,
     containerDefinitions: pulumi.jsonStringify([
