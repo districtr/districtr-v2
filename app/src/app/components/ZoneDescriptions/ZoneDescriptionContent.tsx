@@ -145,10 +145,9 @@ const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone,
           rows={5}
           placeholder="Description"
           aria-label={`Description for ${heading}`}
-          value={body.draft}
           maxLength={maxLength}
+          {...body.fieldProps}
           onChange={e => body.setDraft(e.target.value)}
-          onBlur={body.flush}
         />
         <Text size="1" color="gray" className="absolute bottom-0 right-0 pr-2">
           {body.draft.length}/{maxLength}

@@ -7,8 +7,9 @@ import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
 
 /**
  * Edits a district's label, starting from what's shown (its number by default).
- * Saves on blur, Enter or unmount; clearing it goes back to the number. A label
- * another district already has is refused with a notice.
+ * Saves on blur, Enter or unmount, and Escape discards the edit; clearing it
+ * goes back to the number. A label another district already has is refused
+ * with a notice.
  */
 export const ZoneLabelField: React.FC<{
   zone: number;
@@ -31,9 +32,9 @@ export const ZoneLabelField: React.FC<{
       placeholder={String(zone)}
       aria-label="District label"
       autoFocus={autoFocus}
-      value={field.draft}
       maxLength={MAX_COMMUNITY_NAME_LENGTH}
       style={style}
+      {...field.fieldProps}
       onChange={e => field.setDraft(e.target.value)}
       onBlur={() => {
         field.flush();
