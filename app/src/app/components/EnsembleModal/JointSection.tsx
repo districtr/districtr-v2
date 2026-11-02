@@ -1,0 +1,244 @@
+'use client';
+import React, {useMemo, useState} from 'react';
+import {Flex, Select, Spinner, Text} from '@radix-ui/themes';
+import {ParentSize} from '@visx/responsive';
+import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
+import {formatElectionKey} from '@utils/elections';
+import {
+  ensembleExtremeThumbUrl,
+  ensembleListedFileUrl,
+  useEnsembleFrontier,
+  useEnsembleJoint,
+} from './ensembleData';
+import {metricForRef, type EnsembleMetricDef} from './ensembleMetrics';
+import {sliceComparison, sliceGoal, sliceSentence} from './ensembleJoint';
+import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
+import {JointDensity, type JointExtreme, type JointFrontierPoint} from './JointDensity';
+import {isRelevantObjective, objectiveColor, objectiveRank} from './ensembleExtremes';
+import type {EnsembleJointPair, EnsembleMetricsPayload, EnsembleObjective} from './ensembleTypes';
+
+const CHART_HEIGHT = 360;
+const CHART_MAX_WIDTH = 760;
+
+interface ResolvedSeries {
+  def: EnsembleMetricDef;
+  election?: string;
+  label: string;
+}
+
+/** A pair whose two series the modal can name and chart. */
+export interface ResolvedPair {
+  pair: EnsembleJointPair;
+  x: ResolvedSeries;
+  y: ResolvedSeries;
+}
+
+const seriesLabel = (def: EnsembleMetricDef, election?: string) =>
+  election
+    ? fillEnsembleText(ENSEMBLE_MODAL_TEXT.jointAxisElection, {
+        label: def.label,
+        election: formatElectionKey(election),
+      })
+    : def.label;
+
+/** The pairs of an index the modal has metric definitions for, in index order. */
+export const resolvePairs = (pairs: EnsembleJointPair[]): ResolvedPair[] =>
+  pairs.flatMap(pair => {
+    const x = metricForRef(pair.x);
+    const y = metricForRef(pair.y);
+    if (!x || !y) return [];
+    return [
+      {
+        pair,
+        x: {...x, label: seriesLabel(x.def, x.election)},
+        y: {...y, label: seriesLabel(y.def, y.election)},
+      },
+    ];
+  });
+
+export interface JointSectionProps {
+  moduleSlug: string;
+  presetKey: string;
+  presetLabel: string;
+  /** The plan count as the modal's other sentences print it. */
+  planCountText: string;
+  pairs: ResolvedPair[];
+  /** The section is expanded: only then is the chosen pair's file fetched. */
+  open: boolean;
+  evaluation?: DocumentEvaluation;
+  /** The plan selected in the individual-plans section, marked as a second point. */
+  selectedPlan?: EnsembleMetricsPayload;
+  /** That section's sampled plans, dotted onto the density. */
+  sample?: EnsembleMetricsPayload[];
+  planLabel: string;
+  selectedLabel: string;
+  sampleLabel: string;
+  /** The searches' extreme plans; each is marked at its two values. */
+  objectives?: EnsembleObjective[];
+  /** Mark every search's plan, not only the ones bearing on the pair's series. */
+  showAllExtremes?: boolean;
+}
+
+const NO_OBJECTIVES: EnsembleObjective[] = [];
+const NO_SAMPLE: EnsembleMetricsPayload[] = [];
+
+/**
+ * "Two metrics at once": the joint density of a chosen pair of series, with
+ * the evaluated plan and the selected plan marked, the sampled plans dotted,
+ * and one sentence comparing the plans that score best on the first series
+ * with the rest.
+ */
+export const JointSection: React.FC<JointSectionProps> = ({
+  moduleSlug,
+  presetKey,
+  presetLabel,
+  planCountText,
+  pairs,
+  open,
+  evaluation,
+  selectedPlan,
+  sample = NO_SAMPLE,
+  planLabel,
+  selectedLabel,
+  sampleLabel,
+  objectives = NO_OBJECTIVES,
+  showAllExtremes = false,
+}) => {
+  const [pairId, setPairId] = useState<string | null>(null);
+  const selected = pairs.find(entry => entry.pair.id === pairId) ?? pairs[0];
+  const jointQuery = useEnsembleJoint(moduleSlug, presetKey, selected?.pair, open);
+  const joint = jointQuery.data;
+  // Fetched only for a pair whose index entry names a frontier file.
+  const frontierQuery = useEnsembleFrontier(moduleSlug, presetKey, selected?.pair, open);
+  const frontier = useMemo((): JointFrontierPoint[] | undefined => {
+    const points = frontierQuery.data?.points;
+    if (!points) return undefined;
+    return points.map(point => ({
+      x: point.x,
+      y: point.y,
+      label: ENSEMBLE_MODAL_TEXT.jointFrontierLegend,
+      thumbUrl: point.thumb ? ensembleListedFileUrl(moduleSlug, presetKey, point.thumb) : undefined,
+    }));
+  }, [frontierQuery.data, moduleSlug, presetKey]);
+
+  // Each search's best plan at its two values; by default only the searches
+  // that bear on either series of the pair.
+  const extremes = useMemo((): JointExtreme[] => {
+    if (!selected) return [];
+    const {x, y} = selected;
+    return objectives
+      .filter(
+        objective =>
+          objective.plans.length > 0 &&
+          (showAllExtremes ||
+            isRelevantObjective(x.def.id, objective.key) ||
+            isRelevantObjective(y.def.id, objective.key))
+      )
+      .sort((a, b) => objectiveRank(a.key) - objectiveRank(b.key))
+      .flatMap(objective => {
+        const best = objective.plans[0];
+        if (!best.metrics) return [];
+        return [
+          {
+            key: objective.key,
+            label: objective.label,
+            color: objectiveColor(objective.key),
+            x: x.def.stepValue(best.metrics, x.election),
+            y: y.def.stepValue(best.metrics, y.election),
+            thumbUrl: ensembleExtremeThumbUrl(moduleSlug, presetKey, objective.key, 0, best.thumb),
+          },
+        ];
+      });
+  }, [objectives, selected, showAllExtremes, moduleSlug, presetKey]);
+
+  const sentence = useMemo(() => {
+    if (!joint || !selected) return null;
+    const result = sliceComparison(joint, sliceGoal(selected.x.def.id));
+    return result
+      ? sliceSentence({result, preset: presetLabel, x: selected.x, y: selected.y})
+      : null;
+  }, [joint, selected, presetLabel]);
+
+  if (!selected) return null;
+  const {x, y} = selected;
+  const plan = evaluation
+    ? {x: x.def.planValue(evaluation, x.election), y: y.def.planValue(evaluation, y.election)}
+    : undefined;
+  const selectedPoint = selectedPlan
+    ? {
+        x: x.def.stepValue(selectedPlan, x.election),
+        y: y.def.stepValue(selectedPlan, y.election),
+      }
+    : undefined;
+  const samplePoints = sample.map(metrics => ({
+    x: x.def.stepValue(metrics, x.election),
+    y: y.def.stepValue(metrics, y.election),
+  }));
+
+  return (
+    <Flex direction="column" gap="2" pb="2">
+      <Text size="1" color="gray">
+        {fillEnsembleText(ENSEMBLE_MODAL_TEXT.jointIntro, {
+          plans: planCountText,
+          preset: presetLabel,
+        })}
+      </Text>
+      <Flex direction="column" gap="1">
+        <Select.Root size="1" value={selected.pair.id} onValueChange={setPairId}>
+          <Select.Trigger
+            aria-label={ENSEMBLE_MODAL_TEXT.jointPairLabel}
+            style={{alignSelf: 'flex-start'}}
+          />
+          <Select.Content>
+            {pairs.map(entry => (
+              <Select.Item key={entry.pair.id} value={entry.pair.id}>
+                {fillEnsembleText(ENSEMBLE_MODAL_TEXT.jointPairOption, {
+                  x: entry.x.label,
+                  y: entry.y.label,
+                })}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
+      </Flex>
+      {jointQuery.isLoading && (
+        <Flex align="center" gap="2" py="3">
+          <Spinner />
+          <Text size="2">{ENSEMBLE_MODAL_TEXT.jointLoading}</Text>
+        </Flex>
+      )}
+      {joint && (
+        <>
+          <div style={{width: '100%', maxWidth: CHART_MAX_WIDTH, margin: '0 auto'}}>
+            <ParentSize>
+              {({width}) => (
+                <JointDensity
+                  joint={joint}
+                  xLabel={x.label}
+                  yLabel={y.label}
+                  xFormat={x.def.format}
+                  yFormat={y.def.format}
+                  plan={plan}
+                  planLabel={planLabel}
+                  selected={selectedPoint}
+                  selectedLabel={selectedLabel}
+                  sample={samplePoints}
+                  sampleLabel={sampleLabel}
+                  extremes={extremes}
+                  frontier={frontier}
+                  width={width}
+                  height={CHART_HEIGHT}
+                />
+              )}
+            </ParentSize>
+          </div>
+          {sentence && (
+            <Text size="2" as="p" mt="2">
+              {sentence}
+            </Text>
+          )}
+        </>
+      )}
+    </Flex>
+  );
+};

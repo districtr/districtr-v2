@@ -97,3 +97,4 @@ What follows, including what a later change would have to undo.
 | [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
+| [0066](0066-ensemble-reference-frame.md) | Ensemble plans as the evaluation panel's reference frame | 2026-10-13 | Accepted |
