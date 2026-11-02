@@ -81,8 +81,8 @@ export const Contiguity = () => {
           </Table.Header>
 
           <Table.Body>
-            {tableData.map((row: any, i: number) => (
-              <Table.Row key={i}>
+            {tableData.map((row: any) => (
+              <Table.Row key={row.zone}>
                 <Table.Cell>
                   <Flex align="center" gap="2">
                     <div

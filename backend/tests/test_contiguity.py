@@ -42,6 +42,18 @@ def test_check_subgraph_number_connected_components(connected_graph):
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
+def test_boundary_neighbors(connected_graph):
+    # One entry per boundary edge: a and c each touch b and d.
+    assert sorted(connected_graph.boundary_neighbors(["a", "c"])) == [
+        "b",
+        "b",
+        "d",
+        "d",
+    ]
+    # The internal a–b edge is not a boundary.
+    assert sorted(connected_graph.boundary_neighbors(["a", "b"])) == ["c", "d"]
+
+
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
     client.put(
         "/api/assignments",
@@ -261,6 +273,42 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
             assert len(f["properties"]["geo_ids"]) == 1
 
 
+def test_simple_geos_discontiguity_components(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["000010000000001", 1],
+                ["000010000000005", 2],
+                ["vtd:000010000002", 2],
+                ["vtd:000010000003", 1],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id}/contiguity/1/components")
+    assert response.status_code == 200
+    components = response.json()["components"]
+    # Zone 1 is two isolated pieces, each bordering only zone 2 (see topology
+    # above): block ...001 touches block ...005 and vtd ...002; vtd ...003
+    # touches vtd ...002 and block ...005.
+    assert sorted(c["geo_ids"][0] for c in components) == [
+        "000010000000001",
+        "vtd:000010000003",
+    ]
+    for c in components:
+        assert c["neighbor_zones"] == {"2": 2}
+
+    response = client.get(f"/api/document/{document_id}/contiguity/3/components")
+    assert response.status_code == 404
+
+
 @fixture
 def ks_ellis_document_id(
     client,
@@ -333,6 +381,44 @@ def test_ks_ellis_geos_contiguity(
     )
     assert response.status_code == 200
     assert response.json() == {"1": 1, "2": 1, "3": 2}
+
+
+def test_ks_ellis_geos_zone_components(
+    client: TestClient,
+    ks_ellis_assignments: str,
+    mock_gerrydb_graph_file,
+):
+    document_id = ks_ellis_assignments
+
+    # Largest component first: the client treats index 0 as the main body
+    # when population isn't loaded.
+    response = client.get(f"/api/document/{document_id}/contiguity/3/components")
+    assert response.status_code == 200
+    assert response.json()["components"] == [
+        {
+            "geo_ids": [
+                "vtd:2005100003A",
+                "vtd:20051000200",
+                "vtd:2005100021A",
+                "vtd:20051000220",
+                "vtd:20051000230",
+                "vtd:20051000240",
+                "vtd:20051900050",
+                "vtd:20051900060",
+                "vtd:20051900070",
+            ],
+            "neighbor_zones": {"2": 7},
+        },
+        {"geo_ids": ["vtd:20051900100"], "neighbor_zones": {"2": 1}},
+    ]
+
+    # Every bordering zone is reported, not just the top one: the client falls
+    # back to the next neighbor when the top one is locked.
+    response = client.get(f"/api/document/{document_id}/contiguity/2/components")
+    assert response.status_code == 200
+    (component,) = response.json()["components"]
+    assert len(component["geo_ids"]) == 12
+    assert component["neighbor_zones"] == {"3": 8, "1": 6}
 
 
 def test_fix_ks_ellis_geos_contiguity(
