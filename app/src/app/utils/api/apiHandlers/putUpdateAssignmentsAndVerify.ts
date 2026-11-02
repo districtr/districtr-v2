@@ -51,6 +51,12 @@ export const putUpdateAssignmentsAndVerify = async ({
   // server doesn't have it.
   const editedDuringSave = () =>
     stillOpen() && useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtStart;
+  // IndexedDB's own stamp for this map, against edits that reach it without
+  // moving the store's clock (or after the user left the map). Flushed first: a
+  // pending debounced write is from an edit this save carries.
+  await idb.flushPendingUpdate();
+  const idbClientLastUpdatedAtStart = (await idb.getDocument(mapDocument.document_id))
+    ?.clientLastUpdated;
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
@@ -186,16 +192,20 @@ export const putUpdateAssignmentsAndVerify = async ({
     updated_at,
     ...(document_comments && {document_comments}),
   };
+  let wroteCleanCopy = false;
   if (!editedDuringSave()) {
-    // A debounced write still pending is from an edit this save already carries;
-    // landing after the write below, it would put the old updated_at back.
+    // A debounced write still pending landed after the save started; flushed so
+    // the check below sees it rather than having it land on the clean copy.
     await idb.flushPendingUpdate();
-    await idb.updateDocument({
-      id: mapDocument.document_id,
-      document_metadata: documentMetadata,
-      assignments: freshServerAssignments.response,
-      clientLastUpdated: updated_at,
-    });
+    wroteCleanCopy = await idb.updateDocumentIfUnchanged(
+      {
+        id: mapDocument.document_id,
+        document_metadata: documentMetadata,
+        assignments: freshServerAssignments.response,
+        clientLastUpdated: updated_at,
+      },
+      idbClientLastUpdatedAtStart
+    );
   }
   if (!stillOpen()) return {ok: true, response: {updated_at}};
   // Pause zundo before syncing clientLastUpdated to the server timestamp.
@@ -204,8 +214,10 @@ export const putUpdateAssignmentsAndVerify = async ({
   // futureStates, corrupting undo/redo history after a save.
   useAssignmentsStore.temporal.getState().pause();
   useCoiAssignmentsStore.temporal.getState().pause();
-  // Checked again: the IndexedDB write above awaits.
-  const superseded = editedDuringSave();
+  // Checked again: the IndexedDB write above awaits. An edit IndexedDB saw but
+  // the store's clock didn't (a color change, an undo back to an earlier stamp)
+  // also keeps the map unsaved.
+  const superseded = editedDuringSave() || !wroteCleanCopy;
   if (!superseded) {
     useAssignmentsStore.getState().setClientLastUpdated(updated_at);
   } else {

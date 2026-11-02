@@ -20,9 +20,28 @@ const doc = {
 } as any;
 const SERVER_UPDATED_AT = 'T3';
 
+// IndexedDB's documents table, in memory: the save's clean-copy write runs its
+// real check-and-write against it.
+let records: Map<string, any>;
+// Runs as a record is written, standing in for an edit landing during that await.
+let duringWrite = () => {};
+const realDocuments = idb.documents;
+const fakeDocuments = {
+  get: async (id: string) => records.get(id),
+  put: async (record: any) => {
+    records.set(record.id, record);
+    duringWrite();
+  },
+} as any;
+const localCopy = (clientLastUpdated: string) => ({
+  id: 'd1',
+  document_metadata: doc,
+  assignments: [{document_id: 'd1', geo_id: 'a', zone: 1}],
+  clientLastUpdated,
+});
+
 describe('putUpdateAssignmentsAndVerify', () => {
   let spies: {mockRestore: () => void}[] = [];
-  let updateDocument: ReturnType<typeof spyOn>;
   let updateIdbAssignments: ReturnType<typeof spyOn>;
   let putUpdateDocument: ReturnType<typeof spyOn>;
   // Runs while the PUT is in flight, standing in for a stroke or undo landing mid-save.
@@ -30,6 +49,9 @@ describe('putUpdateAssignmentsAndVerify', () => {
 
   beforeEach(() => {
     duringPut = () => {};
+    duringWrite = () => {};
+    records = new Map([['d1', localCopy('T2')]]);
+    idb.documents = fakeDocuments;
     useMapStore.setState({mapDocument: doc, updated: {metadata: true, comments: false}});
     useAssignmentsStore.setState({
       zoneAssignments: new Map([['a', 1]]),
@@ -37,7 +59,6 @@ describe('putUpdateAssignmentsAndVerify', () => {
       childToParent: new Map(),
       clientLastUpdated: 'T2',
     });
-    updateDocument = spyOn(idb, 'updateDocument').mockImplementation(async () => {});
     updateIdbAssignments = spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
     putUpdateDocument = spyOn(putUpdateDocumentModule, 'putUpdateDocument').mockImplementation(
       (async () => {
@@ -46,10 +67,12 @@ describe('putUpdateAssignmentsAndVerify', () => {
       }) as any
     );
     spies = [
-      updateDocument,
       updateIdbAssignments,
       putUpdateDocument,
       spyOn(idb, 'flushPendingUpdate').mockImplementation(async () => {}),
+      // Spied, not left to read the fake table: another test file may have left a spy.
+      spyOn(idb, 'getDocument').mockImplementation(async id => records.get(id)),
+      spyOn(idb, 'transaction').mockImplementation(((...args: any[]) => args.at(-1)()) as any),
       spyOn(getAssignmentsModule, 'getAssignments').mockImplementation((async () => ({
         ok: true,
         response: [{geo_id: 'a', zone: 1}],
@@ -59,10 +82,12 @@ describe('putUpdateAssignmentsAndVerify', () => {
       })) as any),
     ];
     // Another test file may already have spied on idb; start each count at zero.
-    updateDocument.mockClear();
     updateIdbAssignments.mockClear();
   });
-  afterEach(() => spies.forEach(spy => spy.mockRestore()));
+  afterEach(() => {
+    spies.forEach(spy => spy.mockRestore());
+    idb.documents = realDocuments;
+  });
 
   const save = () => {
     const {zoneAssignments, shatterIds, childToParent} = useAssignmentsStore.getState();
@@ -79,7 +104,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(useAssignmentsStore.getState().clientLastUpdated).toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().mapDocument?.updated_at).toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().updated.metadata).toBe(false);
-    expect(updateDocument.mock.calls[0][0].clientLastUpdated).toBe(SERVER_UPDATED_AT);
+    expect(records.get('d1').clientLastUpdated).toBe(SERVER_UPDATED_AT);
     expect(updateIdbAssignments).not.toHaveBeenCalled();
   });
 
@@ -103,7 +128,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().updated.metadata).toBe(true);
     // The server's assignments (without the edit) are never written as clean.
-    expect(updateDocument).not.toHaveBeenCalled();
+    expect(records.get('d1').clientLastUpdated).toBe('T2');
     const [metadata, assignments, idbClientLastUpdated] = updateIdbAssignments.mock.calls[0];
     expect(metadata.updated_at).toBe(SERVER_UPDATED_AT);
     expect(assignments).toBe(edited);
@@ -118,7 +143,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
     const {clientLastUpdated} = useAssignmentsStore.getState();
     expect(clientLastUpdated).not.toBe('T1');
     expect(clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
-    expect(updateDocument).not.toHaveBeenCalled();
+    expect(records.get('d1').clientLastUpdated).toBe('T2');
   });
 
   test('leaving the map mid-save still records the save in its IndexedDB copy only', async () => {
@@ -129,12 +154,57 @@ describe('putUpdateAssignmentsAndVerify', () => {
     };
     const result = await save();
     expect(result.ok && result.response.superseded).toBeFalsy();
-    expect(updateDocument).toHaveBeenCalledTimes(1);
-    expect(updateDocument.mock.calls[0][0].id).toBe('d1');
-    expect(updateDocument.mock.calls[0][0].clientLastUpdated).toBe(SERVER_UPDATED_AT);
+    expect(records.get('d1').clientLastUpdated).toBe(SERVER_UPDATED_AT);
+    expect(records.has('d2')).toBe(false);
     expect(updateIdbAssignments).not.toHaveBeenCalled();
     // The map now open keeps its own timestamps.
     expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
     expect(useAssignmentsStore.getState().clientLastUpdated).toBe('');
+  });
+
+  test('an edit during the IndexedDB write stays unsaved', async () => {
+    duringWrite = () => useAssignmentsStore.setState({clientLastUpdated: 'T2-edit'});
+
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(useAssignmentsStore.getState().clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
+    expect(updateIdbAssignments).toHaveBeenCalledTimes(1);
+  });
+
+  // Review comment 4417177093: edits that reach IndexedDB without moving the
+  // store's clock, or after the user left the map, must not be overwritten by
+  // the save's clean copy.
+  test('an IndexedDB edit the store clock missed keeps the local copy unsaved', async () => {
+    // A color change writes IndexedDB without bumping the clock.
+    duringPut = () => records.set('d1', {...localCopy('T2-color'), assignments: ['edited']});
+
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBe(true);
+    // The copy keeps its edit and stamp, under the new server version.
+    const copy = records.get('d1');
+    expect(copy.assignments).toEqual(['edited']);
+    expect(copy.clientLastUpdated).toBe('T2-color');
+    expect(copy.document_metadata.updated_at).toBe(SERVER_UPDATED_AT);
+    // Still unsaved in the store, and the open map's state is re-stamped locally.
+    expect(useAssignmentsStore.getState().clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
+    expect(useMapStore.getState().updated.metadata).toBe(true);
+    expect(updateIdbAssignments).toHaveBeenCalledTimes(1);
+  });
+
+  test("an edit written to a map's copy after the user left it survives the save", async () => {
+    const other = {...doc, document_id: 'd2', updated_at: 'X'};
+    duringPut = () => {
+      // Closing the description bubble on the way out saves its title.
+      records.set('d1', {...localCopy('T2-title'), assignments: ['edited']});
+      useMapStore.setState({mapDocument: other});
+    };
+
+    await save();
+    const copy = records.get('d1');
+    expect(copy.assignments).toEqual(['edited']);
+    expect(copy.clientLastUpdated).toBe('T2-title');
+    // Advanced, so reopening the map sees an unsaved edit, not a conflict.
+    expect(copy.document_metadata.updated_at).toBe(SERVER_UPDATED_AT);
+    expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
   });
 });
