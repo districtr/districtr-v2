@@ -82,9 +82,23 @@ mock.module('../api/apiHandlers/getChildEdges', () => ({
 }));
 
 let zoom = 10;
+// The screen, in map coordinates; the area is the square (0,0)-(10,10).
+let view = [-50, -50, 50, 50];
+let fitZoom = 11;
+let moves: number[] = [];
 const map = {
   getZoom: () => zoom,
-  once: () => {},
+  getBounds: () => ({
+    contains: ([x, y]: number[]) => x >= view[0] && y >= view[1] && x <= view[2] && y <= view[3],
+  }),
+  cameraForBounds: () => ({center: {lng: 5, lat: 5}, zoom: fitZoom}),
+  getCenter: () => ({lng: 5, lat: 5}),
+  project: () => ({x: 300, y: 200}),
+  easeTo: (target: {zoom: number}) => {
+    moves.push(target.zoom);
+    zoom = target.zoom;
+  },
+  once: (event: string, callback: () => void) => event === 'idle' && callback(),
   getLayer: () => ({}),
   querySourceFeatures: (source: string) =>
     source === 'blocks'
@@ -109,6 +123,9 @@ beforeEach(() => {
   healed = [];
   broke = [];
   zoom = 10;
+  view = [-50, -50, 50, 50];
+  fitZoom = 11;
+  moves = [];
   // Districts mode explicitly: another file (assignmentIntegrity) can leave
   // 'coi' behind, and breakUnits pauses the mode's own undo recorder.
   useMapControlsStore.setState({mapMode: 'districts'});
@@ -180,10 +197,24 @@ test('without a block layer, edge units paint whole', async () => {
   expect(broke).toEqual([]);
 });
 
-test('below the minimum zoom nothing paints and the user is told to zoom in', async () => {
+test('below the minimum zoom the map zooms to the area, then paints', async () => {
   zoom = 5;
-  expect(await paintedIds()).toEqual([]);
-  expect(useMapStore.getState().notification?.id).toBe('paint-area-zoom');
+  expect(await paintedIds()).toEqual(['b:edge-a', 'p:in']);
+  expect(moves).toEqual([11]);
+});
+
+test('an area on screen at a precise zoom paints without moving the map', async () => {
+  await paintedIds();
+  expect(moves).toEqual([]);
+});
+
+test('an area too big for the screen at the minimum zoom paints its part there, and says so', async () => {
+  view = [0, 0, 5, 5];
+  fitZoom = 6;
+  expect(await paintedIds()).toEqual(['b:edge-a', 'p:in']);
+  // One move, to the minimum zoom; the same target again means it can't fit.
+  expect(moves).toEqual([8]);
+  expect(useMapStore.getState().notification?.id).toBe('paint-area-partial');
 });
 
 test('the break pauses undo until the paint, and a click resumes it either way', async () => {
@@ -254,4 +285,25 @@ test('summary stats add the side rows to the loaded ones', () => {
   expect(sums.total_pop_20).toBe(15);
   demographyService.table = saved.table;
   demographyService.availableColumns = saved.columns;
+});
+
+test('an exact inspection frames the area first, and flags a reading of only part of it', async () => {
+  zoom = 5;
+  await inspectOverlayArea(map, {id: 'sd-1', properties: {}} as any, true);
+  expect(moves).toEqual([11]);
+  expect(reading()!.partial).toBe(false);
+  // The map moved, so the numbers show at the area, now centered.
+  expect(useTooltipStore.getState().tooltip).toMatchObject({x: 300, y: 200});
+
+  useTooltipStore.setState({areaReading: null});
+  view = [0, 0, 5, 5];
+  fitZoom = 6;
+  await inspectOverlayArea(map, {id: 'sd-1', properties: {}} as any, true);
+  expect(reading()!.partial).toBe(true);
+});
+
+test('hovering never moves the map', async () => {
+  zoom = 5;
+  await inspectOverlayArea(map, {id: 'sd-1', properties: {}} as any, false);
+  expect(moves).toEqual([]);
 });

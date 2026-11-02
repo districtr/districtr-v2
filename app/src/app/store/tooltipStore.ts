@@ -12,6 +12,8 @@ export interface AreaReading {
   ids: string[];
   extraRows?: ColumnarTableData;
   loading: boolean;
+  /** Exact, but the area was too big to fit on screen: only its part there. */
+  partial?: boolean;
 }
 
 export interface ZoneDescriptionTooltipState {

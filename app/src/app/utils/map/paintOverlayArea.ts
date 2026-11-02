@@ -136,6 +136,54 @@ export const sortAreaUnits = async (map: MaplibreMap, overlayId: string, areaId:
 // Below this zoom the loaded tiles' outlines are too simplified to sort blocks
 // near an area's edge. ponytail: a tuning knob, picked by eye on TIGER tiles.
 export const MIN_AREA_PAINT_ZOOM = 8;
+// Room around a framed area, so its edge units load too.
+const FRAME_PADDING = 40;
+
+/**
+ * Moves the map so the whole area is on screen at MIN_AREA_PAINT_ZOOM or
+ * closer, since only loaded tiles count: zooms in when too far out, out (or
+ * over) when part of it is off-screen. The outline grows as tiles load, so it
+ * re-checks after each move. `fits` is false when the area is too big to fit
+ * at that zoom; the map is then centered on it and only the part on screen
+ * counts. `moved` says whether the map moved (the area is then centered).
+ */
+export const frameArea = async (map: MaplibreMap, overlayId: string, areaId: string) => {
+  const inView = () => {
+    const pieces = toAreaShape(
+      queryAreaFeatures(map, overlayId, areaId).map(f => f.geometry as Polygon | MultiPolygon)
+    ).pieces;
+    if (!pieces.length) return null;
+    const box: BBox = [
+      Math.min(...pieces.map(({box}) => box[0])),
+      Math.min(...pieces.map(({box}) => box[1])),
+      Math.max(...pieces.map(({box}) => box[2])),
+      Math.max(...pieces.map(({box}) => box[3])),
+    ];
+    const view = map.getBounds();
+    return {box, fits: view.contains([box[0], box[1]]) && view.contains([box[2], box[3]])};
+  };
+  let lastTarget = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const framing = inView();
+    if (!framing) return {fits: false, moved: attempt > 0};
+    if (framing.fits && map.getZoom() >= MIN_AREA_PAINT_ZOOM)
+      return {fits: true, moved: attempt > 0};
+    const camera = map.cameraForBounds(framing.box, {
+      padding: FRAME_PADDING,
+      // Zoomed in far enough already: only pan or zoom out.
+      maxZoom: map.getZoom() >= MIN_AREA_PAINT_ZOOM ? map.getZoom() : 12,
+    });
+    if (!camera?.center || camera.zoom == null) return {fits: framing.fits, moved: attempt > 0};
+    const target = {center: camera.center, zoom: Math.max(camera.zoom, MIN_AREA_PAINT_ZOOM)};
+    // Already there: the area is bigger than the screen at the minimum zoom.
+    if (JSON.stringify(target) === lastTarget) return {fits: false, moved: true};
+    lastTarget = JSON.stringify(target);
+    const idle = new Promise(resolve => map.once('idle', resolve));
+    map.easeTo({...target, duration: 400});
+    await idle;
+  }
+  return {fits: inView()?.fits ?? false, moved: true};
+};
 
 // One click at a time, start to finish: the shatter render drops the map lock
 // mid-click, so the lock alone can't keep a second click (or an undo) from
@@ -151,8 +199,9 @@ export const isAreaPaintInFlight = () => inFlight;
  * The break and the paint are one undo step: breakUnits leaves a pending
  * pre-break snapshot that the paint's ingest turns into the history entry.
  * Districts mode only. `paint` is the caller's mutate + ingest.
- * ponytail: candidates are the parent units in loaded tiles, so an area that
- * runs off-screen paints only its loaded part, and the area's outline is the
+ * The map first frames the area (frameArea), since only loaded tiles count.
+ * ponytail: candidates are the parent units in loaded tiles, so an area too
+ * big to frame paints only its part on screen, and the area's outline is the
  * tiles' (simplified at low zoom, hence MIN_AREA_PAINT_ZOOM); a server-side
  * block/area crosswalk would make this exact and geometry-free (districtr_v2-c23).
  */
@@ -164,19 +213,12 @@ export const paintOverlayArea = async (
   const {mapDocument, mapLock, setMapLock, setNotification, breakUnits} = useMapStore.getState();
   const overlayId = overlayIdOf(useMapControlsStore.getState().mapOptions.paintBy);
   if (inFlight || !mapDocument || mapLock || !overlayId || area.id == null) return;
-  if (map.getZoom() < MIN_AREA_PAINT_ZOOM) {
-    setNotification({
-      importance: 2,
-      message: 'Zoom in a little to paint a whole area: at this zoom its outline is too rough.',
-      id: 'paint-area-zoom',
-    });
-    return;
-  }
   inFlight = true;
   const lockReason = `Painting ${getOverlayName(overlayId) ?? 'area'}…`;
   setMapLock({isLocked: true, reason: lockReason});
   let brokenNow: string[] = [];
   try {
+    const {fits} = await frameArea(map, overlayId, String(area.id));
     const sorted = await sortAreaUnits(map, overlayId, String(area.id));
     if (!sorted) return;
     const {shape, whole, edge} = sorted;
@@ -242,6 +284,14 @@ export const paintOverlayArea = async (
       useAssignmentsStore
         .getState()
         .healParentsIfAllChildrenInSameZone({_parentIds: new Set(brokenNow)}, 'state');
+    }
+    if (!fits) {
+      setNotification({
+        importance: 2,
+        message:
+          'This area is too big to fit on screen with a precise outline, so only the part on screen was painted. Move to the rest and click it again.',
+        id: 'paint-area-partial',
+      });
     }
   } catch (error) {
     console.error(error);

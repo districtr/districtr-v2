@@ -9,7 +9,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useTooltipStore} from '@/app/store/tooltipStore';
-import {MIN_AREA_PAINT_ZOOM, inArea, sortAreaUnits} from './paintOverlayArea';
+import {setHoverFeatures} from './hoverFeatures';
+import {frameArea, inArea, sortAreaUnits} from './paintOverlayArea';
 
 /** The rows of `data` whose path passes `keep`. */
 export const pickRows = (data: ColumnarTableData, keep: (path: string) => boolean) => {
@@ -33,25 +34,25 @@ export const inspectOverlayArea = async (
   exact: boolean
 ) => {
   const overlayId = overlayIdOf(useMapControlsStore.getState().mapOptions.paintBy);
-  const {mapDocument, setNotification} = useMapStore.getState();
+  const {mapDocument} = useMapStore.getState();
   if (!overlayId || !mapDocument || area.id == null) return;
   // A break or heal reloads the table (new hash), which makes a reading stale.
   const key = `${overlayId}:${String(area.id)}:${demographyService.hash}`;
   const {areaReading, setAreaReading} = useTooltipStore.getState();
   // Already read (or reading) at least this precisely.
   if (areaReading?.key === key && (areaReading.exact || !exact)) return;
-  if (exact && map.getZoom() < MIN_AREA_PAINT_ZOOM) {
-    setNotification({
-      importance: 2,
-      message: 'Zoom in a little for exact numbers: at this zoom the outline is too rough.',
-      id: 'inspect-area-zoom',
-    });
-    return;
-  }
   // The approximate numbers stay up while the exact ones load.
   const shown = areaReading?.key === key ? areaReading : null;
   setAreaReading({key, exact, ids: shown?.ids ?? [], extraRows: shown?.extraRows, loading: true});
   try {
+    // Exact numbers need the whole area loaded; a hover reads what's there.
+    const framing = exact ? await frameArea(map, overlayId, String(area.id)) : null;
+    const partial = !!framing && !framing.fits;
+    // The move centered the area: show the numbers there, not at the cursor.
+    if (framing?.moved) {
+      setHoverFeatures([area]);
+      useTooltipStore.getState().setTooltip({...map.project(map.getCenter()), data: []});
+    }
     const sorted = await sortAreaUnits(map, overlayId, String(area.id));
     const {shatterIds, parentToChild} = useAssignmentsStore.getState();
     // The loaded table has a broken unit's blocks, not the unit.
@@ -91,7 +92,7 @@ export const inspectOverlayArea = async (
     }
     const current = useTooltipStore.getState().areaReading;
     if (current?.key !== key || current.exact !== exact) return;
-    setAreaReading({key, exact, ids, extraRows, loading: false});
+    setAreaReading({key, exact, ids, extraRows, loading: false, partial});
   } catch (error) {
     console.error(error);
     if (useTooltipStore.getState().areaReading?.key === key) setAreaReading(null);

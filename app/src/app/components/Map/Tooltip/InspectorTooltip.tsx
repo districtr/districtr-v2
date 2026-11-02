@@ -101,7 +101,9 @@ export const InspectorTooltip = () => {
           ? 'Reading blocks for exact numbers…'
           : 'Reading this area…'
         : areaReading.exact
-          ? 'Exact: blocks whose center is inside.'
+          ? areaReading.partial
+            ? 'Exact for the part on screen only: the area is too big to fit.'
+            : 'Exact: blocks whose center is inside.'
           : 'Approximate. Click the area for exact numbers.'
       : null;
   if (Object.keys(inspectorData).length === 0) {
