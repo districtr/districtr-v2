@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useZoneLabel} from '@/app/hooks/useZoneLabel';
 import {useCommittedDraft} from '@/app/hooks/useCommittedDraft';
 import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
+import {cleanZoneLabel} from '@/app/utils/zoneLabels';
 
 /**
  * Edits a district's label, starting from what's shown (its number by default).
@@ -19,13 +20,18 @@ export const ZoneLabelField: React.FC<{
   style?: React.CSSProperties;
 }> = ({zone, autoFocus, onDone, style}) => {
   const label = useZoneLabel(zone);
-  const field = useCommittedDraft(label, draft => {
-    const {setZoneAlias, setNotification} = useMapStore.getState();
-    const refusal = setZoneAlias(zone, draft);
-    if (refusal === null) return true;
-    setNotification({message: refusal, type: 'error', importance: 2});
-    return false;
-  });
+  const field = useCommittedDraft(
+    label,
+    draft => {
+      const {setZoneAlias, setNotification} = useMapStore.getState();
+      const refusal = setZoneAlias(zone, draft);
+      if (refusal === null) return true;
+      setNotification({message: refusal, type: 'error', importance: 2});
+      return false;
+    },
+    // Blank means the default label, the district's number.
+    draft => cleanZoneLabel(draft) || String(zone)
+  );
   return (
     <TextField.Root
       size="1"

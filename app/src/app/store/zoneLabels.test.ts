@@ -30,6 +30,16 @@ describe('setZoneAlias', () => {
     expect(aliases()).toEqual({});
   });
 
+  test('a name that cleans up to the stored one is not an edit', () => {
+    useMapStore.setState({mapDocument: doc({zone_aliases: {'1': 'North Shore'}})});
+    expect(useMapStore.getState().setZoneAlias(1, 'North  Shore ')).toBeNull();
+    // Nor is resetting a district that already shows its number.
+    expect(useMapStore.getState().setZoneAlias(2, '2')).toBeNull();
+    expect(useMapStore.getState().updated.metadata).toBe(false);
+    expect(writeIdb).not.toHaveBeenCalled();
+    expect(useAssignmentsStore.getState().clientLastUpdated).toBe('T0');
+  });
+
   test('refuses a label another district shows, without changing anything', () => {
     const refusal = useMapStore.getState().setZoneAlias(1, '3');
     expect(refusal).toContain('3');

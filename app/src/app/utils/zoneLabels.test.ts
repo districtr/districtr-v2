@@ -19,6 +19,13 @@ describe('zone labels', () => {
 
   test('cleaning matches the server: sanitized, capped by code point', () => {
     expect(cleanZoneLabel(' North <b>Shore</b> ')).toBe('North Shore');
+    // The three characters the client and server sanitizers used to disagree on:
+    // U+001F and U+0085 are whitespace (Python's str.isspace), U+FEFF is a
+    // format character and is dropped. backend/tests/test_zone_labels.py
+    // checks the same strings.
+    expect(cleanZoneLabel('North\u001fShore')).toBe('North Shore');
+    expect(cleanZoneLabel('North\u0085Shore')).toBe('North Shore');
+    expect(cleanZoneLabel('North\ufeffShore')).toBe('NorthShore');
     // 39 letters then emoji: a UTF-16 slice at 40 would leave half an emoji.
     expect(cleanZoneLabel('a'.repeat(39) + '😀😀')).toBe('a'.repeat(39) + '😀');
   });

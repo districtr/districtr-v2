@@ -786,8 +786,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         return `Another district is already labeled “${label || zone}”.`;
       }
       // A label equal to the district's number is its default: nothing to store.
-      if (label && label !== String(zone)) {
-        zone_aliases[zone] = label;
+      const stored = label && label !== String(zone) ? label : undefined;
+      // Unchanged once cleaned: not an edit, so no unsaved mark and no save.
+      if (stored === zone_aliases[zone]) return null;
+      if (stored) {
+        zone_aliases[zone] = stored;
       } else {
         delete zone_aliases[zone];
       }

@@ -6,14 +6,25 @@ import {useEffect, useRef, useState} from 'react';
  * `commit` may return false to refuse the draft, which then goes back to the
  * stored value.
  */
-export const useCommittedDraft = (value: string, commit: (draft: string) => boolean | void) => {
+export const useCommittedDraft = (
+  value: string,
+  commit: (draft: string) => boolean | void,
+  /** The draft as it would be stored, compared with `value`. */
+  clean: (draft: string) => string = draft => draft.trim()
+) => {
   const [draft, setDraft] = useState(value);
-  const latest = useRef({draft, value, commit});
-  latest.current = {draft, value, commit};
+  const latest = useRef({draft, value, commit, clean});
+  latest.current = {draft, value, commit, clean};
   useEffect(() => setDraft(value), [value]);
   const flush = () => {
-    const {draft, value, commit} = latest.current;
-    if (draft.trim() !== value && commit(draft) === false) setDraft(value);
+    const {draft, value, commit, clean} = latest.current;
+    // A draft that cleans up to the stored value ("North  Shore") is no edit;
+    // show the stored text again instead of saving.
+    if (clean(draft) === value) {
+      if (draft !== value) setDraft(value);
+    } else if (commit(draft) === false) {
+      setDraft(value);
+    }
   };
   useEffect(() => flush, []);
   /** Escape: back to the stored value, and out of the field without saving. */

@@ -31,7 +31,11 @@ from geoalchemy2 import Geometry
 MAX_COMMUNITY_NAME_LENGTH = 40
 COMMUNITY_HTML_TAG_RE = re.compile(r"<[^>]+>")
 COMMUNITY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
-COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
+# Spelled out rather than \s so the frontend twin (app/src/app/utils/sanitize.ts)
+# can match it exactly: JS's \s is a different set. This is str.isspace()'s set.
+COMMUNITY_WHITESPACE_RE = re.compile(
+    r"[\t\n\v\f\r \x1c-\x1f\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+"
+)
 
 
 class GeoUnitType(StrEnum):
