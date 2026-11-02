@@ -195,7 +195,7 @@ export const helpTipContent = {
   },
   mapActions: {
     title: 'Map actions',
-    text: 'Share a link to your map, or export it as a CSV, GeoJSON, Shapefile, or JSON.',
+    text: 'Share a link to your map, export it as a CSV, GeoJSON, Shapefile, or JSON, or customize district colors.',
     videoFiles: ['share_map.webm', 'export.webm'],
     guideAnchor: 'saving-sharing-importing-and-exporting',
   },
