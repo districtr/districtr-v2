@@ -195,7 +195,7 @@ export const DistrictTuningTable: React.FC<{
                         zone={d.zone}
                         editable={canEdit}
                         weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{maxWidth: '16ch'}}
+                        style={{maxWidth: '10ch'}}
                       />
                     </Flex>
                   </Table.Cell>

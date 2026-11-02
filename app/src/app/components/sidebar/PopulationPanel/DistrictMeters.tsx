@@ -53,7 +53,7 @@ const PIN_TRAIL = 4;
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
 // Label column: as wide as the longest label, up to this many characters.
-const MAX_LABEL_CH = 12;
+const MAX_LABEL_CH = 8;
 
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with

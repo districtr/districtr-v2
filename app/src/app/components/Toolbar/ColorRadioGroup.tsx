@@ -61,15 +61,20 @@ export const ColorRadioGroup: React.FC<{
             const hotkey = showHotkeyHints && !disabled && isDigitLabel(label);
             return (
               <Flex direction="column" align="center" key={zone} pb="2">
+                {/* The span takes the Tooltip trigger's data-state, which would
+                    otherwise overwrite the item's data-state="checked" and drop
+                    its selected style. */}
                 <Tooltip content={label}>
-                  <StyledRadioGroupItem
-                    data-testid={`zone-${zone}`}
-                    aria-label={`District ${label}`}
-                    style={{backgroundColor: color}}
-                    value={color}
-                    disabled={disabled}
-                    className={disabled ? 'opacity-25' : ''}
-                  ></StyledRadioGroupItem>
+                  <span className="inline-flex">
+                    <StyledRadioGroupItem
+                      data-testid={`zone-${zone}`}
+                      aria-label={`District ${label}`}
+                      style={{backgroundColor: color}}
+                      value={color}
+                      disabled={disabled}
+                      className={disabled ? 'opacity-25' : ''}
+                    ></StyledRadioGroupItem>
+                  </span>
                 </Tooltip>
                 {/* Fixed-height slot so the row doesn't jump when Alt swaps
                     the label for a keycap. */}
