@@ -227,8 +227,10 @@ export const putUpdateAssignmentsAndVerify = async ({
     // of the last save.
     const clientLastUpdated = new Date().toISOString();
     useAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+    // The document as it is now (it may hold that edit), over the saved one's
+    // fields the store's copy lacks.
     idb.updateIdbAssignments(
-      {...useMapStore.getState().mapDocument!, updated_at},
+      {...documentMetadata, ...useMapStore.getState().mapDocument!, updated_at},
       useAssignmentsStore.getState().zoneAssignments,
       clientLastUpdated,
       true
