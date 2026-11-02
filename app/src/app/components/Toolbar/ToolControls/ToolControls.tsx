@@ -4,11 +4,12 @@ import React from 'react';
 import {ToolControlsScaffold} from '@/app/components/Toolbar/ToolControls/ToolControlsScaffold';
 import {ActiveTool} from '@constants/map/tools';
 import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorControls';
+import {MaskControls} from '@components/Toolbar/ToolControls/MaskControls';
 
 // Every paint-adjacent tool (pan, paint, erase, break) mounts the same
 // ToolControlsScaffold regardless of which is active — the scaffold itself
-// decides what's interactive per tool. Inspector is the one exception, kept
-// on its own separate layout (see InspectorControls).
+// decides what's interactive per tool. Inspector and Mask are the exceptions,
+// each on its own layout (InspectorControls, MaskControls).
 const ToolControlsConfig: Record<Partial<ActiveTool>, {Component?: () => React.JSX.Element}> = {
   pan: {Component: ToolControlsScaffold},
   // Unreachable as activeTool (they fire onClick instead), listed for the type.
@@ -18,6 +19,7 @@ const ToolControlsConfig: Record<Partial<ActiveTool>, {Component?: () => React.J
   eraser: {Component: ToolControlsScaffold},
   shatter: {Component: ToolControlsScaffold},
   inspector: {Component: InspectorControls},
+  mask: {Component: MaskControls},
 };
 
 export const ToolControls: React.FC = () => {

@@ -80,11 +80,13 @@ export type ParquetWorkerInternals = {
    * Uses multi-range prefetch for efficient batch fetching.
    * @param mapDocument - The map document.
    * @param brokenIds - The broken ids.
+   * @param childrenOnly - Only the blocks of brokenIds, without the parent rows.
    * @returns The demography columns and results.
    */
   getDemography: (
     mapDocument: DocumentObject,
-    brokenIds?: string[]
+    brokenIds?: string[],
+    childrenOnly?: boolean
   ) => Promise<{columns: AllTabularColumns[number][]; results: ColumnarTableData}>;
 
   /**

@@ -32,7 +32,6 @@ const OverlayLayer = ({
   const layerId = `${OVERLAY_LAYER_ID_PREFIXES.layer}${overlay.overlay_id}`;
   const clickLayerId = `${OVERLAY_LAYER_ID_PREFIXES.click}${overlay.overlay_id}`;
   const selectedLayerId = `${OVERLAY_LAYER_ID_PREFIXES.selected}${overlay.overlay_id}`;
-  const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const idProperty = overlay.id_property || 'id';
 
@@ -125,13 +124,23 @@ const OverlayLayer = ({
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
       baseProps['source-layer'] = overlay.source_layer;
     }
-    if (paintConstraint?.featureId) {
-      baseProps.filter = ['!', ['==', ['get', idProperty], paintConstraint.featureId]];
-      baseProps.paint['fill-opacity'] = 0.75;
-    }
 
     return baseProps;
-  }, [clickLayerId, layerId, overlay, paintConstraint?.featureId]);
+  }, [clickLayerId, layerId, overlay]);
+
+  // Dim everything but the masked area, on the masked overlay only (on any
+  // other overlay no feature matches, so every one of them would be dimmed).
+  // Its own layer, not a filter on the click layer: Paint by this overlay
+  // still has to hit the masked area there.
+  const dimLayerProps = useMemo(() => {
+    if (!clickLayerProps || !isConstraintOverlay || !selectedFeatureId) return null;
+    return {
+      ...clickLayerProps,
+      id: `${clickLayerId}-dim`,
+      filter: ['!=', ['to-string', ['get', idProperty]], String(selectedFeatureId)],
+      paint: {'fill-color': '#FFFFFF', 'fill-opacity': 0.75},
+    };
+  }, [clickLayerProps, clickLayerId, isConstraintOverlay, selectedFeatureId, idProperty]);
 
   // Selected constraint outline layer (for emphasis)
   const selectedOutlineProps = useMemo(() => {
@@ -141,7 +150,8 @@ const OverlayLayer = ({
       id: `${selectedLayerId}-outline`,
       type: 'line' as const,
       paint: SELECTED_LINE_STYLE,
-      filter: ['==', ['get', idProperty], selectedFeatureId],
+      // String compare: masks store String(id), promoteId keeps numbers.
+      filter: ['==', ['to-string', ['get', idProperty]], String(selectedFeatureId)],
     };
 
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
@@ -178,6 +188,7 @@ const OverlayLayer = ({
         {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
         {/* Invisible click layer for line overlays */}
         {clickLayerProps && <Layer {...clickLayerProps} />}
+        {dimLayerProps && <Layer {...dimLayerProps} />}
       </Source>
     </>
   );

@@ -22,6 +22,10 @@ import {
   TOOLTIP_TOOLS,
   getSelectingClickLayer,
   breakUnit,
+  breakClickedUnitFromBlockView,
+  handleMaskToolClick,
+  handleMaskToolHover,
+  updateBlockViewCursor,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -101,6 +105,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
   const childOnly = mapStore.captiveIds.size > 0 || mapOptions.mode === 'break';
 
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolClick(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],
@@ -111,6 +116,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
     }
     return;
   }
+  if (breakClickedUnitFromBlockView(e)) return;
 
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
@@ -134,6 +140,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
 
 export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 
@@ -149,6 +156,7 @@ export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerT
   const hasCommunities = mapStore.communities.length > 0;
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolHover(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],

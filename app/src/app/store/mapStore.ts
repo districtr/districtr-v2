@@ -31,7 +31,7 @@ import {demographyService} from '../utils/demography/demographyService';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
-import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
+import {selectShownTool, DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useCoiAssignmentsStore} from './coiAssignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
@@ -283,6 +283,14 @@ export interface MapStore {
    * TODO: Multiple break/shatter is not yet implemented.
    */
   handleShatter: (features: Array<Partial<MapGeoJSONFeature>>) => void;
+  /** The data half of a break, with no block view: fetch the units' child
+   * edges in one call, record the shatter state, and give each block its
+   * parent's assignment. Pauses the undo recorder (the next ingest makes the
+   * break plus its paint one undo step). Returns the edges, or null after
+   * notifying on failure. The caller owns the map lock. */
+  breakUnits: (
+    geoids: string[]
+  ) => Promise<Array<{parent_path: string; child_path: string}> | null>;
   // LOCK
   // TODO: Refactor to something like this
   // featureStates: {
@@ -368,6 +376,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           'state'
         );
       }
+      // Paint by blocks: Paint/Erase go back to picking the next unit to break.
+      useMapControlsStore.getState().syncBlockPicking();
       // Resume the temporal recorder regardless of mode.
       temporalManager.resume(mapMode);
     },
@@ -508,12 +518,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
         // A fresh map (not just switching edit/display/eval views of the same
         // one) defaults to painting — that's what a user opens a map to do.
+        // mapOptions resets paintBy to units, so the brush and a Paint-by-blocks
+        // pick go back to plain painting too.
         activeTool:
           mapDocument.access !== ACCESS_STATES.EDIT
             ? ACTIVE_TOOLS.PAN
-            : sameMapAcrossViews
-              ? mapControlsState.activeTool
-              : ACTIVE_TOOLS.BRUSH,
+            : !sameMapAcrossViews
+              ? ACTIVE_TOOLS.BRUSH
+              : selectShownTool(mapControlsState),
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
         isPainting: false,
@@ -1125,21 +1137,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           });
       }
     },
-    handleShatter: async features => {
-      const {mapDocument, mapLock, setMapLock} = get();
-      if (!features.length) {
-        setMapLock(null);
-        return;
-      }
-      if (mapLock || !mapDocument?.districtr_map_slug) {
-        return;
-      }
-      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+    breakUnits: async geoids => {
+      const {mapDocument} = get();
+      if (!mapDocument?.districtr_map_slug || !geoids.length) return null;
+      const {mapMode} = useMapControlsStore.getState();
       temporalManager.pause(mapMode);
-      setMapLock({isLocked: true, reason: 'Breaking districts'});
-      // set BLOCK_LAYER_ID based on features[0] to focused true
-
-      const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
@@ -1148,7 +1150,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         return undefined;
       });
       if (!edgesResult?.length) {
-        setMapLock(null);
         temporalManager.resume(mapMode);
         set({
           notification: {
@@ -1158,7 +1159,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
         });
-        return;
+        return null;
       }
       // TODO Need to return child edges even if the parent is already shattered
       // currently returns nothing
@@ -1171,14 +1172,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
-      let captiveIds = new Set<string>();
       let parentToChild = new Map(currentParentToChild);
       let childToParent = new Map(currentChildToParent);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
         children.add(edge.child_path);
-        captiveIds.add(edge.child_path);
         childToParent.set(edge.child_path, edge.parent_path);
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
@@ -1240,6 +1239,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           zoneAssignments,
         });
       }
+      return edgesResult;
+    },
+    handleShatter: async features => {
+      const {mapDocument, mapLock, setMapLock} = get();
+      if (!features.length) {
+        setMapLock(null);
+        return;
+      }
+      if (mapLock || !mapDocument?.districtr_map_slug) {
+        return;
+      }
+      const {setMapOptions} = useMapControlsStore.getState();
+      setMapLock({isLocked: true, reason: 'Breaking districts'});
+      const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
+      const edgesResult = await get().breakUnits(geoids);
+      if (!edgesResult) {
+        setMapLock(null);
+        return;
+      }
+      const captiveIds = new Set(edgesResult.map(edge => edge.child_path));
 
       const featureBbox = features[0].geometry && bbox(features[0].geometry);
       // Pad the unit's bbox so the fitted block view has breathing room around
@@ -1264,17 +1283,18 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      // Break stays armed so the user can pick a different unit; switching to
-      // Paint paints within this one. Other entry points (context menu) paint.
-      if (useMapControlsStore.getState().activeTool !== ACTIVE_TOOLS.SHATTER) {
-        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // Inside the broken unit, go back to the tool that picked it (Paint by
+      // blocks picks with Paint or Erase); anything else paints.
+      const {activeTool, blockPaintTool} = useMapControlsStore.getState();
+      if (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) {
+        useMapControlsStore.setState({
+          activeTool: activeTool === ACTIVE_TOOLS.SHATTER ? blockPaintTool : ACTIVE_TOOLS.BRUSH,
+        });
       }
-      // County painting makes no sense inside a broken unit. Dynamic import:
-      // getFeaturesInBbox imports this store, so a static import would cycle.
-      if (useMapControlsStore.getState().mapOptions.paintByCounty) {
-        const {getFeaturesInBbox} = await import('@utils/map/getFeaturesInBbox');
-        useMapControlsStore.getState().setPaintFunction(getFeaturesInBbox);
-        setMapOptions({paintByCounty: false});
+      // Block view is Paint by blocks (counties or overlay areas make no sense
+      // inside one unit).
+      if (useMapControlsStore.getState().mapOptions.paintBy !== 'blocks') {
+        setMapOptions({paintBy: 'blocks'});
       }
       setMapOptions({
         mode: 'break',

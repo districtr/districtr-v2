@@ -6,13 +6,16 @@ import {
   Pencil2Icon,
   HandIcon,
   ViewGridIcon,
+  MaskOnIcon,
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
 import {useMemo, useRef} from 'react';
 import {debounce} from 'lodash';
 import {useTemporalStore, useCoiTemporalStore} from '@/app/store/temporalStore';
-import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {selectShownTool, useMapControlsStore} from '@/app/store/mapControlsStore';
+import {setPaintBy} from '@utils/map/paintBy';
+import {isAreaPaintInFlight} from '@utils/map/paintOverlayArea';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {ACCESS_STATES} from '@constants/document/state';
@@ -29,6 +32,10 @@ export type ActiveToolConfig = {
   icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
+  /** What the hotkey does when it differs from a click: select, never toggle off. */
+  onHotkey?: () => void;
+  /** Overrides "activeTool is this mode" for the pressed look (Paint vs Break). */
+  isActive?: boolean;
   helpKey?: HelpTipKey;
 };
 
@@ -41,6 +48,9 @@ export const useActiveTools = () => {
   );
   const mapMode = useMapControlsStore(state => state.mapMode);
   const superDraw = useToolbarStore(state => state.superDraw);
+  const paintBy = useMapControlsStore(state => state.mapOptions.paintBy);
+  const shownTool = useMapControlsStore(selectShownTool);
+  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
 
   const districtsTemporal = useTemporalStore();
   const coiTemporal = useCoiTemporalStore();
@@ -54,15 +64,35 @@ export const useActiveTools = () => {
   const redoRef = useRef(redo);
   undoRef.current = undo;
   redoRef.current = redo;
-  const handleUndo = useMemo(() => debounce(() => undoRef.current(), 100), []);
-  const handleRedo = useMemo(() => debounce(() => redoRef.current(), 100), []);
+  // Not mid area-paint: its break and paint must land as one step first.
+  const handleUndo = useMemo(
+    () => debounce(() => !isAreaPaintInFlight() && undoRef.current(), 100),
+    []
+  );
+  const handleRedo = useMemo(
+    () => debounce(() => !isAreaPaintInFlight() && redoRef.current(), 100),
+    []
+  );
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
 
   // Pan, paint, and erase exist in both Draw and Super Draw, so their shared
-  // help entry flips with the mode — the same combination key Break and
-  // Inspector always use, since those two only ever exist in Super Draw.
+  // help entry flips with the mode — the same combination key Inspector
+  // always uses, since it only ever exists in Super Draw.
   const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
+  const paintByBlocks = paintBy === 'blocks';
+  const breakActive = paintByBlocks && shownTool === ACTIVE_TOOLS.BRUSH;
+  const paintActive = !paintByBlocks && shownTool === ACTIVE_TOOLS.BRUSH;
+  // Paint leaves Paint by blocks only when Break is the pressed tool: from
+  // Erase (or Move) inside Paint by blocks it goes back to painting blocks.
+  const selectPaint = () => {
+    if (breakActive) setPaintBy('units');
+    setActiveTool(ACTIVE_TOOLS.BRUSH);
+  };
+  const selectBreak = () => {
+    setPaintBy('blocks');
+    setActiveTool(ACTIVE_TOOLS.BRUSH);
+  };
 
   const config: ActiveToolConfig[] = [
     {
@@ -83,6 +113,10 @@ export const useActiveTools = () => {
       label: 'Paint',
       icon: Pencil2Icon,
       helpKey: combinationHelpKey,
+      // Break is Paint by blocks, so Paint shows pressed for the other Paint bys.
+      isActive: paintActive,
+      onClick: () => (paintActive ? setActiveTool(ACTIVE_TOOLS.PAN) : selectPaint()),
+      onHotkey: () => selectPaint(),
       hotKeyAccessor: e => {
         return e.code === 'KeyP';
       },
@@ -133,15 +167,32 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'B',
       mode: ACTIVE_TOOLS.SHATTER,
-      // Also disabled inside block view: you're already in the one unit
-      // you'd be breaking, so the click would do nothing.
-      disabled: !mapDocument?.child_layer || districtsHidden,
+      disabled: !mapDocument?.child_layer || !isEditing || districtsHidden,
       label: 'Break',
       icon: ViewGridIcon,
-      // Only ever rendered in Super Draw (filtered below), so no mode branch needed.
       helpKey: 'superdrawToolsCombination',
+      // A shortcut to Paint by blocks: Paint picks a unit to break, then
+      // paints its blocks (setActiveTool's picking rule).
+      isActive: breakActive,
+      onClick: () => {
+        if (!breakActive) return selectBreak();
+        setPaintBy('units');
+        setActiveTool(ACTIVE_TOOLS.PAN);
+      },
+      onHotkey: () => selectBreak(),
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
+      },
+    },
+    {
+      hotKeyLabel: 'K',
+      mode: ACTIVE_TOOLS.MASK,
+      disabled: !mapDocument?.document_id || !isEditing,
+      label: 'Mask',
+      icon: MaskOnIcon,
+      helpKey: 'paintMask',
+      hotKeyAccessor: e => {
+        return e.code === 'KeyK';
       },
     },
     {

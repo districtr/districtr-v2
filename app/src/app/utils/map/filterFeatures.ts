@@ -6,11 +6,9 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
-import {booleanIntersects, area, intersect} from '@turf/turf';
-import {MultiPolygon, Polygon} from 'geojson';
 import {MAP_MODES} from '@constants/map/mode';
+import {isMostlyInside} from '@utils/map/isMostlyInside';
 
-const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
 /**
  * filterFeatures
  * Filters the provided features based on certain criteria, such as locked features and captive IDs.
@@ -78,39 +76,7 @@ export const filterFeatures = ({
       if (_idCache.has(f.id.toString())) {
         return _idCache.get(f.id.toString()) ?? false;
       } else {
-        let intersected = false;
-        if (f.geometry.type === 'Point') {
-          intersected = paintConstraint.features.some(constraintFeature =>
-            booleanIntersects(constraintFeature.geometry, f.geometry)
-          );
-        } else {
-          const geomArea = area(f.geometry);
-          let clippedArea = 0;
-          for (const constraintFeature of paintConstraint.features) {
-            const clipped = intersect({
-              type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  geometry: constraintFeature.geometry as Polygon | MultiPolygon,
-                  properties: {},
-                },
-                {
-                  type: 'Feature',
-                  geometry: f.geometry as Polygon | MultiPolygon,
-                  properties: {},
-                },
-              ],
-            });
-            if (clipped) {
-              clippedArea += area(clipped.geometry);
-              intersected = clippedArea / geomArea > MINIMUM_INTERSECTION_AREA_RATIO;
-            }
-            if (intersected) {
-              break;
-            }
-          }
-        }
+        const intersected = isMostlyInside(f, paintConstraint.features);
         _idCache.set(f.id.toString(), intersected);
         return intersected;
       }

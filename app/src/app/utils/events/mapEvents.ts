@@ -34,6 +34,10 @@ import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
+import {filterFeatures} from '../map/filterFeatures';
+import {paintOverlayArea} from '../map/paintOverlayArea';
+import {inspectOverlayArea} from '../map/inspectOverlayArea';
+import {overlayIdOf} from '@constants/map/paintBy';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -134,6 +138,107 @@ export const breakUnit = (
   mapRef.triggerRepaint();
 };
 
+/**
+ * Paint by blocks inside a broken unit: a click on another (unbroken) unit
+ * breaks that one instead, so Paint and Erase move on without a separate
+ * break tool. Returns whether it did.
+ */
+export const breakClickedUnitFromBlockView = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  if (
+    mapOptions.paintBy !== 'blocks' ||
+    (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    !useMapStore.getState().captiveIds.size
+  ) {
+    return false;
+  }
+  // Broken units (this one included) drop out here: filterFeatures skips
+  // parents that have blocks, so only a click on an unbroken unit matches.
+  // Same filtering as picking a unit to break: not the brush's paint-over or
+  // locked-zone rules (activeTool is Paint here), only units in locked zones.
+  const {lockPaintedAreas} = mapOptions;
+  const {zoneAssignments} = useAssignmentsStore.getState();
+  const units = filterFeatures({
+    _features: e.target.queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID]}),
+    allowOutsideCaptiveIds: true,
+    filterLocked: false,
+    additionalFilters: [
+      f => !lockPaintedAreas.includes(zoneAssignments.get(f.id?.toString() || '') ?? null),
+    ],
+  });
+  if (!units.length) return false;
+  breakUnit(units, e.target);
+  return true;
+};
+
+/**
+ * Paint by blocks inside a broken unit: a crosshair outside its blocks, where
+ * a click breaks the unit under it instead of painting (the picking state's
+ * crosshair comes from the container's cursor-shatter class). Only writes the
+ * style when it changes.
+ */
+export const updateBlockViewCursor = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  const {captiveIds} = useMapStore.getState();
+  const outsideBlocks =
+    mapOptions.paintBy === 'blocks' &&
+    (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) &&
+    captiveIds.size > 0 &&
+    !e.target
+      .queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID_CHILD]})
+      .some(f => captiveIds.has(String(f.id)));
+  const canvas = e.target.getCanvas();
+  const cursor = outsideBlocks ? 'crosshair' : '';
+  if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+};
+
+/** The Mask tool: the Mask by layer's area under the cursor (to hover or mask). */
+export const maskAreaAt = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {maskByLayerId} = useOverlayStore.getState();
+  const layer = maskByLayerId && getSelectingClickLayer(maskByLayerId);
+  if (!layer || !e.target.getLayer(layer)) return EMPTY_FEATURE_ARRAY;
+  return e.target.queryRenderedFeatures(e.point, {layers: [layer]}).slice(0, 1);
+};
+
+/**
+ * The Mask tool's map click and hover, shared by the districts and community
+ * handlers. A Boundaries-row "Mask" picked while the tool is open (a pending
+ * selectingLayerId) takes precedence: they return false and the caller's
+ * one-shot selection path handles the event (MaskControls then follows the
+ * new mask's layer).
+ */
+export const handleMaskToolClick = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {selectingLayerId, maskByLayerId, setPaintConstraint} = useOverlayStore.getState();
+  if (selectingLayerId) return false;
+  // Sets the mask, or moves it to the clicked area.
+  const [area] = maskAreaAt(e);
+  if (area && maskByLayerId) setPaintConstraint(maskByLayerId, String(area.id));
+  return true;
+};
+export const handleMaskToolHover = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  if (useOverlayStore.getState().selectingLayerId) return false;
+  setHoverFeatures(maskAreaAt(e));
+  useTooltipStore.getState().setTooltip(null);
+  return true;
+};
+
+/** Paint by overlay area is a click tool for Paint/Erase: hover highlights the
+ * area, a click paints it (paintOverlayArea), and there's no drag stroke. */
+const isPaintingByArea = () => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  return (
+    (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) &&
+    !!overlayIdOf(mapOptions.paintBy)
+  );
+};
+
+/** Inspect by overlay area: hover reads the area under the cursor roughly, a
+ * click reads it exactly (inspectOverlayArea). */
+const isInspectingByArea = () => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  return activeTool === ACTIVE_TOOLS.INSPECTOR && !!overlayIdOf(mapOptions.paintBy);
+};
+
 export const handleFeatureSelection = (
   selectedFeatures: MapGeoJSONFeature[] | undefined,
   mapStore: MapStore,
@@ -202,6 +307,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
   }
 
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolClick(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],
@@ -212,6 +318,21 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
     return;
   }
+  if (isInspectingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    if (area) inspectOverlayArea(mapRef, area, true);
+    return;
+  }
+  if (isPaintingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    if (area && canMutateAssignments()) {
+      paintOverlayArea(mapRef, area, features =>
+        handleFeatureSelection(features, useMapStore.getState(), sourceLayer, mapRef)
+      );
+    }
+    return;
+  }
+  if (breakClickedUnitFromBlockView(e)) return;
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
@@ -296,6 +417,9 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   if (activeTool === ACTIVE_TOOLS.PAN) {
     // enable drag pan
     mapRef.dragPan.enable();
+  } else if (isPaintingByArea()) {
+    // A click tool: no stroke, and dragging pans.
+    mapRef.dragPan.enable();
   } else if (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) {
     if (!canMutateAssignments()) {
       mapRef.dragPan.enable();
@@ -312,6 +436,7 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   const {activeTool, setIsPainting} = useMapControlsStore.getState();
   if (
     (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    isPaintingByArea() ||
     !canMutateAssignments()
   )
     return;
@@ -345,6 +470,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
 
 export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 
@@ -391,6 +517,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   setZoneDescriptionTooltip(null);
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
+  if (activeTool === ACTIVE_TOOLS.MASK && handleMaskToolHover(e)) return;
   if (selectingLayerId) {
     const features = mapRef.queryRenderedFeatures(e.point, {
       layers: [getSelectingClickLayer(selectingLayerId)],
@@ -404,6 +531,22 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   if (!isBrushingTool) {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     setTooltip(null);
+    return;
+  }
+  if (isPaintingByArea()) {
+    setHoverFeatures(paintFunction(mapRef, e, brushSize) ?? EMPTY_FEATURE_ARRAY);
+    setTooltip(null);
+    return;
+  }
+  if (isInspectingByArea()) {
+    const [area] = paintFunction(mapRef, e, 0) ?? [];
+    setHoverFeatures(area ? [area] : EMPTY_FEATURE_ARRAY);
+    if (!area) {
+      setTooltip(null);
+      return;
+    }
+    setTooltip({...e.point, data: []});
+    inspectOverlayArea(mapRef, area, false);
     return;
   }
 

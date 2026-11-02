@@ -7,6 +7,10 @@ import {MapStore} from './mapStore';
 import {BasemapId} from '@/app/constants/map/layerStyle';
 import {type DemographicMode} from '@constants/map/demographicMode';
 
+/** What the brush paints: the map's own units, blocks inside one broken unit,
+ * whole counties, or whole areas of a boundary overlay (`overlay:<overlay_id>`). */
+export type PaintBy = 'units' | 'blocks' | 'counties' | `overlay:${string}`;
+
 export type DistrictrMapOptions = {
   highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
@@ -14,7 +18,8 @@ export type DistrictrMapOptions = {
   disallowPaintOver?: boolean;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
-  paintByCounty?: boolean;
+  /** What one brush footprint paints (see PaintBy). */
+  paintBy?: PaintBy;
   stateFipsSet?: Set<string>;
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
