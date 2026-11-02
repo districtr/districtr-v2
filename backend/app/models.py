@@ -64,19 +64,100 @@ def sanitize_community_name(name: str) -> str:
     return without_format_chars.strip()
 
 
+# The most districts a plan can have (see the num_districts checks in main.py).
+MAX_NUM_DISTRICTS = 538
+# Digits in the largest district number: longer keys are refused before int(),
+# which raises on strings past Python's 4,300-digit limit.
+MAX_ZONE_KEY_DIGITS = len(str(MAX_NUM_DISTRICTS))
+
+
+def _zone_key(zone: str) -> int | None:
+    """The district number a zone_aliases key names: ASCII digits in canonical
+    form ("3", not "03"), short enough to be a district; else None."""
+    if not (0 < len(zone) <= MAX_ZONE_KEY_DIGITS and zone.isascii() and zone.isdigit()):
+        return None
+    number = int(zone)
+    return number if number > 0 and str(number) == zone else None
+
+
+def _clean_label(label: str) -> str:
+    return sanitize_community_name(label)[:MAX_COMMUNITY_NAME_LENGTH]
+
+
 def clean_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
-    """Sanitize user-set district display names; blank names and keys that
-    aren't a positive zone number are dropped."""
+    """Lenient read of stored district labels: blank labels and keys that
+    aren't a district number are dropped."""
     if aliases is None:
         return None
     cleaned: dict[str, str] = {}
     for zone, alias in aliases.items():
-        if not (zone.isascii() and zone.isdigit()) or int(zone) <= 0:
-            continue
-        alias = sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH]
-        if alias:
-            cleaned[str(int(zone))] = alias
+        label = _clean_label(alias) if isinstance(alias, str) else ""
+        if _zone_key(zone) is not None and label:
+            cleaned[zone] = label
     return cleaned
+
+
+def validate_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
+    """Strict check of district labels sent by a client: keys must be district
+    numbers; labels are sanitized and blank ones dropped. The checks that need
+    the plan's district count are in check_zone_labels_for_plan."""
+    if aliases is None:
+        return None
+    if len(aliases) > MAX_NUM_DISTRICTS:
+        raise ValueError(f"At most {MAX_NUM_DISTRICTS} district labels")
+    cleaned: dict[str, str] = {}
+    for zone, alias in aliases.items():
+        if _zone_key(zone) is None:
+            raise ValueError(
+                f"District label keys must be district numbers: {zone[:12]!r}"
+            )
+        label = _clean_label(alias)
+        if label:
+            cleaned[zone] = label
+    return cleaned
+
+
+def validate_zone_order(order: list[int] | None) -> list[int] | None:
+    """Strict check of a client's panel order: distinct positive district
+    numbers. Their range is checked in check_zone_labels_for_plan."""
+    if order is None:
+        return None
+    if len(order) > MAX_NUM_DISTRICTS:
+        raise ValueError(f"At most {MAX_NUM_DISTRICTS} districts in zone_order")
+    if any(zone < 1 for zone in order) or len(set(order)) != len(order):
+        raise ValueError("zone_order must list distinct district numbers")
+    return order
+
+
+def zone_label_key(label: str) -> str:
+    """Labels compare case-insensitively; the client twin uses toLowerCase()."""
+    return label.lower()
+
+
+def check_zone_labels_for_plan(
+    aliases: dict[str, str] | None, order: list[int] | None, num_districts: int
+) -> str | None:
+    """Why the labels or order don't fit a plan with `num_districts` districts,
+    or None. Every district shows its label, or its number by default, and no
+    two districts may show the same one."""
+    if aliases is not None:
+        for zone in aliases:
+            if int(zone) > num_districts:
+                return (
+                    f"District {zone} is not in this plan of {num_districts} districts"
+                )
+        seen: dict[str, int] = {}
+        for zone in range(1, num_districts + 1):
+            label = aliases.get(str(zone), str(zone))
+            key = zone_label_key(label)
+            if key in seen:
+                return (
+                    f"Districts {seen[key]} and {zone} have the same label, {label!r}"
+                )
+            seen[key] = zone
+    if order is not None and any(zone > num_districts for zone in order):
+        return f"zone_order lists a district this plan of {num_districts} doesn't have"
+    return None
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -204,6 +285,8 @@ class DocumentMetadata(BaseModel):
     description: str | None = None
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
+    # Read leniently: this model also shapes GET responses, so stored values
+    # that no longer fit are dropped rather than failing the read.
     zone_aliases: dict[str, str] | None = None
     zone_order: list[int] | None = None
 
@@ -454,10 +537,13 @@ class AssignmentsMetadata(BaseModel):
 
     @field_validator("zone_aliases")
     @classmethod
-    def sanitize_zone_aliases(
-        cls, value: dict[str, str] | None
-    ) -> dict[str, str] | None:
-        return clean_zone_aliases(value)
+    def check_zone_aliases(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+        return validate_zone_aliases(value)
+
+    @field_validator("zone_order")
+    @classmethod
+    def check_zone_order(cls, value: list[int] | None) -> list[int] | None:
+        return validate_zone_order(value)
 
 
 class AssignmentsCreate(BaseModel):

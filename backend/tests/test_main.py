@@ -2079,11 +2079,84 @@ def test_put_assignments_with_zone_aliases(
 
     r = client.put(
         "/api/assignments",
-        json={**base, "metadata": {"zone_aliases": {"0": "Nope", "x": "Nope"}}},
+        json={**base, "metadata": {"zone_aliases": {}, "zone_order": []}},
     )
     assert r.status_code == 200
     meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
     assert meta["zone_aliases"] == {}
+    assert meta["zone_order"] == []
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        # Keys: district numbers only, in canonical form, never int() on a huge one.
+        {"zone_aliases": {"x": "A"}},
+        {"zone_aliases": {"0": "A"}},
+        {"zone_aliases": {"03": "A"}},
+        {"zone_aliases": {"1234567": "A"}},
+        {"zone_aliases": {"9" * 5000: "A"}},
+        {"zone_aliases": {"²": "A"}},
+        {"zone_aliases": {str(n): f"D{n}" for n in range(1, 540)}},
+        # Keys within the plan's 4 districts.
+        {"zone_aliases": {"5": "Five"}},
+        # Unique labels, after sanitizing and case-insensitively, defaults included.
+        {"zone_aliases": {"1": "North", "2": " NORTH "}},
+        {"zone_aliases": {"1": "3"}},
+        # Order: distinct district numbers within the plan.
+        {"zone_order": [2, 2, 1]},
+        {"zone_order": [0, 1]},
+        {"zone_order": [1, 5]},
+        {"zone_order": ["x"]},
+        # The count this request sets is the one that counts.
+        {"num_districts": 2, "zone_order": [3, 1, 2]},
+    ],
+)
+def test_put_assignments_rejects_bad_zone_labels(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+    metadata,
+):
+    """Bad district labels or panel order are a 422 with a JSON detail, and
+    nothing is written."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": metadata,
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"]
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert not (meta or {}).get("zone_aliases")
+    assert not (meta or {}).get("zone_order")
+
+
+def test_put_assignments_zone_labels_follow_the_new_district_count(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """A request that raises the count may label and order the new districts."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {
+                "num_districts": 5,
+                "zone_aliases": {"5": "Five", "1": "5x"},
+                "zone_order": [5, 1, 2, 3, 4],
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"5": "Five", "1": "5x"}
+    assert meta["zone_order"] == [5, 1, 2, 3, 4]
 
 
 def test_put_assignments_metadata_num_districts_validation(

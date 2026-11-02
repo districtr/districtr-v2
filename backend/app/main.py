@@ -100,6 +100,7 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
+    check_zone_labels_for_plan,
 )
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
@@ -746,6 +747,32 @@ def _sync_update_assignments(
         )
 
     is_community_map = actual_is_community
+
+    # District labels and panel order must fit the plan's district count: the
+    # one this request sets, or the stored one. Checked before anything writes.
+    if data.metadata is not None and (
+        data.metadata.zone_aliases is not None or data.metadata.zone_order is not None
+    ):
+        num_districts = (
+            data.metadata.num_districts
+            or session.exec(
+                select(coalesce(Document.num_districts, DistrictrMap.num_districts))
+                .join(
+                    DistrictrMap,
+                    col(Document.districtr_map_slug)
+                    == col(DistrictrMap.districtr_map_slug),
+                )
+                .where(Document.document_id == document_id)
+            ).one_or_none()
+        )
+        problem = check_zone_labels_for_plan(
+            data.metadata.zone_aliases, data.metadata.zone_order, num_districts or 0
+        )
+        if problem:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=problem
+            )
+
     assignment_table = (
         "document.community_assignments" if is_community_map else "document.assignments"
     )
@@ -1204,7 +1231,11 @@ async def update_assignments(
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.errors(),
+            # Without ctx (a validator's ValueError, which JSON can't carry) or
+            # the input (which can be a whole oversized payload).
+            detail=e.errors(
+                include_url=False, include_context=False, include_input=False
+            ),
         )
 
     has_assignments = len(data.assignments) > 0
