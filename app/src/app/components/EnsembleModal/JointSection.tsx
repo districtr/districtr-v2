@@ -200,11 +200,6 @@ export const JointSection: React.FC<JointSectionProps> = ({
             ))}
           </Select.Content>
         </Select.Root>
-        {selected.pair.why && (
-          <Text size="1" color="gray">
-            {selected.pair.why}
-          </Text>
-        )}
       </Flex>
       {jointQuery.isLoading && (
         <Flex align="center" gap="2" py="3">

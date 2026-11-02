@@ -242,7 +242,9 @@ export interface EnsembleJointPair {
   y: EnsembleSeriesRef;
   /** Path of the pair's counts file. */
   file?: string;
-  /** Why the pair is worth reading, in plain words. */
+  /** Why the pipeline chose the pair, for the method note; the modal does
+   * not show it, since it is a hypothesis about the module rather than a
+   * reading of the data. */
   why: string;
   /** Path of the pair's frontier file, when a search traced one. */
   frontier?: string;

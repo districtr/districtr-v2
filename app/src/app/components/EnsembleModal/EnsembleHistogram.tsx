@@ -28,9 +28,10 @@ const BAR_FILL = 'var(--gray-a7)';
 const BAR_FILL_HOVER = 'var(--gray-a9)';
 const PLAN_COLOR = 'var(--accent-9)';
 const SELECTED_COLOR = 'var(--amber-10)';
-/** The sample's bars sit inside the ensemble's, this fraction of their width. */
+/** With a sample, each bucket's slot is split between the ensemble's bar on
+ * the left and the sample's on the right, with this gap between them. */
 const SAMPLE_BAR_FILL = 'var(--amber-a8)';
-const SAMPLE_BAR_SHARE = 0.5;
+const PAIR_GAP = 1;
 const AXIS_COLOR = 'var(--gray-a8)';
 const INK = 'var(--gray-12)';
 const MUTED_INK = 'var(--gray-11)';
@@ -300,28 +301,33 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
               ? Math.min(innerWidth - barWidth, Math.max(0, (left + right) / 2 - barWidth / 2))
               : left + gap / 2;
             const barHeight = innerHeight - yScale(bucket.percent);
-            const sampleWidth = Math.max(1, barWidth * SAMPLE_BAR_SHARE);
+            // Beside a sample, the ensemble's bar takes the left half of the
+            // slot and the sample's bar the right half.
+            const paired = sample.length > 0 && barWidth >= 4;
+            const halfWidth = paired ? Math.max(1, (barWidth - PAIR_GAP) / 2) : barWidth;
             const samplePercent = bucket.samplePercent ?? 0;
             return (
               <React.Fragment key={index}>
                 <Bar
                   x={barX}
                   y={yScale(bucket.percent)}
-                  width={barWidth}
+                  width={halfWidth}
                   height={Math.max(barHeight, bucket.count > 0 ? 1 : 0)}
-                  rx={barWidth >= 4 ? 2 : 0}
+                  rx={halfWidth >= 4 ? 2 : 0}
                   fill={hovered === index ? BAR_FILL_HOVER : BAR_FILL}
                   onMouseEnter={() => setHovered(index)}
                   onMouseLeave={() => setHovered(null)}
                 />
-                {samplePercent > 0 && (
+                {paired && samplePercent > 0 && (
                   <Bar
-                    x={barX + (barWidth - sampleWidth) / 2}
+                    x={barX + halfWidth + PAIR_GAP}
                     y={yScale(samplePercent)}
-                    width={sampleWidth}
+                    width={halfWidth}
                     height={Math.max(1, innerHeight - yScale(samplePercent))}
+                    rx={halfWidth >= 4 ? 2 : 0}
                     fill={SAMPLE_BAR_FILL}
-                    pointerEvents="none"
+                    onMouseEnter={() => setHovered(index)}
+                    onMouseLeave={() => setHovered(null)}
                   />
                 )}
               </React.Fragment>
