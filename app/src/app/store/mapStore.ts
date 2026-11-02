@@ -505,6 +505,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
+          // Locks follow the plan across edit/display/evaluate switches; a different
+          // map starts unlocked and restores its own saved locks below.
+          lockPaintedAreas: sameMapAcrossViews ? mapControlsState.mapOptions.lockPaintedAreas : [],
         },
         // A fresh map (not just switching edit/display/eval views of the same
         // one) defaults to painting — that's what a user opens a map to do.
@@ -527,6 +530,23 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
+
+      const documentId = mapDocument.document_id;
+      if (mapDocument.access === ACCESS_STATES.EDIT && documentId) {
+        // Restored in plain Draw too, which ignores them until Super Draw is back.
+        idb.getZoneLocks(documentId).then(zones => {
+          // Skip if another map loaded meanwhile or the user locked something already.
+          const {mapOptions} = useMapControlsStore.getState();
+          if (
+            zones.length &&
+            get().mapDocument?.document_id === documentId &&
+            !mapOptions.lockPaintedAreas.length
+          ) {
+            useMapControlsStore.setState({mapOptions: {...mapOptions, lockPaintedAreas: zones}});
+            useMapControlsStore.getState().selectUnlockedZone();
+          }
+        });
+      }
 
       useAssignmentsStore.getState().resetShatterState();
 
@@ -765,6 +785,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           metadata: true,
         },
       });
+      // Locks on districts that no longer exist would come back if the count is
+      // raised again; dropping them through setLockedZones updates the saved copy too.
+      const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
+      const keptLocks = lockPaintedAreas.filter(zone => !zone || zone <= numDistricts);
+      if (keptLocks.length < lockPaintedAreas.length) {
+        useMapControlsStore.getState().setLockedZones(keptLocks);
+      }
       // Pins on districts that no longer exist would filter tables down to
       // rows that aren't there.
       useMapControlsStore.setState(state => {
@@ -1106,13 +1133,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
       });
 
-      useMapControlsStore.setState(state => ({
-        selectedZone: remappedSelectedZone,
-        mapOptions: {
-          ...state.mapOptions,
-          lockPaintedAreas: remappedLockedZones,
-        },
-      }));
+      useMapControlsStore.setState({selectedZone: remappedSelectedZone});
+      useMapControlsStore.getState().setLockedZones(remappedLockedZones);
 
       useCoiAssignmentsStore.getState().removeCommunity(communityId);
 
