@@ -2,6 +2,7 @@ import {MapStore} from '@/app/store/mapStore';
 import {Box, Flex, RadioGroup, Select, Text} from '@radix-ui/themes';
 import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
+import {orderedZoneLabels} from '@/app/utils/zoneLabels';
 import {CheckIcon} from '@radix-ui/react-icons';
 
 export const ColorMultiDropdown: React.FC<{
@@ -13,7 +14,7 @@ export const ColorMultiDropdown: React.FC<{
   disabledValues: ColorPickerProps['disabledValues'];
 }> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues}) => {
   if (!mapDocument?.num_districts) return null;
-  const numDistricts = mapDocument.num_districts;
+  const zones = orderedZoneLabels(mapDocument);
   return (
     <Flex direction="row" gapX="3" align="center">
       <Select.Root
@@ -37,8 +38,8 @@ export const ColorMultiDropdown: React.FC<{
           </Flex>
         </Select.Trigger>
         <Select.Content>
-          {colorScheme.slice(0, numDistricts).map((color, i) => (
-            <Select.Item key={i} value={color}>
+          {zones.map(({zone, index: i, label}) => (
+            <Select.Item key={zone} value={colorScheme[i]}>
               <Flex direction={'row'} gapX="2">
                 <Box
                   style={{backgroundColor: colorScheme[i]}}
@@ -48,7 +49,7 @@ export const ColorMultiDropdown: React.FC<{
                 >
                   {value?.includes(i) ? <CheckIcon fontSize={'1'} /> : null}
                 </Box>
-                <Text size="1">{i + 1}</Text>
+                <Text size="1">{label}</Text>
               </Flex>
             </Select.Item>
           ))}

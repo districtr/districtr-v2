@@ -3,6 +3,7 @@ import {Box, Flex, Kbd, RadioGroup, Text, Tooltip} from '@radix-ui/themes';
 import {useAltHeld} from '@/app/hooks/useAltHeld';
 import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
+import {isDigitLabel, orderedZoneLabels} from '@/app/utils/zoneLabels';
 import {styled} from '@stitches/react';
 
 const StyledRadioGroupItem = styled(RadioGroup.Item, {
@@ -35,13 +36,12 @@ export const ColorRadioGroup: React.FC<{
   disabledValues: ColorPickerProps['disabledValues'];
 }> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues}) => {
   // While Alt/Option is held (the same reveal as the toolbar's hotkey badges),
-  // each pip's number renders as a keycap: typing a district's number selects
-  // it, multi-digit numbers included (the hotkey accumulator in ColorPicker
-  // collects digits, so "1" then "4" selects 14).
+  // each all-digit label renders as a keycap: typing it selects the district,
+  // multi-digit labels included (the hotkey accumulator in ColorPicker collects
+  // digits, so "1" then "4" selects the district labeled 14).
   const showHotkeyHints = useAltHeld();
   if (!mapDocument?.num_districts) return null;
-  const numDistricts = mapDocument.num_districts;
-  const aliases = mapDocument.map_metadata?.zone_aliases;
+  const zones = orderedZoneLabels(mapDocument);
   return (
     <Box>
       <RadioGroup.Root
@@ -53,42 +53,54 @@ export const ColorRadioGroup: React.FC<{
         defaultValue={colorScheme[defaultValue]}
       >
         <Flex direction="row" wrap="wrap" gapX="2">
-          {!!mapDocument &&
-            colorScheme.slice(0, numDistricts).map((color, i) => {
-              const alias = aliases?.[i + 1];
-              const item = (
-                <StyledRadioGroupItem
-                  key={i}
-                  data-testid={`zone-${i + 1}`}
-                  aria-label={alias ? `District ${i + 1}: ${alias}` : undefined}
-                  style={{backgroundColor: color}}
-                  value={color}
-                  disabled={disabledValues?.includes(i)}
-                  className={disabledValues?.includes(i) ? 'opacity-25' : ''}
-                ></StyledRadioGroupItem>
-              );
-              return (
-                <Flex direction="column" align="center" key={i} pb="2">
-                  {alias ? <Tooltip content={alias}>{item}</Tooltip> : item}
-                  {/* Fixed-height slot so the row doesn't jump when Alt swaps
+          {zones.map(({zone, label}) => {
+            const i = zone - 1;
+            const color = colorScheme[i];
+            const disabled = disabledValues?.includes(i);
+            // Only all-digit labels have a number-key shortcut.
+            const hotkey = showHotkeyHints && !disabled && isDigitLabel(label);
+            return (
+              <Flex direction="column" align="center" key={zone} pb="2">
+                <Tooltip content={label}>
+                  <StyledRadioGroupItem
+                    data-testid={`zone-${zone}`}
+                    aria-label={`District ${label}`}
+                    style={{backgroundColor: color}}
+                    value={color}
+                    disabled={disabled}
+                    className={disabled ? 'opacity-25' : ''}
+                  ></StyledRadioGroupItem>
+                </Tooltip>
+                {/* Fixed-height slot so the row doesn't jump when Alt swaps
                     the label for a keycap. */}
-                  <Flex height="18px" align="center" justify="center" position="relative">
-                    {showHotkeyHints && !disabledValues?.includes(i) ? (
-                      // Out of layout flow: the keycap is wider than the pip, and
-                      // in-flow it would widen the column and shift the row.
-                      <Kbd
-                        size="1"
-                        style={{position: 'absolute', left: '50%', transform: 'translateX(-50%)'}}
-                      >
-                        {i + 1}
-                      </Kbd>
-                    ) : (
-                      <Text size="1">{i + 1}</Text>
-                    )}
-                  </Flex>
+                <Flex height="18px" align="center" justify="center" position="relative">
+                  {hotkey ? (
+                    // Out of layout flow: the keycap is wider than the pip, and
+                    // in-flow it would widen the column and shift the row.
+                    <Kbd
+                      size="1"
+                      style={{position: 'absolute', left: '50%', transform: 'translateX(-50%)'}}
+                    >
+                      {label}
+                    </Kbd>
+                  ) : (
+                    // A long label is cut to the pip's width; the tooltip has it all.
+                    <Text
+                      size="1"
+                      style={{
+                        maxWidth: '4ch',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  )}
                 </Flex>
-              );
-            })}
+              </Flex>
+            );
+          })}
         </Flex>
       </RadioGroup.Root>
     </Box>

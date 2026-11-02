@@ -20,7 +20,12 @@ import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
-import {MAX_COMMUNITY_NAME_LENGTH, sanitizeCommunityName} from '../utils/sanitize';
+import {
+  aliasesForCount,
+  cleanZoneLabel,
+  findLabelConflict,
+  normalizeZoneOrder,
+} from '../utils/zoneLabels';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -246,13 +251,16 @@ export interface MapStore {
   getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
   getZonesWithDescriptions: () => number[];
 
-  // DISTRICT ALIASES / RENUMBERING
-  /** Set (or clear, with a blank name) a district's display name. */
-  setZoneAlias: (zone: number, alias: string) => void;
-  /** Move per-district state (color, alias, description, lock, selection) from each
-   * key zone to its mapped zone; the mapping must be a permutation. Assignments are permuted separately, by
-   * assignmentsStore.renumberZones, so the renumber is one undo step. */
-  permuteZoneMetadata: (mapping: Map<number, number>) => void;
+  // DISTRICT LABELS / PANEL ORDER
+  /** Set (or reset to its number, with a blank name) a district's label. Returns
+   * why the label was refused (another district already has it), or null. */
+  setZoneAlias: (zone: number, alias: string) => string | null;
+  /** Set the districts' order in the population panel (district numbers, first
+   * row first). Assignments and labels don't change. */
+  setZoneOrder: (order: number[]) => void;
+  /** Merge into map_metadata as a local edit: marks the map unsaved, writes
+   * IndexedDB, and saves with the next PUT /api/assignments. */
+  editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
 
   // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
   /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
@@ -768,23 +776,41 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
 
     setZoneAlias: (zone, alias) => {
-      const {mapDocument, updated} = get();
-      if (!mapDocument) return;
+      const {mapDocument} = get();
+      if (!mapDocument) return null;
       const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
       // Same pipeline and cap the server applies, so the stored name is what's shown.
-      // Cut by code point like the server: a UTF-16 slice can split an emoji, and the
-      // lone surrogate would fail every later save.
-      const trimmed = Array.from(sanitizeCommunityName(alias))
-        .slice(0, MAX_COMMUNITY_NAME_LENGTH)
-        .join('');
-      if (trimmed) {
-        zone_aliases[zone] = trimmed;
+      const label = cleanZoneLabel(alias);
+      const conflict = findLabelConflict(zone, label, zone_aliases, mapDocument.num_districts ?? 0);
+      if (conflict !== null) {
+        return `Another district is already labeled “${label || zone}”.`;
+      }
+      // A label equal to the district's number is its default: nothing to store.
+      if (label && label !== String(zone)) {
+        zone_aliases[zone] = label;
       } else {
         delete zone_aliases[zone];
       }
+      get().editMapMetadata({zone_aliases});
+      return null;
+    },
+
+    setZoneOrder: order => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+      const numDistricts = mapDocument.num_districts ?? 0;
+      const zone_order = normalizeZoneOrder(order, numDistricts);
+      const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
+      if (zone_order.every((zone, i) => zone === current[i])) return;
+      get().editMapMetadata({zone_order});
+    },
+
+    editMapMetadata: patch => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
       const newMapDocument = {
         ...mapDocument,
-        map_metadata: {...mapDocument.map_metadata, zone_aliases},
+        map_metadata: {...mapDocument.map_metadata, ...patch},
       };
       set({mapDocument: newMapDocument, updated: {...updated, metadata: true}});
       if (mapDocument.document_id) {
@@ -792,45 +818,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
         useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
       }
-    },
-
-    permuteZoneMetadata: mapping => {
-      const {mapDocument, pinnedDescriptionZone} = get();
-      if (!mapDocument || !mapping.size) return;
-      const remap = (zone: number) => mapping.get(zone) ?? zone;
-      const colors = mapDocument.color_scheme ?? DefaultColorScheme;
-      const color_scheme = [...colors];
-      mapping.forEach((to, from) => {
-        color_scheme[to - 1] = colors[from - 1];
-      });
-      const zone_aliases = Object.fromEntries(
-        Object.entries(mapDocument.map_metadata?.zone_aliases ?? {}).map(([zone, alias]) => [
-          remap(Number(zone)),
-          alias,
-        ])
-      );
-      // No IDB write here: the caller's assignments write carries this document_metadata.
-      set({
-        mapDocument: {
-          ...mapDocument,
-          color_scheme,
-          map_metadata: {...mapDocument.map_metadata, zone_aliases},
-          document_comments: mapDocument.document_comments?.map(c =>
-            c.zone == null ? c : {...c, zone: remap(c.zone)}
-          ),
-        },
-        pinnedDescriptionZone: pinnedDescriptionZone == null ? null : remap(pinnedDescriptionZone),
-        updated: {metadata: true, comments: true},
-      });
-      useMapControlsStore.setState(state => ({
-        selectedZone: remap(state.selectedZone),
-        mapOptions: {
-          ...state.mapOptions,
-          lockPaintedAreas: state.mapOptions.lockPaintedAreas.map(zone =>
-            zone == null ? zone : remap(zone)
-          ),
-        },
-      }));
     },
 
     hoveredPublicZones: [],
@@ -852,6 +839,18 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         ...mapDocument,
         num_districts: numDistricts,
         color_scheme: newColorScheme,
+        // Labels past the count go; a new district's default label can't repeat
+        // another district's (see aliasesForCount).
+        ...(mapDocument.map_metadata?.zone_aliases && {
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            zone_aliases: aliasesForCount(
+              mapDocument.map_metadata.zone_aliases,
+              mapDocument.num_districts ?? 0,
+              numDistricts
+            ),
+          },
+        }),
       };
       set({
         mapDocument: updatedDocument,

@@ -9,6 +9,7 @@ import {getAssignments} from './getAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {aliasesWithin, normalizeZoneOrder} from '../../zoneLabels';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -76,6 +77,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     };
   });
 
+  const numDistricts = mapDocument.num_districts ?? 0;
   const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
@@ -88,9 +90,13 @@ export const putUpdateAssignmentsAndVerify = async ({
         mapDocument.num_districts && mapDocument.num_districts_modifiable
           ? mapDocument.num_districts
           : undefined,
-      // {} rather than null for "no aliases": the server reads null as "leave them",
-      // which would keep another tab's aliases after a "Use local" overwrite.
-      zone_aliases: mapDocument.map_metadata?.zone_aliases ?? {},
+      // {} and [] rather than null for "none": the server reads null as "leave
+      // them", which would keep another tab's after a "Use local" overwrite. Only
+      // the plan's districts are sent (the server refuses others).
+      zone_aliases: aliasesWithin(mapDocument.map_metadata?.zone_aliases, numDistricts),
+      zone_order: mapDocument.map_metadata?.zone_order?.length
+        ? normalizeZoneOrder(mapDocument.map_metadata.zone_order, numDistricts)
+        : [],
     },
     comments,
   });

@@ -16,6 +16,8 @@ import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
+import {useZoneLabelGetter} from '@/app/hooks/useZoneLabel';
+import {useZoneRowDrag, ZoneDragHandle, ZoneRowLabel} from './ZoneRowControls';
 
 const NUM_CELL_STYLE: React.CSSProperties = {
   textAlign: 'right',
@@ -26,7 +28,9 @@ const NUM_CELL_STYLE: React.CSSProperties = {
 /**
  * Super Draw's tuning view of the population chart: once every district is
  * within a few hundred people of ideal the bars all look identical, so this
- * swaps them for exact numbers and a per-district contiguity flag.
+ * swaps them for exact numbers and a per-district contiguity flag. Rows come
+ * in panel order (the caller sorts them); editors drag them to reorder and
+ * click a label to rename it, as in the bars.
  *
  * Contiguity shares one cache entry (contiguityQueryKey) with the validation
  * panel and the draft-status helper. The key turns over with the document's
@@ -57,6 +61,9 @@ export const DistrictTuningTable: React.FC<{
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
+  const getZoneLabel = useZoneLabelGetter();
+  const drag = useZoneRowDrag();
+  const canEdit = showRowIcons && !isReadOnly;
   const {data: contiguity, isFetching} = useQuery({
     queryKey: contiguityQueryKey(mapDocument),
     queryFn: () => getContiguity(mapDocument),
@@ -144,10 +151,13 @@ export const DistrictTuningTable: React.FC<{
                 idealPopulation && population > 0 ? population - idealPopulation : undefined;
               const pieces = components?.[d.zone];
               const locked = lockPaintedAreas.includes(d.zone);
+              const label = getZoneLabel(d.zone);
               return (
                 <Table.Row
                   key={d.zone}
                   onClick={() => selectCommunity(d.zone)}
+                  {...drag.rowProps(d.zone)}
+                  style={drag.rowStyle(d.zone)}
                   // `group`: the pin and ZoneDescriptionPopover's bubble fade in on row hover
                   className={`group cursor-pointer ${
                     selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
@@ -155,23 +165,39 @@ export const DistrictTuningTable: React.FC<{
                   data-testid={`district-tuning-row-${d.zone}`}
                 >
                   <Table.Cell>
-                    {/* The row's keyboard control; its click bubbles to the row. */}
-                    <button
-                      type="button"
-                      aria-label={`Select district ${d.zone}`}
-                      className="flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
-                    >
-                      <span
-                        aria-hidden
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 3,
-                          background: getZoneColor(d.zone),
-                        }}
+                    <Flex align="center" gap="2">
+                      {canEdit && (
+                        <ZoneDragHandle
+                          zone={d.zone}
+                          selected={selectedZone === d.zone}
+                          rowSelector='[data-testid^="district-tuning-row-"]'
+                          onDragStart={drag.setDragZone}
+                          onDragEnd={drag.endDrag}
+                        />
+                      )}
+                      {/* The row's keyboard control; its click bubbles to the row. */}
+                      <button
+                        type="button"
+                        aria-label={`Select district ${label}`}
+                        className="flex items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 3,
+                            background: getZoneColor(d.zone),
+                          }}
+                        />
+                      </button>
+                      <ZoneRowLabel
+                        zone={d.zone}
+                        editable={canEdit}
+                        weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                        style={{maxWidth: '16ch'}}
                       />
-                      <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
-                    </button>
+                    </Flex>
                   </Table.Cell>
                   <Table.Cell style={NUM_CELL_STYLE}>
                     {formatNumber(population, NUMBER_FORMATS.STRING)}
@@ -203,7 +229,7 @@ export const DistrictTuningTable: React.FC<{
                             <IconButton
                               variant="ghost"
                               size="1"
-                              aria-label={`Zoom to a stray piece of district ${d.zone}`}
+                              aria-label={`Zoom to a stray piece of district ${label}`}
                               onClick={e => {
                                 // Zoom only; don't switch the brush to this district.
                                 e.stopPropagation();
@@ -240,7 +266,7 @@ export const DistrictTuningTable: React.FC<{
                           size="1"
                           disabled={isReadOnly}
                           aria-label={
-                            locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                            locked ? `Unlock district ${label}` : `Lock district ${label}`
                           }
                         >
                           {locked ? <LockClosedIcon /> : <LockOpen2Icon />}

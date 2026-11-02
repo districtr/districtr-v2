@@ -23,6 +23,7 @@ export const putUpdateDocument = async ({
       num_communities: metadata?.num_communities ?? null,
       community_metadata_list: metadata?.community_metadata_list ?? null,
       zone_aliases: metadata?.zone_aliases ?? null,
+      zone_order: metadata?.zone_order ?? null,
     },
     comments: comments ?? null,
   });

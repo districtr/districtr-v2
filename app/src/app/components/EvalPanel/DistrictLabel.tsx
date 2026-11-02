@@ -1,6 +1,6 @@
 'use client';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
-import {useZoneAlias} from '@/app/hooks/useZoneAlias';
+import {useZoneLabel} from '@/app/hooks/useZoneLabel';
 
 interface DistrictLabelProps {
   zone: number;
@@ -21,7 +21,7 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
 }) => {
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
-  const alias = useZoneAlias(zone);
+  const label = useZoneLabel(zone);
 
   return (
     <div
@@ -35,11 +35,14 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
       onMouseLeave={onMouseLeave}
       onFocus={onFocus}
       onBlur={onBlur}
-      title={alias}
+      title={label}
       style={{
-        width: 30,
+        // A circle for a short label; a pill, cut off past 12 characters, for longer.
+        minWidth: 30,
+        maxWidth: '12ch',
         height: 30,
-        borderRadius: '50%',
+        padding: '0 6px',
+        borderRadius: 15,
         backgroundColor: '#fff',
         border: `2.5px solid ${color}`,
         display: 'inline-flex',
@@ -52,7 +55,9 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
         userSelect: 'none',
       }}
     >
-      {zone}
+      <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+        {label}
+      </span>
     </div>
   );
 };

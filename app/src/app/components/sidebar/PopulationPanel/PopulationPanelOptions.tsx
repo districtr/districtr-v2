@@ -79,7 +79,7 @@ export const PopulationPanelOptions: React.FC<{
               }
               className="cursor-pointer"
             >
-              {`Show ${zoneLabel} numbers`}
+              {isCommunityMode ? `Show ${zoneLabel} numbers` : 'Show district labels'}
             </CheckboxGroup.Item>
           </CheckboxGroup.Root>
           {!isCommunityMode && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}

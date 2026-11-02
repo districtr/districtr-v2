@@ -999,21 +999,27 @@ def _sync_update_assignments(
                 stmt,
             )
 
-        if data.metadata.zone_aliases is not None:
+        # District labels and panel order live in map_metadata; null leaves each
+        # as stored. A key-level merge, so other map_metadata fields stay.
+        map_metadata_patch = {
+            key: value
+            for key, value in (
+                ("zone_aliases", data.metadata.zone_aliases),
+                ("zone_order", data.metadata.zone_order),
+            )
+            if value is not None
+        }
+        if map_metadata_patch:
             stmt = text("""UPDATE document.document
-                SET map_metadata = jsonb_set(
-                    COALESCE(map_metadata::jsonb, '{}'::jsonb),
-                    '{zone_aliases}', CAST(:aliases AS jsonb)
+                SET map_metadata = (
+                    COALESCE(map_metadata::jsonb, '{}'::jsonb) || CAST(:patch AS jsonb)
                 )::json
                 WHERE document_id = :document_id""").bindparams(
                 bindparam(key="document_id", type_=UUIDType),
             )
             session.connection().execute(
                 stmt,
-                {
-                    "document_id": document_id,
-                    "aliases": json.dumps(data.metadata.zone_aliases),
-                },
+                {"document_id": document_id, "patch": json.dumps(map_metadata_patch)},
             )
 
     if data.metadata is not None and (
@@ -1022,6 +1028,7 @@ def _sync_update_assignments(
         or data.metadata.num_communities is not None
         or data.metadata.community_metadata_list is not None
         or data.metadata.zone_aliases is not None
+        or data.metadata.zone_order is not None
     ):
         mutated = True
 
@@ -1871,10 +1878,12 @@ def update_districtrmap_metadata(
         previous = document.map_metadata or {}
         merged = {
             **previous,
-            # zone_aliases follow the district numbering, so they are written only by
-            # the conflict-checked PUT /api/assignments; a stale tab's form here would
+            # District labels and panel order are written only by the
+            # conflict-checked PUT /api/assignments; a stale tab's form here would
             # otherwise silently overwrite them.
-            **metadata.model_dump(exclude_unset=True, exclude={"zone_aliases"}),
+            **metadata.model_dump(
+                exclude_unset=True, exclude={"zone_aliases", "zone_order"}
+            ),
         }
         stmt = (
             update(Document)

@@ -1,3 +1,4 @@
+import {districtHeading} from '@/app/utils/zoneLabels';
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
@@ -287,7 +288,7 @@ export const ColorChangeModal: React.FC<{
                 style={{backgroundColor: typedColor ?? selectedColor}}
               />
               <Text size="2" weight="medium" className="shrink-0">
-                District {colorSelectIndex + 1}
+                {districtHeading(colorSelectIndex + 1, mapDocument?.map_metadata?.zone_aliases)}
               </Text>
               <TextField.Root
                 className="flex-1"

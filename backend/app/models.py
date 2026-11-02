@@ -201,6 +201,7 @@ class DocumentMetadata(BaseModel):
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
     zone_aliases: dict[str, str] | None = None
+    zone_order: list[int] | None = None
 
     @field_validator("zone_aliases")
     @classmethod
@@ -441,9 +442,11 @@ class AssignmentsMetadata(BaseModel):
     num_districts: int | None = None
     num_communities: int | None = None
     community_metadata_list: list[CommunityMetadata] | None = None
-    # Stored in document.map_metadata; {} clears every alias, None leaves them.
-    # Sent with the assignments so a renumber's aliases save atomically with it.
+    # District labels ({"3": "North Shore"}) and panel order (district numbers,
+    # first row first), stored in document.map_metadata. {} / [] reset them to
+    # the defaults (each district's number; 1..N), None leaves them as stored.
     zone_aliases: dict[str, str] | None = None
+    zone_order: list[int] | None = None
 
     @field_validator("zone_aliases")
     @classmethod

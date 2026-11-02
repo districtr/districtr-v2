@@ -1,7 +1,7 @@
 import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {NullableZone} from '@constants/map/zone';
-import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
+import {isDigitLabel, orderedZoneLabels} from '@/app/utils/zoneLabels';
 import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';
 import {ColorMultiDropdown} from './ColorMultiDropdown';
@@ -54,13 +54,22 @@ export const ColorPicker = <T extends boolean>({
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Number keys select the district whose label is exactly the digits typed;
+  // districts with other labels have no shortcut.
+  const digitLabelZones = () => {
+    const zones = new Map<string, number>();
+    for (const {zone, label} of orderedZoneLabels(useMapStore.getState().mapDocument)) {
+      if (isDigitLabel(label)) zones.set(label, zone);
+    }
+    return zones;
+  };
+
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
-    const index = parseInt(hotkeyRef.current) - 1;
+    const zone = digitLabelZones().get(hotkeyRef.current);
     hotkeyRef.current = null;
-    const numDistricts =
-      useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-    if (index < 0 || index >= numDistricts) return;
+    if (zone === undefined) return;
+    const index = zone - 1;
     const newValue = colorScheme[index];
     if (multiple) {
     } else {
@@ -78,28 +87,19 @@ export const ColorPicker = <T extends boolean>({
         return;
       // if command/control held down, don't do anything
       if (event.metaKey || event.ctrlKey) return;
-      // if key is digit, set selected zone to that digit
-      if (!event.code.includes('Digit')) return;
-      let value = event.key;
-      const numDistricts =
-        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-      const numDigits = numDistricts.toString().length;
-      // Accumulate digits whenever district numbers have more than one, so
-      // "1" then "4" selects 14 on any 10+ district map. A single digit
-      // submits after the 250ms window (or immediately once the full digit
-      // width is typed).
-      if (numDigits > 1) {
-        hotkeyRef.current = (hotkeyRef.current || '') + value;
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (hotkeyRef?.current?.length === numDigits) {
-          handleKeyPressSubmit();
-        } else {
-          timeoutRef.current = setTimeout(() => {
-            handleKeyPressSubmit();
-          }, 250);
-        }
+      if (!event.code.includes('Digit') || !/^[0-9]$/.test(event.key)) return;
+      // Accumulate digits while a longer label starts with them, so "1" then "4"
+      // selects the district labeled 14. Otherwise submit right away; a pending
+      // prefix submits after the 250ms window.
+      const typed = (hotkeyRef.current || '') + event.key;
+      hotkeyRef.current = typed;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      const longerLabel = Array.from(digitLabelZones().keys()).some(
+        label => label.length > typed.length && label.startsWith(typed)
+      );
+      if (longerLabel) {
+        timeoutRef.current = setTimeout(handleKeyPressSubmit, 250);
       } else {
-        hotkeyRef.current = value;
         handleKeyPressSubmit();
       }
     };

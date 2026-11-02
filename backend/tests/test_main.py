@@ -2024,7 +2024,8 @@ def test_put_assignments_with_metadata_num_districts_and_color_scheme(
 def test_put_assignments_with_zone_aliases(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
 ):
-    """Zone aliases are sanitized into map_metadata without clobbering other fields."""
+    """District labels and panel order go into map_metadata without clobbering
+    other fields."""
     r = client.put(
         f"/api/document/{document_id_all_stats}/metadata", json={"name": "My plan"}
     )
@@ -2038,30 +2039,42 @@ def test_put_assignments_with_zone_aliases(
         "/api/assignments",
         json={
             **base,
-            "metadata": {"zone_aliases": {"1": " North <b>Shore</b> ", "2": "  "}},
+            "metadata": {
+                "zone_aliases": {"1": " North <b>Shore</b> ", "2": "  "},
+                "zone_order": [2, 1],
+            },
         },
     )
     assert r.status_code == 200
     meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
     assert meta["zone_aliases"] == {"1": "North Shore"}
+    assert meta["zone_order"] == [2, 1]
     assert meta["name"] == "My plan"
 
     # A save with zone_aliases null (what the client sends for "none loaded"), or
     # without them, leaves them alone; so does the metadata endpoint.
     r = client.put(
         "/api/assignments",
-        json={**base, "metadata": {"color_scheme": None, "zone_aliases": None}},
+        json={
+            **base,
+            "metadata": {
+                "color_scheme": None,
+                "zone_aliases": None,
+                "zone_order": None,
+            },
+        },
     )
     assert r.status_code == 200
     r = client.put("/api/assignments", json=base)
     assert r.status_code == 200
     r = client.put(
         f"/api/document/{document_id_all_stats}/metadata",
-        json={"name": "Renamed", "zone_aliases": {"1": "Stale"}},
+        json={"name": "Renamed", "zone_aliases": {"1": "Stale"}, "zone_order": [1, 2]},
     )
     assert r.status_code == 200
     meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
     assert meta["zone_aliases"] == {"1": "North Shore"}
+    assert meta["zone_order"] == [2, 1]
     assert meta["name"] == "Renamed"
 
     r = client.put(

@@ -1,12 +1,13 @@
 'use client';
-import {Flex, Text, Button, TextArea, TextField, IconButton, Box} from '@radix-ui/themes';
+import {Flex, Text, Button, TextArea, IconButton, Box} from '@radix-ui/themes';
 import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icons';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {useZoneAlias} from '@/app/hooks/useZoneAlias';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
-import {useEffect, useRef, useState} from 'react';
-import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
+import {useCommittedDraft} from '@/app/hooks/useCommittedDraft';
+import {useState} from 'react';
+import {districtHeading} from '@/app/utils/zoneLabels';
+import {ZoneLabelField} from './ZoneLabelField';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
@@ -125,48 +126,25 @@ const DescriptionDisplay: React.FC<DescriptionDisplayProps> = ({
   </Flex>
 );
 
-/** A text draft that commits when the field loses focus or the popover closes
- * (closing unmounts the field, which skips blur). */
-const useCommittedDraft = (value: string, commit: (draft: string) => void) => {
-  const [draft, setDraft] = useState(value);
-  const latest = useRef({draft, value, commit});
-  latest.current = {draft, value, commit};
-  useEffect(() => setDraft(value), [value]);
-  const flush = () => {
-    const {draft, value, commit} = latest.current;
-    if (draft.trim() !== value) commit(draft);
-  };
-  useEffect(() => flush, []);
-  return {draft, setDraft, flush};
-};
-
-/** District title and description, always editable (no add/edit/save steps). */
+/** District label and description, always editable (no add/edit/save steps). */
 const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone, maxLength}) => {
-  const alias = useZoneAlias(zone) ?? '';
   const description = useMapStore(state => state.getZoneDescriptionForZone(zone))?.text ?? '';
-  const {setZoneAlias, setZoneDescription, clearZoneDescription} = useMapStore.getState();
-  const title = useCommittedDraft(alias, draft => setZoneAlias(zone, draft));
+  const heading = useMapStore(state =>
+    districtHeading(zone, state.mapDocument?.map_metadata?.zone_aliases)
+  );
+  const {setZoneDescription, clearZoneDescription} = useMapStore.getState();
   const body = useCommittedDraft(description, draft =>
     draft.trim() ? setZoneDescription(zone, draft) : clearZoneDescription(zone)
   );
   return (
     <Flex direction="column" gap="2">
-      <TextField.Root
-        size="1"
-        placeholder="Title"
-        aria-label={`Title for district ${zone}`}
-        value={title.draft}
-        maxLength={MAX_COMMUNITY_NAME_LENGTH}
-        onChange={e => title.setDraft(e.target.value)}
-        onBlur={title.flush}
-        onKeyUp={e => e.key === 'Enter' && e.currentTarget.blur()}
-      />
+      <ZoneLabelField zone={zone} />
       <Box className="relative">
         <TextArea
           size="1"
           rows={5}
           placeholder="Description"
-          aria-label={`Description for district ${zone}`}
+          aria-label={`Description for ${heading}`}
           value={body.draft}
           maxLength={maxLength}
           onChange={e => body.setDraft(e.target.value)}
@@ -201,16 +179,17 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   const mapMode = useMapControlsStore(state => state.mapMode);
   const communities = useMapStore(state => state.communities);
   const {save} = useMapSaveStatus();
-  const alias = useZoneAlias(zone);
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
 
   if (!commentLengthLimit) {
     return null;
   }
 
-  const zoneLabel = mapMode === MAP_MODES.COI ? 'Community' : 'District';
   const isDistrictForm = showEditingControls && mapMode !== MAP_MODES.COI;
-  const displayZone =
-    mapMode === MAP_MODES.COI ? getCommunityDisplayNumber(communities, zone) : zone;
+  const heading =
+    mapMode === MAP_MODES.COI
+      ? `Community ${getCommunityDisplayNumber(communities, zone)}`
+      : districtHeading(zone, zoneAliases);
 
   const handleSaveDescription = (text: string) => {
     setZoneDescription(zone, text);
@@ -233,8 +212,7 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
             style={{backgroundColor: color}}
           />
           <Text size="2" weight="bold">
-            {zoneLabel} {displayZone}
-            {alias && !isDistrictForm ? ` · ${alias}` : ''}
+            {heading}
           </Text>
         </Flex>
         {showEditingControls && !isDistrictForm && !isEditing && !description && (
