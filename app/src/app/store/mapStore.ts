@@ -25,6 +25,8 @@ import {
   cleanZoneLabel,
   findLabelConflict,
   normalizeZoneOrder,
+  renumberAliases,
+  renumberForOrder,
 } from '../utils/zoneLabels';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
@@ -258,6 +260,10 @@ export interface MapStore {
   /** Set the districts' order in the population panel (district numbers, first
    * row first). Assignments and labels don't change. */
   setZoneOrder: (order: number[]) => void;
+  /** Renumber districts to match the panel order (first row becomes district 1).
+   * Each district keeps its color, label, description, lock and pin. Clears undo
+   * history: it only tracks assignments, so undoing would mismatch the rest. */
+  renumberToPanelOrder: () => void;
   /** Merge into map_metadata as a local edit: marks the map unsaved, writes
    * IndexedDB, and saves with the next PUT /api/assignments. */
   editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
@@ -806,6 +812,54 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
       if (zone_order.every((zone, i) => zone === current[i])) return;
       get().editMapMetadata({zone_order});
+    },
+
+    renumberToPanelOrder: () => {
+      const {mapDocument, mapLock, pinnedDescriptionZone, updated} = get();
+      // Locked while saving or breaking: an in-flight break would overwrite the result.
+      if (!mapDocument || mapLock) return;
+      const numDistricts = mapDocument.num_districts ?? 0;
+      const mapping = renumberForOrder(
+        normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts)
+      );
+      if (!mapping.size) return;
+      const remap = (zone: number) => mapping.get(zone) ?? zone;
+      const colors = mapDocument.color_scheme ?? DefaultColorScheme;
+      const color_scheme = [...colors];
+      mapping.forEach((to, from) => {
+        color_scheme[to - 1] = colors[from - 1];
+      });
+      set({
+        mapDocument: {
+          ...mapDocument,
+          color_scheme,
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            zone_aliases: renumberAliases(
+              mapDocument.map_metadata?.zone_aliases,
+              mapping,
+              numDistricts
+            ),
+            zone_order: [],
+          },
+          document_comments: mapDocument.document_comments?.map(c =>
+            c.zone == null ? c : {...c, zone: remap(c.zone)}
+          ),
+        },
+        pinnedDescriptionZone: pinnedDescriptionZone == null ? null : remap(pinnedDescriptionZone),
+        updated: {...updated, metadata: true, comments: true},
+      });
+      const controls = useMapControlsStore.getState();
+      controls.setLockedZones(
+        controls.mapOptions.lockPaintedAreas.map(zone => (zone == null ? zone : remap(zone)))
+      );
+      useMapControlsStore.setState(state => ({
+        selectedZone: remap(state.selectedZone),
+        pinnedZones: state.pinnedZones.map(remap),
+      }));
+      // After the metadata: this IndexedDB write carries the renumbered document.
+      useAssignmentsStore.getState().renumberZones(mapping);
+      temporalManager.clear(MAP_MODES.DISTRICTS);
     },
 
     editMapMetadata: patch => {

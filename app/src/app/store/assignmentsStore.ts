@@ -85,6 +85,10 @@ export interface AssignmentsStore {
   clientLastUpdated: string;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
+  /** Move every unit (shattered children included) in a key zone to its mapped
+   * zone; the mapping must be a permutation. Callers move the per-district
+   * metadata themselves and clear undo history (see renumberToPanelOrder). */
+  renumberZones: (mapping: ReadonlyMap<Zone, Zone>) => void;
   setClientLastUpdated: (updated_at: string) => void;
 
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -386,6 +390,29 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
   pendingShatterUndoState: null,
+  renumberZones: mapping => {
+    const {zoneAssignments, zonesLastUpdated} = get();
+    const {mapDocument} = useMapStore.getState();
+    if (!mapping.size || !mapDocument) return;
+    const nextAssignments = new Map(zoneAssignments);
+    zoneAssignments.forEach((zone, geoid) => {
+      const to = zone == null ? undefined : mapping.get(zone);
+      to !== undefined && nextAssignments.set(geoid, to);
+    });
+    const timestamp = new Date().toISOString();
+    const nextZonesLastUpdated = new Map(zonesLastUpdated);
+    mapping.forEach((to, from) => {
+      nextZonesLastUpdated.set(from, timestamp);
+      nextZonesLastUpdated.set(to, timestamp);
+    });
+    idb.updateIdbAssignments(mapDocument, nextAssignments, timestamp);
+    set({
+      zoneAssignments: nextAssignments,
+      zonesLastUpdated: nextZonesLastUpdated,
+      clientLastUpdated: timestamp,
+      pendingShatterUndoState: null,
+    });
+  },
   setClientLastUpdated: (updated_at: string) => {
     set({
       clientLastUpdated: updated_at,

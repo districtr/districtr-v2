@@ -2,6 +2,7 @@ import {afterEach, beforeEach, describe, expect, mock, spyOn, test} from 'bun:te
 import {useMapStore} from './mapStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {idb} from '../utils/idb/idb';
+import {useMapControlsStore} from './mapControlsStore';
 
 const doc = (map_metadata: object = {}) =>
   ({document_id: 'd1', num_districts: 4, map_metadata, document_comments: []}) as any;
@@ -63,5 +64,53 @@ describe('setZoneOrder', () => {
     useMapStore.getState().setZoneOrder([1, 2, 3, 4]);
     expect(useMapStore.getState().updated.metadata).toBe(false);
     expect(writeIdb).not.toHaveBeenCalled();
+  });
+});
+
+describe('renumberToPanelOrder', () => {
+  test('numbers follow the panel order; each district keeps its color, label and note', () => {
+    spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
+    spyOn(idb, 'setZoneLocks').mockImplementation(async () => {});
+    useMapStore.setState({
+      mapLock: null,
+      mapDocument: {
+        ...doc({zone_aliases: {'3': 'North'}, zone_order: [3, 1, 2, 4]}),
+        color_scheme: ['#111', '#222', '#333', '#444'],
+        document_comments: [{zone: 3, text: 'north note'}],
+      },
+    });
+    useAssignmentsStore.setState({
+      zoneAssignments: new Map([
+        ['a', 1],
+        ['b', 2],
+        ['c', 3],
+        ['c1', 3],
+        ['d', 4],
+      ]),
+    });
+    useMapControlsStore.setState(s => ({
+      selectedZone: 3,
+      mapOptions: {...s.mapOptions, lockPaintedAreas: [3]},
+    }));
+    useAssignmentsStore.temporal.getState().clear();
+    useAssignmentsStore.setState({clientLastUpdated: 'T1'}); // an undoable step to clear
+    useMapStore.getState().renumberToPanelOrder();
+
+    const m = useMapStore.getState().mapDocument!;
+    expect(Object.fromEntries(useAssignmentsStore.getState().zoneAssignments)).toEqual({
+      a: 2,
+      b: 3,
+      c: 1,
+      c1: 1,
+      d: 4,
+    });
+    expect(m.color_scheme).toEqual(['#333', '#111', '#222', '#444']);
+    expect(m.map_metadata.zone_aliases).toEqual({'1': 'North'});
+    expect(m.map_metadata.zone_order).toEqual([]);
+    expect(m.document_comments?.map(c => c.zone)).toEqual([1]);
+    expect(useMapControlsStore.getState().selectedZone).toBe(1);
+    expect(useMapControlsStore.getState().mapOptions.lockPaintedAreas).toEqual([1]);
+    expect(useMapStore.getState().updated).toEqual({metadata: true, comments: true});
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBe(0);
   });
 });

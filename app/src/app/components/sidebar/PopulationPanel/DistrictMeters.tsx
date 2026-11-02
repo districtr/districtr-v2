@@ -20,6 +20,7 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
 import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {RenumberToOrderButton} from './RenumberToOrderButton';
 import {byZoneOrder} from '@utils/zoneLabels';
 import {
   useZoneRowDrag,
@@ -346,6 +347,7 @@ export const DistrictMeters = () => {
       )}
       {superDraw && (
         <Flex align="center" gap="2" style={{marginLeft: 'auto'}}>
+          {canReorder && <RenumberToOrderButton />}
           {!tuningView && (
             <PopulationPanelOptions
               chartOptions={chartOptions}

@@ -130,3 +130,34 @@ export const orderedZoneLabels = (
       label: zoneLabel(zone, mapDocument?.map_metadata?.zone_aliases),
     })
   );
+
+/** The renumbering that makes each district's number its place in `order`
+ * (a full panel order, see normalizeZoneOrder): old number -> new number, with
+ * districts already in place left out. Empty when the order is numeric. */
+export const renumberForOrder = (order: readonly number[]) =>
+  new Map(order.map((zone, i) => [zone, i + 1] as const).filter(([zone, to]) => zone !== to));
+
+/**
+ * Stored labels after a renumber. A label moves with its district; one that now
+ * equals its own number is the default, so it's dropped; and a custom label that
+ * would repeat another district's default (its new number) is dropped too, so
+ * labels stay unique as the server requires.
+ */
+export const renumberAliases = (
+  aliases: ZoneAliases,
+  mapping: ReadonlyMap<number, number>,
+  numDistricts: number
+) => {
+  const next: Record<string, string> = {};
+  Object.entries(aliasesWithin(aliases, numDistricts)).forEach(([zone, label]) => {
+    const to = mapping.get(Number(zone)) ?? Number(zone);
+    if (label !== String(to)) next[to] = label;
+  });
+  // ponytail: O(n²) over at most 538 districts, run once per renumber.
+  for (const zone of Object.keys(next)) {
+    if (findLabelConflict(Number(zone), next[zone], next, numDistricts) !== null) {
+      delete next[zone];
+    }
+  }
+  return next;
+};
