@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
+import {contiguityQueryKey, getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useMemo} from 'react';
@@ -12,7 +12,7 @@ export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => {
       return await getContiguity(mapDocument);
     },
