@@ -66,6 +66,7 @@ class _StubCompactnessContext(DocumentEvaluationContext):
 # ── Grid integration tests (real DB + disk-backed graphs) ─────────────────────
 #
 # Fixtures defined in conftest.py:
+#   grid_graph_files           — session-scoped, writes pkl files once
 #   mock_grid_graph_file       — monkeypatches get_gerrydb_graph_file + flushes LRU cache
 #   grid_shatterable_districtr_map
 #   grid_nonshatterable_child_districtr_map
@@ -77,10 +78,28 @@ def _block_lr():
     return [[_block_geoid(r, c), 1 if c < 4 else 2] for r in range(8) for c in range(8)]
 
 
+def _block_4q():
+    """64 block assignments: 4-quadrant zones (top-left=1, top-right=2, bottom-left=3, bottom-right=4)."""
+    return [
+        [_block_geoid(r, c), (r // 4) * 2 + (c // 4) + 1]
+        for r in range(8)
+        for c in range(8)
+    ]
+
+
 def _vtd_lr():
     """16 VTD assignments: pc < 2 → zone 1, pc ≥ 2 → zone 2."""
     return [
         [_vtd_geoid(pr, pc), 1 if pc < 2 else 2] for pr in range(4) for pc in range(4)
+    ]
+
+
+def _vtd_4q():
+    """16 VTD assignments: 4-quadrant zones."""
+    return [
+        [_vtd_geoid(pr, pc), (pr // 2) * 2 + (pc // 2) + 1]
+        for pr in range(4)
+        for pc in range(4)
     ]
 
 
@@ -159,6 +178,23 @@ def test_cut_edges_nonshatterable_child_lr(
     assert result["cut_count"] == 8
 
 
+def test_cut_edges_nonshatterable_child_4q(
+    client, session: Session, grid_child_document, mock_grid_graph_file
+):
+    """8×8 block map, 4-quadrant split → 16 cut edges (4 per boundary × 4 boundaries)."""
+    _put_assignments(client, grid_child_document, _block_4q())
+    ctx = _StubCompactnessContext(
+        session,
+        document_id=grid_child_document,
+        child_layer=None,
+        gerrydb_table=BLOCK_GRID_NAME,
+        parent_layer=BLOCK_GRID_NAME,
+    )
+    result = block_cut_edges(ctx)
+    assert result["unit_type"] == "block"
+    assert result["cut_count"] == 16
+
+
 # ── Non-shatterable parent (VTD-level) map ────────────────────────────────────
 
 
@@ -199,6 +235,43 @@ def test_cut_edges_shatterable_parent_only_lr(
     assert result["cut_count"] == 8
 
 
+def test_cut_edges_shatterable_parent_only_4q(
+    client, session: Session, grid_shatterable_document, mock_grid_graph_file
+):
+    """Shatterable, all parents assigned, 4-quadrant → 16 cuts (8 edges × weight 2)."""
+    _put_assignments(client, grid_shatterable_document, _vtd_4q())
+    ctx = _StubCompactnessContext(
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
+        parent_layer=PARENT_GRID_NAME,
+    )
+    result = block_cut_edges(ctx)
+    assert result["unit_type"] == "block"
+    assert result["cut_count"] == 16
+
+
+# ── Shatterable map — child-only assignments (Step 2 only) ────────────────────
+
+
+def test_cut_edges_shatterable_child_only_lr(
+    client, session: Session, grid_shatterable_document, mock_grid_graph_file
+):
+    """Shatterable, all blocks individually assigned, left-right → 8 cuts (same as non-shatterable child)."""
+    _put_assignments(client, grid_shatterable_document, _block_lr())
+    ctx = _StubCompactnessContext(
+        session,
+        document_id=grid_shatterable_document,
+        child_layer=BLOCK_GRID_NAME,
+        gerrydb_table=GRID_COMBINED_NAME,
+        parent_layer=PARENT_GRID_NAME,
+    )
+    result = block_cut_edges(ctx)
+    assert result["unit_type"] == "block"
+    assert result["cut_count"] == 8
+
+
 # ── Shatterable map — mixed assignments (Step 1 + Step 2) ────────────────────
 
 
@@ -226,13 +299,14 @@ def test_cut_edges_shatterable_mixed_grid(
 
 # ── Polsby-Popper ─────────────────────────────────────────────────────────────
 #
-# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas)
+# Fixture map: simple_child_geos (6 polygons a-f, real lat/lon near Kansas;
+# statefps ["20"] → UTM zone 14N)
 # Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
 #
-# Reference values computed independently with gerrychain + geopandas:
-#   gdf.dissolve(by="zone").to_crs("EPSG:5070") → polsby_popper(partition)
-#   Zone 1: 0.6243085572
-#   Zone 2: 0.5454707812
+# Reference values computed independently with geopandas:
+#   gdf.dissolve(by="zone").to_crs("EPSG:32614") → 4π·area / length²
+#   Zone 1: 0.6260921685
+#   Zone 2: 0.5475570014
 
 
 def test_polsby_popper(
@@ -265,8 +339,8 @@ def test_polsby_popper(
     )
     scores = polsby_popper(ctx)
 
-    assert scores[1] == pytest.approx(0.6243085572, abs=1e-6)
-    assert scores[2] == pytest.approx(0.5454707812, abs=1e-6)
+    assert scores[1] == pytest.approx(0.6260921685, abs=1e-6)
+    assert scores[2] == pytest.approx(0.5475570014, abs=1e-6)
 
 
 # ── Reock ─────────────────────────────────────────────────────────────────────
@@ -275,9 +349,9 @@ def test_polsby_popper(
 # Assignment: {a, b, e, f} → zone 1, {c, d} → zone 2
 #
 # Reference values computed independently with shapely.minimum_bounding_radius
-# on gdf.dissolve(by="zone").to_crs("EPSG:5070") (float64 throughout):
-#   Zone 1: 0.5186788438
-#   Zone 2: 0.4736862803
+# on gdf.dissolve(by="zone").to_crs("EPSG:32614") (float64 throughout):
+#   Zone 1: 0.5230335097
+#   Zone 2: 0.4753643213
 # Note: gerrytools._reock gives slightly different values (~7e-5 error) because
 # cv2.minEnclosingCircle requires float32 input, losing ~4 digits of precision.
 
@@ -312,5 +386,5 @@ def test_reock(
     )
     scores = reock(ctx)
 
-    assert scores[1] == pytest.approx(0.5186788438, abs=1e-6)
-    assert scores[2] == pytest.approx(0.4736862803, abs=1e-6)
+    assert scores[1] == pytest.approx(0.5230335097, abs=1e-6)
+    assert scores[2] == pytest.approx(0.4753643213, abs=1e-6)

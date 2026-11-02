@@ -6,12 +6,13 @@ import logging
 import re
 import msgpack
 from enum import Enum
+from time import monotonic, sleep
 from uuid import uuid4
 from typing import Callable, NewType
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy import text, update
-from sqlalchemy import bindparam, Text
+from sqlalchemy import bindparam
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float
 
@@ -167,6 +168,21 @@ def get_gerrydb_numeric_cols(session: Session, gerrydb_table: str) -> list[str]:
     return [assert_safe_ident(row.column_name) for row in rows]
 
 
+def _quote_ident(name: str) -> str:
+    """Quote a PostgreSQL identifier (double-quote and escape).
+
+    This function carries a light SQL injection risk and should only be used
+    with trusted input.
+
+    Args:
+        name (str): The name of the identifier to quote.
+
+    Returns:
+        str: The quoted identifier.
+    """
+    return '"' + name.replace('"', '""') + '"'
+
+
 def create_districtr_map(
     session: Session,
     name: str,
@@ -276,26 +292,83 @@ def update_districtrmap(
     return updated_districtrmap
 
 
+def build_shatterable_view(
+    session: Session, parent_layer: str, child_layer: str, view_name: str
+) -> list[str]:
+    """Create `gerrydb.<view_name>` as the parent layer's rows UNION ALL the child's.
+
+    The view carries every column of the two layers except geometry and
+    `ogc_fid`; the layers must carry exactly the same set. The view is analyzed
+    so the planner has statistics for it immediately. Returns the columns.
+    """
+    parent = assert_safe_ident(parent_layer)
+    child = assert_safe_ident(child_layer)
+    view = assert_safe_ident(view_name)
+
+    def view_columns(table: str) -> list[str]:
+        return list(
+            session.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema
+                      AND table_name = :name
+                      AND data_type != 'USER-DEFINED'
+                      AND udt_name != 'geometry'
+                      AND column_name != 'ogc_fid'
+                    ORDER BY ordinal_position
+                    """
+                ),
+                {"schema": GERRY_DB_SCHEMA, "name": table},
+            ).scalars()
+        )
+
+    columns = view_columns(parent)
+    child_columns = view_columns(child)
+    missing = sorted(set(columns) - set(child_columns))
+    if missing:
+        raise ValueError(f"Child layer {child} lacks parent columns: {missing}")
+    child_only = sorted(set(child_columns) - set(columns))
+    if child_only:
+        raise ValueError(f"Parent layer {parent} lacks child columns: {child_only}")
+
+    column_sql = ", ".join(_quote_ident(c) for c in columns)
+    session.execute(
+        text(
+            f"CREATE MATERIALIZED VIEW {GERRY_DB_SCHEMA}.{view} AS "
+            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{parent} "
+            f"UNION ALL "
+            f"SELECT {column_sql} FROM {GERRY_DB_SCHEMA}.{child}"
+        )
+    )
+    session.execute(text(f"ANALYZE {GERRY_DB_SCHEMA}.{view}"))
+    return columns
+
+
 def create_shatterable_gerrydb_view(
     session: Session,
     parent_layer: str,
     child_layer: str,
     gerrydb_table_name: str,
 ) -> None:
-    stmt = text(
-        "CALL create_shatterable_gerrydb_view(:parent_layer_name, :child_layer_name, :gerrydb_table_name)"
-    ).bindparams(
-        bindparam(key="parent_layer_name", type_=Text),
-        bindparam(key="child_layer_name", type_=Text),
-        bindparam(key="gerrydb_table_name", type_=Text),
-    )
+    """Register `gerrydb_table_name` in `gerrydbtable` and build its shatterable view.
+
+    The registration comes first, so a name that is already taken fails before
+    any view is built.
+    """
     session.execute(
-        stmt,
-        {
-            "parent_layer_name": parent_layer,
-            "child_layer_name": child_layer,
-            "gerrydb_table_name": gerrydb_table_name,
-        },
+        text(
+            "INSERT INTO gerrydbtable (created_at, uuid, name) "
+            "VALUES (now(), gen_random_uuid(), :name)"
+        ),
+        {"name": gerrydb_table_name},
+    )
+    build_shatterable_view(
+        session,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
+        view_name=gerrydb_table_name,
     )
 
 
@@ -528,6 +601,11 @@ def _json_build_object_sql(pairs: list[str]) -> str:
     return f"({joined})::json"
 
 
+# Wait budget matches the ALB idle timeout: past it the client is gone.
+STATS_LOCK_POLL_SECONDS = 1.0
+STATS_LOCK_WAIT_SECONDS = 120.0
+
+
 def update_or_select_district_stats(
     session: Session,
     document_id: str,
@@ -616,15 +694,24 @@ def update_or_select_district_stats(
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
                 demographic_json = _json_build_object_sql(json_pairs)
 
-        # Serialize concurrent cache rebuilds at the document level: a loser
-        # blocks here instead of computing an expensive spatial union it will
-        # lose to ON CONFLICT. After acquiring the lock, re-check the cache —
-        # the winner may have already warmed it.
+        # One rebuild per document; losers poll rather than block, since a
+        # blocked waiter holds a pooled connection and trips the 15s
+        # lock_timeout (core/db.py). Once locked, re-check the cache — the
+        # winner may have warmed it.
         if missing_zones and doc_row.public_id is not None:
-            session.execute(
-                text("SELECT pg_advisory_xact_lock(:key)"),
+            deadline = monotonic() + STATS_LOCK_WAIT_SECONDS
+            while not session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:key)"),
                 {"key": doc_row.public_id},
-            )
+            ).scalar_one():
+                # Free the connection while sleeping (no caller has pending writes).
+                session.rollback()
+                sleep(STATS_LOCK_POLL_SECONDS)
+                if monotonic() >= deadline:
+                    raise HTTPException(
+                        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                        detail="District stats are still being computed; retry shortly",
+                    )
             post_lock_rows = (
                 session.execute(
                     text(

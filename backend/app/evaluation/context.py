@@ -2,8 +2,8 @@
 
 `DocumentEvaluationContext` is the data bag passed to every metric.
 
-`CountyContext` is a singleton (`COUNTY_CONTEXT`) holding two per-gerrydb-table caches:
-  - county populations ({county_geoid: total_pop}), used by splits and Eguia metrics.
+`CountyContext` is a singleton (`COUNTY_CONTEXT`) holding, per gerrydb table, in memory:
+  - county populations ({county_geoid: total_pop}), used by the splits metrics.
   - population-weighted Dem/Rep county win probabilities, used only by the Eguia metric.
 """
 
@@ -11,7 +11,7 @@ import csv
 import dataclasses
 import logging
 
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import ClassVar, Iterable, NewType, cast
 
@@ -23,11 +23,9 @@ import shapely
 import sqlalchemy
 import sqlmodel
 from app.core.config import settings
-from app.evaluation.models import CountyDemographics
 from app.evaluation.types import Election, CountyGeoid, DistrictId
 from app.models import Assignments, DistrictUnionsResponse, DistrictrMap, Document
 from app.utils import (
-    _json_build_object_sql,
     update_or_select_district_stats,
     assert_safe_ident,
     get_gerrydb_numeric_cols,
@@ -61,11 +59,73 @@ def demographic_columns_from_columns(columns: Iterable[str]) -> list[Demographic
     ]
 
 
-_transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:5070", always_xy=True)
+# WGS 84 / UTM zone EPSG code per state FIPS, for compactness metrics. Each zone is
+# the most common one among the state's VTD centroids (GerryChain's `reprojected()`
+# rule). UTM is conformal, so Polsby-Popper/Reock keep their shape; the previous
+# EPSG:5070 is equal-area, which distorts shape (badly outside CONUS, e.g. AK, PR).
+STATE_UTM_EPSG: dict[str, int] = {
+    "01": 32616,  # AL
+    "02": 32606,  # AK
+    "04": 32612,  # AZ
+    "05": 32615,  # AR
+    "06": 32611,  # CA
+    "08": 32613,  # CO
+    "09": 32618,  # CT
+    "10": 32618,  # DE
+    "11": 32618,  # DC
+    "12": 32617,  # FL
+    "13": 32616,  # GA
+    "15": 32604,  # HI
+    "16": 32611,  # ID
+    "17": 32616,  # IL
+    "18": 32616,  # IN
+    "19": 32615,  # IA
+    "20": 32614,  # KS
+    "21": 32616,  # KY
+    "22": 32615,  # LA
+    "23": 32619,  # ME
+    "24": 32618,  # MD
+    "25": 32619,  # MA
+    "26": 32617,  # MI
+    "27": 32615,  # MN
+    "28": 32616,  # MS
+    "29": 32615,  # MO
+    "30": 32612,  # MT
+    "31": 32614,  # NE
+    "32": 32611,  # NV
+    "33": 32619,  # NH
+    "34": 32618,  # NJ
+    "35": 32613,  # NM
+    "36": 32618,  # NY
+    "37": 32617,  # NC
+    "38": 32614,  # ND
+    "39": 32617,  # OH
+    "40": 32614,  # OK
+    "41": 32610,  # OR
+    "42": 32618,  # PA
+    "44": 32619,  # RI
+    "45": 32617,  # SC
+    "46": 32614,  # SD
+    "47": 32616,  # TN
+    "48": 32614,  # TX
+    "49": 32612,  # UT
+    "50": 32618,  # VT
+    "51": 32618,  # VA
+    "53": 32610,  # WA
+    "54": 32617,  # WV
+    "55": 32616,  # WI
+    "56": 32613,  # WY
+    "72": 32619,  # PR
+}
 
 
-def _reproject(coords: np.ndarray) -> np.ndarray:
-    x, y = _transformer.transform(coords[:, 0], coords[:, 1])
+@lru_cache(maxsize=None)
+def _transformer(epsg: int) -> pyproj.Transformer:
+    return pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+
+
+def _reproject(coords: np.ndarray, epsg: int) -> np.ndarray:
+    x, y = _transformer(epsg).transform(coords[:, 0], coords[:, 1])
     return np.stack([x, y], axis=1)
 
 
@@ -90,15 +150,22 @@ class DocumentEvaluationContext:
 
     @cached_property
     def projected_district_geometries(self) -> dict[DistrictId, shapely.Geometry]:
-        """Well-formed per-zone geometries projected to EPSG:5070, shared by compactness
-        metrics."""
+        """Well-formed per-zone geometries projected to the state's UTM zone
+        (`STATE_UTM_EPSG`), shared by compactness metrics. Multi-state maps use the
+        zone of their first state."""
+        statefps = self._districtr_map.statefps
+        epsg = STATE_UTM_EPSG.get(statefps[0]) if statefps else None
+        if epsg is None:
+            raise ValueError(
+                f"No UTM zone for statefps {statefps} of document '{self.document_id}'."
+            )
         districts = [
             d for d in self.district_stats if d.zone is not None and d.geometry
         ]
         shapes = np.array(
             [shapely.geometry.shape(d.geometry) for d in districts], dtype=object
         )
-        projected = shapely.transform(shapes, _reproject)
+        projected = shapely.transform(shapes, lambda c: _reproject(c, epsg))
         return {
             cast(DistrictId, d.zone): geom
             for d, geom in zip(districts, projected)
@@ -353,20 +420,29 @@ class DocumentEvaluationContext:
         return unit_to_zone, parent_unit_to_zone
 
 
+@dataclasses.dataclass(frozen=True)
+class CountyTable:
+    """One parent layer's counties, aggregated from its units."""
+
+    populations: dict[CountyGeoid, int]
+    # Per ElectionPartyKey (e.g. "pres_2020_dem"): the party's seat share if
+    # districts were drawn at county granularity, weighted by population.
+    ideals: dict[ElectionPartyKey, float]
+
+
 @dataclasses.dataclass
 class CountyContext:
-    """A singleton lookup of per-gerrydb-table Eguia ideals, which are compared to the
+    """A singleton holding per-gerrydb-table county data in process memory: county
+    populations for the splits metrics and Eguia ideals, which are compared to the
     plan's seat outcomes to compute the Eguia metric.
-
-    For each gerrydb table name, records a mapping between election+party string (e.g.
-    "pres_2020_dem") and this party's seat share that would emerge if districts were
-    drawn at county granularity, weighted by population.
 
     Keyed by gerrydb_table_name rather than state FIPS so that multi-state regions
     (e.g. Navajo Nation) are handled correctly — a single gerrydb table may span
     counties in several states.
 
-    Computed on first request and never recomputed.
+    A table is loaded on first request by one aggregate query over its units. A
+    key missing from the loaded ideals (e.g. an election column added to the table
+    since) reloads the table; a key still missing afterwards falls back to 0.0.
     """
 
     # Stop retrying after this many consecutive empty results to avoid hammering
@@ -377,10 +453,7 @@ class CountyContext:
     _COUNTY_NAMES_FILE: ClassVar[Path] = _DATA_DIR / "county_names.csv"
     _COUNTY_NAMES_S3_KEY: ClassVar[str] = "reference/county_names.csv"
 
-    _cache: dict[GerrydbTableName, dict[ElectionPartyKey, float]] = dataclasses.field(
-        default_factory=dict
-    )
-    _pop_cache: dict[GerrydbTableName, dict[CountyGeoid, int]] = dataclasses.field(
+    _tables: dict[GerrydbTableName, CountyTable] = dataclasses.field(
         default_factory=dict
     )
     _name_cache: dict[CountyGeoid, str] = dataclasses.field(default_factory=dict)
@@ -421,84 +494,52 @@ class CountyContext:
     def county_populations(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
     ) -> dict[CountyGeoid, int]:
-        """Return a {county_geoid: total_pop} dict for `gerrydb_table`.
+        """Return a {county_geoid: total_pop} dict for `gerrydb_table`."""
+        return self._table(gerrydb_table, session).populations
 
-        Cached after first load. Raises ValueError if county data is unavailable.
-        Retried up to MAX_LOAD_ATTEMPTS times before raising.
-        """
-        if gerrydb_table in self._pop_cache:
-            return self._pop_cache[gerrydb_table]
-        if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
-            raise ValueError(
-                f"County data for '{gerrydb_table}' failed to load after "
-                f"{self.MAX_LOAD_ATTEMPTS} attempts."
+    def eguia_ideal(
+        self,
+        gerrydb_table: GerrydbTableName,
+        key: ElectionPartyKey,
+        session: sqlmodel.Session,
+    ) -> float:
+        """Return the Eguia ideal for `key`, reloading the table if `key` is absent."""
+        if key in (ideals := self._table(gerrydb_table, session).ideals):
+            return ideals[key]
+        self._tables[gerrydb_table] = self._load(gerrydb_table, session)
+        ideal = self._tables[gerrydb_table].ideals.get(key)
+        if ideal is None:
+            logger.warning(
+                "No Eguia ideal for %s in %s after reloading its counties",
+                key,
+                gerrydb_table,
             )
-        self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
-        self._ensure_county_data(gerrydb_table, session)
-        rows = session.exec(
-            sqlmodel.select(
-                CountyDemographics.geoid, CountyDemographics.total_pop
-            ).where(CountyDemographics.gerrydb_table_name == gerrydb_table)
-        ).all()
-        pops = {
-            CountyGeoid(geoid): int(total_pop)
-            for geoid, total_pop in rows
-            if geoid and total_pop is not None
-        }
-        self._pop_cache[gerrydb_table] = pops
-        return pops
+            return 0.0
+        return ideal
 
-    def ideals_for_eguia(
+    def _table(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> dict[ElectionPartyKey, float]:
-        """Return the per-ElectionPartyKey seat share expectation dict for `gerrydb_table`.
+    ) -> CountyTable:
+        """Return `gerrydb_table`'s counties, loading them on first request.
 
-        Args:
-            gerrydb_table: Source VTD/block table whose county-level aggregates
-                back the ideal. Used both as the cache key and to populate
-                `evaluation.county_demographics` on first request.
-            session: SQLModel session for any required DB queries.
-
-        Raises ValueError if county data is unavailable or malformed. Retried up to
+        Raises ValueError if the table can't be aggregated. Retried up to
         `MAX_LOAD_ATTEMPTS` times before raising to avoid hammering the DB.
         """
-        if gerrydb_table in self._cache:
-            return self._cache[gerrydb_table]
+        if gerrydb_table in self._tables:
+            return self._tables[gerrydb_table]
         if self._attempts.get(gerrydb_table, 0) >= self.MAX_LOAD_ATTEMPTS:
             raise ValueError(
                 f"County data for '{gerrydb_table}' failed to load after "
                 f"{self.MAX_LOAD_ATTEMPTS} attempts."
             )
         self._attempts[gerrydb_table] = self._attempts.get(gerrydb_table, 0) + 1
-        self._ensure_county_data(gerrydb_table, session)
-        self._cache[gerrydb_table] = self._compute_ideal(gerrydb_table, session)
-        return self._cache[gerrydb_table]
+        self._tables[gerrydb_table] = self._load(gerrydb_table, session)
+        return self._tables[gerrydb_table]
 
-    def _ensure_county_data(
+    def _load(
         self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> None:
-        """Populate `evaluation.county_demographics` for `gerrydb_table` unless at
-        least one row with a non-null total_pop already exists.
-
-        Requiring total_pop IS NOT NULL (rather than mere row existence) guards
-        against a previous load that inserted rows without population data (e.g.
-        because the gerrydb table lacked total_pop_20). Those rows are present but
-        unusable, so we attempt re-population rather than treating them as a
-        successful prior load.
-        """
-        exists = session.exec(
-            sqlmodel.select(CountyDemographics)
-            .where(sqlmodel.col(CountyDemographics.gerrydb_table_name) == gerrydb_table)
-            .where(sqlmodel.col(CountyDemographics.total_pop).isnot(None))
-            .limit(1)
-        ).first()
-        if not exists:
-            self._populate_county_data(gerrydb_table, session)
-
-    def _populate_county_data(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> None:
-        """Aggregate unit-level demographics up to county level.
+    ) -> CountyTable:
+        """Aggregate `gerrydb_table`'s units to counties and derive the Eguia ideals.
 
         Extracts the county GEOID (first 5 characters) from each row's path,
         handling both colon-prefixed paths (e.g. ``vtd:20051XXXX`` → ``20051``)
@@ -520,63 +561,70 @@ class CountyContext:
         ).scalar_one_or_none()
         if relkind != "r":
             raise ValueError(
-                f"_populate_county_data requires a plain table (relkind='r'), "
+                f"County aggregation requires a plain table (relkind='r'), "
                 f"got relkind={relkind!r} for '{gerrydb_table}'. "
                 f"Pass the parent layer table, not the combined shatterable view."
             )
 
-        demo_cols = get_gerrydb_numeric_cols(session, safe_table)
-
-        if not demo_cols:
+        numeric_cols = set(get_gerrydb_numeric_cols(session, safe_table))
+        if TOTAL_POP_COL not in numeric_cols:
             raise ValueError(
-                f"No numeric columns found in gerrydb table '{gerrydb_table}'. "
-                f"The table may not have been ingested with demographic data."
+                f"Gerrydb table '{gerrydb_table}' has no numeric {TOTAL_POP_COL} column."
             )
-        json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-        demographic_json = _json_build_object_sql(json_pairs)
-        total_pop_expr = "SUM(total_pop_20)" if "total_pop_20" in demo_cols else "NULL"
-
-        insert_sql = f"""
-            INSERT INTO evaluation.county_demographics (geoid, gerrydb_table_name, total_pop, demographic_data)
-            SELECT
-                CASE
-                    WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
-                    ELSE LEFT(path, 5)
-                END AS geoid,
-                :gerrydb_table AS gerrydb_table_name,
-                {total_pop_expr} AS total_pop,
-                {demographic_json} AS demographic_data
-            FROM gerrydb.{safe_table}
-            GROUP BY geoid
-            ON CONFLICT (geoid, gerrydb_table_name) DO NOTHING
-        """
-        session.execute(sqlalchemy.text(insert_sql), {"gerrydb_table": gerrydb_table})
-        session.commit()
-
-    def _compute_ideal(
-        self, gerrydb_table: GerrydbTableName, session: sqlmodel.Session
-    ) -> dict[ElectionPartyKey, float]:
-        """Population-weighted county-level Dem/Rep win frequency per election."""
-        rows = session.exec(
-            sqlmodel.select(CountyDemographics).where(
-                CountyDemographics.gerrydb_table_name == gerrydb_table
-            )
+        elections = [
+            e
+            for e in elections_from_columns(sorted(numeric_cols))
+            if f"{e}_rep" in numeric_cols
+        ]
+        summed = [TOTAL_POP_COL] + [
+            f"{e}_{party}" for e in elections for party in ("dem", "rep")
+        ]
+        sums_sql = ", ".join(f"SUM({col}) AS {col}" for col in summed)
+        rows = session.execute(
+            sqlalchemy.text(f"""
+                SELECT
+                    CASE
+                        WHEN path LIKE '%:%' THEN LEFT(SPLIT_PART(path, ':', 2), 5)
+                        ELSE LEFT(path, 5)
+                    END AS geoid,
+                    {sums_sql}
+                FROM gerrydb.{safe_table}
+                GROUP BY 1
+            """)
         ).all()
-
         if not rows:
-            raise ValueError(
-                f"No county demographics found for '{gerrydb_table}'. "
-                f"County data may not have been ingested for this table."
-            )
+            raise ValueError(f"Gerrydb table '{gerrydb_table}' has no rows.")
 
-        df = pd.DataFrame([r.demographic_data or {} for r in rows])
-        county_pops = np.array([r.total_pop or 0 for r in rows], dtype="int64")
+        counties = (
+            pd.DataFrame(rows, columns=["geoid", *summed])
+            .set_index("geoid")
+            .astype(float)
+            .fillna(0)
+        )
+        return CountyTable(
+            populations={
+                CountyGeoid(geoid): int(pop)
+                for geoid, pop in counties[TOTAL_POP_COL].items()
+                if geoid
+            },
+            ideals=self._compute_ideal(counties),
+        )
+
+    @staticmethod
+    def _compute_ideal(df: pd.DataFrame) -> dict[ElectionPartyKey, float]:
+        """Population-weighted county-level Dem/Rep win frequency per election.
+
+        `df` has one row per county, a `total_pop_20` column and, per election,
+        `<election>_dem` and `<election>_rep` vote columns. For the Dem key:
+
+            ideal = sum_c (p_c * 1{dem_c > rep_c}) / sum_c p_c
+
+        and symmetrically for Rep; a tied county counts for neither party.
+        """
+        county_pops = df[TOTAL_POP_COL].to_numpy()
         total_pop = county_pops.sum()
         if total_pop == 0:
-            raise ValueError(
-                f"Total county population is zero for '{gerrydb_table}'. "
-                f"County demographics may be missing total_pop_20."
-            )
+            raise ValueError("Total county population is zero.")
 
         dem_cols: list[ElectionPartyKey] = [
             ElectionPartyKey(c) for c in df.columns if c.endswith("_dem")

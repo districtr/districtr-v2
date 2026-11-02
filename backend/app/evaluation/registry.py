@@ -100,9 +100,9 @@ METRICS: tuple[Metric[Any], ...] = (
         key="cut_edges", version=2, compute=compactness.block_cut_edges
     ),
     Metric[dict[DistrictId, float]](
-        key="polsby_popper", version=1, compute=compactness.polsby_popper
+        key="polsby_popper", version=2, compute=compactness.polsby_popper
     ),
-    Metric[dict[DistrictId, float]](key="reock", version=1, compute=compactness.reock),
+    Metric[dict[DistrictId, float]](key="reock", version=2, compute=compactness.reock),
     Metric[PopulationDeviationResults](
         key="population_deviation", version=3, compute=validity.population_deviation
     ),

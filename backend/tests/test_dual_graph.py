@@ -87,11 +87,6 @@ def _cells(*rcs: tuple[int, int]) -> set[str]:
     return {_block_geoid(r, c) for r, c in rcs}
 
 
-def _blocks(*ns: int) -> set[str]:
-    """simple_geos block geo_ids by trailing digit."""
-    return {f"00001000000000{n}" for n in ns}
-
-
 # (fixture, subset, expected components). grid_child is an 8x8 grid where
 # each cell touches only its 4 side neighbors, and its sorted geo_id order
 # jumps around the grid — so subsets exercise scattered index positions.
@@ -198,16 +193,16 @@ def _ncp_graph() -> DualLevelGraph:
 def test_expand_non_contiguous_mutates_in_place():
     dg = _ncp_graph()
     geo_ids = {"p1", "c"}
-    assert dg.expand_non_contiguous(geo_ids) is None  # mutates, returns nothing
+    assert dg.expand_non_contiguous(geo_ids) is geo_ids  # same set, mutated
     assert geo_ids == {"a", "b", "c"}
 
 
 def test_expand_non_contiguous_noop_when_no_match(dg):
-    """The common case (51/52 states have zero non-contiguous parents):
-    nothing in geo_ids intersects _non_contiguous_parents, so the set comes
+    """The common case (51/52 v2 state maps have zero non-contiguous parents):
+    nothing in geo_ids matches a _non_contiguous_parents entry, so the set comes
     back unchanged and untouched."""
     geo_ids = {"missing_1", "missing_2"}
-    dg.expand_non_contiguous(geo_ids)
+    geo_ids = dg.expand_non_contiguous(geo_ids)
     assert geo_ids == {"missing_1", "missing_2"}
 
 
@@ -215,52 +210,12 @@ def test_expand_non_contiguous_empty_ncp_is_cheap_regardless_of_geo_ids_size():
     """O(len(non_contiguous_parents)), never O(len(geo_ids)): a huge geo_ids
     set with an empty (or non-matching) NCP set must not be scanned element
     by element. Not a timing assertion (flaky) — asserts the actual
-    mechanism: CPython's set `&` iterates the smaller operand, so this
-    intersection touches _non_contiguous_parents' elements, not geo_ids'."""
+    mechanism: the loop iterates _non_contiguous_parents and probes geo_ids
+    by membership, so it touches NCP's elements, not geo_ids'."""
     dg = _ncp_graph()
     huge = {str(i) for i in range(200_000)}
-    dg.expand_non_contiguous(huge)
+    huge = dg.expand_non_contiguous(huge)
     assert len(huge) == 200_000  # untouched: no id in `huge` is "p1"
-
-
-# -- cut_edges --------------------------------------------------------------
-
-
-def test_cut_edges_hand_computed():
-    """simple_geos: 3 vtds (p1/p2/p3), each with 2-3 child blocks, plus
-    weighted parent-parent edges. Assignment mixes a shattered parent
-    (blocks 1 and 5 of vtd 1 individually assigned to different zones) with
-    two whole-parent assignments (vtd 2, vtd 3).
-
-    Hand-computed expected cut count:
-    - Step 1 (parent pass): only (vtd2, vtd3) has both sides whole-assigned
-      (zone 1 vs zone 2) -> +1 (that edge's weight).
-    - Step 2 (unit pass): block 1 (zone 1) vs block 5 (zone 2) are neighbors,
-      seen from both sides -> +1 after halving. block 5 (zone 2) is also
-      adjacent to block 2, whose parent (vtd2) is zone 1 -> +1.
-    Total: 1 (step 1) + 1 (step 2 direct) + 1 (halved mutual edge) = 3.
-    """
-    dg = from_npz(_fixture_path("simple_geos"))
-
-    unit_to_zone = {"000010000000001": 1, "000010000000005": 2}
-    parent_unit_to_zone = {"vtd:000010000002": 1, "vtd:000010000003": 2}
-    assert dg.cut_edges(unit_to_zone, parent_unit_to_zone) == 3
-
-
-def test_cut_edges_no_weighted_edges_falls_back_to_unit_pass_only():
-    """Non-shatterable maps (no weighted_edges) skip Step 1 entirely — every
-    assignment is a plain unit, exactly like the pre-refactor algorithm's
-    non-shatterable branch."""
-    dg = make_graph(edges=[("a", "b"), ("b", "c"), ("c", "d")])
-
-    # a-b cut, b-c not cut, c-d cut
-    unit_to_zone = {"a": 1, "b": 1, "c": 2, "d": 1}
-    assert dg.cut_edges(unit_to_zone, {}) == 2
-
-
-def test_cut_edges_empty_assignment():
-    dg = from_npz(_fixture_path("simple_geos"))
-    assert dg.cut_edges({}, {}) == 0
 
 
 # -- from_npz ---------------------------------------------------------------
@@ -271,6 +226,39 @@ def test_from_npz_rejects_unknown_version(tmp_path):
     np.savez(bad, format_version=np.int32(999))
     with pytest.raises(ValueError, match="format_version"):
         from_npz(bad)
+
+
+def _non_contiguous_parents_npz(tmp_path, ncp_ids: list[str]):
+    """Blocks a and b under parent p1 touch only c and d (a-c, b-d), so p1's
+    blocks are disconnected."""
+    path = tmp_path / "ncp.npz"
+    np.savez(
+        path,
+        format_version=np.int32(1),
+        node_ids=np.array(["a", "b", "c", "d", "p1"]),
+        edges=np.array([[0, 2], [1, 3]], np.int32),
+        parent_of=np.array([4, 4, -1, -1, -1], np.int32),
+        has_weighted_edges=np.bool_(False),
+        we_keys=np.empty((0, 2), np.int32),
+        we_vals=np.empty(0, np.int32),
+        has_non_contiguous_parents=np.bool_(True),
+        non_contiguous_parents=np.array(ncp_ids),
+    )
+    return path
+
+
+def test_non_contiguous_parents_survive_npz_and_cache(tmp_path):
+    dg = from_npz(_non_contiguous_parents_npz(tmp_path, ["p1"]))
+    dg.save_cache(tmp_path / "cache")
+    for g in (dg, DualLevelGraph.load_cache(tmp_path / "cache")):
+        geo_ids = {"p1", "c"}
+        geo_ids = g.expand_non_contiguous(geo_ids)
+        assert geo_ids == {"a", "b", "c"}
+
+
+def test_from_npz_rejects_unknown_non_contiguous_parent(tmp_path):
+    with pytest.raises(ValueError, match="non_contiguous_parents"):
+        from_npz(_non_contiguous_parents_npz(tmp_path, ["ghost"]))
 
 
 # -- shared mmap disk cache ---------------------------------------------------
@@ -284,14 +272,18 @@ def test_save_load_cache_round_trip(dg, tmp_path):
     # Arrays are memory-mapped (shared across worker processes by the OS)
     assert isinstance(loaded._node_ids, np.memmap)
     assert isinstance(loaded._adj, np.memmap)
+    assert isinstance(loaded._weighted_edges, np.memmap)
+    assert isinstance(loaded._non_contiguous_parents, np.memmap)
 
     node_ids = loaded._node_ids.tolist()
     assert node_ids == dg._node_ids.tolist()
     for node in node_ids:
         assert loaded.parents_of([node]) == dg.parents_of([node])
         assert loaded.children_of(node) == dg.children_of(node)
-    assert loaded._weighted_edges == dg._weighted_edges
-    assert loaded._non_contiguous_parents == dg._non_contiguous_parents
+    assert loaded._weighted_edges.tolist() == dg._weighted_edges.tolist()
+    assert (
+        loaded._non_contiguous_parents.tolist() == dg._non_contiguous_parents.tolist()
+    )
 
     subset = node_ids[: max(1, len(dg) // 2)]
     expected = {frozenset(c) for c in dg.connected_components(subset)}

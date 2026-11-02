@@ -69,6 +69,11 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
   childToParent: CoiAssignmentsStore['childToParent'];
   overwrite?: boolean;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
+  // Callers hand over the store's current assignments synchronously, so this is the
+  // stamp of the state being saved. An edit or undo during the awaits below changes it.
+  const clientLastUpdatedAtCopy = useCoiAssignmentsStore.getState().clientLastUpdated;
+  const editedDuringSave = () =>
+    useCoiAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtCopy;
   const formattedAssignments = formatCoiAssignmentsFromState(
     mapDocument.document_id,
     communityAssignments,
@@ -174,15 +179,35 @@ export const putUpdateCoiAssignmentsAndVerify = async ({
         updated_at: assignmentsPostResponse.response.updated_at,
       };
 
-  await idb.updateDocument({
-    id: mapDocument.document_id,
-    document_metadata: nextDocumentMetadata,
-    assignments: freshServerAssignments.response,
-    clientLastUpdated: assignmentsPostResponse.response.updated_at,
-  });
-  useCoiAssignmentsStore
-    .getState()
-    .setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  if (!editedDuringSave()) {
+    // A debounced write still pending is from an edit this save already carries;
+    // landing after the write below, it would put the old updated_at back.
+    await idb.flushPendingUpdate();
+    await idb.updateDocument({
+      id: mapDocument.document_id,
+      document_metadata: nextDocumentMetadata,
+      assignments: freshServerAssignments.response,
+      clientLastUpdated: assignmentsPostResponse.response.updated_at,
+    });
+  }
+  if (!editedDuringSave()) {
+    useCoiAssignmentsStore
+      .getState()
+      .setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  } else {
+    // An edit (a stroke the save lock ended, an undo) landed after the copy was taken,
+    // so the server doesn't have it: keep it unsaved, in the store and in IndexedDB
+    // (under the new updated_at, so a reload doesn't see a conflict). The fresh stamp
+    // also tells the autosave hook to start a new cycle.
+    const clientLastUpdated = new Date().toISOString();
+    useCoiAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+    idb.updateIdbCoiAssignments(
+      nextDocumentMetadata,
+      useCoiAssignmentsStore.getState().communityAssignments,
+      clientLastUpdated,
+      true
+    );
+  }
 
   useMapStore.getState().mutateMapDocument(nextDocumentMetadata);
   useMapStore.getState().clearUpdatedChanges();

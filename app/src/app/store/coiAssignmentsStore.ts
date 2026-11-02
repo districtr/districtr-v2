@@ -862,7 +862,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
     // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     if (!featureStateCache) return;
 
     const popChanges: Record<number, number> = {};

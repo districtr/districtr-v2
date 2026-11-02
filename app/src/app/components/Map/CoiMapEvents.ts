@@ -21,6 +21,7 @@ import {
   POINT_SELECT_TOOLS,
   TOOLTIP_TOOLS,
   getSelectingClickLayer,
+  breakUnit,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -59,8 +60,8 @@ const handleCoiFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER: {
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length) {
-        mapStore.handleShatter(selectedFeatures || []);
+      if (documentId && selectedFeatures?.length && mapRef) {
+        breakUnit(selectedFeatures, mapRef);
       }
       return;
     }

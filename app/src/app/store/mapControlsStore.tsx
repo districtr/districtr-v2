@@ -5,7 +5,7 @@ import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {MAP_MODES, type MapMode} from '@constants/map/mode';
 import {MAP_MODE_DEFAULT_OPTIONS} from '@constants/map/mapModeDefaults';
-import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {ACTIVE_TOOLS, DISTRICT_EDIT_TOOLS, type ActiveTool} from '@constants/map/tools';
 import {NullableZone, Zone} from '@constants/map/zone';
 import {SpatialUnit} from '@constants/map/geography';
 import {DistrictrMapOptions} from './types';
@@ -13,6 +13,8 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {ACCESS_STATES} from '@constants/document/state';
+import {idb} from '@utils/idb/idb';
+import {useToolbarStore} from './toolbarStore';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
@@ -65,11 +67,25 @@ export interface MapControlsStore {
   hoveredCountyGeoid: string | null;
   setHoveredCountyGeoid: (geoid: string | null) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
+  /** Move the selection off a locked district (Super Draw only), since the brush
+   * paints nothing there. Used where saved locks start applying again. */
+  selectUnlockedZone: () => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  /** Districts the user pinned in Super Draw's population meters. While any
+   * are pinned, the sidebar's district tables show only those rows (see
+   * usePinnedZones). Cleared when a map loads. */
+  pinnedZones: Zone[];
+  togglePinnedZone: (zone: Zone) => void;
+  clearPinnedZones: () => void;
+  /** "Show all" over the pinned filter, shared by every district table so it
+   * survives tab switches. Resets whenever pinning starts or stops, so each
+   * round of pins filters from the first one. */
+  showAllPinned: boolean;
+  setShowAllPinned: (showAllPinned: boolean) => void;
   /** Workflow-tab sections a user collapsed (sections default open, so absent
    * = open). Lives here rather than in TabSection state because tab content
    * unmounts on switch. */
@@ -155,7 +171,14 @@ export const useMapControlsStore = create<MapControlsStore>()(
     paintFunction: getFeaturesInBbox,
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
-    setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    setMapOptions: options => {
+      const mapOptions = {...get().mapOptions, ...options};
+      // Edit tools are disabled while painted districts are hidden; drop an
+      // active one to Move so it can't keep editing.
+      const dropEditTool =
+        mapOptions.showPaintedDistricts === false && DISTRICT_EDIT_TOOLS.includes(get().activeTool);
+      set(dropEditTool ? {mapOptions, activeTool: ACTIVE_TOOLS.PAN} : {mapOptions});
+    },
     hoveredCountyGeoid: null,
     setHoveredCountyGeoid: geoid => set({hoveredCountyGeoid: geoid}),
     setStateFp: stateFp => {
@@ -172,13 +195,34 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
       }
     },
-    setLockedZones: zones =>
+    setLockedZones: zones => {
       set({
         mapOptions: {
           ...get().mapOptions,
           lockPaintedAreas: zones,
         },
-      }),
+      });
+      // Remembered per document so locks survive a reload (restored in setMapDocument).
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (mapDocument?.access === ACCESS_STATES.EDIT && mapDocument.document_id) {
+        idb.setZoneLocks(mapDocument.document_id, zones);
+      }
+    },
+    selectUnlockedZone: () => {
+      const {mapMode, mapOptions, selectedZone, setSelectedZone} = get();
+      const locked = mapOptions.lockPaintedAreas;
+      if (!useToolbarStore.getState().superDraw || !locked.includes(selectedZone)) return;
+      const mapStore = useMapStore.getState();
+      const zones =
+        mapMode === MAP_MODES.COI
+          ? mapStore.communities.map(community => community.id)
+          : Array.from(
+              {length: mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+              (_, i) => i + 1
+            );
+      const unlocked = zones.find(zone => !locked.includes(zone));
+      if (unlocked !== undefined) setSelectedZone(unlocked);
+    },
     toggleLockAllAreas: () => {
       const {mapMode, mapOptions} = get();
       const mapStore = useMapStore.getState();
@@ -197,17 +241,24 @@ export const useMapControlsStore = create<MapControlsStore>()(
         );
       }
 
-      set({
-        mapOptions: {
-          ...mapOptions,
-          lockPaintedAreas: nextLockPaintedAreas,
-        },
-      });
+      get().setLockedZones(nextLockPaintedAreas);
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+    pinnedZones: [],
+    togglePinnedZone: zone =>
+      set(state => {
+        const pinnedZones = state.pinnedZones.includes(zone)
+          ? state.pinnedZones.filter(z => z !== zone)
+          : [...state.pinnedZones, zone];
+        const stillPinning = state.pinnedZones.length > 0 && pinnedZones.length > 0;
+        return {pinnedZones, showAllPinned: stillPinning && state.showAllPinned};
+      }),
+    clearPinnedZones: () => set({pinnedZones: [], showAllPinned: false}),
+    showAllPinned: false,
+    setShowAllPinned: showAllPinned => set({showAllPinned}),
     collapsedTabSections: [],
     openTabSection: id =>
       set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),

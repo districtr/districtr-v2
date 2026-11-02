@@ -10,8 +10,9 @@ import {PUBLIC_SOURCE_ID} from '@constants/map/layerIds';
  * cache when the plan changes; every consumer (PublicSource, useZoomToDistrict)
  * must build the key through this helper so the keys can't drift apart.
  */
+export const PUBLIC_DISTRICTS_QUERY_PREFIX = [PUBLIC_SOURCE_ID] as const;
 export const publicDistrictsQueryKey = (mapDocument?: DocumentObject | null) =>
-  [PUBLIC_SOURCE_ID, mapDocument?.public_id, mapDocument?.updated_at] as const;
+  [...PUBLIC_DISTRICTS_QUERY_PREFIX, mapDocument?.public_id, mapDocument?.updated_at] as const;
 
 type StatsFeatureProperties = {
   zone: NullableZone;

@@ -25,7 +25,7 @@ def test_get_gerrydb_graph_streams_from_s3(monkeypatch):
         Bucket="some-bucket", Key="graphs/simple_geos.npz"
     )
     s3.download_file.assert_not_called()
-    assert G._weighted_edges
+    assert G._weighted_edges.size
 
 
 def test_get_gerrydb_graph():
@@ -41,8 +41,8 @@ def test_get_gerrydb_graph():
     }
     vtd_nodes = {"vtd:000010000001", "vtd:000010000002", "vtd:000010000003"}
     assert set(G._node_ids.tolist()) == block_nodes | vtd_nodes
-    assert G._weighted_edges
-    assert isinstance(G._non_contiguous_parents, frozenset)
+    assert G._weighted_edges.size
+    assert G._non_contiguous_parents.dtype.kind == "i"
 
 
 def test_get_gerrydb_graph_file_prefers_local_npz(tmp_path):
@@ -81,7 +81,7 @@ def test_load_graph_uses_shared_disk_cache(monkeypatch, tmp_path):
     G2 = graph_module._load_via_disk_cache("simple_geos")
     assert isinstance(G2._node_ids, np.memmap)
     assert G2._node_ids.tolist() == G1._node_ids.tolist()
-    assert G2._weighted_edges == G1._weighted_edges
+    assert G2._weighted_edges.tolist() == G1._weighted_edges.tolist()
 
 
 def test_load_graph_recovers_from_corrupt_disk_cache(monkeypatch, tmp_path):
@@ -98,7 +98,7 @@ def test_load_graph_recovers_from_corrupt_disk_cache(monkeypatch, tmp_path):
     (cache_dir / "meta.json").write_text("not json {")
 
     G = graph_module._load_via_disk_cache("simple_geos")
-    assert G._weighted_edges
+    assert G._weighted_edges.size
     # Cache was rebuilt cleanly
     assert (cache_dir / "meta.json").read_text().startswith("{")
 

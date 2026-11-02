@@ -1,5 +1,6 @@
 import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import '@utils/map/maplibreWorker';
 import type {MutableRefObject} from 'react';
 import React, {useRef, useMemo} from 'react';
 import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';

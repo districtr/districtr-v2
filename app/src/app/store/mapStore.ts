@@ -13,10 +13,9 @@ import {
   StatusObject,
   DocumentComment,
 } from '@utils/api/apiHandlers/types';
-import maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
-import {ContextMenuState} from '@utils/map/types';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
@@ -304,8 +303,6 @@ export interface MapStore {
    */
   focusFeatures: Array<MapFeatureInfo>;
   handleReset: () => void;
-  contextMenu: ContextMenuState | null;
-  setContextMenu: (menu: ContextMenuState | null) => void;
 
   // user id
   userID: string | null;
@@ -508,6 +505,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
+          // Locks follow the plan across edit/display/evaluate switches; a different
+          // map starts unlocked and restores its own saved locks below.
+          lockPaintedAreas: sameMapAcrossViews ? mapControlsState.mapOptions.lockPaintedAreas : [],
         },
         // A fresh map (not just switching edit/display/eval views of the same
         // one) defaults to painting — that's what a user opens a map to do.
@@ -519,6 +519,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
               : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
+        pinnedZones: [],
+        showAllPinned: false,
         isPainting: false,
         // Drop a remembered viewport when loading a different map so a fresh map
         // fits to its extent; keep it across same-map view switches.
@@ -528,6 +530,23 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
+
+      const documentId = mapDocument.document_id;
+      if (mapDocument.access === ACCESS_STATES.EDIT && documentId) {
+        // Restored in plain Draw too, which ignores them until Super Draw is back.
+        idb.getZoneLocks(documentId).then(zones => {
+          // Skip if another map loaded meanwhile or the user locked something already.
+          const {mapOptions} = useMapControlsStore.getState();
+          if (
+            zones.length &&
+            get().mapDocument?.document_id === documentId &&
+            !mapOptions.lockPaintedAreas.length
+          ) {
+            useMapControlsStore.setState({mapOptions: {...mapOptions, lockPaintedAreas: zones}});
+            useMapControlsStore.getState().selectUnlockedZone();
+          }
+        });
+      }
 
       useAssignmentsStore.getState().resetShatterState();
 
@@ -765,6 +784,19 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...updated,
           metadata: true,
         },
+      });
+      // Locks on districts that no longer exist would come back if the count is
+      // raised again; dropping them through setLockedZones updates the saved copy too.
+      const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
+      const keptLocks = lockPaintedAreas.filter(zone => !zone || zone <= numDistricts);
+      if (keptLocks.length < lockPaintedAreas.length) {
+        useMapControlsStore.getState().setLockedZones(keptLocks);
+      }
+      // Pins on districts that no longer exist would filter tables down to
+      // rows that aren't there.
+      useMapControlsStore.setState(state => {
+        const pinnedZones = state.pinnedZones.filter(zone => zone <= numDistricts);
+        return {pinnedZones, showAllPinned: pinnedZones.length > 0 && state.showAllPinned};
       });
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
@@ -1101,13 +1133,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
       });
 
-      useMapControlsStore.setState(state => ({
-        selectedZone: remappedSelectedZone,
-        mapOptions: {
-          ...state.mapOptions,
-          lockPaintedAreas: remappedLockedZones,
-        },
-      }));
+      useMapControlsStore.setState({selectedZone: remappedSelectedZone});
+      useMapControlsStore.getState().setLockedZones(remappedLockedZones);
 
       useCoiAssignmentsStore.getState().removeCommunity(communityId);
 
@@ -1146,8 +1173,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const edgesResult = await getChildEdges({
         districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
+      }).catch(err => {
+        console.error(err);
+        return undefined;
       });
       if (!edgesResult?.length) {
+        setMapLock(null);
+        temporalManager.resume(mapMode);
         set({
           notification: {
             importance: 2,
@@ -1262,7 +1294,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           },
         ],
       });
-      useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      // Break stays armed so the user can pick a different unit; switching to
+      // Paint paints within this one. Other entry points (context menu) paint.
+      if (useMapControlsStore.getState().activeTool !== ACTIVE_TOOLS.SHATTER) {
+        useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
+      }
       // County painting makes no sense inside a broken unit. Dynamic import:
       // getFeaturesInBbox imports this store, so a static import would cycle.
       if (useMapControlsStore.getState().mapOptions.paintByCounty) {
@@ -1321,8 +1357,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
     },
     focusFeatures: [],
-    contextMenu: null,
-    setContextMenu: contextMenu => set({contextMenu}),
     userID: null,
     setUserID: () => {
       set(state => {

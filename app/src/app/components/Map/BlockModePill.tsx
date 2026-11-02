@@ -81,7 +81,13 @@ export const BlockModePill = () => {
           </RadixText>
         }
       >
-        Painting blocks
+        {activeTool === ACTIVE_TOOLS.SHATTER ? (
+          <>
+            <b>Choose Paint</b> to paint these blocks, or another {unitName} to break
+          </>
+        ) : (
+          'Painting blocks'
+        )}
       </MapPill>
     );
   }

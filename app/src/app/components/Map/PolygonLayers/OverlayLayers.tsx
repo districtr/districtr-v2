@@ -3,7 +3,8 @@ import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
-import {OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
+import {MAP_LAYER_ANCHOR_IDS, OVERLAY_LAYER_ID_PREFIXES} from '@/app/constants/map/layerIds';
+import {EMPTY_FT_COLLECTION} from '@/app/constants/map/layerStyle';
 import {
   DEFAULT_FILL_STYLE,
   DEFAULT_LINE_STYLE,
@@ -45,7 +46,8 @@ const OverlayLayer = ({
     }
     return {
       type: 'geojson' as const,
-      data: overlay.source || undefined,
+      // Never rendered without a source (early return below); satisfies the required type.
+      data: overlay.source || EMPTY_FT_COLLECTION,
       promoteId: idProperty,
     };
   }, [overlay.data_type, overlay.source]);
@@ -53,7 +55,9 @@ const OverlayLayer = ({
   const layerProps = useMemo(() => {
     const baseProps: any = {
       id: layerId,
-      beforeId: layerBeforeId,
+      // Labels get their own anchor so they always draw over outlines/fills,
+      // whatever order the overlays were returned or toggled on in.
+      beforeId: overlay.layer_type === 'text' ? MAP_LAYER_ANCHOR_IDS.overlayLabels : layerBeforeId,
     };
 
     // Add source-layer for pmtiles

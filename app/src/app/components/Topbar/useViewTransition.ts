@@ -2,9 +2,17 @@ import React, {useState, useRef, useEffect} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {EVAL_TRANSITION_STEPS, EVAL_STEP_DURATION_MS} from './EvalTransitionOverlay';
+import {queryClient} from '@utils/api/queryClient';
+import {PUBLIC_DISTRICTS_QUERY_PREFIX} from '@utils/api/apiHandlers/getPublicDistricts';
+import {EVALUATION_QUERY_PREFIX} from '@utils/api/apiHandlers/getEvaluation';
 
-// Hard cap so the overlay can never get stuck if a load signal never arrives.
+// Safety cap for when a load signal never arrives (e.g. COI display).
 const MAX_TRANSITION_MS = 15000;
+// Longer cap while stats/evaluation is still fetching (backend gives up at 120s).
+const MAX_IN_FLIGHT_MS = 120_000;
+const isViewDataFetching = () =>
+  queryClient.isFetching({queryKey: PUBLIC_DISTRICTS_QUERY_PREFIX}) > 0 ||
+  queryClient.isFetching({queryKey: EVALUATION_QUERY_PREFIX}) > 0;
 
 /**
  * Drives the view transition overlay. Animates the evaluate step sequence and clears
@@ -36,7 +44,13 @@ export const useViewTransition = () => {
     const isEval = viewTransition === 'evaluate';
     const minMs = isEval ? EVAL_TRANSITION_STEPS.length * EVAL_STEP_DURATION_MS : 0;
     const minTimer = setTimeout(() => setMinElapsed(true), minMs);
-    const maxTimer = setTimeout(() => setViewTransition(null), MAX_TRANSITION_MS);
+    let maxTimer = setTimeout(() => {
+      if (isViewDataFetching()) {
+        maxTimer = setTimeout(() => setViewTransition(null), MAX_IN_FLIGHT_MS - MAX_TRANSITION_MS);
+      } else {
+        setViewTransition(null);
+      }
+    }, MAX_TRANSITION_MS);
     const stepTimer = isEval
       ? setInterval(
           () => setStep(prev => Math.min(prev + 1, EVAL_TRANSITION_STEPS.length - 1)),

@@ -3,6 +3,8 @@ import createMDX from '@next/mdx';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Self-contained server + traced node_modules; the Dockerfile ships only this.
+  output: 'standalone',
   // Configure pageExtensions to include MDX files
   pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
   // "Tag" pages were renamed to "portal" pages; keep old links working.

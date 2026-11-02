@@ -1,5 +1,6 @@
 import type {MapLayerEventType} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import '@utils/map/maplibreWorker';
 import type {MutableRefObject} from 'react';
 import React, {useRef, useMemo} from 'react';
 import {MAP_OPTIONS, getMapStyleForBasemap} from '@constants/map/viewDefaults';
@@ -47,6 +48,21 @@ export const MapContainer: React.FC<{
     const style = getMapStyleForBasemap(basemap);
     return style;
   }, [basemap]);
+  // maplibre 6 needs WebGL2; without it the constructor throws and react-map-gl
+  // reports it through onError with no target (runtime map errors carry one).
+  const setNotification = useMapStore(state => state.setNotification);
+  const handleError = (e: {error: Error; target: unknown}) => {
+    console.error(e.error);
+    if (!e.target) {
+      setNotification({
+        message:
+          "This browser can't display the map (it needs WebGL2). Try an up-to-date version of Chrome, Firefox, Safari, or Edge.",
+        id: 'map-init-error',
+        importance: 1,
+        type: 'error',
+      });
+    }
+  };
   const showGeocode = basemap === BASEMAP_IDS.STREETS || basemap === BASEMAP_IDS.SATELLITE;
 
   useLayoutEffect(() => {
@@ -93,6 +109,7 @@ export const MapContainer: React.FC<{
         minPitch={0}
         dragRotate={false}
         onLoad={onMapLoad}
+        onError={handleError}
         onClick={mapEventHandlers.onClick}
         onZoom={mapEventHandlers.onZoom}
         onZoomEnd={mapEventHandlers.onZoomEnd}
