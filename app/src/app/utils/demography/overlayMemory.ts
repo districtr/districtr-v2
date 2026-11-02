@@ -4,6 +4,7 @@ import {useDemographyStore} from '@store/demography/demographyStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import {DEMOGRAPHIC_MODES, type DemographicMode} from '@constants/map/demographicMode';
+import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 
 /** Every variable available on this map for an overlay group's universe(s). */
 export const overlayGroupVariables = (group: OverlayGroup) =>
@@ -18,18 +19,15 @@ export const overlayGroupVariables = (group: OverlayGroup) =>
  */
 export const overlayMemory: {
   variables: Record<OverlayGroup, DemographyVariable | null>;
-  /** Overlay-mode preset captured when the overlay is toggled off from Visual
-   * settings, restored on the next activation — so the toggles round-trip the
-   * same opacity/painted-districts state the panel controls set. */
+  /** Overlay opacity captured when the overlay is turned off, restored on the
+   * next activation. */
   overlayOpacity: number | null;
-  showPaintedDistricts: boolean | null;
   /** The most recently used display mode (overlay vs. side-by-side comparison),
    * so activating a choropleth layer reuses the user's last choice. */
   displayMode: DemographicMode | null;
 } = {
   variables: {demography: null, election: null},
   overlayOpacity: null,
-  showPaintedDistricts: null,
   displayMode: null,
 };
 
@@ -61,9 +59,23 @@ export const activateOverlayGroup = (group: OverlayGroup): boolean => {
   useMapControlsStore.getState().setMapOptions({
     demographicDisplayMode: displayMode,
     ...(overlayMemory.overlayOpacity !== null && {overlayOpacity: overlayMemory.overlayOpacity}),
-    ...(overlayMemory.showPaintedDistricts !== null && {
-      showPaintedDistricts: overlayMemory.showPaintedDistricts,
-    }),
   });
   return true;
+};
+
+/**
+ * Turn the choropleth overlay off. Remembers the display mode and opacity so
+ * the next activateOverlayGroup restores them. Leaves "Show painted districts"
+ * alone: it's a separate choice with its own pill.
+ */
+export const deactivateOverlay = () => {
+  const {mapOptions, setMapOptions} = useMapControlsStore.getState();
+  if (mapOptions.demographicDisplayMode) {
+    overlayMemory.displayMode = mapOptions.demographicDisplayMode;
+  }
+  overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
+  setMapOptions({
+    demographicDisplayMode: undefined,
+    overlayOpacity: OVERLAY_OPACITY,
+  });
 };
