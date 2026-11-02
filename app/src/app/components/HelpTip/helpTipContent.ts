@@ -110,6 +110,10 @@ export const helpTipContent = {
     videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
+  districtPin: {
+    title: 'Pinning districts',
+    text: 'Pin: the district tables show only pinned districts until you unpin them or choose Show all.',
+  },
   idealPopulation: {
     title: 'Ideal population',
     text: 'The ideal population is the total population divided by the number of districts. Each district should be as close to this number as possible so everyone has equal representation.',

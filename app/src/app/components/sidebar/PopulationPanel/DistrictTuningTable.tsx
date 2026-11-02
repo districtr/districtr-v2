@@ -41,7 +41,17 @@ export const DistrictTuningTable: React.FC<{
   onToggleLock: (zone: number) => void;
   /** The bars header's lock-all control, shown over the lock column. */
   lockAllButton: React.ReactNode;
-}> = ({rows, idealPopulation, showRowIcons, isReadOnly, onToggleLock, lockAllButton}) => {
+  /** The bar rows' pin control, so pinning works from either view. */
+  pinButton: (zone: number) => React.ReactNode;
+}> = ({
+  rows,
+  idealPopulation,
+  showRowIcons,
+  isReadOnly,
+  onToggleLock,
+  lockAllButton,
+  pinButton,
+}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
@@ -116,6 +126,9 @@ export const DistrictTuningTable: React.FC<{
               {showRowIcons && (
                 <>
                   <Table.ColumnHeaderCell>
+                    <span className="sr-only">Pin</span>
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>
                     <span className="sr-only">Description</span>
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>{lockAllButton}</Table.ColumnHeaderCell>
@@ -135,7 +148,7 @@ export const DistrictTuningTable: React.FC<{
                 <Table.Row
                   key={d.zone}
                   onClick={() => selectCommunity(d.zone)}
-                  // `group`: ZoneDescriptionPopover's bubble fades in on row hover
+                  // `group`: the pin and ZoneDescriptionPopover's bubble fade in on row hover
                   className={`group cursor-pointer ${
                     selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                   }`}
@@ -204,6 +217,9 @@ export const DistrictTuningTable: React.FC<{
                       </Flex>
                     )}
                   </Table.Cell>
+                  {showRowIcons && (
+                    <Table.Cell onClick={e => e.stopPropagation()}>{pinButton(d.zone)}</Table.Cell>
+                  )}
                   {showRowIcons && (
                     <Table.Cell onClick={e => e.stopPropagation()}>
                       <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
