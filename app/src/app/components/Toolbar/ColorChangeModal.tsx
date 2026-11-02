@@ -1,10 +1,27 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
-import {TwitterPicker, type ColorResult} from 'react-color';
-import {Cross2Icon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
-import {ColorPicker} from './ColorPicker';
-import {colorScheme as DefaultColorScheme} from '@constants/colors';
+import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
+import {ACCESS_STATES} from '@constants/document/state';
+import {
+  AlertDialog,
+  Box,
+  Flex,
+  Dialog,
+  Button,
+  DropdownMenu,
+  IconButton,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
+import {DISTRICT_PALETTES} from '@constants/colors';
+import {
+  extendColorArray,
+  getReadableTextColor,
+  isNearGray,
+  latexBaseAlternative,
+  randomColorsInRange,
+  resolveColorInput,
+} from '@/app/utils/colors';
 import {idb} from '@/app/utils/idb/idb';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 
@@ -20,56 +37,175 @@ export const ColorChangeModal: React.FC<{
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
+  const [colorText, setColorText] = useState('');
+  const [colorTextTouched, setColorTextTouched] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const setNotification = useMapStore(store => store.setNotification);
 
+  const selectedColor = innerColorScheme[colorSelectIndex] ?? '#000000';
+  // The text field mirrors the selected district's color whenever something
+  // other than typing changes it (district switch, swatch, palette, custom).
+  // colorText is deliberately not a dependency: re-running on every keystroke
+  // would overwrite what the user is typing.
   useEffect(() => {
-    setInnerColorScheme(colorScheme);
-  }, [colorScheme]);
+    if (resolveColorInput(colorText)?.toLowerCase() === selectedColor.toLowerCase()) return;
+    setColorText(selectedColor);
+    setColorTextTouched(false);
+  }, [selectedColor, colorSelectIndex]);
+  // Which district (1-based) owns each color, so no two districts share one.
+  const ownerOf = useMemo(() => {
+    const map = new Map<string, number>();
+    innerColorScheme.slice(0, numDistricts).forEach((color, i) => {
+      const key = color.toLowerCase();
+      if (!map.has(key)) map.set(key, i + 1);
+    });
+    return map;
+  }, [innerColorScheme, numDistricts]);
+  const otherOwner = (color: string) => {
+    const owner = ownerOf.get(color.toLowerCase());
+    return owner && owner !== colorSelectIndex + 1 ? owner : undefined;
+  };
 
-  // Prefer unused colors first, but always offer the full palette — with many
-  // districts every color may be in use, and an empty picker is a dead end.
-  const swatchColors = useMemo(() => {
-    const used = new Set(innerColorScheme.slice(0, numDistricts));
-    const unused = DefaultColorScheme.filter(color => !used.has(color));
-    return [...unused, ...DefaultColorScheme.filter(color => used.has(color))];
+  // The palette the districts mostly come from, if any, offered in full.
+  const currentPalette = useMemo(() => {
+    let best: {palette: (typeof DISTRICT_PALETTES)[number]; hits: number} | undefined;
+    for (const palette of DISTRICT_PALETTES) {
+      const colors = new Set(palette.colors.map(color => color.toLowerCase()));
+      const hits = innerColorScheme
+        .slice(0, numDistricts)
+        .filter(color => colors.has(color.toLowerCase())).length;
+      if (hits * 2 >= Math.min(numDistricts, palette.colors.length) && hits > (best?.hits ?? 0)) {
+        best = {palette, hits};
+      }
+    }
+    return best?.palette;
   }, [innerColorScheme, numDistricts]);
 
-  const handleColorPick = (idx: number, color: ColorResult) => {
+  // Only palette colors no district uses yet; when none are left, the
+  // similar tones row is the whole offer.
+  const freePaletteColors =
+    currentPalette?.colors.filter(color => !ownerOf.has(color.toLowerCase())) ?? [];
+
+  // One row of random colors in the current districts' tone range. They are
+  // drawn on open, on palette change and on shuffle, not on every pick, so the
+  // options don't jump around while the user is choosing.
+  const SUGGESTION_COUNT = 16;
+  const shuffleSuggestions = (scheme: string[] = innerColorScheme) =>
+    setSuggestions(randomColorsInRange(scheme.slice(0, numDistricts), SUGGESTION_COUNT));
+
+  const typedColor = resolveColorInput(colorText);
+  const colorTextInvalid = colorTextTouched && !typedColor;
+  const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
+  const typedGray = !!typedColor && isNearGray(typedColor);
+  const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
+  // Text in the field that isn't the selected district's color yet: typed and
+  // not applied, or refused.
+  const pendingText =
+    colorText.trim() !== '' && typedColor?.toLowerCase() !== selectedColor.toLowerCase();
+  const pendingRefused = pendingText && (!typedColor || !!typedOwner || typedGray);
+  const lowerScheme = (scheme: string[]) =>
+    scheme
+      .slice(0, numDistricts)
+      .map(color => color.toLowerCase())
+      .join();
+  const dirty = pendingText || lowerScheme(innerColorScheme) !== lowerScheme(colorScheme);
+
+  const setDistrictColor = (hex: string) => {
+    // Grays read as unassigned land, like the palettes' grays.
+    if (otherOwner(hex) || isNearGray(hex)) return;
     // Preserve the full scheme length — slicing to numDistricts here used to
-    // truncate the saved color_scheme. Duplicates are allowed: with more
-    // districts than palette colors they're unavoidable.
+    // truncate the saved color_scheme.
     const dupe = [...innerColorScheme];
-    dupe[colorSelectIndex] = color.hex;
+    dupe[colorSelectIndex] = hex;
     setInnerColorScheme(dupe);
+  };
+
+  // Typed text applies on Enter or blur, not per keystroke, so `tangerine`
+  // never applies `tan` on the way. The preview box shows it meanwhile.
+  const commitColorText = (text = colorText) => {
+    setColorTextTouched(true);
+    const hex = resolveColorInput(text);
+    if (hex && hex !== selectedColor.toLowerCase()) setDistrictColor(hex);
+  };
+
+  const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
+    // A palette shorter than the scheme is extended with new hues in its own
+    // style rather than cycled, so no two districts end up sharing a color.
+    const scheme = extendColorArray(
+      [...palette.colors],
+      Math.max(innerColorScheme.length, numDistricts)
+    );
+    setInnerColorScheme(scheme);
+    shuffleSuggestions(scheme);
+  };
+
+  const closeDialog = () => {
+    setConfirmDiscard(false);
+    onClose ? onClose() : setDialogOpen(false);
   };
 
   const handleSave = async () => {
     if (!mapDocument?.document_id) return;
+    // A refused entry stays in the field with its message; saving now would
+    // drop it without a word.
+    if (pendingRefused) {
+      setColorTextTouched(true);
+      return;
+    }
     const _idbResult = await idb.updateColorScheme(mapDocument.document_id, innerColorScheme);
     mutateMapDocument({color_scheme: innerColorScheme});
-    onClose?.();
+    closeDialog();
   };
 
-  const handleCancel = () => {
-    setInnerColorScheme(colorScheme);
-    onClose?.();
-  };
+  // Cancel, X, Escape and overlay clicks all come here, and ask first when
+  // there is something to lose.
+  const requestClose = () => (dirty ? setConfirmDiscard(true) : closeDialog());
 
+  // The draft loads once per opening. Keyed on `open`, not the scheme: an
+  // autosave rebuilds color_scheme as a new array and would reset the draft.
   useEffect(() => {
     setDialogOpen(open || false);
+    if (!open) return;
+    setInnerColorScheme(colorScheme);
+    setColorText(colorScheme[colorSelectIndex] ?? '');
+    setColorTextTouched(false);
+    setConfirmDiscard(false);
+    shuffleSuggestions(colorScheme);
   }, [open]);
+
+  const suggestionSwatch = (color: string, fill?: boolean) => {
+    const owner = otherOwner(color);
+    const gray = isNearGray(color);
+    return (
+      <ColorSwatch
+        key={color}
+        color={color}
+        label={
+          owner
+            ? `${color}, used by District ${owner}`
+            : gray
+              ? `${color}, too close to gray`
+              : color
+        }
+        selected={color.toLowerCase() === selectedColor.toLowerCase()}
+        disabled={!!owner || gray}
+        onClick={() => setDistrictColor(color)}
+        round
+        fill={fill}
+      />
+    );
+  };
 
   return (
     <Dialog.Root
       open={dialogOpen}
-      onOpenChange={isOpen =>
-        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
-      }
+      onOpenChange={isOpen => (isOpen ? setDialogOpen(true) : requestClose())}
     >
-      <Dialog.Content className="max-w-[600px] max-h-[80vw]">
+      <Dialog.Content className="max-w-[600px]">
         <Flex align="start">
-          <Dialog.Title className="m-0 flex-1">
-            <Heading size="4">Customize District Colors</Heading>
+          <Dialog.Title size="4" className="m-0 flex-1">
+            Customize district colors
           </Dialog.Title>
 
           <Dialog.Close
@@ -79,42 +215,254 @@ export const ColorChangeModal: React.FC<{
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Box className="max-h-[40vh] overflow-y-auto">
-          <Heading size="2" className="mb-1">
-            Select a district to change its color
-          </Heading>
-          <ColorPicker
-            defaultValue={0}
-            value={colorSelectIndex}
-            onValueChange={(value: number) => {
-              setColorSelectIndex(value);
-            }}
-            _colorScheme={innerColorScheme}
-          />
-          {colorSelectIndex !== undefined && (
-            <Flex direction="column" gapY="2" mt="4">
-              <hr />
-              <Heading size="2">
-                Choose a color for <u>District {colorSelectIndex + 1}</u>
-              </Heading>
-              <TwitterPicker
-                color={innerColorScheme[colorSelectIndex]}
-                colors={swatchColors}
-                onChangeComplete={color => handleColorPick(colorSelectIndex, color)}
-                triangle="hide"
-                className="!shadow-none !w-full"
-              />
+        <Flex direction="column" gapY="4" mt="3">
+          <Flex align="center" gapX="2">
+            <Text size="2" weight="medium">
+              All districts
+            </Text>
+            {/* A menu, not a Select: a Select's closed trigger applies the
+                typeahead match at once, so typing "t" would recolor every
+                district. Menu items apply only on click or Enter. */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <Button variant="surface" color="gray">
+                  Apply a palette
+                  <DropdownMenu.TriggerIcon />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content>
+                {DISTRICT_PALETTES.map(palette => (
+                  <DropdownMenu.Item
+                    key={palette.name}
+                    className="cursor-pointer"
+                    onSelect={() => handleApplyPalette(palette)}
+                  >
+                    <Flex align="center" gapX="2">
+                      <Flex>
+                        {palette.colors.slice(0, 12).map(color => (
+                          <Box
+                            key={color}
+                            width="10px"
+                            height="10px"
+                            style={{backgroundColor: color}}
+                          />
+                        ))}
+                      </Flex>
+                      {palette.name}
+                    </Flex>
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </Flex>
+
+          <Box>
+            <Text as="p" size="2" weight="medium" mb="1">
+              Pick a district
+            </Text>
+            {/* Keyed by index, not color like the toolbar picker, so districts
+                that share a color (saved before colors had to be unique) stay
+                individually selectable. */}
+            <Flex wrap="wrap" gap="1" className="max-h-[25vh] overflow-y-auto p-1">
+              {innerColorScheme.slice(0, numDistricts).map((color, i) => (
+                <ColorSwatch
+                  key={i}
+                  color={color}
+                  label={`District ${i + 1}`}
+                  selected={i === colorSelectIndex}
+                  onClick={() => setColorSelectIndex(i)}
+                >
+                  {i + 1}
+                </ColorSwatch>
+              ))}
             </Flex>
-          )}
-        </Box>
-        {/* save button */}
-        <Flex justify="end" gapX="2">
-          <Button onClick={handleSave}>Save</Button>
-          <Button variant="outline" onClick={handleCancel}>
+          </Box>
+
+          <Flex direction="column" gapY="2" className="rounded-md border border-gray-200 p-3">
+            <Flex align="center" gapX="2">
+              <Box
+                width="32px"
+                height="32px"
+                className="shrink-0 rounded-md border border-gray-300"
+                style={{backgroundColor: typedColor ?? selectedColor}}
+              />
+              <Text size="2" weight="medium" className="shrink-0">
+                District {colorSelectIndex + 1}
+              </Text>
+              <TextField.Root
+                className="flex-1"
+                value={colorText}
+                onChange={event => {
+                  setColorText(event.target.value);
+                  setColorTextTouched(false);
+                }}
+                onBlur={() => commitColorText()}
+                onKeyDown={event => event.key === 'Enter' && commitColorText()}
+                placeholder="rebeccapurple, BrickRed, #ff8800"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-label={`Color for District ${colorSelectIndex + 1}`}
+                aria-invalid={colorTextInvalid || !!typedOwner || typedGray}
+              />
+              {/* Button size 2 matches the TextField's height. */}
+              <Button
+                asChild
+                variant="surface"
+                color="gray"
+                className="relative shrink-0 cursor-pointer focus-within:ring-2 focus-within:ring-gray-900"
+              >
+                <label title="Pick any color">
+                  Custom color
+                  <input
+                    type="color"
+                    className="sr-only"
+                    value={selectedColor}
+                    onChange={event => {
+                      setColorText(event.target.value);
+                      commitColorText(event.target.value);
+                    }}
+                  />
+                </label>
+              </Button>
+            </Flex>
+            <Text size="1" color={colorTextInvalid || typedOwner || typedGray ? 'red' : 'gray'}>
+              {colorTextInvalid
+                ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
+                : typedOwner
+                  ? `District ${typedOwner} already uses this color. Pick another.`
+                  : typedGray
+                    ? 'Too close to gray, which reads as unassigned land. Pick another.'
+                    : latexAlternative
+                      ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
+                      : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
+            </Text>
+            {currentPalette && freePaletteColors.length > 0 && (
+              <>
+                <Text size="1" weight="medium" mt="1">
+                  {currentPalette.name}
+                </Text>
+                <Flex wrap="wrap" gap="1">
+                  {freePaletteColors.map(color => suggestionSwatch(color))}
+                </Flex>
+              </>
+            )}
+            <Flex align="center" gapX="1" mt="1">
+              <Text size="1" weight="medium">
+                Similar tones
+              </Text>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                aria-label="Shuffle similar tones"
+                title="Shuffle"
+                onClick={() => shuffleSuggestions()}
+              >
+                <ShuffleIcon />
+              </IconButton>
+            </Flex>
+            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] justify-items-center gap-1">
+              {suggestions.map(color => suggestionSwatch(color, true))}
+            </div>
+          </Flex>
+        </Flex>
+        <Flex justify="end" gapX="2" mt="4">
+          <Button variant="soft" color="gray" onClick={requestClose}>
             Cancel
           </Button>
+          <Button onClick={handleSave}>Save</Button>
         </Flex>
+        <AlertDialog.Root open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+          <AlertDialog.Content maxWidth="400px">
+            <AlertDialog.Title>Discard color changes?</AlertDialog.Title>
+            <AlertDialog.Description size="2">
+              Your district color changes haven&apos;t been saved.
+            </AlertDialog.Description>
+            <Flex gap="3" mt="4" justify="end">
+              <AlertDialog.Cancel>
+                <Button variant="soft" color="gray">
+                  Keep editing
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action>
+                <Button variant="solid" color="red" onClick={closeDialog}>
+                  Discard
+                </Button>
+              </AlertDialog.Action>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
       </Dialog.Content>
     </Dialog.Root>
   );
 };
+
+/**
+ * The display options' way into the dialog, showing the districts' current
+ * colors. Callers own the dialog, outside any popover that would unmount it.
+ */
+export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick}) => {
+  const colorScheme = useColorScheme();
+  const numDistricts = useMapStore(store => store.mapDocument?.num_districts ?? 4);
+  const disabled = useMapStore(store => store.mapStatus?.access) === ACCESS_STATES.READ;
+  return (
+    <Button onClick={onClick} variant="outline" size="1" mt="2" disabled={disabled}>
+      <Flex aria-hidden className={`overflow-hidden rounded-sm ${disabled ? 'opacity-50' : ''}`}>
+        {colorScheme.slice(0, Math.min(numDistricts, 12)).map((color, i) => (
+          <Box key={i} width="10px" height="10px" style={{backgroundColor: color}} />
+        ))}
+      </Flex>
+      Customize colors
+    </Button>
+  );
+};
+
+const ColorSwatch: React.FC<{
+  color: string;
+  label: string;
+  selected: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  /** Small circles for colors, so they don't read as more district buttons. */
+  round?: boolean;
+  /** Grow to the grid cell (up to size-7) instead of a fixed size. */
+  fill?: boolean;
+  children?: React.ReactNode;
+}> = ({color, label, selected, disabled, onClick, round, fill, children}) => (
+  <button
+    type="button"
+    aria-label={label}
+    aria-pressed={selected}
+    title={label}
+    disabled={disabled}
+    onClick={onClick}
+    className={`inline-flex shrink-0 items-center justify-center border border-black/10 font-medium ${
+      fill
+        ? 'aspect-square w-full max-w-7 rounded-full'
+        : round
+          ? 'size-6 rounded-full'
+          : 'size-8 rounded-md text-xs'
+    } ${
+      selected
+        ? 'ring-2 ring-offset-1 ring-gray-900'
+        : disabled
+          ? 'cursor-not-allowed'
+          : 'hover:ring-2 hover:ring-gray-300'
+    }`}
+    style={{
+      backgroundColor: color,
+      color: getReadableTextColor(color) ?? '#111',
+      // A slash marks colors another district already uses; fading them
+      // instead makes them read as lighter tints on offer.
+      backgroundImage: disabled
+        ? 'linear-gradient(to top right, transparent calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% + 1px), transparent calc(50% + 1px))'
+        : undefined,
+    }}
+  >
+    {/* text-box trims the span to the digits' cap height, so flex centering
+        centers the ink, not an em box padded by descender space. It must sit
+        on the span: it isn't inherited by the button's anonymous flex item. */}
+    {children != null && <span className="[text-box:trim-both_cap_alphabetic]">{children}</span>}
+  </button>
+);
