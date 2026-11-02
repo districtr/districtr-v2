@@ -11,6 +11,8 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
+import {ACCESS_STATES} from '@constants/document/state';
 import {demographyService} from '@/app/utils/demography/demographyService';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useMemo, useRef, useState} from 'react';
@@ -184,7 +186,12 @@ const ZoneNumbersLayer = () => {
   const colorScheme = useColorScheme();
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
+  // View, Evaluate, and plain Draw keep the locks for the trip back to Super Draw,
+  // but don't apply them, so their labels show plain district numbers.
+  const canEdit = useMapStore(state => state.mapDocument?.access === ACCESS_STATES.EDIT);
+  const superDraw = useToolbarStore(state => state.superDraw);
+  const editLocks = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
+  const lockedAreas = canEdit && superDraw ? editLocks : [];
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);

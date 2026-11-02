@@ -41,6 +41,15 @@ export const putUpdateAssignmentsAndVerify = async ({
    * means this save is superseded. */
   clientLastUpdatedAtStart?: string;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
+  // The user may leave this map mid-save; then only its IndexedDB copy gets the
+  // result, and the map now open keeps its own state.
+  const stillOpen = () =>
+    useMapStore.getState().mapDocument?.document_id === mapDocument.document_id;
+  // The sidebar stays live during a save (a paint the save lock ended, an alias, a
+  // description, an undo). Any of them changes clientLastUpdated, and then the
+  // server doesn't have it.
+  const editedDuringSave = () =>
+    stillOpen() && useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtStart;
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
@@ -166,59 +175,59 @@ export const putUpdateAssignmentsAndVerify = async ({
   }
 
   const updated_at = assignmentsPostResponse.response.updated_at;
-  // The user may have left this map mid-save; then only its IDB copy gets the result,
-  // and the map now open keeps its own state.
-  const stillOpen = () =>
-    useMapStore.getState().mapDocument?.document_id === mapDocument.document_id;
-  // The sidebar stays live while a save is in flight (an alias, a description, an
-  // undo). If anything changed meanwhile, don't overwrite it with this save's
-  // snapshot or mark it clean: adopt the new server timestamp, re-stamp IDB with
-  // the current state as a local edit, and let the next save send it.
-  const editedSinceStart = () =>
-    stillOpen() && useAssignmentsStore.getState().clientLastUpdated !== clientLastUpdatedAtStart;
-  const supersede = (): PutUpdateAssignmentsAndVerifyResponse => {
-    useMapStore.getState().mutateMapDocument({updated_at});
-    idb.updateIdbAssignments(
-      useMapStore.getState().mapDocument!,
-      useAssignmentsStore.getState().zoneAssignments,
-      new Date().toISOString(),
-      true
-    );
-    return {ok: true, response: {updated_at, superseded: true}};
+  const documentMetadata = {
+    ...mapDocument,
+    updated_at,
+    ...(document_comments && {document_comments}),
   };
-  if (editedSinceStart()) return supersede();
-
-  await idb.updateDocument({
-    id: mapDocument.document_id,
-    document_metadata: {
-      ...mapDocument,
-      updated_at: assignmentsPostResponse.response.updated_at,
-      ...(document_comments && {document_comments}),
-    },
-    assignments: freshServerAssignments.response,
-    clientLastUpdated: assignmentsPostResponse.response.updated_at,
-  });
+  if (!editedDuringSave()) {
+    // A debounced write still pending is from an edit this save already carries;
+    // landing after the write below, it would put the old updated_at back.
+    await idb.flushPendingUpdate();
+    await idb.updateDocument({
+      id: mapDocument.document_id,
+      document_metadata: documentMetadata,
+      assignments: freshServerAssignments.response,
+      clientLastUpdated: updated_at,
+    });
+  }
   if (!stillOpen()) return {ok: true, response: {updated_at}};
-  // Re-check across the IDB write's await.
-  if (editedSinceStart()) return supersede();
   // Pause zundo before syncing clientLastUpdated to the server timestamp.
   // setClientLastUpdated triggers temporalDiff, which would otherwise treat this
   // server-sync as a user edit: pushing a snapshot onto pastStates and clearing
   // futureStates, corrupting undo/redo history after a save.
   useAssignmentsStore.temporal.getState().pause();
   useCoiAssignmentsStore.temporal.getState().pause();
-  useAssignmentsStore.getState().setClientLastUpdated(assignmentsPostResponse.response.updated_at);
+  // Checked again: the IndexedDB write above awaits.
+  const superseded = editedDuringSave();
+  if (!superseded) {
+    useAssignmentsStore.getState().setClientLastUpdated(updated_at);
+  } else {
+    // Keep the edit unsaved, in the store and in IndexedDB (under the new
+    // updated_at, so a reload doesn't see a conflict). The fresh stamp also tells
+    // the autosave hook to start a new cycle, even when an undo restored the stamp
+    // of the last save.
+    const clientLastUpdated = new Date().toISOString();
+    useAssignmentsStore.getState().setClientLastUpdated(clientLastUpdated);
+    idb.updateIdbAssignments(
+      {...useMapStore.getState().mapDocument!, updated_at},
+      useAssignmentsStore.getState().zoneAssignments,
+      clientLastUpdated,
+      true
+    );
+  }
   useAssignmentsStore.temporal.getState().resume();
   useCoiAssignmentsStore.temporal.getState().resume();
+  if (superseded) {
+    // The current document may hold an edit this save didn't send (an alias, a
+    // description), so take only the new server timestamp and stay dirty.
+    useMapStore.getState().mutateMapDocument({updated_at});
+    return {ok: true, response: {updated_at, superseded: true}};
+  }
   useMapStore.getState().mutateMapDocument({
-    updated_at: assignmentsPostResponse.response.updated_at,
+    updated_at,
     ...(document_comments && {document_comments}),
   });
   useMapStore.getState().clearUpdatedChanges();
-  return {
-    ok: true,
-    response: {
-      updated_at: assignmentsPostResponse.response.updated_at,
-    },
-  };
+  return {ok: true, response: {updated_at}};
 };
