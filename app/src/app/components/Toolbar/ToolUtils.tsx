@@ -34,9 +34,11 @@ export type ActiveToolConfig = {
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === ACCESS_STATES.EDIT;
+  const districtsHidden = useMapControlsStore(
+    state => state.mapOptions.showPaintedDistricts === false
+  );
   const mapMode = useMapControlsStore(state => state.mapMode);
   const superDraw = useToolbarStore(state => state.superDraw);
 
@@ -77,7 +79,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: ACTIVE_TOOLS.BRUSH,
-      disabled: !mapDocument?.document_id || !isEditing,
+      disabled: !mapDocument?.document_id || !isEditing || districtsHidden,
       label: 'Paint',
       icon: Pencil2Icon,
       helpKey: combinationHelpKey,
@@ -88,7 +90,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'E',
       mode: ACTIVE_TOOLS.ERASER,
-      disabled: !mapDocument?.document_id || !isEditing,
+      disabled: !mapDocument?.document_id || !isEditing || districtsHidden,
       label: 'Erase',
       icon: EraserIcon,
       helpKey: combinationHelpKey,
@@ -133,7 +135,7 @@ export const useActiveTools = () => {
       mode: ACTIVE_TOOLS.SHATTER,
       // Also disabled inside block view: you're already in the one unit
       // you'd be breaking, so the click would do nothing.
-      disabled: !mapDocument?.child_layer || inBlockView,
+      disabled: !mapDocument?.child_layer || districtsHidden,
       label: 'Break',
       icon: ViewGridIcon,
       // Only ever rendered in Super Draw (filtered below), so no mode branch needed.

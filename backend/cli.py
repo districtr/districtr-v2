@@ -31,6 +31,11 @@ from management.load_data import (
     Config,
     import_gerrydb_view as _import_gerrydb_view,
 )
+from management.gerrydb_columns import (
+    add_gerrydb_columns as _add_gerrydb_columns,
+    invalidate_document_caches as _invalidate_document_caches,
+    rebuild_shatterable_view as _rebuild_shatterable_view,
+)
 from os import environ
 from app.models import DistrictrMap, Overlay
 from datetime import datetime, timezone
@@ -287,7 +292,10 @@ def update_districtr_map(
     if bounds and len(bounds) == 4:
         _bounds = bounds
 
-    result = _update_districtrmap(
+    # map_type is omitted rather than passed as None: DistrictrMapUpdate.map_type
+    # is non-optional (default "default"), unlike every other field here, so an
+    # explicit None fails pydantic validation instead of falling back to unset.
+    update_kwargs: dict[str, Any] = dict(
         session=session,
         districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
@@ -298,13 +306,16 @@ def update_districtr_map(
         num_districts_modifiable=num_districts_modifiable,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
-        map_type=map_type,
         comment=comment,
         parent_geo_unit_type=parent_geo_unit_type,
         child_geo_unit_type=child_geo_unit_type,
         data_source_name=data_source_name,
         bounds=_bounds,
     )
+    if map_type is not None:
+        update_kwargs["map_type"] = map_type
+
+    result = _update_districtrmap(**update_kwargs)
     logger.info(f"Districtr map updated successfully {result}")
 
 
@@ -329,6 +340,102 @@ def create_shatterable_gerrydb_view(
     logger.info(
         f"Materialized shatterable gerrydb view created successfully {inserted_uuid}"
     )
+
+
+@cli.command("add-gerrydb-columns")
+@click.option(
+    "--gpkg",
+    "-g",
+    help="Path or s3:// URI to the GeoPackage; its file name is the table to extend",
+    required=True,
+)
+@click.option(
+    "--columns",
+    "-c",
+    help="Comma-separated columns to fill; each must be missing or all NULL",
+    required=True,
+)
+@with_session
+def add_gerrydb_columns(session: Session, gpkg: str, columns: str):
+    """Add GeoPackage columns to an onboarded GerryDB table, joined on path.
+
+    Run rebuild-shatterable-view on every view built on the table, then
+    invalidate-document-caches on the view and its tables: maps that read the
+    table directly see the new columns at once.
+    """
+    result = _add_gerrydb_columns(
+        session=session,
+        gpkg=gpkg,
+        columns=[c.strip() for c in columns.split(",") if c.strip()],
+    )
+    click.echo(f"Table: {GERRY_DB_SCHEMA}.{result.table}")
+    click.echo(f"Filled columns: {', '.join(result.filled)}")
+    click.echo(f"Newly added: {', '.join(result.added) or '(none)'}")
+    click.echo(f"Rows updated: {result.rows_updated}")
+
+
+@cli.command("rebuild-shatterable-view")
+@click.option(
+    "--gerrydb-table-name",
+    "-n",
+    help="Name of the shatterable materialized view",
+    required=True,
+)
+@with_session
+def rebuild_shatterable_view(session: Session, gerrydb_table_name: str):
+    """Recreate a shatterable view so it carries its layers' current columns.
+
+    The new view is built under a temporary name and swapped in within one
+    transaction; readers keep the old view until commit.
+    """
+    result = _rebuild_shatterable_view(
+        session=session, gerrydb_table_name=gerrydb_table_name
+    )
+    click.echo(
+        f"Rebuilt {GERRY_DB_SCHEMA}.{gerrydb_table_name} from "
+        f"{result.parent_layer} + {result.child_layer}"
+    )
+    click.echo(f"Columns ({len(result.columns)}): {', '.join(result.columns)}")
+
+
+@cli.command("invalidate-document-caches")
+@click.option(
+    "--gerrydb-table-name",
+    "-n",
+    "gerrydb_table_names",
+    multiple=True,
+    help="GerryDB table or shatterable view whose documents to invalidate; "
+    "repeat for each table and view whose columns changed",
+    required=True,
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print the counts and change nothing",
+)
+@with_session
+def invalidate_document_caches(
+    session: Session, gerrydb_table_names: tuple[str, ...], dry_run: bool
+):
+    """Drop cached stats and evaluations of documents on GerryDB tables or views.
+
+    Affected documents recompute district stats and evaluation metrics on their
+    next read. After adding columns, name the shatterable view and both of its
+    tables, so maps that read a table directly are included.
+    """
+    counts = _invalidate_document_caches(
+        session=session,
+        gerrydb_table_names=list(gerrydb_table_names),
+        dry_run=dry_run,
+    )
+    verb = "Would affect" if dry_run else "Affected"
+    for name, c in counts.items():
+        click.echo(f"{verb}, for maps on {name}:")
+        click.echo(f"  documents: {c.documents}")
+        click.echo(f"  document.district_unions rows: {c.district_unions}")
+        click.echo(f"  document.evaluation rows: {c.evaluations}")
+        click.echo(f"  stats_published_at cleared: {c.stats_published}")
 
 
 @cli.command("add-extent-to-districtr-map")
@@ -828,61 +935,54 @@ def update_overlay(
         logger.error(f"Overlay with ID {overlay_id} not found")
         return
 
-    # Build update query dynamically based on provided parameters
-    update_fields = []
-    params = {"overlay_id": str(overlay_uuid)}
+    # Build update values dynamically based on provided parameters
+    updates: dict[Any, Any] = {}
 
     if name is not None:
-        update_fields.append("name = :name")
-        params["name"] = name
+        updates[col(Overlay.name)] = name
 
     if description is not None:
-        update_fields.append("description = :description")
-        params["description"] = description
+        updates[col(Overlay.description)] = description
 
     if data_type is not None:
-        update_fields.append("data_type = :data_type")
-        params["data_type"] = data_type
+        updates[col(Overlay.data_type)] = data_type
 
     if layer_type is not None:
-        update_fields.append("layer_type = :layer_type")
-        params["layer_type"] = layer_type
+        updates[col(Overlay.layer_type)] = layer_type
 
     if source is not None:
-        update_fields.append("source = :source")
-        params["source"] = source
+        updates[col(Overlay.source)] = source
 
     if source_layer is not None:
-        update_fields.append("source_layer = :source_layer")
-        params["source_layer"] = source_layer
+        updates[col(Overlay.source_layer)] = source_layer
 
     if custom_style is not None:
         try:
             parsed_style = json.loads(custom_style)
-            update_fields.append("custom_style = :custom_style")
-            params["custom_style"] = json.dumps(parsed_style)
+            # Store the parsed object, not a string: custom_style is a JSON
+            # column, so the ORM does the encoding itself.
+            updates[col(Overlay.custom_style)] = parsed_style
         except json.JSONDecodeError:
             logger.error("Invalid JSON for custom-style")
             return
 
     if id_property is not None:
-        update_fields.append("id_property = :id_property")
-        params["id_property"] = id_property
+        updates[col(Overlay.id_property)] = id_property
 
-    if not update_fields:
+    if not updates:
         logger.warning("No fields to update. Provide at least one field to update.")
         return
 
-    params["updated_at"] = datetime.now(timezone.utc)
+    updates[col(Overlay.updated_at)] = datetime.now(timezone.utc)
 
     update_stmt = (
         update(Overlay)
-        .where(Overlay.overlay_id == params["overlay_id"])
-        .values({k: v for k, v in params.items() if k != "overlay_id"})
-        .returning(Overlay.overlay_id)
+        .where(col(Overlay.overlay_id) == str(overlay_uuid))
+        .values(updates)
+        .returning(col(Overlay.overlay_id))
     )
 
-    result = session.execute(update_stmt, params)
+    result = session.execute(update_stmt)
     updated = result.scalar()
 
     if updated:

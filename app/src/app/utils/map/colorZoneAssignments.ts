@@ -46,9 +46,9 @@ export const colorZoneAssignments = (
   ) {
     return false;
   }
-  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+  const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
   const featureStateChangesCache =
-    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+    mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().stateChanges;
   const source = mapRef.getSource(BLOCK_SOURCE_ID) as {type?: string} | undefined;
   const useVectorSourceLayer = source?.type === 'vector';
   // GeoJSON sources (public maps) use property-based styling via ZONE_LABEL_STYLE,

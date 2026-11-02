@@ -70,7 +70,14 @@ services:
       # are running. E2E tests configured for the prod preview should target
       # http://localhost:3001.
       - "3001:3000"
-    command: sh -c "bun install && bun run build && bun run start"
+    # Run the standalone server the way the prod image does (app/Dockerfile).
+    # It's copied out of /app first: from inside it, Node would resolve
+    # untraced packages from the mounted /app/node_modules and hide misses.
+    command: >-
+      sh -c "bun install && bun run build &&
+      rm -rf /tmp/standalone && cp -r .next/standalone /tmp/standalone &&
+      cp -r .next/static /tmp/standalone/.next/static && cp -r public /tmp/standalone/public &&
+      cd /tmp/standalone && HOSTNAME=0.0.0.0 node server.js"
     profiles: ["prod"]
 
   cms:

@@ -11,11 +11,12 @@ export const DEFAULT_BLOCK_LAYER_ORDER = {
 
 /**
  * Canonical anchor layers from top -> bottom:
- * hover -> reference -> overlays -> countyBoundaries -> demography -> assignments -> geometryOutline -> counties.
+ * hover -> reference -> overlayLabels -> overlays -> countyBoundaries -> demography -> assignments -> geometryOutline -> counties.
  */
 export const MAP_LAYER_ANCHOR_ORDER = [
   MAP_LAYER_ANCHOR_IDS.hover,
   MAP_LAYER_ANCHOR_IDS.reference,
+  MAP_LAYER_ANCHOR_IDS.overlayLabels,
   MAP_LAYER_ANCHOR_IDS.overlays,
   MAP_LAYER_ANCHOR_IDS.countyBoundaries,
   MAP_LAYER_ANCHOR_IDS.demography,

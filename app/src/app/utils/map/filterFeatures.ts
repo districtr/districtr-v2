@@ -51,7 +51,8 @@ export const filterFeatures = ({
   const shatterIds = mapMode === MAP_MODES.COI ? coiShatterIds : districtShatterIds;
   const {paintConstraint, _idCache} = useOverlayStore.getState();
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
-  if (captiveIds.size && !allowOutsideCaptiveIds) {
+  // Break picks the next unit to break, so it is never confined to the current one.
+  if (captiveIds.size && !allowOutsideCaptiveIds && activeTool !== ACTIVE_TOOLS.SHATTER) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
