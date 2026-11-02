@@ -84,6 +84,7 @@ export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
       clientLastUpdated,
       childToParent,
       pendingShatterUndoState,
+      lastZoneRenumber,
     } = state;
     return {
       shatterIds,
@@ -92,6 +93,7 @@ export const assignmentsTemporalConfig: ZundoOptions<any, AssignmentsStore> = {
       zoneAssignments,
       clientLastUpdated,
       pendingShatterUndoState,
+      lastZoneRenumber,
     } as Partial<AssignmentsStore>;
   },
 };

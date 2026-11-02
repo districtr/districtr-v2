@@ -27,7 +27,11 @@ import {
   DocumentConflictResolutionError,
 } from './errors';
 import {temporalManager} from '../utils/temporal';
-import {cloneTemporalSnapshot, AssignmentsTemporalSnapshot} from '../utils/temporalSnapshot';
+import {
+  cloneTemporalSnapshot,
+  AssignmentsTemporalSnapshot,
+  type ZoneRenumber,
+} from '../utils/temporalSnapshot';
 import type {
   AssignmentIssues,
   AssignmentRepairResult,
@@ -85,10 +89,14 @@ export interface AssignmentsStore {
   clientLastUpdated: string;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
+  /** The latest renumber, tracked by undo: a new reference between two history
+   * states marks that step as a renumber, so undo/redo move the per-district
+   * metadata with it (temporalStore.followZoneRenumber). */
+  lastZoneRenumber: ZoneRenumber | null;
   /** Move every unit (shattered children included) in a key zone to its mapped
-   * zone; the mapping must be a permutation. Callers move the per-district
-   * metadata themselves and clear undo history (see renumberToPanelOrder). */
-  renumberZones: (mapping: ReadonlyMap<Zone, Zone>) => void;
+   * zone, as one undo step; the mapping must be a permutation. The caller has
+   * already moved the per-district metadata (mapStore.renumberToOrder). */
+  renumberZones: (renumber: ZoneRenumber) => void;
   setClientLastUpdated: (updated_at: string) => void;
 
   /** Flushes accumulated geoids to the worker & downstream caches */
@@ -390,7 +398,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
   pendingShatterUndoState: null,
-  renumberZones: mapping => {
+  lastZoneRenumber: null,
+  renumberZones: renumber => {
+    const {mapping} = renumber;
     const {zoneAssignments, zonesLastUpdated} = get();
     const {mapDocument} = useMapStore.getState();
     if (!mapping.size || !mapDocument) return;
@@ -406,9 +416,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       nextZonesLastUpdated.set(to, timestamp);
     });
     idb.updateIdbAssignments(mapDocument, nextAssignments, timestamp);
+    // A break leaves tracking paused until the next edit; like a paint, this edit
+    // resumes it and folds a pending break into its undo step.
+    temporalManager.resume(MAP_MODES.DISTRICTS);
     set({
       zoneAssignments: nextAssignments,
       zonesLastUpdated: nextZonesLastUpdated,
+      lastZoneRenumber: renumber,
       clientLastUpdated: timestamp,
       pendingShatterUndoState: null,
     });
@@ -529,6 +543,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       // Save immediately when loading from document (not during painting)
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, nextClientLastUpdated, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
+      // This document's numbering, colors and labels replace the tab's, and either
+      // tab may have renumbered, so earlier history would restore old numbers
+      // under the new metadata.
+      set({lastZoneRenumber: null});
+      useAssignmentsStore.temporal.getState().clear();
     }
     demographyService.updatePopulations({
       zoneAssignments: data.zoneAssignments,
@@ -749,6 +768,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     } = get();
     const preShatterSnapshot = cloneTemporalSnapshot({
       shatterIds: currShatterIds,
@@ -756,6 +776,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      lastZoneRenumber,
     });
 
     // Ensure both maps are provided or build from each other

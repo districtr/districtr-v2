@@ -57,6 +57,7 @@ import {
   syncCoiColorsToColorScheme,
 } from '../utils/communities';
 import {temporalManager} from '../utils/temporal';
+import type {ZoneRenumberLabels} from '../utils/temporalSnapshot';
 import {MAP_MODES} from '@constants/map/mode';
 import {APP_LOADING_STATES, type AppLoadingState, ACCESS_STATES} from '@constants/document/state';
 import {RENDERING_STATES, type RenderingState} from '@constants/map/renderingState';
@@ -257,13 +258,14 @@ export interface MapStore {
   /** Set (or reset to its number, with a blank name) a district's label. Returns
    * why the label was refused (another district already has it), or null. */
   setZoneAlias: (zone: number, alias: string) => string | null;
-  /** Set the districts' order in the population panel (district numbers, first
-   * row first). Assignments and labels don't change. */
-  setZoneOrder: (order: number[]) => void;
-  /** Renumber districts to match the panel order (first row becomes district 1).
-   * Each district keeps its color, label, description, lock and pin. Clears undo
-   * history: it only tracks assignments, so undoing would mismatch the rest. */
-  renumberToPanelOrder: () => void;
+  /** Renumber districts to `order` (district numbers, first row first): the first
+   * becomes district 1. Each district keeps its color, label, description, lock
+   * and pin, and the whole move is one undo step. */
+  renumberToOrder: (order: number[]) => void;
+  /** Move per-district state (color, description, lock, pin, selection, pinned
+   * note) from each key zone to its mapped zone, and set the labels and panel
+   * order. Used by renumberToOrder and to replay a renumber on undo/redo. */
+  permuteZoneMetadata: (mapping: ReadonlyMap<number, number>, labels: ZoneRenumberLabels) => void;
   /** Merge into map_metadata as a local edit: marks the map unsaved, writes
    * IndexedDB, and saves with the next PUT /api/assignments. */
   editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
@@ -804,44 +806,41 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       return null;
     },
 
-    setZoneOrder: order => {
-      const {mapDocument} = get();
-      if (!mapDocument) return;
-      const numDistricts = mapDocument.num_districts ?? 0;
-      const zone_order = normalizeZoneOrder(order, numDistricts);
-      const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
-      if (zone_order.every((zone, i) => zone === current[i])) return;
-      get().editMapMetadata({zone_order});
-    },
-
-    renumberToPanelOrder: () => {
-      const {mapDocument, mapLock, pinnedDescriptionZone, updated} = get();
+    renumberToOrder: order => {
+      const {mapDocument, mapLock} = get();
       // Locked while saving or breaking: an in-flight break would overwrite the result.
       if (!mapDocument || mapLock) return;
       const numDistricts = mapDocument.num_districts ?? 0;
-      const mapping = renumberForOrder(
-        normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts)
-      );
+      const mapping = renumberForOrder(normalizeZoneOrder(order, numDistricts));
       if (!mapping.size) return;
+      const before = {
+        zone_aliases: mapDocument.map_metadata?.zone_aliases ?? {},
+        zone_order: mapDocument.map_metadata?.zone_order ?? [],
+      };
+      const after = {
+        zone_aliases: renumberAliases(before.zone_aliases, mapping, numDistricts),
+        zone_order: [],
+      };
+      get().permuteZoneMetadata(mapping, after);
+      // After the metadata: its IndexedDB write carries the renumbered document.
+      useAssignmentsStore.getState().renumberZones({mapping, before, after});
+    },
+
+    permuteZoneMetadata: (mapping, labels) => {
+      const {mapDocument, pinnedDescriptionZone, updated} = get();
+      if (!mapDocument) return;
       const remap = (zone: number) => mapping.get(zone) ?? zone;
       const colors = mapDocument.color_scheme ?? DefaultColorScheme;
       const color_scheme = [...colors];
       mapping.forEach((to, from) => {
         color_scheme[to - 1] = colors[from - 1];
       });
+      // No IndexedDB write here: the caller's assignments write carries this document.
       set({
         mapDocument: {
           ...mapDocument,
           color_scheme,
-          map_metadata: {
-            ...mapDocument.map_metadata,
-            zone_aliases: renumberAliases(
-              mapDocument.map_metadata?.zone_aliases,
-              mapping,
-              numDistricts
-            ),
-            zone_order: [],
-          },
+          map_metadata: {...mapDocument.map_metadata, ...labels},
           document_comments: mapDocument.document_comments?.map(c =>
             c.zone == null ? c : {...c, zone: remap(c.zone)}
           ),
@@ -857,9 +856,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         selectedZone: remap(state.selectedZone),
         pinnedZones: state.pinnedZones.map(remap),
       }));
-      // After the metadata: this IndexedDB write carries the renumbered document.
-      useAssignmentsStore.getState().renumberZones(mapping);
-      temporalManager.clear(MAP_MODES.DISTRICTS);
     },
 
     editMapMetadata: patch => {

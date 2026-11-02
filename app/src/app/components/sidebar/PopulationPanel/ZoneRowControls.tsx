@@ -9,8 +9,8 @@ import {ZoneLabelField} from '@/app/components/ZoneDescriptions/ZoneLabelField';
 
 /**
  * Drag-to-reorder for the district rows of the population meters and the tuning
- * table. A drop changes only the panel order (map_metadata.zone_order); the
- * districts' numbers and assignments stay as they are.
+ * table. A drop renumbers: each district takes the number of its new place, and
+ * keeps its color, label, description and lock (mapStore.renumberToOrder).
  */
 export const useZoneRowDrag = () => {
   const order = useZoneOrder();
@@ -36,7 +36,7 @@ export const useZoneRowDrag = () => {
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       if (dragZone !== null) {
-        useMapStore.getState().setZoneOrder(moveZoneInOrder(order, dragZone, zone));
+        useMapStore.getState().renumberToOrder(moveZoneInOrder(order, dragZone, zone));
       }
       endDrag();
     },
@@ -64,11 +64,11 @@ export const ZoneDragHandle: React.FC<{
 }> = ({zone, selected, rowSelector, onDragStart, onDragEnd}) => {
   const label = useZoneLabel(zone);
   return (
-    <Tooltip content="Drag to reorder">
+    <Tooltip content="Drag to renumber">
       <Flex
         draggable
         role="img"
-        aria-label={`Drag to reorder district ${label}`}
+        aria-label={`Drag to renumber district ${label}`}
         className={`cursor-grab text-[var(--gray-9)] transition-opacity duration-200 ${
           selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
