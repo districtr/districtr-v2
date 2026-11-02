@@ -301,7 +301,11 @@ export const DistrictMeters = () => {
     MAX_LABEL_CH,
     Math.max(1, ...populationData.map(d => Array.from(getZoneLabel(d.zone)).length))
   );
-  const labelColWidth = `${labelChars + 1}ch`;
+  // `ch` is a digit's width; letters run wider ("West" overflows 4ch), so
+  // non-numeric labels get a quarter more room.
+  const allDigits = populationData.every(d => /^\d+$/.test(getZoneLabel(d.zone)));
+  const labelCh = allDigits ? labelChars : Math.ceil(labelChars * 1.25);
+  const labelColWidth = `${labelCh + 1}ch`;
   const showRowIcons = superDraw && isEditing;
   const canReorder = showRowIcons && !isReadOnly;
   const canRename = isEditing && !isReadOnly;
@@ -310,9 +314,9 @@ export const DistrictMeters = () => {
   const numCellWidth = !canReorder
     ? labelColWidth
     : showDistrictNumbers
-      ? `calc(${ZONE_DRAG_HANDLE_WIDTH}px + var(--space-2) + ${labelChars}ch)`
+      ? `calc(${ZONE_DRAG_HANDLE_WIDTH}px + var(--space-2) + ${labelCh}ch)`
       : ZONE_DRAG_HANDLE_WIDTH;
-  const labelMaxWidth = canReorder ? `${labelChars}ch` : labelColWidth;
+  const labelMaxWidth = canReorder ? `${labelCh}ch` : labelColWidth;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);
