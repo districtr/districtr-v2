@@ -7,8 +7,6 @@ import {
   isDigitLabel,
   moveZoneInOrder,
   normalizeZoneOrder,
-  renumberAliases,
-  renumberForOrder,
   zoneLabel,
 } from './zoneLabels';
 
@@ -73,42 +71,5 @@ describe('zone order', () => {
 
   test('sorts districts by panel position', () => {
     expect([1, 2, 3, 4].sort(byZoneOrder([3, 1, 4, 2]))).toEqual([3, 1, 4, 2]);
-  });
-});
-
-describe('renumberForOrder', () => {
-  test('maps each district to its place, skipping ones already there', () => {
-    expect(Object.fromEntries(renumberForOrder([3, 1, 2, 4]))).toEqual({3: 1, 1: 2, 2: 3});
-    expect(renumberForOrder([1, 2, 3]).size).toBe(0);
-  });
-});
-
-describe('renumberAliases', () => {
-  const mapping = new Map([
-    [3, 1],
-    [1, 2],
-    [2, 3],
-  ]);
-  test('labels move with their districts', () => {
-    expect(renumberAliases({'3': 'North', '4': 'East'}, mapping, 4)).toEqual({
-      '1': 'North',
-      '4': 'East',
-    });
-  });
-  test('a label equal to the new number is the default, and one that repeats a default goes', () => {
-    // District 2 was labeled "3" (district 3 had a custom label, so no clash). It
-    // becomes district 3: "3" is now its default. District 1 was labeled "2"; it
-    // becomes district 2, so "2" is its default too.
-    expect(renumberAliases({'2': '3', '3': 'North', '1': '2'}, mapping, 4)).toEqual({
-      '1': 'North',
-    });
-    // District 4's "1" stays while the new district 1 carries a custom label...
-    expect(renumberAliases({'3': '9', '4': '1', '1': 'West'}, mapping, 4)).toEqual({
-      '1': '9',
-      '2': 'West',
-      '4': '1',
-    });
-    // ...and goes when the new district 1 shows its default "1".
-    expect(renumberAliases({'4': '1'}, mapping, 4)).toEqual({});
   });
 });

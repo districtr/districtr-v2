@@ -32,22 +32,6 @@ const syncCoiIdbAfterUndoRedo = () => {
   idb.updateIdbCoiAssignments(mapDocument, communityAssignments, new Date().toISOString(), true);
 };
 
-// Undo/redo restore only assignments; when the step crossed a renumber, move the
-// per-district metadata back or forward with it. A renumber step is one where
-// the tracked lastZoneRenumber changes identity.
-export const followZoneRenumber = (step: () => void, direction: 'undo' | 'redo') => {
-  const before = useAssignmentsStore.getState().lastZoneRenumber;
-  step();
-  const after = useAssignmentsStore.getState().lastZoneRenumber;
-  if (before === after) return;
-  if (direction === 'redo' && after) {
-    useMapStore.getState().permuteZoneMetadata(after.mapping, after.after);
-  } else if (direction === 'undo' && before) {
-    const inverse = new Map(Array.from(before.mapping, ([from, to]) => [to, from]));
-    useMapStore.getState().permuteZoneMetadata(inverse, before.before);
-  }
-};
-
 export const useTemporalStore = () => {
   const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
   void useAssignmentsStore(state => state.clientLastUpdated);
@@ -55,11 +39,11 @@ export const useTemporalStore = () => {
     futureStates,
     pastStates,
     redo: () => {
-      followZoneRenumber(redo, 'redo');
+      redo();
       syncIdbAfterUndoRedo();
     },
     undo: () => {
-      followZoneRenumber(undo, 'undo');
+      undo();
       syncIdbAfterUndoRedo();
     },
   };
