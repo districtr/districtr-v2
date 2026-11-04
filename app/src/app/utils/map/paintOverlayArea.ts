@@ -16,7 +16,7 @@ import {temporalManager} from '@utils/temporal';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {getOverlayName, queryAreaFeatures} from '@/app/store/overlayStore';
+import {getOverlayName, queryAreaFeatures, useOverlayStore} from '@/app/store/overlayStore';
 
 type BBox = [number, number, number, number];
 type Piece = {polygon: Polygon | MultiPolygon; box: BBox};
@@ -183,6 +183,21 @@ export const frameArea = async (map: MaplibreMap, overlayId: string, areaId: str
     await idle;
   }
   return {fits: inView()?.fits ?? false, moved: true};
+};
+
+/** Masks one area, framed first like painting by it: the mask's outline is what's loaded. */
+export const maskOverlayArea = async (map: MaplibreMap, overlayId: string, areaId: string) => {
+  const {fits} = await frameArea(map, overlayId, areaId);
+  const {setPaintConstraint} = useOverlayStore.getState();
+  setPaintConstraint(overlayId, areaId);
+  if (!fits && useOverlayStore.getState().paintConstraint) {
+    useMapStore.getState().setNotification({
+      importance: 2,
+      message:
+        'This area is too big to fit on screen with a precise outline, so the mask covers only the part on screen. Move to the rest and click it again.',
+      id: 'mask-area-partial',
+    });
+  }
 };
 
 // One click at a time, start to finish: the shatter render drops the map lock

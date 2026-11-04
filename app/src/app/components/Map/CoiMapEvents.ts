@@ -14,6 +14,7 @@ import {
 } from '@constants/map/layerIds';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {setHoverFeatures} from '@/app/utils/map/hoverFeatures';
+import {maskOverlayArea} from '@/app/utils/map/paintOverlayArea';
 import {
   ALL_BRUSHING_TOOLS,
   AREA_SELECT_TOOLS,
@@ -100,7 +101,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-  const {selectingLayerId, setPaintConstraint} = useOverlayStore.getState();
+  const {selectingLayerId} = useOverlayStore.getState();
   const {activeTool, paintFunction, brushSize, mapOptions} = mapControls;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
   const childOnly = mapStore.captiveIds.size > 0 || mapOptions.mode === 'break';
@@ -111,7 +112,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
       layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
-      setPaintConstraint(selectingLayerId, features[0].id as string);
+      maskOverlayArea(mapRef, selectingLayerId, String(features[0].id));
       setHoverFeatures(EMPTY_FEATURE_ARRAY);
     }
     return;

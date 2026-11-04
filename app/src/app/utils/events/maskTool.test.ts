@@ -11,7 +11,11 @@ const initialMap = useMapStore.getState();
 let constrained: Array<[string, string]> = [];
 const event = {
   point: {x: 1, y: 1},
-  target: {getLayer: () => ({}), queryRenderedFeatures: () => [{id: 7}]},
+  target: {
+    getLayer: () => ({}),
+    queryRenderedFeatures: () => [{id: 7}],
+    querySourceFeatures: () => [],
+  },
 } as any;
 
 beforeEach(() => {
@@ -30,8 +34,9 @@ afterEach(() => {
   useMapStore.setState(initialMap);
 });
 
-test('a Mask tool click masks the clicked area of the Mask by layer', () => {
+test('a Mask tool click masks the clicked area of the Mask by layer', async () => {
   expect(handleMaskToolClick(event)).toBe(true);
+  await new Promise(resolve => setTimeout(resolve));
   expect(constrained).toEqual([['metro', '7']]);
 });
 

@@ -35,7 +35,7 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {filterFeatures} from '../map/filterFeatures';
-import {paintOverlayArea} from '../map/paintOverlayArea';
+import {maskOverlayArea, paintOverlayArea} from '../map/paintOverlayArea';
 import {inspectOverlayArea} from '../map/inspectOverlayArea';
 import {overlayIdOf} from '@constants/map/paintBy';
 import {RENDERING_STATES} from '@constants/map/renderingState';
@@ -208,11 +208,11 @@ export const maskAreaAt = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
  * new mask's layer).
  */
 export const handleMaskToolClick = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-  const {selectingLayerId, maskByLayerId, setPaintConstraint} = useOverlayStore.getState();
+  const {selectingLayerId, maskByLayerId} = useOverlayStore.getState();
   if (selectingLayerId) return false;
   // Sets the mask, or moves it to the clicked area.
   const [area] = maskAreaAt(e);
-  if (area && maskByLayerId) setPaintConstraint(maskByLayerId, String(area.id));
+  if (area && maskByLayerId) maskOverlayArea(e.target, maskByLayerId, String(area.id));
   return true;
 };
 export const handleMaskToolHover = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
@@ -280,7 +280,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-  const {selectingLayerId, setPaintConstraint} = useOverlayStore.getState();
+  const {selectingLayerId} = useOverlayStore.getState();
   const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
@@ -313,7 +313,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
       layers: [getSelectingClickLayer(selectingLayerId)],
     });
     if (features.length > 0) {
-      setPaintConstraint(selectingLayerId, features[0].id as string);
+      maskOverlayArea(mapRef, selectingLayerId, String(features[0].id));
       setHoverFeatures(EMPTY_FEATURE_ARRAY);
     }
     return;

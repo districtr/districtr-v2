@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, expect, mock, test} from 'bun:test';
-import {classifyUnit, paintOverlayArea, toAreaShape} from './paintOverlayArea';
+import {classifyUnit, maskOverlayArea, paintOverlayArea, toAreaShape} from './paintOverlayArea';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -215,6 +216,17 @@ test('an area too big for the screen at the minimum zoom paints its part there, 
   // One move, to the minimum zoom; the same target again means it can't fit.
   expect(moves).toEqual([8]);
   expect(useMapStore.getState().notification?.id).toBe('paint-area-partial');
+});
+
+test('masking an area frames it first, like painting by it', async () => {
+  zoom = 5;
+  const masked: string[] = [];
+  const initialOverlay = useOverlayStore.getState();
+  useOverlayStore.setState({setPaintConstraint: (_: string, id: string) => masked.push(id)} as any);
+  await maskOverlayArea(map, 'sd', 'sd-1');
+  useOverlayStore.setState(initialOverlay);
+  expect(moves).toEqual([11]);
+  expect(masked).toEqual(['sd-1']);
 });
 
 test('the break pauses undo until the paint, and a click resumes it either way', async () => {

@@ -1,5 +1,5 @@
 'use client';
-import {Flex, Table, Text} from '@radix-ui/themes';
+import {Callout, Flex, Table, Text} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {demographyService} from '@/app/utils/demography/demographyService';
@@ -106,6 +106,9 @@ export const InspectorTooltip = () => {
             : 'Exact: blocks whose center is inside.'
           : 'Approximate. Click the area for exact numbers.'
       : null;
+  // Numbers that aren't the area's exact sums get a warning above them.
+  const approximate =
+    !!areaReading && (!areaReading.exact || areaReading.loading || !!areaReading.partial);
   if (Object.keys(inspectorData).length === 0) {
     return areaNote ? <Text size="1">{areaNote}</Text> : null;
   }
@@ -142,10 +145,19 @@ export const InspectorTooltip = () => {
   );
   return areaNote ? (
     <Flex direction="column" gap="1" className="max-w-[50vw] w-64">
+      {approximate && (
+        <Callout.Root size="1" color="amber" variant="soft">
+          <Callout.Text size="2" weight="bold">
+            {areaNote}
+          </Callout.Text>
+        </Callout.Root>
+      )}
       {table}
-      <Text size="1" color="gray">
-        {areaNote}
-      </Text>
+      {!approximate && (
+        <Text size="1" color="gray">
+          {areaNote}
+        </Text>
+      )}
     </Flex>
   ) : (
     table
