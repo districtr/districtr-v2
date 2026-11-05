@@ -224,11 +224,18 @@ class TilesetBatch(Config):
 
     def upload_results(self):
         logger.info("Uploading results to S3")
+        s3_client = settings.get_s3_client()
+        if not s3_client:
+            raise ValueError("Failed to get S3 client")
+        r2_client = settings.get_r2_client()
         for result in self._results:
-            s3_client = settings.get_s3_client()
-            if not s3_client:
-                raise ValueError("Failed to get S3 client")
-
             s3_client.upload_file(result.file_path, settings.S3_BUCKET, result.s3_key)
-
             logger.info(f"Uploaded {result.file_path} to {result.s3_key}")
+
+            # Same key in R2, so tiles-worker/ serves it at the map's tiles_s3_path.
+            # The _points.parquet files stay S3-only.
+            if r2_client and result.s3_key.endswith(".pmtiles"):
+                r2_client.upload_file(
+                    result.file_path, settings.R2_BUCKET, result.s3_key
+                )
+                logger.info(f"Uploaded {result.file_path} to R2 {result.s3_key}")
