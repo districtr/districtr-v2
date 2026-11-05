@@ -351,6 +351,7 @@ export const DistrictMeters = () => {
               chartOptions={chartOptions}
               setChartOptions={setChartOptions}
               idealPopulation={idealPopulation}
+              canReorder={canReorder}
             />
           )}
           {/* Same toggle-button treatment as Show on map. Last, so it stays

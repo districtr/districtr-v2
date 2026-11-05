@@ -257,7 +257,9 @@ export interface MapStore {
   setZoneAlias: (zone: number, alias: string) => string | null;
   /** Set the districts' order in the population panel (district numbers, first
    * row first). Assignments and labels don't change. */
-  setZoneOrder: (order: number[]) => void;
+  /** `colorsFollow: false` keeps each panel row's color in place, so the moved
+   * districts take the colors of the rows they land on. */
+  setZoneOrder: (order: number[], options?: {colorsFollow?: boolean}) => void;
   /** Merge into map_metadata as a local edit: marks the map unsaved, writes
    * IndexedDB, and saves with the next PUT /api/assignments. */
   editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
@@ -798,13 +800,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       return null;
     },
 
-    setZoneOrder: order => {
+    setZoneOrder: (order, {colorsFollow = true} = {}) => {
       const {mapDocument} = get();
       if (!mapDocument) return;
       const numDistricts = mapDocument.num_districts ?? 0;
       const zone_order = normalizeZoneOrder(order, numDistricts);
       const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
       if (zone_order.every((zone, i) => zone === current[i])) return;
+      if (!colorsFollow) {
+        // color_scheme saves with the same PUT, and editMapMetadata writes
+        // this document to IndexedDB.
+        const scheme = mapDocument.color_scheme ?? DefaultColorScheme;
+        const color_scheme = [...scheme];
+        current.forEach((zone, i) => (color_scheme[zone_order[i] - 1] = scheme[zone - 1]));
+        set({mapDocument: {...mapDocument, color_scheme}});
+      }
       get().editMapMetadata({zone_order});
     },
 

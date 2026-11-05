@@ -38,6 +38,9 @@ export type DistrictrChartOptions = {
   popShowTopBottomDeviation: boolean;
   // Super Draw's table view of the population chart, for fine tuning.
   popTuningView: boolean;
+  // Super Draw: a reordered district keeps its color. Off, colors stay on the
+  // panel rows.
+  popColorsFollowDistricts: boolean;
 };
 
 interface APIErrorResponse extends AxiosResponse {

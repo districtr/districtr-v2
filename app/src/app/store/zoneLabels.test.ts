@@ -59,6 +59,19 @@ describe('setZoneOrder', () => {
     expect(writeIdb).toHaveBeenCalledTimes(1);
   });
 
+  test('colors follow the district, or stay on the rows', () => {
+    const colors = ['#a', '#b', '#c', '#d'];
+    useMapStore.setState({mapDocument: {...doc(), color_scheme: colors}});
+    useMapStore.getState().setZoneOrder([4, 1, 2, 3]);
+    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(colors);
+
+    useMapStore.setState({mapDocument: {...doc(), color_scheme: colors}});
+    useMapStore.getState().setZoneOrder([4, 1, 2, 3], {colorsFollow: false});
+    // Row 1 (now district 4) keeps the first color, and so on down the rows.
+    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(['#b', '#c', '#d', '#a']);
+    expect(order()).toEqual([4, 1, 2, 3]);
+  });
+
   test('an unchanged order is not an edit', () => {
     useMapStore.getState().setZoneOrder([1, 2, 3, 4]);
     expect(useMapStore.getState().updated.metadata).toBe(false);

@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {Flex, Text, Tooltip} from '@radix-ui/themes';
 import {DragHandleDots2Icon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
+import {useChartStore} from '@store/chartStore';
 import {useZoneLabel, useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {moveZoneInOrder} from '@utils/zoneLabels';
 import {ZoneLabelField} from '@/app/components/ZoneDescriptions/ZoneLabelField';
@@ -10,7 +11,8 @@ import {ZoneLabelField} from '@/app/components/ZoneDescriptions/ZoneLabelField';
 /**
  * Drag-to-reorder for the district rows of the population meters and the tuning
  * table. A drop changes only the panel order (map_metadata.zone_order); the
- * districts' numbers and assignments stay as they are.
+ * districts' numbers and assignments stay as they are. Colors move with the
+ * districts unless the chart's popColorsFollowDistricts option is off.
  */
 export const useZoneRowDrag = () => {
   const order = useZoneOrder();
@@ -36,7 +38,9 @@ export const useZoneRowDrag = () => {
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       if (dragZone !== null) {
-        useMapStore.getState().setZoneOrder(moveZoneInOrder(order, dragZone, zone));
+        useMapStore.getState().setZoneOrder(moveZoneInOrder(order, dragZone, zone), {
+          colorsFollow: useChartStore.getState().chartOptions.popColorsFollowDistricts,
+        });
       }
       endDrag();
     },
