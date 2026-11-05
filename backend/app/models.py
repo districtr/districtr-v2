@@ -80,38 +80,30 @@ def _zone_key(zone: str) -> int | None:
     return number if number > 0 and str(number) == zone else None
 
 
-def _clean_label(label: str) -> str:
-    return sanitize_community_name(label)[:MAX_COMMUNITY_NAME_LENGTH]
-
-
-def clean_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
-    """Lenient read of stored district labels: blank labels and keys that
-    aren't a district number are dropped."""
+def clean_zone_aliases(
+    aliases: dict[str, str] | None, strict: bool = False
+) -> dict[str, str] | None:
+    """District labels, sanitized, with blank ones dropped. A key that isn't a
+    district number is dropped when reading stored labels, and refused with
+    `strict` (a client's write). The checks that need the plan's district count
+    are in check_zone_labels_for_plan."""
     if aliases is None:
         return None
-    cleaned: dict[str, str] = {}
-    for zone, alias in aliases.items():
-        label = _clean_label(alias) if isinstance(alias, str) else ""
-        if _zone_key(zone) is not None and label:
-            cleaned[zone] = label
-    return cleaned
-
-
-def validate_zone_aliases(aliases: dict[str, str] | None) -> dict[str, str] | None:
-    """Strict check of district labels sent by a client: keys must be district
-    numbers; labels are sanitized and blank ones dropped. The checks that need
-    the plan's district count are in check_zone_labels_for_plan."""
-    if aliases is None:
-        return None
-    if len(aliases) > MAX_NUM_DISTRICTS:
+    if strict and len(aliases) > MAX_NUM_DISTRICTS:
         raise ValueError(f"At most {MAX_NUM_DISTRICTS} district labels")
     cleaned: dict[str, str] = {}
     for zone, alias in aliases.items():
         if _zone_key(zone) is None:
-            raise ValueError(
-                f"District label keys must be district numbers: {zone[:12]!r}"
-            )
-        label = _clean_label(alias)
+            if strict:
+                raise ValueError(
+                    f"District label keys must be district numbers: {zone[:12]!r}"
+                )
+            continue
+        label = (
+            sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH]
+            if isinstance(alias, str)
+            else ""
+        )
         if label:
             cleaned[zone] = label
     return cleaned
@@ -129,11 +121,6 @@ def validate_zone_order(order: list[int] | None) -> list[int] | None:
     return order
 
 
-def zone_label_key(label: str) -> str:
-    """Labels compare case-insensitively; the client twin uses toLowerCase()."""
-    return label.lower()
-
-
 def check_zone_labels_for_plan(
     aliases: dict[str, str] | None, order: list[int] | None, num_districts: int
 ) -> str | None:
@@ -149,7 +136,8 @@ def check_zone_labels_for_plan(
         seen: dict[str, int] = {}
         for zone in range(1, num_districts + 1):
             label = aliases.get(str(zone), str(zone))
-            key = zone_label_key(label)
+            # Case-insensitive; the client twin uses toLowerCase().
+            key = label.lower()
             if key in seen:
                 return (
                     f"Districts {seen[key]} and {zone} have the same label, {label!r}"
@@ -538,7 +526,7 @@ class AssignmentsMetadata(BaseModel):
     @field_validator("zone_aliases")
     @classmethod
     def check_zone_aliases(cls, value: dict[str, str] | None) -> dict[str, str] | None:
-        return validate_zone_aliases(value)
+        return clean_zone_aliases(value, strict=True)
 
     @field_validator("zone_order")
     @classmethod

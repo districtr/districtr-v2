@@ -1,4 +1,5 @@
-import {colorsInZoneOrder, districtHeading, normalizeZoneOrder} from '@/app/utils/zoneLabels';
+import {colorsInZoneOrder, districtHeading} from '@/app/utils/zoneLabels';
+import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
@@ -35,7 +36,7 @@ export const ColorChangeModal: React.FC<{
   const mutateMapDocument = useMapStore(store => store.mutateMapDocument);
   const mapDocument = useMapStore(store => store.mapDocument);
   const numDistricts = mapDocument?.num_districts ?? 4;
-  const zoneOrder = normalizeZoneOrder(mapDocument?.map_metadata?.zone_order, numDistricts);
+  const zoneOrder = useZoneOrder();
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
@@ -408,22 +409,19 @@ export const ColorChangeModal: React.FC<{
  */
 export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick}) => {
   const colorScheme = useColorScheme();
-  const numDistricts = useMapStore(store => store.mapDocument?.num_districts ?? 4);
-  const zoneOrder = useMapStore(store => store.mapDocument?.map_metadata?.zone_order);
+  const zoneOrder = useZoneOrder();
   const disabled = useMapStore(store => store.mapStatus?.access) === ACCESS_STATES.READ;
   return (
     <Button onClick={onClick} variant="outline" size="1" mt="2" disabled={disabled}>
       <Flex aria-hidden className={`overflow-hidden rounded-sm ${disabled ? 'opacity-50' : ''}`}>
-        {normalizeZoneOrder(zoneOrder, numDistricts)
-          .slice(0, 12)
-          .map(zone => (
-            <Box
-              key={zone}
-              width="10px"
-              height="10px"
-              style={{backgroundColor: colorScheme[zone - 1]}}
-            />
-          ))}
+        {zoneOrder.slice(0, 12).map(zone => (
+          <Box
+            key={zone}
+            width="10px"
+            height="10px"
+            style={{backgroundColor: colorScheme[zone - 1]}}
+          />
+        ))}
       </Flex>
       Customize colors
     </Button>

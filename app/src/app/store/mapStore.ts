@@ -23,6 +23,7 @@ import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {
   aliasesForCount,
   cleanZoneLabel,
+  colorsInZoneOrder,
   findLabelConflict,
   normalizeZoneOrder,
 } from '../utils/zoneLabels';
@@ -808,12 +809,17 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
       if (zone_order.every((zone, i) => zone === current[i])) return;
       if (!colorsFollow) {
+        // The rows' colors, top to bottom, laid back onto the new order.
         // color_scheme saves with the same PUT, and editMapMetadata writes
         // this document to IndexedDB.
         const scheme = mapDocument.color_scheme ?? DefaultColorScheme;
-        const color_scheme = [...scheme];
-        current.forEach((zone, i) => (color_scheme[zone_order[i] - 1] = scheme[zone - 1]));
-        set({mapDocument: {...mapDocument, color_scheme}});
+        const rowColors = [
+          ...current.map(zone => scheme[zone - 1]),
+          ...scheme.slice(current.length),
+        ];
+        set({
+          mapDocument: {...mapDocument, color_scheme: colorsInZoneOrder(rowColors, zone_order)},
+        });
       }
       get().editMapMetadata({zone_order});
     },
