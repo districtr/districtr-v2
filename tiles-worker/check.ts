@@ -1,11 +1,12 @@
 // Parity check: tiles from the Worker must match what the app's pmtiles client reads
 // from the CDN today. Usage: bun check.ts [worker] [cdn] [key]
+// The default archive has leaf directories, so lookups take the large-state path.
 import {PMTiles} from 'pmtiles';
 
 const [
   worker = 'http://localhost:8787',
   cdn = 'https://tilesets1.cdn.districtr.org',
-  key = 'tilesets/wy_districtr_view_v2.pmtiles',
+  key = 'tilesets/mt_districtr_view_v2.pmtiles',
 ] = process.argv.slice(2);
 
 function assert(ok: unknown, message: string): asserts ok {
@@ -14,7 +15,10 @@ function assert(ok: unknown, message: string): asserts ok {
 
 const direct = new PMTiles(`${cdn}/${key}`);
 const header = await direct.getHeader();
-const tilejson = await (await fetch(`${worker}/${key}`)).json();
+const tilejsonResp = await fetch(`${worker}/${key}`);
+assert(tilejsonResp.headers.get('access-control-allow-origin') === '*', 'TileJSON lacks CORS');
+assert(tilejsonResp.headers.get('cache-control') === 'no-store', 'TileJSON should not be cached');
+const tilejson = await tilejsonResp.json();
 assert(
   tilejson.minzoom === header.minZoom && tilejson.maxzoom === header.maxZoom,
   'TileJSON zooms differ'
@@ -48,6 +52,7 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
       continue;
     }
     assert(resp.headers.get('content-encoding') === 'gzip', `${z}/${x}/${y}: not gzip-encoded`);
+    assert(resp.headers.get('access-control-allow-origin') === '*', `${z}/${x}/${y}: no CORS`);
     // fetch undoes Content-Encoding, so this is the decoded tile, same as getZxy's.
     const body = new Uint8Array(await resp.arrayBuffer());
     assert(
@@ -58,8 +63,18 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
   }
 }
 assert(compared > 0, 'no tiles compared');
-assert(
-  (await fetch(`${worker}/tilesets/missing.pmtiles`)).status === 404,
-  'missing archive should 404'
-);
+
+const status = async (path: string, init?: RequestInit) =>
+  (await fetch(`${worker}/${path}`, init)).status;
+const [cx, cy] = tileAt(header.maxZoom, header.centerLon, header.centerLat);
+const tile = `${key}/${header.maxZoom}/${cx}/${cy}.mvt`;
+assert((await status(`${key}/${header.maxZoom + 1}/0/0.mvt`)) === 204, 'past maxzoom should 204');
+const missing = await fetch(`${worker}/tilesets/missing.pmtiles`);
+assert(missing.status === 404, 'missing archive should 404');
+assert(missing.headers.get('cache-control') === 'no-store', '404 must not be cached');
+// Each of these would skip Workers Cache, so the Worker refuses them.
+assert((await status(`${tile}?bust=1`)) === 404, 'query string should 404');
+assert((await status(tile, {method: 'POST'})) === 404, 'POST should 404');
+assert((await status(tile.replace(`/${cx}/`, `/0${cx}/`))) === 404, 'padded x should 404');
+assert((await status(`${key}/27/0/0.mvt`)) === 404, 'z > 26 should 404');
 console.log(`ok: ${compared} tiles match across z${header.minZoom}-${header.maxZoom} for ${key}`);

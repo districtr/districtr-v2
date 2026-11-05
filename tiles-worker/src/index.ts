@@ -10,10 +10,12 @@ import {
 // Paths mirror the bucket's keys, so the app's source URL is `${worker}/${tiles_s3_path}`:
 //   /tilesets/tx.pmtiles                  TileJSON
 //   /tilesets/tx.pmtiles/{z}/{x}/{y}.mvt  one tile, still compressed as stored
-const ROUTE = /^\/(.+?\.pmtiles)(?:\/(\d+)\/(\d+)\/(\d+)\.mvt)?$/;
+// Numbers must be canonical, so /09/… can't add a second cache entry for /9/….
+const ROUTE =
+  /^\/(tilesets\/[\w.-]+\.pmtiles)(?:\/(0|[1-9]\d*)\/(0|[1-9]\d*)\/(0|[1-9]\d*)\.mvt)?$/;
 
 // Workers Cache (wrangler.jsonc) serves repeats without running the Worker. Its key
-// includes the Worker version, so a deploy is also a full purge.
+// includes the Worker version, so a deploy purges Cloudflare's copy; browsers keep theirs.
 const CACHE_CONTROL = 'public, max-age=86400';
 
 const CONTENT_ENCODING: Partial<Record<Compression, string>> = {
@@ -24,17 +26,9 @@ const CONTENT_ENCODING: Partial<Record<Compression, string>> = {
 
 class NotFound extends Error {}
 
-async function decompress(buf: ArrayBuffer, compression: Compression): Promise<ArrayBuffer> {
-  if (compression === Compression.None || compression === Compression.Unknown) return buf;
-  if (compression !== Compression.Gzip) throw new Error(`Unsupported compression ${compression}`);
-  return new Response(
-    new Response(buf).body!.pipeThrough(new DecompressionStream('gzip'))
-  ).arrayBuffer();
-}
-
-// Headers and directories, shared across requests. Holds resolved values, not promises,
-// so no request waits on another request's I/O.
-const DIRECTORIES = new ResolvedValueCache(100, undefined, decompress);
+// Headers and directories, shared across requests. Workers can't await a promise another
+// request created, so this caches resolved values; the default SharedPromiseCache would break.
+const DIRECTORIES = new ResolvedValueCache(100);
 
 class R2Source implements Source {
   constructor(
@@ -72,21 +66,36 @@ function respond(body: BodyInit | null, headers: Record<string, string>, status 
   });
 }
 
+const notFound = () => respond('Not found', {'Cache-Control': 'no-store'}, 404);
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const match = url.pathname.match(ROUTE);
-    if (!match) return respond('Not found', {'Cache-Control': 'no-store'}, 404);
+    // Workers Cache skips anything but a plain GET/HEAD and keys on the query string, so
+    // these would read R2 on every request. MapLibre never sends them.
+    const cacheable =
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      !url.search &&
+      !request.headers.has('Authorization');
+    if (!match || !cacheable) return notFound();
     const [, key, z, x, y] = match;
     const source = new R2Source(env.BUCKET, key);
     try {
       if (z === undefined) {
-        const tilejson = await new PMTiles(source, DIRECTORIES, decompress).getTileJson(
-          `${url.origin}/${key}`
-        );
-        return respond(JSON.stringify(tilejson), {'Content-Type': 'application/json'});
+        // Not cached: the tile URLs inside name this request's origin, and the cache key
+        // ignores the host. MapLibre fetches it once per map load.
+        const tilejson = await new PMTiles(source, DIRECTORIES).getTileJson(`${url.origin}/${key}`);
+        return respond(JSON.stringify(tilejson), {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        });
       }
-      // Identity decompress keeps tile bytes as stored; the browser undoes Content-Encoding.
+      // pmtiles' tile ids only cover z <= 26 and in-range x/y; it throws past that.
+      if (+z > 26 || +x >= 2 ** +z || +y >= 2 ** +z) return notFound();
+      // PMTiles applies its own decompress to tiles and metadata, while DIRECTORIES
+      // decompresses headers and directories. So the TileJSON above keeps the default gzip,
+      // and this identity decompress returns tiles exactly as stored.
       const archive = new PMTiles(source, DIRECTORIES, async buf => buf);
       const header = await archive.getHeader();
       const tile = await archive.getZxy(+z, +x, +y);
@@ -97,7 +106,7 @@ export default {
         ...(encoding && {'Content-Encoding': encoding}),
       });
     } catch (e) {
-      if (e instanceof NotFound) return respond('Not found', {'Cache-Control': 'no-store'}, 404);
+      if (e instanceof NotFound) return notFound();
       throw e;
     }
   },

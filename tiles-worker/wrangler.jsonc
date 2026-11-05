@@ -7,5 +7,5 @@
   "cache": {"enabled": true},
   "r2_buckets": [{"binding": "BUCKET", "bucket_name": "districtr-tilesets"}],
   // Logs and traces come from Worker runs only, which means cache misses.
-  "observability": {"enabled": true, "traces": {"enabled": true}}
+  "observability": {"enabled": true, "traces": {"enabled": true, "head_sampling_rate": 0.05}}
 }

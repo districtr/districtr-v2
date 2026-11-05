@@ -185,7 +185,7 @@ Docker Compose services: `db` (PostGIS), `backend` (Uvicorn), `frontend` (Bun de
 
 ### Production (AWS)
 
-ECS Fargate services (backend, frontend, CMS) behind an ALB, RDS PostGIS, images in ECR, secrets in SSM — two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference. Tilesets and Parquet are served from S3 / CloudFront.
+ECS Fargate services (backend, frontend, CMS) behind an ALB, RDS PostGIS, images in ECR, secrets in SSM — two isolated Pulumi stacks (`dev`, `prod`). `infra/README.md` is the deep reference. Tilesets and Parquet are served from S3 / CloudFront. `tiles-worker/` is an opt-in Cloudflare Worker that can serve district tilesets from R2 instead (off unless `NEXT_PUBLIC_TILES_WORKER_URL` is set; see its README).
 
 ### CI/CD (GitHub Actions)
 
