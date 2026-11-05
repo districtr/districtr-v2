@@ -3,6 +3,7 @@ import {
   aliasesForCount,
   byZoneOrder,
   cleanZoneLabel,
+  colorsInZoneOrder,
   findLabelConflict,
   isDigitLabel,
   moveZoneInOrder,
@@ -71,5 +72,10 @@ describe('zone order', () => {
 
   test('sorts districts by panel position', () => {
     expect([1, 2, 3, 4].sort(byZoneOrder([3, 1, 4, 2]))).toEqual([3, 1, 4, 2]);
+  });
+
+  test('a palette is laid out in panel order', () => {
+    // Row 1 is district 3, so district 3 gets the first color.
+    expect(colorsInZoneOrder(['a', 'b', 'c', 'x'], [3, 1, 2])).toEqual(['b', 'c', 'a', 'x']);
   });
 });

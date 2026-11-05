@@ -90,6 +90,17 @@ export const normalizeZoneOrder = (
   return zones;
 };
 
+/**
+ * A color scheme (indexed by district number - 1) that gives the panel's rows
+ * `colors` in order: the first row gets the first color. Slots past the order
+ * keep their own color.
+ */
+export const colorsInZoneOrder = (colors: readonly string[], order: readonly number[]) => {
+  const scheme = [...colors];
+  order.forEach((zone, i) => (scheme[zone - 1] = colors[i]));
+  return scheme;
+};
+
 /** `order` with `zone` moved to the position `target` holds now (a list reorder). */
 export const moveZoneInOrder = (order: readonly number[], zone: number, target: number) => {
   const from = order.indexOf(zone);

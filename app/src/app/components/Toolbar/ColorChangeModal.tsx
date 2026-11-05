@@ -1,4 +1,4 @@
-import {districtHeading} from '@/app/utils/zoneLabels';
+import {colorsInZoneOrder, districtHeading, normalizeZoneOrder} from '@/app/utils/zoneLabels';
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
@@ -35,6 +35,7 @@ export const ColorChangeModal: React.FC<{
   const mutateMapDocument = useMapStore(store => store.mutateMapDocument);
   const mapDocument = useMapStore(store => store.mapDocument);
   const numDistricts = mapDocument?.num_districts ?? 4;
+  const zoneOrder = normalizeZoneOrder(mapDocument?.map_metadata?.zone_order, numDistricts);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
@@ -133,9 +134,11 @@ export const ColorChangeModal: React.FC<{
   const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
     // A palette shorter than the scheme is extended with new hues in its own
     // style rather than cycled, so no two districts end up sharing a color.
-    const scheme = extendColorArray(
-      [...palette.colors],
-      Math.max(innerColorScheme.length, numDistricts)
+    // Colors follow the panel's row order, not district numbers, so a
+    // reordered panel reads in palette order top to bottom.
+    const scheme = colorsInZoneOrder(
+      extendColorArray([...palette.colors], Math.max(innerColorScheme.length, numDistricts)),
+      zoneOrder
     );
     setInnerColorScheme(scheme);
     shuffleSuggestions(scheme);
@@ -261,19 +264,19 @@ export const ColorChangeModal: React.FC<{
             <Text as="p" size="2" weight="medium" mb="1">
               Pick a district
             </Text>
-            {/* Keyed by index, not color like the toolbar picker, so districts
+            {/* Keyed by district, not color like the toolbar picker, so districts
                 that share a color (saved before colors had to be unique) stay
-                individually selectable. */}
+                individually selectable. Panel order, like an applied palette. */}
             <Flex wrap="wrap" gap="1" className="max-h-[25vh] overflow-y-auto p-1">
-              {innerColorScheme.slice(0, numDistricts).map((color, i) => (
+              {zoneOrder.map(zone => (
                 <ColorSwatch
-                  key={i}
-                  color={color}
-                  label={`District ${i + 1}`}
-                  selected={i === colorSelectIndex}
-                  onClick={() => setColorSelectIndex(i)}
+                  key={zone}
+                  color={innerColorScheme[zone - 1]}
+                  label={`District ${zone}`}
+                  selected={zone - 1 === colorSelectIndex}
+                  onClick={() => setColorSelectIndex(zone - 1)}
                 >
-                  {i + 1}
+                  {zone}
                 </ColorSwatch>
               ))}
             </Flex>
@@ -406,13 +409,21 @@ export const ColorChangeModal: React.FC<{
 export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick}) => {
   const colorScheme = useColorScheme();
   const numDistricts = useMapStore(store => store.mapDocument?.num_districts ?? 4);
+  const zoneOrder = useMapStore(store => store.mapDocument?.map_metadata?.zone_order);
   const disabled = useMapStore(store => store.mapStatus?.access) === ACCESS_STATES.READ;
   return (
     <Button onClick={onClick} variant="outline" size="1" mt="2" disabled={disabled}>
       <Flex aria-hidden className={`overflow-hidden rounded-sm ${disabled ? 'opacity-50' : ''}`}>
-        {colorScheme.slice(0, Math.min(numDistricts, 12)).map((color, i) => (
-          <Box key={i} width="10px" height="10px" style={{backgroundColor: color}} />
-        ))}
+        {normalizeZoneOrder(zoneOrder, numDistricts)
+          .slice(0, 12)
+          .map(zone => (
+            <Box
+              key={zone}
+              width="10px"
+              height="10px"
+              style={{backgroundColor: colorScheme[zone - 1]}}
+            />
+          ))}
       </Flex>
       Customize colors
     </Button>
