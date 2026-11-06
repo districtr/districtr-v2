@@ -15,7 +15,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 
 ### Roles and team scoping
 
-- Three groups exist (`cms/authapi/migrations/0002_provision_roles.py`). `admin` has full page and datastore permissions. `partner` edits its own pages. `super_partner` adds the map-module and overlay tools. GPKG import is admin only.
+- Three groups exist (`cms/authapi/migrations/0002_provision_roles.py`). `admin` has full page and datastore permissions. `partner` edits its own pages. `super_partner` adds the map-module and overlay tools. GPKG import is admin only. A fourth, `data_user` (`cms/authapi/migrations/0005_data_user_role.py`), has admin access only to reach the app's `/extract` page.
 - Partners hold `add_page` only on the Portals and Places index pages (`authapi/0004`). Their edits go through the "Admin approval" workflow (`content/0002`), so an admin publishes.
 - Teams are the tenant boundary. The JWT carries a `teams` claim of team slugs for every non-admin. Admins get no claim and hold `review:review-all`.
 - The backend's `require_portal_admin` (`backend/app/submissions/main.py`) intersects the `teams` claim with `form_configs.admin_teams`. A missing or empty claim gets a 403. `review:review-all` is the only bypass.
@@ -99,7 +99,7 @@ Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`
    aws ecs describe-task-definition --task-definition cms-migrate --query 'taskDefinition.containerDefinitions[0].secrets[].name'
    ```
    The list must include `MIGRATE_TIPTAP_OWNERS`. Then run `deploy-cms.yml` by hand, or set `AWS_DEPLOY_CMS_PROD=true`. It runs the CMS migrations as a one-off task before rolling the service. Without the secret, `content/0003` refuses to run, and a retry fails the same way. Start every deploy with `gh workflow run <workflow> --ref main`, never GitHub's Re-run: a re-run checks out the original commit, so it misses any stack-file fix made since. After the CMS migrations, run `manage.py update_index` as a one-off `cms-migrate` task: `content/0003` imports pages before `wagtailsearch` creates its index table, so the imported pages are missing from admin search until then. The `wagtailsearch_indexentry does not exist` tracebacks in the migrate log are that same ordering and are harmless.
-10. Run `manage.py provision_users users.csv`. The CSV columns are `email,name,group`, and the groups are `admin`, `partner` and `super_partner`. The command emails each user a password-setup link.
+10. Run `manage.py provision_users users.csv`. The CSV columns are `email,name,group`, and the groups are `admin`, `partner`, `super_partner` and `data_user`. The command emails each user a password-setup link.
 11. Right after step 10, create the Teams as an admin. Add their members and map modules. `provision_users` has no team column, and a partner with no team sees nothing.
 12. As an admin, add a Portal forms entry for each legacy portal. Set `portal_id` to the portal's slug and `admin_teams` to the owning teams. Until then the portal page shows no form and no partner can reach it. The entry opens for submissions when its page is live.
 13. Smoke test:

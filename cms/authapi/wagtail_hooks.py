@@ -1,5 +1,6 @@
 """
-Wagtail admin registration for teams (the tenancy boundary).
+Wagtail admin registration for teams (the tenancy boundary), plus the
+"Download data" menu item for the data-extract page.
 
 Team changes take effect on the member's next request: the CMS mints a
 fresh backend token for every call (mint_user_access_token), reading the
@@ -23,6 +24,8 @@ from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
 from authapi.models import Team, TeamDistrictrMap
+from authapi.views import EXTRACT_GROUPS, extract_page_url
+from core.menu import GroupMenuItem
 from datastore.models import DistrictrMap
 from datastore.widgets import MapModulePickerWidget
 
@@ -146,3 +149,15 @@ class TeamViewSet(SnippetViewSet):
 
 
 register_snippet(TeamViewSet)
+
+
+@hooks.register("register_admin_menu_item")
+def register_extract_menu_item():
+    return GroupMenuItem(
+        "Download data",
+        url=extract_page_url(),
+        icon_name="download",
+        attrs={"target": "_blank", "rel": "noopener"},
+        order=900,
+        groups=EXTRACT_GROUPS,
+    )
