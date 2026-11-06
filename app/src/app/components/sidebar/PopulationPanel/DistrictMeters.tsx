@@ -194,7 +194,8 @@ export const DistrictMeters = () => {
   // The selected district always gets a row, in the subset or not: picking an
   // empty district to draw into and having no bar appear reads as a broken
   // panel, and it's how an unpinned district shows up to be pinned.
-  const orderedData = [...populationData].sort((a, b) => byZoneOrder(zoneOrder)(a.zone, b.zone));
+  const byOrder = byZoneOrder(zoneOrder);
+  const orderedData = [...populationData].sort((a, b) => byOrder(a.zone, b.zone));
   const visibleData = showAll
     ? orderedData
     : orderedData.filter(d => inSubset(d) || d.zone === selectedZone);
