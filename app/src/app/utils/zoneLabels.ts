@@ -113,6 +113,23 @@ export const moveZoneInOrder = (order: readonly number[], zone: number, target: 
   return next;
 };
 
+/**
+ * Lowering the count to `count` removes the districts numbered above it. This
+ * is the swap (old number -> new number, both ways) that gives those numbers to
+ * the panel's last rows instead, so the rows the user sees at the bottom go.
+ * `order` is a full panel order (see normalizeZoneOrder).
+ */
+export const swapsToDropLastRows = (order: readonly number[], count: number) => {
+  const keptAbove = order.slice(0, count).filter(zone => zone > count);
+  const droppedWithin = order.slice(count).filter(zone => zone <= count);
+  return new Map(
+    keptAbove.flatMap((zone, i) => [
+      [zone, droppedWithin[i]],
+      [droppedWithin[i], zone],
+    ])
+  );
+};
+
 /** Sort comparator for rows by a district's place in the panel order. */
 export const byZoneOrder = (order: readonly number[]) => {
   const position = new Map(order.map((zone, i) => [zone, i]));

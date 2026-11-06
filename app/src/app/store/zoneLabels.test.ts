@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, mock, spyOn, test} from 'bun:test';
 import {useMapStore} from './mapStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {useMapControlsStore} from './mapControlsStore';
 import {idb} from '../utils/idb/idb';
 
 const doc = (map_metadata: object = {}) =>
@@ -8,10 +9,13 @@ const doc = (map_metadata: object = {}) =>
 const aliases = () => useMapStore.getState().mapDocument?.map_metadata.zone_aliases;
 const order = () => useMapStore.getState().mapDocument?.map_metadata.zone_order;
 let writeIdb: ReturnType<typeof spyOn>;
+let writeAssignments: ReturnType<typeof spyOn>;
 
 beforeEach(() => {
   writeIdb = spyOn(idb, 'updateIdbDocumentMetadata').mockImplementation(async () => {});
   writeIdb.mockClear();
+  writeAssignments = spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
+  writeAssignments.mockClear();
   useMapStore.setState({mapDocument: doc(), updated: {metadata: false, comments: false}});
   useAssignmentsStore.setState({clientLastUpdated: 'T0'});
 });
@@ -57,6 +61,41 @@ describe('setNumDistricts', () => {
     expect(aliases()).toEqual({'1': '5', '5': '1'});
     useMapStore.getState().setNumDistricts(4);
     expect(aliases()).toEqual({'1': '5'});
+  });
+
+  test("lowering removes the panel's last rows, which swap numbers with kept ones", () => {
+    // District 3 ("South") is the last row; district 4 ("North") is kept.
+    useMapStore.setState({
+      mapDocument: {
+        ...doc({zone_aliases: {'3': 'South', '4': 'North'}, zone_order: [4, 1, 2, 3]}),
+        color_scheme: ['#a', '#b', '#c', '#d'],
+        document_comments: [{zone: 4, text: 'north'}],
+      },
+    });
+    useAssignmentsStore.setState({
+      zoneAssignments: new Map([
+        ['s', 3],
+        ['n', 4],
+        ['o', 1],
+      ]),
+    });
+    useMapControlsStore.setState({selectedZone: 4, pinnedZones: [4]});
+
+    useMapStore.getState().setNumDistricts(3);
+    const {mapDocument} = useMapStore.getState();
+    expect(aliases()).toEqual({'3': 'North'});
+    expect(order()).toEqual([3, 1, 2, 4]);
+    expect(mapDocument?.color_scheme?.slice(0, 3)).toEqual(['#a', '#b', '#d']);
+    expect(mapDocument?.document_comments).toEqual([{zone: 3, text: 'north'}]);
+    expect([...useAssignmentsStore.getState().zoneAssignments]).toEqual([
+      ['n', 3],
+      ['o', 1],
+    ]);
+    expect(useMapControlsStore.getState().selectedZone).toBe(3);
+    expect(useMapControlsStore.getState().pinnedZones).toEqual([3]);
+    // One IndexedDB write, carrying the new document and assignments.
+    expect(writeAssignments).toHaveBeenCalledTimes(1);
+    expect(writeIdb).not.toHaveBeenCalled();
   });
 });
 

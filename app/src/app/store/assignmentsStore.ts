@@ -150,7 +150,13 @@ export interface AssignmentsStore {
         childToParent: AssignmentsStore['childToParent'];
       }
     | undefined;
-  removeAssignmentsForZonesAbove: (maxZone: number) => void;
+  /** Remove every assignment above `maxZone`, after moving each unit in a key
+   * zone of `renumber` (a permutation) to its mapped zone. */
+  removeAssignmentsForZonesAbove: (
+    maxZone: number,
+    renumber?: ReadonlyMap<number, number>,
+    timestamp?: string
+  ) => void;
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
   applyAssignmentRepair: (
     seen: AssignmentIssues,
@@ -849,18 +855,27 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     return {applied: true};
   },
 
-  removeAssignmentsForZonesAbove: maxZone => {
+  removeAssignmentsForZonesAbove: (
+    maxZone,
+    renumber = new Map(),
+    timestamp = new Date().toISOString()
+  ) => {
     const {zoneAssignments, zonesLastUpdated} = get();
     const {mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
 
     const updatedAssignments = new Map(zoneAssignments);
     const updatedZonesLastUpdated = new Map(zonesLastUpdated);
-    const timestamp = new Date().toISOString();
     const removedGeoids: Array<{id: string; sourceLayer: string}> = [];
 
-    // Remove assignments for zones above maxZone
-    updatedAssignments.forEach((zone, geoid) => {
+    // Renumber, then remove assignments for zones above maxZone. The map
+    // recolors renumbered units from the zoneAssignments subscription.
+    updatedAssignments.forEach((assigned, geoid) => {
+      const zone = assigned === null ? null : (renumber.get(assigned) ?? assigned);
+      if (assigned !== null && zone !== null && zone !== assigned) {
+        updatedAssignments.set(geoid, zone);
+        updatedZonesLastUpdated.set(assigned, timestamp).set(zone, timestamp);
+      }
       if (zone !== null && zone > maxZone) {
         updatedAssignments.delete(geoid);
         updatedZonesLastUpdated.set(zone, timestamp);

@@ -38,6 +38,8 @@ beforeEach(() => {
   setZoneLocks.mockClear();
   spyOn(idb, 'updateIdbDocumentMetadata').mockImplementation(async () => {});
   spyOn(idb, 'getDocument').mockImplementation(async () => undefined);
+  // Lowering the count writes the remaining assignments.
+  spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {});
 });
 
 // Spies outlive a test file in bun; restore them so other files see fresh call counts.
