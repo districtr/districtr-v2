@@ -20,7 +20,8 @@ import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
-import {FilterSpecification} from 'maplibre-gl';
+import {fitsBadge, zoneLabel, type ZoneAliases} from '@/app/utils/zoneLabels';
+import {ExpressionSpecification, FilterSpecification} from 'maplibre-gl';
 
 // Basemap place-name source layers: protomaps (minimal/streets) and MapTiler (satellite).
 const PLACE_LABEL_SOURCE_LAYERS = new Set([
@@ -179,6 +180,11 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
   );
 };
 
+const labelProperties = (zone: number, aliases: ZoneAliases) => {
+  const label = zoneLabel(zone, aliases);
+  return {label, short: fitsBadge(label)};
+};
+
 const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapControlsStore(state => state.mapOptions.showZoneNumbers);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
@@ -192,6 +198,7 @@ const ZoneNumbersLayer = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const editLocks = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const lockedAreas = canEdit && superDraw ? editLocks : [];
+  const lockedFilter: ExpressionSpecification = ['in', ['get', 'zone'], ['literal', lockedAreas]];
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
@@ -203,6 +210,7 @@ const ZoneNumbersLayer = () => {
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
   const zoneDescriptions = useMapStore(state => state.mapDocument?.document_comments);
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
   const getZonesWithDescriptions = useMapStore(state => state.getZonesWithDescriptions);
 
   // Get zones that have descriptions
@@ -229,6 +237,7 @@ const ZoneNumbersLayer = () => {
       .map(p => p.zone);
     const mapState = useMapStore.getState();
     const zonesWithDescriptionSet = new Set(mapState.getZonesWithDescriptions());
+    const aliases = mapState.mapDocument?.map_metadata?.zone_aliases ?? {};
     if (showZoneNumbers && GeometryWorker) {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
@@ -242,6 +251,7 @@ const ZoneNumbersLayer = () => {
           properties: {
             ...feature.properties,
             hasComments: zonesWithDescriptionSet.has(feature.properties?.zone),
+            ...labelProperties(feature.properties?.zone, aliases),
           },
         }));
         // Skip unchanged data: a fresh object re-renders the map, whose idle
@@ -275,6 +285,7 @@ const ZoneNumbersLayer = () => {
     appLoadingState,
     demogHash,
     zonesWithDescriptions,
+    zoneAliases,
   ]);
 
   useEffect(() => {
@@ -328,7 +339,7 @@ const ZoneNumbersLayer = () => {
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
-          'text-field': ['to-string', ['get', 'zone']],
+          'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
           // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
@@ -346,6 +357,9 @@ const ZoneNumbersLayer = () => {
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
         }}
+        // A short label sits in the badge; a long one prints without it, except
+        // that a locked district keeps the badge for its lock.
+        filter={['any', ['get', 'short'], lockedFilter]}
         paint={{
           'circle-color': '#fff',
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
@@ -361,7 +375,7 @@ const ZoneNumbersLayer = () => {
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
-          'text-field': ['get', 'zone'],
+          'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
           'text-anchor': 'center',
@@ -371,10 +385,8 @@ const ZoneNumbersLayer = () => {
         paint={{
           'text-color': '#000',
         }}
-        filter={
-          // get zone not in lockedAreas
-          ['!', ['in', ['get', 'zone'], ['literal', lockedAreas]]]
-        }
+        // Short labels of unlocked districts, in the badge.
+        filter={['all', ['get', 'short'], ['!', lockedFilter]]}
       ></Layer>
       <Layer
         id={ZONE_LABEL_LAYER_IDS.LOCK}
@@ -387,11 +399,40 @@ const ZoneNumbersLayer = () => {
           'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 1.0, 15, 1.2],
           'icon-allow-overlap': true,
         }}
-        filter={
-          // get zone not in lockedAreas
-          ['in', ['get', 'zone'], ['literal', lockedAreas]]
-        }
+        filter={lockedFilter}
       ></Layer>
+      <Layer
+        id={ZONE_LABEL_LAYER_IDS.LONG_TEXT}
+        beforeId={CANONICAL_LAYER_IDS.ZONE_LABELS.COLLIDER}
+        type="symbol"
+        source={ZONE_LABEL_SOURCE_ID}
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'text-field': ['get', 'label'],
+          'text-font': ['Barlow Bold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 14, 15, 16],
+          // Centered on the district; under the lock badge when locked, whose
+          // radius grows from 10 to 18px.
+          'text-anchor': ['case', lockedFilter, 'top', 'center'],
+          'text-offset': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5,
+            ['case', lockedFilter, ['literal', [0, 1.1]], ['literal', [0, 0]]],
+            15,
+            ['case', lockedFilter, ['literal', [0, 1.5]], ['literal', [0, 0]]],
+          ],
+          // Like the badges: always shown, never dropped for a basemap label.
+          'text-allow-overlap': true,
+        }}
+        paint={{
+          'text-color': '#000',
+          'text-halo-color': '#fff',
+          'text-halo-width': 1.5,
+        }}
+        filter={['!', ['get', 'short']]}
+      />
       {/* Simple circle indicator for zones with comments */}
       <Layer
         id={ZONE_LABEL_LAYER_IDS.COMMENT_INDICATOR}

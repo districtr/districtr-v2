@@ -12,6 +12,7 @@ user-invocable: false
   - Heavy geometry/tabular work (dissolve/centroid math, parquet range scans) runs in `GeometryWorker`/`ParquetWorker`, never on the `mousemove`-driven paint path.
   - The paint path writes MapLibre feature-state directly and synchronously from the store action (see the comment at `assignmentsStore.ts`'s paint path) — do not marshal paint updates through an async layer re-render.
   - A gesture coalesces to **one undo entry**: assignments buffer in `accumulatedAssignments` and ingest once at gesture end. Any *automatic* post-paint side effect (e.g. auto-heal) must fold into the triggering gesture's undo entry, not open its own — commit `07af68f6` fixed exactly this regression after PR #634 made undo per-gesture (detail in `docs/adr/0048-undo-redo-per-gesture.md`).
+  - District numbers are internal: users see labels (`map_metadata.zone_aliases`, defaulting to the number) in panel order (`map_metadata.zone_order`), both read through `utils/zoneLabels.ts`. Reordering rows changes only `zone_order`, never assignments, and neither labels nor order go through undo history.
 
 ## Vocabulary at this surface
 

@@ -4,6 +4,7 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ZoneDescriptionContent} from '@/app/components/ZoneDescriptions/ZoneDescriptionContent';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {draftContainerFocusProps} from '@/app/hooks/useCommittedDraft';
 
 export const ZoneDescriptionModal: React.FC = () => {
   const zoneDescriptionModalZone = useTooltipStore(state => state.zoneDescriptionModalZone);
@@ -20,7 +21,7 @@ export const ZoneDescriptionModal: React.FC = () => {
       open={zoneDescriptionModalZone !== null}
       onOpenChange={open => !open && setZoneDescriptionModalZone(null)}
     >
-      <Dialog.Content style={{maxWidth: 400}}>
+      <Dialog.Content style={{maxWidth: 400}} {...draftContainerFocusProps}>
         <ZoneDescriptionContent
           zone={zoneDescriptionModalZone}
           color={color!}

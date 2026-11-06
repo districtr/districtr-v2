@@ -1,3 +1,5 @@
+import {colorsInZoneOrder, districtHeading, fitsBadge, zoneLabel} from '@/app/utils/zoneLabels';
+import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
@@ -34,8 +36,12 @@ export const ColorChangeModal: React.FC<{
   const mutateMapDocument = useMapStore(store => store.mutateMapDocument);
   const mapDocument = useMapStore(store => store.mapDocument);
   const numDistricts = mapDocument?.num_districts ?? 4;
+  const zoneOrder = useZoneOrder();
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const [colorSelectIndex, setColorSelectIndex] = useState(0);
+  const aliases = mapDocument?.map_metadata?.zone_aliases;
+  const heading = (zone: number) => districtHeading(zone, aliases);
+  // Starts on the panel's first row, which is the first swatch.
+  const [colorSelectIndex, setColorSelectIndex] = useState(() => (zoneOrder[0] ?? 1) - 1);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
   const [colorText, setColorText] = useState('');
   const [colorTextTouched, setColorTextTouched] = useState(false);
@@ -132,9 +138,11 @@ export const ColorChangeModal: React.FC<{
   const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
     // A palette shorter than the scheme is extended with new hues in its own
     // style rather than cycled, so no two districts end up sharing a color.
-    const scheme = extendColorArray(
-      [...palette.colors],
-      Math.max(innerColorScheme.length, numDistricts)
+    // Colors follow the panel's row order, not district numbers, so a
+    // reordered panel reads in palette order top to bottom.
+    const scheme = colorsInZoneOrder(
+      extendColorArray([...palette.colors], Math.max(innerColorScheme.length, numDistricts)),
+      zoneOrder
     );
     setInnerColorScheme(scheme);
     shuffleSuggestions(scheme);
@@ -183,7 +191,7 @@ export const ColorChangeModal: React.FC<{
         color={color}
         label={
           owner
-            ? `${color}, used by District ${owner}`
+            ? `${color}, used by ${heading(owner)}`
             : gray
               ? `${color}, too close to gray`
               : color
@@ -260,19 +268,21 @@ export const ColorChangeModal: React.FC<{
             <Text as="p" size="2" weight="medium" mb="1">
               Pick a district
             </Text>
-            {/* Keyed by index, not color like the toolbar picker, so districts
+            {/* Keyed by district, not color like the toolbar picker, so districts
                 that share a color (saved before colors had to be unique) stay
-                individually selectable. */}
+                individually selectable. Panel order, like an applied palette. */}
             <Flex wrap="wrap" gap="1" className="max-h-[25vh] overflow-y-auto p-1">
-              {innerColorScheme.slice(0, numDistricts).map((color, i) => (
+              {zoneOrder.map(zone => (
                 <ColorSwatch
-                  key={i}
-                  color={color}
-                  label={`District ${i + 1}`}
-                  selected={i === colorSelectIndex}
-                  onClick={() => setColorSelectIndex(i)}
+                  key={zone}
+                  color={innerColorScheme[zone - 1]}
+                  label={heading(zone)}
+                  selected={zone - 1 === colorSelectIndex}
+                  onClick={() => setColorSelectIndex(zone - 1)}
                 >
-                  {i + 1}
+                  {/* Like the map badges: a label too long for the swatch is in
+                      its title and the heading below. */}
+                  {fitsBadge(zoneLabel(zone, aliases)) && zoneLabel(zone, aliases)}
                 </ColorSwatch>
               ))}
             </Flex>
@@ -287,7 +297,7 @@ export const ColorChangeModal: React.FC<{
                 style={{backgroundColor: typedColor ?? selectedColor}}
               />
               <Text size="2" weight="medium" className="shrink-0">
-                District {colorSelectIndex + 1}
+                {heading(colorSelectIndex + 1)}
               </Text>
               <TextField.Root
                 className="flex-1"
@@ -302,7 +312,7 @@ export const ColorChangeModal: React.FC<{
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                aria-label={`Color for District ${colorSelectIndex + 1}`}
+                aria-label={`Color for ${heading(colorSelectIndex + 1)}`}
                 aria-invalid={colorTextInvalid || !!typedOwner || typedGray}
               />
               {/* Button size 2 matches the TextField's height. */}
@@ -330,7 +340,7 @@ export const ColorChangeModal: React.FC<{
               {colorTextInvalid
                 ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
                 : typedOwner
-                  ? `District ${typedOwner} already uses this color. Pick another.`
+                  ? `${heading(typedOwner)} already uses this color. Pick another.`
                   : typedGray
                     ? 'Too close to gray, which reads as unassigned land. Pick another.'
                     : latexAlternative
@@ -404,13 +414,18 @@ export const ColorChangeModal: React.FC<{
  */
 export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick}) => {
   const colorScheme = useColorScheme();
-  const numDistricts = useMapStore(store => store.mapDocument?.num_districts ?? 4);
+  const zoneOrder = useZoneOrder();
   const disabled = useMapStore(store => store.mapStatus?.access) === ACCESS_STATES.READ;
   return (
     <Button onClick={onClick} variant="outline" size="1" mt="2" disabled={disabled}>
       <Flex aria-hidden className={`overflow-hidden rounded-sm ${disabled ? 'opacity-50' : ''}`}>
-        {colorScheme.slice(0, Math.min(numDistricts, 12)).map((color, i) => (
-          <Box key={i} width="10px" height="10px" style={{backgroundColor: color}} />
+        {zoneOrder.slice(0, 12).map(zone => (
+          <Box
+            key={zone}
+            width="10px"
+            height="10px"
+            style={{backgroundColor: colorScheme[zone - 1]}}
+          />
         ))}
       </Flex>
       Customize colors

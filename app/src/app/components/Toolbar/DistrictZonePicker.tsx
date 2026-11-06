@@ -23,6 +23,16 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {temporalManager} from '@/app/utils/temporal';
 import {MAP_MODES} from '@constants/map/mode';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
+
+const LISTED_LABELS = 10;
+/** "A, B and C"; past LISTED_LABELS, "A, …, J and 12 more". */
+const listLabels = (labels: string[]) => {
+  const shown = labels.slice(0, LISTED_LABELS);
+  const rest = labels.length - shown.length;
+  if (rest > 0) return `${shown.join(', ')} and ${rest} more`;
+  return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+};
 
 export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
   const superDraw = useToolbarStore(state => state.superDraw);
@@ -32,9 +42,8 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
   const access = useMapStore(state => state.mapStatus?.access);
   const mapDocument = useMapStore(state => state.mapDocument);
   const setNumDistricts = useMapStore(state => state.setNumDistricts);
-  const removeAssignmentsForZonesAbove = useAssignmentsStore(
-    state => state.removeAssignmentsForZonesAbove
-  );
+  const zoneOrder = useZoneOrder();
+  const getZoneLabel = useZoneLabelGetter();
 
   const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
   const numDistrictsModifiable = mapDocument?.num_districts_modifiable !== false;
@@ -55,16 +64,13 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
   };
 
   const commitNumDistricts = (newNumDistricts: number) => {
+    // Lowering removes the panel's last rows and their assignments.
     setNumDistricts(newNumDistricts);
     if (newNumDistricts < numDistricts) {
-      removeAssignmentsForZonesAbove(newNumDistricts);
       // num_districts isn't part of the undo/redo history, so rewinding could
       // resurrect assignments in zones that no longer exist. Clear history at
       // this boundary — the dialog already tells the user this can't be undone.
       temporalManager.clear(MAP_MODES.DISTRICTS);
-      if (selectedZone > newNumDistricts) {
-        setSelectedZone(1);
-      }
     }
   };
 
@@ -74,12 +80,14 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
     const clamped = Math.max(MIN_NUM_DISTRICTS, Math.min(MAX_NUM_DISTRICTS, requested));
     if (clamped === numDistricts) return null;
     if (clamped < numDistricts) {
-      const {zoneAssignments} = useAssignmentsStore.getState();
-      let hasAssignmentsAbove = false;
-      zoneAssignments.forEach(zone => {
-        if (zone !== null && zone > clamped) hasAssignmentsAbove = true;
+      // Ask before removing assignments or labels.
+      const removed = new Set(zoneOrder.slice(clamped));
+      const aliases = mapDocument?.map_metadata?.zone_aliases ?? {};
+      let hasAssignments = false;
+      useAssignmentsStore.getState().zoneAssignments.forEach(zone => {
+        if (zone !== null && removed.has(zone)) hasAssignments = true;
       });
-      if (hasAssignmentsAbove) {
+      if (hasAssignments || [...removed].some(zone => aliases[zone])) {
         setPendingDecrease(clamped);
         return null;
       }
@@ -87,6 +95,9 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
     commitNumDistricts(clamped);
     return clamped;
   };
+
+  const removedLabels =
+    pendingDecrease === null ? [] : zoneOrder.slice(pendingDecrease).map(getZoneLabel);
 
   const handleCommitDraft = () => {
     const parsed = parseInt(draftCount, 10);
@@ -191,8 +202,10 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
         <AlertDialog.Content maxWidth="450px">
           <AlertDialog.Title>Reduce number of districts</AlertDialog.Title>
           <AlertDialog.Description size="2">
-            Reducing your plan to {pendingDecrease} districts will remove all assignments in
-            districts above {pendingDecrease}. This cannot be undone.
+            Reducing your plan to {pendingDecrease} districts removes the last{' '}
+            {removedLabels.length === 1 ? 'district' : `${removedLabels.length} districts`} in the
+            population list, with their assignments and labels: {listLabels(removedLabels)}. To keep
+            a district, drag it higher in the list first. This cannot be undone.
           </AlertDialog.Description>
           <Flex gap="3" mt="4" justify="end">
             <AlertDialog.Cancel>
@@ -209,7 +222,7 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
                   setPendingDecrease(null);
                 }}
               >
-                Remove assignments
+                Remove districts
               </Button>
             </AlertDialog.Action>
           </Flex>

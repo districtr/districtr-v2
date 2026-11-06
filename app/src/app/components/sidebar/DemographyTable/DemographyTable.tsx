@@ -34,6 +34,8 @@ import {
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {compareCoiZonesByRenderOrder, getCommunityDisplayNumber} from '@/app/utils/communities';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
+import {useZoneLabel, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {byZoneOrder} from '@/app/utils/zoneLabels';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   SUMMARY_TYPES,
@@ -167,6 +169,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
   const superDraw = useToolbarStore(state => state.superDraw);
   const communities = useMapStore(state => state.communities);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 0);
+  const zoneOrder = useZoneOrder();
   const pinFilter = usePinnedFilter(numDistricts, singleZone == null && mapMode !== MAP_MODES.COI);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const displayedStatLabels = summaryStatLabels.filter(f =>
@@ -234,6 +237,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
     return [...zoneData, ...(universeRow ? [universeRow] : [])];
   })();
 
+  const compareDistricts = byZoneOrder(zoneOrder);
   const rows = pinFilter.filter(baseRows).sort((a, b) => {
     const aIsUniverse = Boolean((a as Record<string, unknown>).__isUniverse) || a.zone === 0;
     const bIsUniverse = Boolean((b as Record<string, unknown>).__isUniverse) || b.zone === 0;
@@ -244,7 +248,8 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
     if (mapMode === MAP_MODES.COI) {
       return compareCoiZonesByRenderOrder(a.zone as number, b.zone as number, communities);
     }
-    return ((a.zone as number) || 0) - ((b.zone as number) || 0);
+    // Districts follow the population panel's order.
+    return compareDistricts((a.zone as number) || 0, (b.zone as number) || 0);
   });
 
   return (
@@ -435,6 +440,7 @@ const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
   const isUnassigned = !isUniverse && row.zone === undefined;
+  const label = useZoneLabel((row.zone as number) ?? 0);
   const zoneName = isUniverse ? (
     'Overall'
   ) : isUnassigned ? (
@@ -444,7 +450,12 @@ const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
   ) : mapMode === MAP_MODES.COI ? (
     getCommunityDisplayNumber(communities, row.zone as number)
   ) : (
-    row.zone
+    <span
+      title={label}
+      className="inline-block max-w-[12ch] overflow-hidden text-ellipsis whitespace-nowrap"
+    >
+      {label}
+    </span>
   );
   const backgroundColor = isUniverse
     ? '#111111'

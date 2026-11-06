@@ -69,6 +69,32 @@ export class DocumentsDB extends Dexie {
     await this.documents.put(document);
   }
 
+  /**
+   * Write a save's clean copy only if the stored copy's clientLastUpdated is
+   * still `expected` (read when the save started), in one transaction. If it
+   * changed, a local edit landed that the save didn't carry: keep that copy and
+   * its stamp, and only advance its updated_at to the save's, so it reads as an
+   * unsaved edit on the new server version. Returns whether the clean copy was
+   * written.
+   */
+  async updateDocumentIfUnchanged(document: StoredDocument, expected: string | undefined) {
+    return await this.transaction('rw', this.documents, async () => {
+      const current = await this.documents.get(document.id);
+      if (!current || current.clientLastUpdated === expected) {
+        await this.documents.put(document);
+        return true;
+      }
+      await this.documents.put({
+        ...current,
+        document_metadata: {
+          ...current.document_metadata,
+          updated_at: document.document_metadata.updated_at,
+        },
+      });
+      return false;
+    });
+  }
+
   async getDocument(document_id: string) {
     return await this.documents.get(document_id);
   }

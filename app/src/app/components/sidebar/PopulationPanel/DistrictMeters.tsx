@@ -1,5 +1,5 @@
 'use client';
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
@@ -19,6 +19,14 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
+import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {byZoneOrder} from '@utils/zoneLabels';
+import {
+  useZoneRowDrag,
+  ZoneDragHandle,
+  ZoneRowLabel,
+  ZONE_DRAG_HANDLE_WIDTH,
+} from './ZoneRowControls';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {
   ConditionalScrollArea,
@@ -44,6 +52,8 @@ const PIN_TRAIL = 4;
 // ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
+// Label column: as wide as the longest label, up to this many characters.
+const MAX_LABEL_CH = 8;
 
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
@@ -122,7 +132,7 @@ const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
 /**
  * District overview as a set of population meters: each district's colored bar
  * fills toward a shared ideal line; population past ideal renders in a darker
- * shade of the district color. Rows lead with their district number and show
+ * shade of the district color. Rows lead with their district label and show
  * population and signed deviation in labeled columns. Bars pinned at the
  * track's end (125% of ideal and beyond) turn their row text red and carry a
  * chevron per 25% over ideal. A plan-wide scoreboard (unassigned, top-to-bottom
@@ -164,6 +174,9 @@ export const DistrictMeters = () => {
   }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
+  const getZoneLabel = useZoneLabelGetter();
+  const zoneOrder = useZoneOrder();
+  const drag = useZoneRowDrag();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
   // default to all); null = no explicit choice yet. Pinned districts, when
@@ -181,9 +194,11 @@ export const DistrictMeters = () => {
   // The selected district always gets a row, in the subset or not: picking an
   // empty district to draw into and having no bar appear reads as a broken
   // panel, and it's how an unpinned district shows up to be pinned.
+  const byOrder = byZoneOrder(zoneOrder);
+  const orderedData = [...populationData].sort((a, b) => byOrder(a.zone, b.zone));
   const visibleData = showAll
-    ? populationData
-    : populationData.filter(d => inSubset(d) || d.zone === selectedZone);
+    ? orderedData
+    : orderedData.filter(d => inSubset(d) || d.zone === selectedZone);
   const hiddenCount = showAll
     ? populationData.length - populationData.filter(inSubset).length
     : populationData.length - visibleData.length;
@@ -267,7 +282,7 @@ export const DistrictMeters = () => {
           variant="ghost"
           size="1"
           aria-pressed={pinned}
-          aria-label={`Pin district ${zone}`}
+          aria-label={`Pin district ${getZoneLabel(zone)}`}
           className={
             pinned
               ? undefined
@@ -281,10 +296,47 @@ export const DistrictMeters = () => {
     );
   };
 
-  // Fixed number column sized to the widest district number so every bar
-  // starts at the same x.
-  const numColWidth = `${String(populationData.length).length + 1}ch`;
+  // Fixed label column sized to the longest label (capped; longer ones end in an
+  // ellipsis) so every bar starts at the same x.
+  const labelChars = Math.min(
+    MAX_LABEL_CH,
+    Math.max(1, ...populationData.map(d => Array.from(getZoneLabel(d.zone)).length))
+  );
+  // `ch` is a digit's width, exact for numbers. Letters vary, so other labels
+  // are measured in the row font, bold (the selected row's weight) so selecting
+  // a row doesn't move the bars; until then, a quarter more room per character.
+  const labels = populationData.map(d => getZoneLabel(d.zone));
+  const allDigits = labels.every(label => /^\d+$/.test(label));
+  const labelCh = allDigits ? labelChars : Math.ceil(labelChars * 1.25);
+  const labelSizerRef = useRef<HTMLDivElement>(null);
+  const [labelPx, setLabelPx] = useState<number | null>(null);
+  const labelsKey = allDigits ? '' : labels.join('\n');
+  useLayoutEffect(() => {
+    const el = labelSizerRef.current;
+    const ctx = labelsKey && el ? document.createElement('canvas').getContext('2d') : null;
+    if (!el || !ctx) return setLabelPx(null);
+    const {fontSize, fontFamily} = getComputedStyle(el);
+    ctx.font = `bold ${fontSize} ${fontFamily}`;
+    // Digits render tabular, as wide as "0".
+    const widths = labelsKey
+      .split('\n')
+      .map(label => ctx.measureText(label.replace(/\d/g, '0')).width);
+    const widest = Math.max(...widths);
+    setLabelPx(Math.ceil(widest) + 1);
+  }, [labelsKey]);
+  const labelWidth = labelPx ? `min(${labelPx}px, ${labelCh}ch)` : `${labelCh}ch`;
+  const labelColWidth = `calc(${labelWidth} + 1ch)`;
   const showRowIcons = superDraw && isEditing;
+  const canReorder = showRowIcons && !isReadOnly;
+  const canRename = isEditing && !isReadOnly;
+  // Width of the leading cell: drag handle, gap, then the label column. With the
+  // handle, the column drops its spare 1ch so the handle doesn't float off left.
+  const numCellWidth = !canReorder
+    ? labelColWidth
+    : showDistrictNumbers
+      ? `calc(${ZONE_DRAG_HANDLE_WIDTH}px + var(--space-2) + ${labelWidth})`
+      : ZONE_DRAG_HANDLE_WIDTH;
+  const labelMaxWidth = canReorder ? labelWidth : labelColWidth;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);
@@ -319,6 +371,7 @@ export const DistrictMeters = () => {
               chartOptions={chartOptions}
               setChartOptions={setChartOptions}
               idealPopulation={idealPopulation}
+              canReorder={canReorder}
             />
           )}
           {/* Same toggle-button treatment as Show on map. Last, so it stays
@@ -370,19 +423,22 @@ export const DistrictMeters = () => {
               from under their labels. */}
           <Flex
             gap="2"
-            px="1"
+            px="2"
             pb="1"
             align="end"
             style={
               rowsScroll
-                ? {paddingRight: `calc(var(--space-1) + ${SCROLL_RESERVED_WIDTH})`}
+                ? {paddingRight: `calc(var(--space-2) + ${SCROLL_RESERVED_WIDTH})`}
                 : undefined
             }
           >
-            {/* numColWidth is in ch, so the spacer takes the rows' size-2 font
-                or it comes out wider than their number cells. */}
-            {showDistrictNumbers && (
-              <Box style={{width: numColWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}} />
+            {/* numCellWidth is partly in ch, so the spacer takes the rows' size-2
+                font or it comes out wider than their number cells. */}
+            {(canReorder || showDistrictNumbers) && (
+              <Box
+                ref={labelSizerRef}
+                style={{width: numCellWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}}
+              />
             )}
             {showRowIcons && (
               /* Mirrors the rows' icon cluster exactly — invisible twins of the
@@ -473,6 +529,7 @@ export const DistrictMeters = () => {
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
                 const locked = lockPaintedAreas.includes(d.zone);
+                const label = getZoneLabel(d.zone);
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -481,28 +538,53 @@ export const DistrictMeters = () => {
                     key={d.zone}
                     align="center"
                     gap="2"
-                    px="1"
+                    px="2"
                     // Clicking anywhere on the row selects it, but the row
                     // itself stays a plain div: a role="button" wrapping the
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
                     onClick={() => selectCommunity(d.zone)}
+                    {...drag.rowProps(d.zone)}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                     }`}
-                    style={{height: ROW_HEIGHT}}
+                    style={{height: ROW_HEIGHT, ...drag.rowStyle(d.zone)}}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
-                    {showDistrictNumbers && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{...NUM_CELL_STYLE, width: numColWidth}}
+                    {/* One right-aligned cell: the handle hugs the label at the
+                        same 8px the comment bubble sits after it, whatever the
+                        label's length. */}
+                    {(canReorder || showDistrictNumbers) && (
+                      <Flex
+                        align="center"
+                        justify="end"
+                        gap="2"
+                        flexShrink="0"
+                        // A minimum, so the field can widen the cell while editing.
+                        style={{minWidth: numCellWidth, fontSize: 'var(--font-size-2)'}}
                       >
-                        {d.zone}
-                      </Text>
+                        {canReorder && (
+                          <ZoneDragHandle
+                            zone={d.zone}
+                            selected={selectedZone === d.zone}
+                            rowSelector='[data-testid^="district-meter-row-"]'
+                            onDragStart={drag.setDragZone}
+                            onDragEnd={drag.endDrag}
+                          />
+                        )}
+                        {showDistrictNumbers && (
+                          <ZoneRowLabel
+                            zone={d.zone}
+                            size="2"
+                            editable={canRename}
+                            color={offScale ? 'red' : 'gray'}
+                            weight={selectedZone === d.zone ? 'bold' : 'regular'}
+                            // Pushed right, so the handle stays at the cell's left edge.
+                            style={{...NUM_CELL_STYLE, maxWidth: labelMaxWidth, marginLeft: 'auto'}}
+                          />
+                        )}
+                      </Flex>
                     )}
                     {/* Comment and per-district lock are Super Draw features.
                         Icons manage their own interactions; don't let clicks
@@ -530,7 +612,7 @@ export const DistrictMeters = () => {
                             size="1"
                             disabled={isReadOnly}
                             aria-label={
-                              locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
+                              locked ? `Unlock district ${label}` : `Lock district ${label}`
                             }
                           >
                             {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
@@ -555,7 +637,7 @@ export const DistrictMeters = () => {
                         so it needs no onClick of its own. */}
                     <button
                       type="button"
-                      aria-label={`Select district ${d.zone}`}
+                      aria-label={`Select district ${label}`}
                       className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
                       style={{
                         flexGrow: 1,
@@ -704,7 +786,7 @@ export const DistrictMeters = () => {
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
       <Flex
         gap="4"
-        px="1"
+        px="2"
         pt="3"
         mt="2"
         justify="between"

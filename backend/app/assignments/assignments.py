@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
 from app.evaluation.dual_graph import DualLevelGraph
 from app.models import (
+    MAX_NUM_DISTRICTS,
     Assignments,
     CommunityAssignments,
     DistrictrMap,
@@ -26,7 +27,7 @@ class DuplicateGeoIdError(ValueError):
 
 
 # Same global bound as the metadata endpoint's num_districts validation.
-MAX_DISTRICTS = 538
+MAX_DISTRICTS = MAX_NUM_DISTRICTS
 
 # A numeric zone label is treated as accidental (and remapped) when it exceeds
 # OUTLIER_FACTOR times the plan's reference label — see _detect_outlier_labels.

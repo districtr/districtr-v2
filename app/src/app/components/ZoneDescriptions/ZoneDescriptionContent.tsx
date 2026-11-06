@@ -4,7 +4,10 @@ import {PlusIcon, Pencil1Icon, Cross2Icon, CheckIcon} from '@radix-ui/react-icon
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
+import {useCommittedDraft} from '@/app/hooks/useCommittedDraft';
 import {useState} from 'react';
+import {districtHeading} from '@/app/utils/zoneLabels';
+import {ZoneLabelField} from './ZoneLabelField';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
@@ -123,6 +126,37 @@ const DescriptionDisplay: React.FC<DescriptionDisplayProps> = ({
   </Flex>
 );
 
+/** District label and description, always editable (no add/edit/save steps). */
+const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone, maxLength}) => {
+  const description = useMapStore(state => state.getZoneDescriptionForZone(zone))?.text ?? '';
+  const heading = useMapStore(state =>
+    districtHeading(zone, state.mapDocument?.map_metadata?.zone_aliases)
+  );
+  const {setZoneDescription, clearZoneDescription} = useMapStore.getState();
+  const body = useCommittedDraft(description, draft =>
+    draft.trim() ? setZoneDescription(zone, draft) : clearZoneDescription(zone)
+  );
+  return (
+    <Flex direction="column" gap="2">
+      <ZoneLabelField zone={zone} />
+      <Box className="relative">
+        <TextArea
+          size="1"
+          rows={5}
+          placeholder="Description"
+          aria-label={`Description for ${heading}`}
+          maxLength={maxLength}
+          {...body.fieldProps}
+          onChange={e => body.setDraft(e.target.value)}
+        />
+        <Text size="1" color="gray" className="absolute bottom-0 right-0 pr-2">
+          {body.draft.length}/{maxLength}
+        </Text>
+      </Box>
+    </Flex>
+  );
+};
+
 export interface ZoneDescriptionContentProps {
   zone: number;
   color: string;
@@ -144,14 +178,17 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
   const mapMode = useMapControlsStore(state => state.mapMode);
   const communities = useMapStore(state => state.communities);
   const {save} = useMapSaveStatus();
+  const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
 
   if (!commentLengthLimit) {
     return null;
   }
 
-  const zoneLabel = mapMode === MAP_MODES.COI ? 'Community' : 'District';
-  const displayZone =
-    mapMode === MAP_MODES.COI ? getCommunityDisplayNumber(communities, zone) : zone;
+  const isDistrictForm = showEditingControls && mapMode !== MAP_MODES.COI;
+  const heading =
+    mapMode === MAP_MODES.COI
+      ? `Community ${getCommunityDisplayNumber(communities, zone)}`
+      : districtHeading(zone, zoneAliases);
 
   const handleSaveDescription = (text: string) => {
     setZoneDescription(zone, text);
@@ -174,17 +211,19 @@ export const ZoneDescriptionContent: React.FC<ZoneDescriptionContentProps> = ({
             style={{backgroundColor: color}}
           />
           <Text size="2" weight="bold">
-            {zoneLabel} {displayZone} Description
+            {heading}
           </Text>
         </Flex>
-        {showEditingControls && !isEditing && !description && (
+        {showEditingControls && !isDistrictForm && !isEditing && !description && (
           <IconButton size="1" variant="ghost" onClick={() => setIsEditing(true)}>
             <PlusIcon />
           </IconButton>
         )}
       </Flex>
 
-      {isEditing ? (
+      {isDistrictForm ? (
+        <DistrictDetailsForm zone={zone} maxLength={commentLengthLimit} />
+      ) : isEditing ? (
         <DescriptionEditor
           existingText={description?.text}
           maxLength={commentLengthLimit}

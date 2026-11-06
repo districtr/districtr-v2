@@ -2021,6 +2021,182 @@ def test_put_assignments_with_metadata_num_districts_and_color_scheme(
     assert doc.get("color_scheme") == colors
 
 
+def test_put_assignments_with_zone_aliases(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """District labels and panel order go into map_metadata without clobbering
+    other fields."""
+    r = client.put(
+        f"/api/document/{document_id_all_stats}/metadata", json={"name": "My plan"}
+    )
+    assert r.status_code == 200
+    base = {
+        "document_id": document_id_all_stats,
+        "assignments": [["202090441022004", 1]],
+        "last_updated_at": datetime.now().astimezone().isoformat(),
+    }
+    r = client.put(
+        "/api/assignments",
+        json={
+            **base,
+            "metadata": {
+                "zone_aliases": {"1": " North <b>Shore</b> ", "2": "  "},
+                "zone_order": [2, 1],
+            },
+        },
+    )
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"1": "North Shore"}
+    assert meta["zone_order"] == [2, 1]
+    assert meta["name"] == "My plan"
+
+    # A save with zone_aliases null (what the client sends for "none loaded"), or
+    # without them, leaves them alone; so does the metadata endpoint.
+    r = client.put(
+        "/api/assignments",
+        json={
+            **base,
+            "metadata": {
+                "color_scheme": None,
+                "zone_aliases": None,
+                "zone_order": None,
+            },
+        },
+    )
+    assert r.status_code == 200
+    r = client.put("/api/assignments", json=base)
+    assert r.status_code == 200
+    r = client.put(
+        f"/api/document/{document_id_all_stats}/metadata",
+        json={"name": "Renamed", "zone_aliases": {"1": "Stale"}, "zone_order": [1, 2]},
+    )
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"1": "North Shore"}
+    assert meta["zone_order"] == [2, 1]
+    assert meta["name"] == "Renamed"
+
+    r = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"zone_aliases": {}, "zone_order": []}},
+    )
+    assert r.status_code == 200
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {}
+    assert meta["zone_order"] == []
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        # Keys: district numbers only, in canonical form, never int() on a huge one.
+        {"zone_aliases": {"x": "A"}},
+        {"zone_aliases": {"0": "A"}},
+        {"zone_aliases": {"03": "A"}},
+        {"zone_aliases": {"1234567": "A"}},
+        {"zone_aliases": {"9" * 5000: "A"}},
+        {"zone_aliases": {"²": "A"}},
+        {"zone_aliases": {str(n): f"D{n}" for n in range(1, 540)}},
+        # Keys within the plan's 4 districts.
+        {"zone_aliases": {"5": "Five"}},
+        # Unique labels, after sanitizing and case-insensitively, defaults included.
+        {"zone_aliases": {"1": "North", "2": " NORTH "}},
+        {"zone_aliases": {"1": "3"}},
+        # Order: distinct district numbers within the plan.
+        {"zone_order": [2, 2, 1]},
+        {"zone_order": [0, 1]},
+        {"zone_order": [1, 5]},
+        {"zone_order": ["x"]},
+        # The count this request sets is the one that counts.
+        {"num_districts": 2, "zone_order": [3, 1, 2]},
+    ],
+)
+def test_put_assignments_rejects_bad_zone_labels(
+    client,
+    document_id_all_stats,
+    ks_demo_view_census_blocks_summary_stats_all_stats,
+    metadata,
+):
+    """Bad district labels or panel order are a 422 with a JSON detail, and
+    nothing is written."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": metadata,
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"]
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert not (meta or {}).get("zone_aliases")
+    assert not (meta or {}).get("zone_order")
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"zone_order": [1, -1]},
+        {"zone_order": list(range(1, 540))},
+        {"zone_order": [1, 5]},
+        {"zone_aliases": {"1": "North", "2": "north"}},
+        {"zone_aliases": {"1": "3"}},
+        {"zone_aliases": {"5": "Five"}},
+    ],
+)
+def test_create_document_rejects_bad_zone_labels(
+    client, ks_demo_view_census_blocks_summary_stats_all_stats, metadata
+):
+    """A copy sends the source's labels and order; they get a save's checks."""
+    r = client.post(
+        "/api/create_document",
+        json={"districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME, "metadata": metadata},
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_create_document_keeps_good_zone_labels(
+    client, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    r = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "metadata": {"zone_aliases": {"1": "North"}, "zone_order": [2, 1]},
+        },
+    )
+    assert r.status_code == 201, r.text
+    doc = client.get(f"/api/document/{r.json()['document_id']}").json()
+    assert doc["map_metadata"]["zone_aliases"] == {"1": "North"}
+    assert doc["map_metadata"]["zone_order"] == [2, 1]
+
+
+def test_put_assignments_zone_labels_follow_the_new_district_count(
+    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
+):
+    """A request that raises the count may label and order the new districts."""
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            "metadata": {
+                "num_districts": 5,
+                "zone_aliases": {"5": "Five", "1": "5x"},
+                "zone_order": [5, 1, 2, 3, 4],
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    meta = client.get(f"/api/document/{document_id_all_stats}").json()["map_metadata"]
+    assert meta["zone_aliases"] == {"5": "Five", "1": "5x"}
+    assert meta["zone_order"] == [5, 1, 2, 3, 4]
+
+
 def test_put_assignments_metadata_num_districts_validation(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
 ):
@@ -2043,6 +2219,13 @@ def test_put_assignments_metadata_num_districts_validation(
     )
     assert r2.status_code == 400
     assert "538" in r2.json().get("detail", "")
+
+    # Refused before the label check, which loops over every district.
+    r3 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 10**12, "zone_aliases": {}}},
+    )
+    assert r3.status_code == 400
 
     for n in (2, 538):
         r = client.put(
