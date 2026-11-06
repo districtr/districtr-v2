@@ -326,11 +326,14 @@ const resolveFork = async ({
       zone: c.zone,
       text: c.text,
     }));
-    // The copy is of the server's version, so also carry over the local colors,
-    // district labels and panel order, like the comments above.
+    // The copy is of the server's version, so also carry over the local district
+    // count, colors, labels and panel order, like the comments above. The count
+    // first: the local labels and assignments only fit the local count.
     const {localDocument} = syncConflictInfo;
     const newDocWithLocalComments = {
       ...createMapDocumentResponse.response,
+      num_districts:
+        localDocument.num_districts ?? createMapDocumentResponse.response.num_districts,
       document_comments: localComments,
       color_scheme: localDocument.color_scheme ?? createMapDocumentResponse.response.color_scheme,
       map_metadata: {
