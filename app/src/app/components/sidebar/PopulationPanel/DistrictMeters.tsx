@@ -1,5 +1,5 @@
 'use client';
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
@@ -302,11 +302,30 @@ export const DistrictMeters = () => {
     MAX_LABEL_CH,
     Math.max(1, ...populationData.map(d => Array.from(getZoneLabel(d.zone)).length))
   );
-  // `ch` is a digit's width; letters run wider ("West" overflows 4ch), so
-  // non-numeric labels get a quarter more room.
-  const allDigits = populationData.every(d => /^\d+$/.test(getZoneLabel(d.zone)));
+  // `ch` is a digit's width, exact for numbers. Letters vary, so other labels
+  // are measured in the row font, bold (the selected row's weight) so selecting
+  // a row doesn't move the bars; until then, a quarter more room per character.
+  const labels = populationData.map(d => getZoneLabel(d.zone));
+  const allDigits = labels.every(label => /^\d+$/.test(label));
   const labelCh = allDigits ? labelChars : Math.ceil(labelChars * 1.25);
-  const labelColWidth = `${labelCh + 1}ch`;
+  const labelSizerRef = useRef<HTMLDivElement>(null);
+  const [labelPx, setLabelPx] = useState<number | null>(null);
+  const labelsKey = allDigits ? '' : labels.join('\n');
+  useLayoutEffect(() => {
+    const el = labelSizerRef.current;
+    const ctx = labelsKey && el ? document.createElement('canvas').getContext('2d') : null;
+    if (!el || !ctx) return setLabelPx(null);
+    const {fontSize, fontFamily} = getComputedStyle(el);
+    ctx.font = `bold ${fontSize} ${fontFamily}`;
+    // Digits render tabular, as wide as "0".
+    const widths = labelsKey
+      .split('\n')
+      .map(label => ctx.measureText(label.replace(/\d/g, '0')).width);
+    const widest = Math.max(...widths);
+    setLabelPx(Math.ceil(widest) + 1);
+  }, [labelsKey]);
+  const labelWidth = labelPx ? `min(${labelPx}px, ${labelCh}ch)` : `${labelCh}ch`;
+  const labelColWidth = `calc(${labelWidth} + 1ch)`;
   const showRowIcons = superDraw && isEditing;
   const canReorder = showRowIcons && !isReadOnly;
   const canRename = isEditing && !isReadOnly;
@@ -315,9 +334,9 @@ export const DistrictMeters = () => {
   const numCellWidth = !canReorder
     ? labelColWidth
     : showDistrictNumbers
-      ? `calc(${ZONE_DRAG_HANDLE_WIDTH}px + var(--space-2) + ${labelCh}ch)`
+      ? `calc(${ZONE_DRAG_HANDLE_WIDTH}px + var(--space-2) + ${labelWidth})`
       : ZONE_DRAG_HANDLE_WIDTH;
-  const labelMaxWidth = canReorder ? `${labelCh}ch` : labelColWidth;
+  const labelMaxWidth = canReorder ? labelWidth : labelColWidth;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);
@@ -416,7 +435,10 @@ export const DistrictMeters = () => {
             {/* numCellWidth is partly in ch, so the spacer takes the rows' size-2
                 font or it comes out wider than their number cells. */}
             {(canReorder || showDistrictNumbers) && (
-              <Box style={{width: numCellWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}} />
+              <Box
+                ref={labelSizerRef}
+                style={{width: numCellWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}}
+              />
             )}
             {showRowIcons && (
               /* Mirrors the rows' icon cluster exactly — invisible twins of the
@@ -558,7 +580,8 @@ export const DistrictMeters = () => {
                             editable={canRename}
                             color={offScale ? 'red' : 'gray'}
                             weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                            style={{...NUM_CELL_STYLE, maxWidth: labelMaxWidth}}
+                            // Pushed right, so the handle stays at the cell's left edge.
+                            style={{...NUM_CELL_STYLE, maxWidth: labelMaxWidth, marginLeft: 'auto'}}
                           />
                         )}
                       </Flex>
