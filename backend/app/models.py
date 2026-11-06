@@ -138,16 +138,15 @@ def check_zone_labels_for_plan(
                 return (
                     f"District {zone} is not in this plan of {num_districts} districts"
                 )
-        seen: dict[str, int] = {}
+        seen: set[str] = set()
         for zone in range(1, num_districts + 1):
             label = aliases.get(str(zone), str(zone))
             # Case-insensitive; the client twin uses toLowerCase().
             key = label.lower()
             if key in seen:
-                return (
-                    f"Districts {seen[key]} and {zone} have the same label, {label!r}"
-                )
-            seen[key] = zone
+                # Users never see district numbers, only labels.
+                return f"Two districts have the same label, {label!r}"
+            seen.add(key)
     if order is not None and any(zone > num_districts for zone in order):
         return f"zone_order lists a district this plan of {num_districts} doesn't have"
     return None
