@@ -101,6 +101,7 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
     check_zone_labels_for_plan,
+    validate_zone_order,
     MAX_NUM_DISTRICTS,
 )
 from pydantic_geojson import FeatureModel, PolygonModel
@@ -397,6 +398,25 @@ def create_document(
         if copied_document.map_type == "community":
             num_communities = copied_document.num_communities
             community_metadata_list = copied_document.community_metadata_list
+
+    # "Make a copy" sends the source's labels and order; check them like
+    # PUT /api/assignments does, since DocumentMetadata reads them leniently.
+    if data.metadata is not None and (
+        data.metadata.zone_aliases is not None or data.metadata.zone_order is not None
+    ):
+        try:
+            validate_zone_order(data.metadata.zone_order)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            )
+        problem = check_zone_labels_for_plan(
+            data.metadata.zone_aliases, data.metadata.zone_order, num_districts or 0
+        )
+        if problem:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=problem
+            )
 
     document_type = data.document_type or (
         copied_document.document_type if copied_document is not None else None
