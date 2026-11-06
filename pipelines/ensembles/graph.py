@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 POP_COL = "total_pop_20"
 COUNTY_COL = "county"
+COUSUB_COL = "cousub"
+CORE_COL = "core"
 SEED_COL = "seed"
 EDGE_LAYER = "gerrydb_graph_edge"
 
@@ -67,18 +69,10 @@ def load_vtd_graph(vtd_gpkg: str | Path, layer: str | None = None) -> nx.Graph:
     return graph
 
 
-def seed_from_block_csv(
-    graph: nx.Graph,
-    vtd_gpkg: str | Path,
-    block_gpkg: str | Path,
-    csv_path: str | Path,
-    geoid_col: str = "GEOID20",
-    district_col: str = "District",
-) -> dict[str, int]:
-    """VTD-level seed from a block-level plan: each VTD takes the district holding
-    most of its population. Blocks map to VTDs by representative point, the same
-    predicate the combined graph build uses."""
-    plan = pd.read_csv(csv_path, dtype={geoid_col: str, district_col: int})
+def block_vtd_table(vtd_gpkg: str | Path, block_gpkg: str | Path) -> pd.DataFrame:
+    """Every block with its population and the VTD holding its representative
+    point, the same predicate the combined graph build uses. Columns: ``path``
+    (block GEOID), ``vtd``, the population column."""
     blocks = gpd.read_file(block_gpkg, layer=_gpkg_layer_name(block_gpkg))[
         ["path", POP_COL, "geometry"]
     ]
@@ -89,22 +83,76 @@ def seed_from_block_csv(
         blocks = blocks.to_crs(vtds.crs)
     points = blocks.set_geometry(blocks.geometry.representative_point())
     joined = gpd.sjoin(points, vtds, how="inner", predicate="within")
-    merged = joined.merge(plan, left_on="path", right_on=geoid_col, how="inner")
-    unmatched = len(blocks) - len(merged)
+    unmatched = len(blocks) - len(joined)
     if unmatched:
-        logger.warning("%d blocks have no VTD or no district in the CSV", unmatched)
+        logger.warning("%d blocks fall in no VTD", unmatched)
+    return pd.DataFrame(joined[["path", "vtd", POP_COL]])
+
+
+def majority_by_vtd(
+    graph: nx.Graph, block_vtd: pd.DataFrame, values: pd.Series, what: str
+) -> dict[str, str]:
+    """Each VTD takes the value (district, subdivision) holding most of its
+    population among its blocks. ``values`` is indexed by block GEOID."""
+    merged = block_vtd.merge(
+        values.rename("value"), left_on="path", right_index=True, how="inner"
+    )
+    unmatched = len(block_vtd) - len(merged)
+    if unmatched:
+        logger.warning("%d blocks have no %s", unmatched, what)
     by_vtd = (
-        merged.groupby(["vtd", district_col])[POP_COL]
+        merged.groupby(["vtd", "value"])[POP_COL]
         .sum()
         .reset_index()
         .sort_values(POP_COL, ascending=False)
         .drop_duplicates("vtd")
-        .set_index("vtd")[district_col]
+        .set_index("vtd")["value"]
     )
     missing = set(graph.nodes) - set(by_vtd.index)
     if missing:
-        raise ValueError(f"{len(missing)} VTDs received no district from the CSV")
-    return {n: int(by_vtd[n]) for n in graph.nodes}
+        raise ValueError(f"{len(missing)} VTDs received no {what}")
+    return {n: str(by_vtd[n]) for n in graph.nodes}
+
+
+def plan_from_block_csv(
+    csv_path: str | Path, geoid_col: str = "GEOID20", district_col: str = "District"
+) -> pd.Series:
+    """District of every block from a plan CSV, indexed by block GEOID."""
+    plan = pd.read_csv(csv_path, dtype={geoid_col: str, district_col: int})
+    return plan.set_index(geoid_col)[district_col]
+
+
+def seed_from_block_csv(
+    graph: nx.Graph,
+    block_vtd: pd.DataFrame,
+    csv_path: str | Path,
+) -> dict[str, int]:
+    """VTD-level seed from a block-level plan: each VTD takes the district holding
+    most of its population."""
+    by_vtd = majority_by_vtd(
+        graph, block_vtd, plan_from_block_csv(csv_path), "district"
+    )
+    return {n: int(v) for n, v in by_vtd.items()}
+
+
+# 2020 PL 94-171 geoheader: pipe-delimited, no header row. Block records carry
+# summary level 750; the block GEOID is the GEOCODE field and the county
+# subdivision code is the COUSUB field, which nests only within its county.
+PL_SUMLEV, PL_GEOCODE, PL_STATE, PL_COUNTY, PL_COUSUB = 2, 9, 12, 14, 17
+
+
+def cousub_from_pl_geo(geo_path: str | Path) -> pd.Series:
+    """County subdivision (state + county + COUSUB, ten characters) of every
+    block, from the state's PL 94-171 geoheader file."""
+    geoids, cousubs = [], []
+    with open(geo_path, encoding="latin-1") as f:
+        for line in f:
+            fields = line.rstrip("\n").split("|")
+            if fields[PL_SUMLEV] != "750":
+                continue
+            geoids.append(fields[PL_GEOCODE])
+            cousubs.append(fields[PL_STATE] + fields[PL_COUNTY] + fields[PL_COUSUB])
+    return pd.Series(cousubs, index=pd.Index(geoids, name="GEOID20"), name="cousub")
 
 
 def repair_seed(graph: nx.Graph, seed: dict[str, int]) -> list[str]:

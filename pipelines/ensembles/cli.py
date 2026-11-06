@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import click
+import networkx as nx
 import numpy as np
 
 from ensembles import chain, graph, package
@@ -37,20 +38,59 @@ def ensembles() -> None:
 @click.option(
     "--seed-csv", required=True, help="Block-level plan CSV (GEOID20, District)"
 )
+@click.option(
+    "--pl-geo",
+    default=None,
+    help="PL 94-171 geoheader file; attaches each VTD's county subdivision as `cousub`",
+)
+@click.option(
+    "--core-csv",
+    default=None,
+    help="Block-level plan CSV whose districts become the `core` region column",
+)
 @click.option("--out", "-o", required=True, help="Output graph JSON path")
-def build_graph(vtd_gpkg: str, block_gpkg: str, seed_csv: str, out: str) -> None:
+def build_graph(
+    vtd_gpkg: str,
+    block_gpkg: str,
+    seed_csv: str,
+    pl_geo: str | None,
+    core_csv: str | None,
+    out: str,
+) -> None:
     """Build the chain input graph with the seed plan attached.
 
     Writes the graph JSON and, next to it, a `.seed.json` with the repair log.
     """
     g = graph.load_vtd_graph(vtd_gpkg)
-    seed = graph.seed_from_block_csv(g, vtd_gpkg, block_gpkg, seed_csv)
+    block_vtd = graph.block_vtd_table(vtd_gpkg, block_gpkg)
+    seed = graph.seed_from_block_csv(g, block_vtd, seed_csv)
     repairs = graph.repair_seed(g, seed)
     for line in repairs:
         logger.info("seed repair: %s", line)
+    regions = {}
+    if pl_geo:
+        regions["cousub"] = pl_geo
+        nx.set_node_attributes(
+            g,
+            graph.majority_by_vtd(
+                g, block_vtd, graph.cousub_from_pl_geo(pl_geo), "county subdivision"
+            ),
+            graph.COUSUB_COL,
+        )
+    if core_csv:
+        regions["core"] = core_csv
+        nx.set_node_attributes(
+            g,
+            graph.majority_by_vtd(
+                g, block_vtd, graph.plan_from_block_csv(core_csv), "core district"
+            ),
+            graph.CORE_COL,
+        )
     graph.write_graph_json(g, seed, out)
     Path(out).with_suffix(".seed.json").write_text(
-        json.dumps({"source": seed_csv, "repairs": repairs}, indent=1)
+        json.dumps(
+            {"source": seed_csv, "repairs": repairs, "regions": regions}, indent=1
+        )
     )
     logger.info("Wrote %s", out)
 

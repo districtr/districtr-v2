@@ -419,10 +419,10 @@ def utm_crs(gdf: gpd.GeoDataFrame) -> str:
     projection the app's evaluation measures compactness in
     (``backend/app/evaluation/context.py``, ``STATE_UTM_EPSG``, which applies this
     rule per state). UTM is conformal, so shapes keep their proportions."""
-    centroids = gdf.geometry.centroid.to_crs("EPSG:4326")
-    zones = np.floor((centroids.x.to_numpy() + 180) / 6).astype(int) % 60 + 1
+    points = gdf.geometry.representative_point().to_crs("EPSG:4326")
+    zones = np.floor((points.x.to_numpy() + 180) / 6).astype(int) % 60 + 1
     zone = int(np.bincount(zones).argmax())
-    north = float(np.median(centroids.y.to_numpy())) >= 0
+    north = float(np.median(points.y.to_numpy())) >= 0
     return f"EPSG:{(32600 if north else 32700) + zone}"
 
 

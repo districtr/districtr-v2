@@ -31,6 +31,33 @@ PRESETS: dict[str, Preset] = {
             variant="district-pairs-region-aware",
             region_weights={"county": 1.0},
         ),
+        # First-phase run types (design §3.2): one per state rule class, with
+        # the county surcharge everywhere and the subdivision and core
+        # surcharges where the state's rule names them.
+        Preset(
+            key="county",
+            label="County-weighted",
+            variant="district-pairs-region-aware",
+            region_weights={"county": 0.5},
+        ),
+        Preset(
+            key="county_cousub",
+            label="County- and subdivision-weighted",
+            variant="district-pairs-region-aware",
+            region_weights={"county": 0.5, "cousub": 0.2},
+        ),
+        Preset(
+            key="county_core",
+            label="County- and core-weighted",
+            variant="district-pairs-region-aware",
+            region_weights={"county": 0.5, "core": 0.2},
+        ),
+        Preset(
+            key="county_cousub_core",
+            label="County-, subdivision- and core-weighted",
+            variant="district-pairs-region-aware",
+            region_weights={"county": 0.5, "cousub": 0.2, "core": 0.2},
+        ),
     )
 }
 
