@@ -190,7 +190,8 @@ export const PaintByControl: React.FC<{
           <DropdownMenu.Root>
             <DropdownMenu.Trigger disabled={readOnly}>
               {/* Narrower than the other buttons until one of its areas is
-                  chosen; then it reads that area's name. */}
+                  chosen; then it reads that area's name, with a caret so it
+                  still reads as a menu. */}
               <PaintByButton
                 active={!!moreSelected}
                 aria-label={`More areas to ${label.toLowerCase()}`}
@@ -198,9 +199,12 @@ export const PaintByControl: React.FC<{
                 style={moreSelected ? undefined : {paddingInline: 0, width: 30}}
               >
                 {moreSelected ? (
-                  <span className="block truncate" style={{maxWidth: 120}}>
-                    {moreSelected.label}
-                  </span>
+                  <>
+                    <span className="block truncate" style={{maxWidth: 120}}>
+                      {moreSelected.label}
+                    </span>
+                    <DropdownMenu.TriggerIcon />
+                  </>
                 ) : (
                   '…'
                 )}
