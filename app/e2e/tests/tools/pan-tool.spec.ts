@@ -1,7 +1,13 @@
 import {test, expect} from '@playwright/test';
-import {testSelectors, testTimeouts, skipConditions} from '../../fixtures/test-data';
-import {createMapDocument, navigateToMap} from '../../fixtures/map-fixture';
-import {getMapCenter} from '../../utils/map-helpers';
+import {testSelectors, skipConditions} from '../../fixtures/test-data';
+import {
+  createMapDocument,
+  navigateToMap,
+  getRegionScreenshot,
+  settleAfter,
+  selectTool,
+} from '../../fixtures/map-fixture';
+import {getMapCenter, dragOnMap} from '../../utils/map-helpers';
 
 // Shared document ID for all tests in this file
 let sharedDocumentId: string | null = null;
@@ -10,100 +16,34 @@ test.describe('Pan Tool', () => {
   test.skip(skipConditions.requiresWriteAccess(), 'Requires write access');
 
   test.beforeAll(async ({request}) => {
-    try {
-      sharedDocumentId = await createMapDocument(request);
-      console.log(`Created document ID for pan tests: ${sharedDocumentId}`);
-    } catch (error) {
-      console.error('Failed to create document:', error);
-    }
+    sharedDocumentId = await createMapDocument(request);
   });
 
   test.beforeEach(async ({page}) => {
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-    await navigateToMap(page, sharedDocumentId);
+    await navigateToMap(page, sharedDocumentId!);
   });
 
   test('should select the pan tool when clicked', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Click the pan tool
-    const panTool = page.locator(testSelectors.panTool);
-    await expect(panTool).toBeVisible({timeout: testTimeouts.medium});
-    await panTool.click();
-
-    // Verify the pan tool is now selected
-    await expect(panTool).toHaveAttribute('data-state', /.*/);
+    await page.keyboard.press('p'); // start from another tool
+    await page.locator(testSelectors.panTool).click();
+    await expect(page.locator(testSelectors.panTool)).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('should pan the map when dragging with pan tool', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Select the pan tool
-    const panTool = page.locator(testSelectors.panTool);
-    await panTool.click();
-
-    // Get map center
+    await selectTool(page, testSelectors.panTool);
     const center = await getMapCenter(page);
-
-    // Pan the map by dragging
-    await page.mouse.move(center.x, center.y);
-    await page.mouse.down();
-    await page.mouse.move(center.x + 100, center.y + 100, {steps: 10});
-    await page.mouse.up();
-
-    // Wait for pan to complete
-    await page.waitForTimeout(300);
-
-    // Map should still be visible
-    await expect(mapCanvas).toBeVisible();
-  });
-
-  test('should change cursor to grab when pan tool is active', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Select the pan tool
-    const panTool = page.locator(testSelectors.panTool);
-    await panTool.click();
-
-    // Move over map
-    const center = await getMapCenter(page);
-    await page.mouse.move(center.x, center.y);
-
-    // The cursor should change (this is hard to verify directly,
-    // but we can verify the tool is active)
-    await expect(panTool).toBeVisible();
+    const before = await getRegionScreenshot(page, center.x, center.y, 200);
+    await settleAfter(page, () =>
+      dragOnMap(page, center.x, center.y, center.x + 100, center.y + 100, 10)
+    );
+    const after = await getRegionScreenshot(page, center.x, center.y, 200);
+    expect(after.equals(before)).toBe(false);
   });
 
   test('should activate pan tool with keyboard shortcut', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Press 'm' for move/pan tool
+    await page.keyboard.press('p');
+    await expect(page.locator(testSelectors.brushTool)).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('m');
-
-    // Wait for tool switch
-    await page.waitForTimeout(200);
-
-    // Verify pan tool is selected
-    const panTool = page.locator(testSelectors.panTool);
-    await expect(panTool).toBeVisible();
+    await expect(page.locator(testSelectors.panTool)).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -49,6 +49,7 @@ export const ToolButtons: React.FC = () => {
         key={tool.mode}
         data-testid={`${tool.mode}-tool`}
         aria-label={tool.label}
+        aria-pressed={isHistoryTool ? undefined : isActive}
         className={`cursor-pointer tool-button ${
           guideTarget === `tool:${tool.mode}` ? 'ui-guide' : ''
         }`}
