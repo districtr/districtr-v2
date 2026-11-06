@@ -27,6 +27,12 @@ describe('zone labels', () => {
     expect(cleanZoneLabel('North\u001fShore')).toBe('North Shore');
     expect(cleanZoneLabel('North\u0085Shore')).toBe('North Shore');
     expect(cleanZoneLabel('North\ufeffShore')).toBe('NorthShore');
+    // Stable on a second cleaning: a dropped zero-width space or tag leaves
+    // nothing for the server's re-read to change.
+    expect(cleanZoneLabel('North \u200b Shore')).toBe('North Shore');
+    expect(cleanZoneLabel('e<x>\u0301')).toBe('\u00e9');
+    // A cut that ends on a space is trimmed.
+    expect(cleanZoneLabel('a'.repeat(39) + ' b')).toBe('a'.repeat(39));
     // 39 letters then emoji: a UTF-16 slice at 40 would leave half an emoji.
     expect(cleanZoneLabel('a'.repeat(39) + '😀😀')).toBe('a'.repeat(39) + '😀');
   });

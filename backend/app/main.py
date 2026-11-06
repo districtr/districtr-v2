@@ -101,6 +101,7 @@ from app.models import (
     AssignmentsCreate,
     NumDistrictsSetResult,
     check_zone_labels_for_plan,
+    MAX_NUM_DISTRICTS,
 )
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
@@ -753,6 +754,15 @@ def _sync_update_assignments(
     if data.metadata is not None and (
         data.metadata.zone_aliases is not None or data.metadata.zone_order is not None
     ):
+        # Bounded before the check below, which loops over every district; the
+        # count's own update further down checks it again.
+        if data.metadata.num_districts is not None and not (
+            2 <= data.metadata.num_districts <= MAX_NUM_DISTRICTS
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
+            )
         num_districts = (
             data.metadata.num_districts
             or session.exec(
@@ -957,10 +967,10 @@ def _sync_update_assignments(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Number of districts is not modifiable for this map",
                 )
-            if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
+            if not 2 <= data.metadata.num_districts <= MAX_NUM_DISTRICTS:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Number of districts must be at least 2 and at most 538",
+                    detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
                 )
             stmt = text("""UPDATE document.document
                 SET num_districts = :num_districts
@@ -1372,10 +1382,10 @@ def update_num_districts(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    if num_districts < 2 or num_districts > 538:
+    if not 2 <= num_districts <= MAX_NUM_DISTRICTS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Number of districts must be at least 2 and at most 538",
+            detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
         )
 
     districtr_map = session.exec(

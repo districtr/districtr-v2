@@ -89,10 +89,10 @@ describe('putUpdateAssignmentsAndVerify', () => {
     idb.documents = realDocuments;
   });
 
-  const save = () => {
+  const save = (mapDocument = doc) => {
     const {zoneAssignments, shatterIds, childToParent} = useAssignmentsStore.getState();
     return putUpdateAssignmentsAndVerify({
-      mapDocument: doc,
+      mapDocument,
       zoneAssignments,
       shatterIds,
       childToParent,
@@ -108,9 +108,22 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(updateIdbAssignments).not.toHaveBeenCalled();
   });
 
-  test('sends {} when no aliases are loaded, so the server clears stale ones', async () => {
+  test('sends {} and [] when nothing is loaded, so the server clears stale ones', async () => {
     await save();
     expect(putUpdateDocument.mock.calls[0][0].metadata.zone_aliases).toEqual({});
+    expect(putUpdateDocument.mock.calls[0][0].metadata.zone_order).toEqual([]);
+  });
+
+  test("sends only the plan's districts, so a lowered count can't fail every save", async () => {
+    // setNumDistricts leaves zone_order alone; district 5 is gone.
+    await save({
+      ...doc,
+      num_districts: 3,
+      map_metadata: {zone_order: [3, 5, 1], zone_aliases: {'1': 'A', '5': 'E'}},
+    });
+    const {metadata} = putUpdateDocument.mock.calls[0][0];
+    expect(metadata.zone_order).toEqual([3, 1, 2]);
+    expect(metadata.zone_aliases).toEqual({'1': 'A'});
   });
 
   test('an edit during the save stays unsaved, in the store and in IndexedDB', async () => {
@@ -133,6 +146,17 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(metadata.updated_at).toBe(SERVER_UPDATED_AT);
     expect(assignments).toBe(edited);
     expect(idbClientLastUpdated).toBe(clientLastUpdated);
+  });
+
+  test('a label edited during the save is kept in the IndexedDB re-stamp', async () => {
+    duringPut = () => {
+      useMapStore.setState({mapDocument: {...doc, map_metadata: {zone_aliases: {'1': 'N'}}}});
+      useAssignmentsStore.setState({clientLastUpdated: 'T2-edit'});
+    };
+    await save();
+    const [metadata] = updateIdbAssignments.mock.calls[0];
+    expect(metadata.map_metadata.zone_aliases).toEqual({'1': 'N'});
+    expect(metadata.updated_at).toBe(SERVER_UPDATED_AT);
   });
 
   test('an undo back to the last saved state during the save stays unsaved', async () => {

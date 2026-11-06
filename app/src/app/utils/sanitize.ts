@@ -28,7 +28,11 @@ export function sanitizeCommunityName(name: string): string {
   const collapsedWhitespace = withoutTags.replace(WHITESPACE_RE, ' ');
   const withoutControlChars = collapsedWhitespace.replace(CONTROL_CHAR_RE, '');
   const withoutFormatChars = withoutControlChars.replace(FORMAT_CHAR_RE, '');
-  return withoutFormatChars.trim();
+  // Again after the removals, so cleaning a clean name changes nothing: a
+  // dropped zero-width space can leave two spaces side by side, and a dropped
+  // tag can leave a letter and its accent to compose.
+  const collapsedAgain = withoutFormatChars.replace(WHITESPACE_RE, ' ');
+  return collapsedAgain.normalize('NFKC').trim();
 }
 
 export interface CommunityNameValidation {

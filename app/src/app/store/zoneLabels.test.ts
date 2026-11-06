@@ -49,6 +49,17 @@ describe('setZoneAlias', () => {
   });
 });
 
+describe('setNumDistricts', () => {
+  test('keeps labels unique and drops labels for removed districts', () => {
+    // District 1 is labeled "5": a new district 5 can't default to "5".
+    useMapStore.setState({mapDocument: doc({zone_aliases: {'1': '5'}})});
+    useMapStore.getState().setNumDistricts(5);
+    expect(aliases()).toEqual({'1': '5', '5': '1'});
+    useMapStore.getState().setNumDistricts(4);
+    expect(aliases()).toEqual({'1': '5'});
+  });
+});
+
 describe('setZoneOrder', () => {
   test('stores the panel order as a local edit and leaves labels alone', () => {
     useMapStore.setState({mapDocument: doc({zone_aliases: {'2': 'B'}})});
@@ -70,6 +81,9 @@ describe('setZoneOrder', () => {
     // Row 1 (now district 4) keeps the first color, and so on down the rows.
     expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(['#b', '#c', '#d', '#a']);
     expect(order()).toEqual([4, 1, 2, 3]);
+    // From a custom order, too: dragging back restores the original colors.
+    useMapStore.getState().setZoneOrder([1, 2, 3, 4], {colorsFollow: false});
+    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(colors);
   });
 
   test('an unchanged order is not an edit', () => {

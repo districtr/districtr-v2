@@ -20,7 +20,7 @@ import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {throttle} from 'lodash';
-import {zoneLabel, type ZoneAliases} from '@/app/utils/zoneLabels';
+import {fitsBadge, zoneLabel, type ZoneAliases} from '@/app/utils/zoneLabels';
 import {ExpressionSpecification, FilterSpecification} from 'maplibre-gl';
 
 // Basemap place-name source layers: protomaps (minimal/streets) and MapTiler (satellite).
@@ -180,11 +180,9 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
   );
 };
 
-// Labels this long or shorter fit in the round badge, like district numbers did.
-const BADGE_LABEL_MAX = 3;
 const labelProperties = (zone: number, aliases: ZoneAliases) => {
   const label = zoneLabel(zone, aliases);
-  return {label, short: Array.from(label).length <= BADGE_LABEL_MAX};
+  return {label, short: fitsBadge(label)};
 };
 
 const ZoneNumbersLayer = () => {

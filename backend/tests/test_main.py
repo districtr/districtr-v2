@@ -2182,6 +2182,13 @@ def test_put_assignments_metadata_num_districts_validation(
     assert r2.status_code == 400
     assert "538" in r2.json().get("detail", "")
 
+    # Refused before the label check, which loops over every district.
+    r3 = client.put(
+        "/api/assignments",
+        json={**base, "metadata": {"num_districts": 10**12, "zone_aliases": {}}},
+    )
+    assert r3.status_code == 400
+
     for n in (2, 538):
         r = client.put(
             "/api/assignments",

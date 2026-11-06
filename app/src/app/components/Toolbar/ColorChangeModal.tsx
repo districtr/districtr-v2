@@ -1,4 +1,4 @@
-import {colorsInZoneOrder, districtHeading} from '@/app/utils/zoneLabels';
+import {colorsInZoneOrder, districtHeading, fitsBadge, zoneLabel} from '@/app/utils/zoneLabels';
 import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
@@ -38,7 +38,10 @@ export const ColorChangeModal: React.FC<{
   const numDistricts = mapDocument?.num_districts ?? 4;
   const zoneOrder = useZoneOrder();
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const [colorSelectIndex, setColorSelectIndex] = useState(0);
+  const aliases = mapDocument?.map_metadata?.zone_aliases;
+  const heading = (zone: number) => districtHeading(zone, aliases);
+  // Starts on the panel's first row, which is the first swatch.
+  const [colorSelectIndex, setColorSelectIndex] = useState(() => (zoneOrder[0] ?? 1) - 1);
   const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
   const [colorText, setColorText] = useState('');
   const [colorTextTouched, setColorTextTouched] = useState(false);
@@ -188,7 +191,7 @@ export const ColorChangeModal: React.FC<{
         color={color}
         label={
           owner
-            ? `${color}, used by District ${owner}`
+            ? `${color}, used by ${heading(owner)}`
             : gray
               ? `${color}, too close to gray`
               : color
@@ -273,11 +276,13 @@ export const ColorChangeModal: React.FC<{
                 <ColorSwatch
                   key={zone}
                   color={innerColorScheme[zone - 1]}
-                  label={`District ${zone}`}
+                  label={heading(zone)}
                   selected={zone - 1 === colorSelectIndex}
                   onClick={() => setColorSelectIndex(zone - 1)}
                 >
-                  {zone}
+                  {/* Like the map badges: a label too long for the swatch is in
+                      its title and the heading below. */}
+                  {fitsBadge(zoneLabel(zone, aliases)) && zoneLabel(zone, aliases)}
                 </ColorSwatch>
               ))}
             </Flex>
@@ -292,7 +297,7 @@ export const ColorChangeModal: React.FC<{
                 style={{backgroundColor: typedColor ?? selectedColor}}
               />
               <Text size="2" weight="medium" className="shrink-0">
-                {districtHeading(colorSelectIndex + 1, mapDocument?.map_metadata?.zone_aliases)}
+                {heading(colorSelectIndex + 1)}
               </Text>
               <TextField.Root
                 className="flex-1"
@@ -307,7 +312,7 @@ export const ColorChangeModal: React.FC<{
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                aria-label={`Color for District ${colorSelectIndex + 1}`}
+                aria-label={`Color for ${heading(colorSelectIndex + 1)}`}
                 aria-invalid={colorTextInvalid || !!typedOwner || typedGray}
               />
               {/* Button size 2 matches the TextField's height. */}
@@ -335,7 +340,7 @@ export const ColorChangeModal: React.FC<{
               {colorTextInvalid
                 ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
                 : typedOwner
-                  ? `District ${typedOwner} already uses this color. Pick another.`
+                  ? `${heading(typedOwner)} already uses this color. Pick another.`
                   : typedGray
                     ? 'Too close to gray, which reads as unassigned land. Pick another.'
                     : latexAlternative

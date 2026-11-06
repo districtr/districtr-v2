@@ -18,10 +18,23 @@ from app.models import (
         ("North\u001fShore", "North Shore"),
         ("North\u0085Shore", "North Shore"),
         ("North﻿Shore", "NorthShore"),
+        # A dropped zero-width space or tag must not leave a result that a
+        # second cleaning would change.
+        ("North \u200b Shore", "North Shore"),
+        ("e<x>\u0301", "\u00e9"),
     ],
 )
 def test_sanitizer_matches_the_client_twin(raw, expected):
     assert sanitize_community_name(raw) == expected
+    assert sanitize_community_name(expected) == expected
+
+
+def test_label_cap_leaves_no_trailing_space():
+    """A cut at 40 that ends on a space is trimmed, so a stored label reads back
+    unchanged; zoneLabels.test.ts checks the same string."""
+    label = clean_zone_aliases({"1": "a" * 39 + " b"}, strict=True)["1"]
+    assert label == "a" * 39
+    assert clean_zone_aliases({"1": label}) == {"1": label}
 
 
 def test_stored_labels_are_read_leniently():

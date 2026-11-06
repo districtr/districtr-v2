@@ -19,7 +19,8 @@ export const districtHeading = (zone: number, aliases: ZoneAliases) =>
  * lone surrogate would fail every later save).
  */
 export const cleanZoneLabel = (raw: string) =>
-  Array.from(sanitizeCommunityName(raw)).slice(0, MAX_COMMUNITY_NAME_LENGTH).join('');
+  // trimEnd: a cut can end on a space the next cleaning would strip.
+  Array.from(sanitizeCommunityName(raw)).slice(0, MAX_COMMUNITY_NAME_LENGTH).join('').trimEnd();
 
 /** Labels compare case-insensitively; the server's twin uses str.lower(). */
 const labelKey = (label: string) => label.toLowerCase();
@@ -119,6 +120,9 @@ export const byZoneOrder = (order: readonly number[]) => {
     (position.get(a) ?? Number.MAX_SAFE_INTEGER) - (position.get(b) ?? Number.MAX_SAFE_INTEGER) ||
     a - b;
 };
+
+/** Labels this long or shorter fit in a round badge or swatch, like numbers did. */
+export const fitsBadge = (label: string) => Array.from(label).length <= 3;
 
 /** Labels made only of ASCII digits double as number-key shortcuts. */
 export const isDigitLabel = (label: string) => /^[0-9]+$/.test(label);

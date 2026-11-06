@@ -61,10 +61,14 @@ def sanitize_community_name(name: str) -> str:
     without_format_chars = "".join(
         c for c in without_control_chars if unicodedata.category(c) != "Cf"
     )
-    return without_format_chars.strip()
+    # Again after the removals, so cleaning a clean name changes nothing: a
+    # dropped zero-width space can leave two spaces side by side, and a dropped
+    # tag can leave a letter and its accent to compose.
+    collapsed_again = COMMUNITY_WHITESPACE_RE.sub(" ", without_format_chars)
+    return unicodedata.normalize("NFKC", collapsed_again).strip()
 
 
-# The most districts a plan can have (see the num_districts checks in main.py).
+# The most districts a plan can have.
 MAX_NUM_DISTRICTS = 538
 # Digits in the largest district number: longer keys are refused before int(),
 # which raises on strings past Python's 4,300-digit limit.
@@ -100,7 +104,8 @@ def clean_zone_aliases(
                 )
             continue
         label = (
-            sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH]
+            # rstrip: a cut can end on a space the next cleaning would strip.
+            sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH].rstrip()
             if isinstance(alias, str)
             else ""
         )

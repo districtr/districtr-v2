@@ -257,9 +257,9 @@ export interface MapStore {
    * why the label was refused (another district already has it), or null. */
   setZoneAlias: (zone: number, alias: string) => string | null;
   /** Set the districts' order in the population panel (district numbers, first
-   * row first). Assignments and labels don't change. */
-  /** `colorsFollow: false` keeps each panel row's color in place, so the moved
-   * districts take the colors of the rows they land on. */
+   * row first). Assignments and labels don't change. `colorsFollow: false` keeps
+   * each panel row's color in place, so the moved districts take the colors of
+   * the rows they land on. */
   setZoneOrder: (order: number[], options?: {colorsFollow?: boolean}) => void;
   /** Merge into map_metadata as a local edit: marks the map unsaved, writes
    * IndexedDB, and saves with the next PUT /api/assignments. */
