@@ -183,3 +183,7 @@ app/public/*-basemap-style.json
 
 # Beads / Dolt files (added by bd init)
 .beads/proxieddb/
+
+# Wrangler local state (tiles-worker)
+.wrangler/
+tiles-worker/worker-configuration.d.ts

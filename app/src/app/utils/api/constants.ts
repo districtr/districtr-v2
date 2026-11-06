@@ -14,6 +14,9 @@ export const GEODATA_URL =
   process.env.NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1 ?? process.env.NEXT_PUBLIC_S3_BUCKET_URL;
 export const PARQUET_URL =
   process.env.NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2 ?? process.env.NEXT_PUBLIC_S3_BUCKET_URL;
+/** The tiles-worker/ Cloudflare Worker, serving district tilesets as z/x/y tiles.
+ * Unset: the map reads the PMTiles archives from TILESET_URL directly. */
+export const TILES_WORKER_URL = process.env.NEXT_PUBLIC_TILES_WORKER_URL;
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 export const TURNSTILE_SESSION_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SESSION_SITE_KEY ?? '';

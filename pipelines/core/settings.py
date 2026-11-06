@@ -35,5 +35,30 @@ class Settings(BaseSettings):
             **kwargs,
         )
 
+    # R2: tiles-worker/ serves district tilesets from here. Unset means S3 only.
+
+    R2_BUCKET: str | None = None
+    R2_ENDPOINT: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+
+    def get_r2_client(self):
+        if not self.R2_BUCKET:
+            return None
+        # Fail loudly: a silently skipped copy would 404 the map once the Worker serves it.
+        if not (
+            self.R2_ENDPOINT and self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY
+        ):
+            raise ValueError(
+                "R2_BUCKET is set, so R2_ENDPOINT, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be too"
+            )
+        return boto3.client(
+            service_name="s3",
+            endpoint_url=self.R2_ENDPOINT,
+            region_name="auto",
+            aws_access_key_id=self.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=self.R2_SECRET_ACCESS_KEY,
+        )
+
 
 settings = Settings()

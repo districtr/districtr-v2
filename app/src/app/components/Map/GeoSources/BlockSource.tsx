@@ -2,7 +2,7 @@ import React, {useLayoutEffect, useState} from 'react';
 import {Source} from 'react-map-gl/maplibre';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import {useMapStore} from '@/app/store/mapStore';
-import {TILESET_URL} from '@/app/utils/api/constants';
+import {blocksTilesUrl} from '@/app/constants/map/sources';
 import {useClearMap} from '@/app/hooks/useClearMap';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 
@@ -32,7 +32,7 @@ export const BlockSource: React.FC<{children: React.ReactNode}> = ({children}) =
     <Source
       id={BLOCK_SOURCE_ID}
       type="vector"
-      url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
+      url={blocksTilesUrl(mapDocument.tiles_s3_path)}
       promoteId="path"
     >
       {children}
