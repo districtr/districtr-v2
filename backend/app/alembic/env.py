@@ -16,6 +16,7 @@ from app.models import (
     Assignments,
     CommunityAssignments,
     DistrictUnions,
+    DocumentAssignments,
 )
 from app.save_share.models import MapDocumentToken
 from app.district_notes.models import DistrictNote
@@ -53,6 +54,7 @@ tables = [
     SubmissionContent,
     DistrictUnions,
     CommunityAssignments,
+    DocumentAssignments,
     Evaluation,
 ]
 
@@ -102,6 +104,10 @@ def include_object(object, name, type_, reflected, compare_to):
     if name and (
         name in POST_GIS_ALPINE_RESERVED_TABLES or re.match(r".*_districtr_view+", name)
     ):
+        return False
+    # document.assignments is a view over document_assignments (71fa732b1bbc),
+    # modeled as a table only so queries can select from it.
+    if type_ == "table" and name == "assignments" and object.schema == "document":
         return False
     return True
 

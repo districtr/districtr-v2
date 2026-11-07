@@ -35,12 +35,12 @@ graph TD
     end
 
     subgraph API["FastAPI Backend"]
-        Endpoints["Assignments (COPY bulk) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control · Admin ops"]
+        Endpoints["Assignments (jsonb deltas) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control · Admin ops"]
         Note["Does NOT serve tiles or demographic data"]
     end
 
     subgraph DB["PostgreSQL 15 + PostGIS 3.3"]
-        Tables["Assignments (plain tables) · PostGIS geometry<br/>Document schema · district_unions cache · UDFs (legacy)"]
+        Tables["Assignments (one jsonb row per plan) · PostGIS geometry<br/>Document schema · district_unions cache · UDFs (legacy)"]
     end
 
     P1 -->|upload| Tiles
@@ -120,14 +120,15 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 |-------|---------|
 | `DistrictrMap` | Map metadata (slug, layers, tiles path, num_districts, visibility) |
 | `Document` | Map document instance (UUID, auto-increment public_id, metadata JSON) |
-| `Assignments` | Plain table: geo_id → zone mapping per document (LIST partitioning removed — was causing ACCESS EXCLUSIVE lock convoys) |
-| `CommunityAssignments` | Plain table: geo_id → community_id mapping (same departition as Assignments) |
+| `DocumentAssignments` | One row per document: `{geo_id: zone}` jsonb ([ADR 0068](adr/0068-jsonb-assignments-delta-saves.md)) |
+| `Assignments` | Read-only view expanding `DocumentAssignments` to one row per unit; readers query this, writers never do |
+| `CommunityAssignments` | Plain table: geo_id → community_id mapping (LIST partitioning removed — was causing ACCESS EXCLUSIVE lock convoys) |
 | `DistrictUnions` | Per-zone cached geometry + demographic stats; `zone` and `geometry` nullable for the unassigned-totals row |
 | `GerryDBTable` | Reference to loaded geospatial data layers |
 
 ### Key API Patterns
 
-- **Bulk assignments**: `PUT /api/assignments` uses PostgreSQL COPY for performance with optimistic concurrency
+- **Saving assignments**: `PUT /api/assignments` takes the full plan or a delta since the last confirmed save, with optimistic concurrency; it returns a SHA-256 of the stored plan that the client checks instead of re-downloading
 - **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
 - **Contiguity**: Graph-based checking via `DualLevelGraph` (numpy/scipy `csgraph`, not NetworkX at runtime)
 - **Auth**: CMS-issued JWTs verified by scope against the CMS's JWKS ([ADR 0055](adr/0055-cms-identity-provider.md)); portal moderation scoped by the `teams` claim ([ADR 0057](adr/0057-roles-team-scoped-moderation.md)); Cloudflare Turnstile for public forms
@@ -135,7 +136,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 ### Database Design
 
 - Schema isolation: `public` for maps/references, `document` schema for document-specific tables, `comments` for submissions and district notes. The Wagtail CMS owns the `admin` schema through Django migrations.
-- `document.assignments` and `document.community_assignments` are **plain tables**; the schema has no partitioned tables.
+- `document.document_assignments` holds each plan as one jsonb row; `document.assignments` is a view over it. `document.community_assignments` is a plain table. The schema has no partitioned tables.
 - `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
 - `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
 - `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.

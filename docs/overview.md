@@ -93,7 +93,7 @@ Every document lives in three places: server (Postgres), this browser's IndexedD
 
 ## Backend shape
 
-A `Document` row (`backend/app/models.py`) carries plan metadata; assignments live in their own table `document.assignments` (`document_id`, `geo_id`, `zone`), one row per geography unit — tens of thousands per plan. Endpoints that touch both update the metadata `updated_at` deliberately, since the whole sync contract keys off that one timestamp. A document is reachable by its private `document_id` (UUID — possession grants edit rights; treat as a secret) or its `public_id` (small integer, read-only); the dependencies in `core/dependencies.py` enforce the boundary. Graph-backed metrics (contiguity, evaluation, exports) load a per-state adjacency graph — the system's expensive resource; see the `performance-memory` skill.
+A `Document` row (`backend/app/models.py`) carries plan metadata; assignments live in `document.document_assignments`, one jsonb `{geo_id: zone}` object per plan, read through the view `document.assignments` (`document_id`, `geo_id`, `zone`), one row per geography unit — tens of thousands per plan. Endpoints that touch both update the metadata `updated_at` deliberately, since the whole sync contract keys off that one timestamp. A document is reachable by its private `document_id` (UUID — possession grants edit rights; treat as a secret) or its `public_id` (small integer, read-only); the dependencies in `core/dependencies.py` enforce the boundary. Graph-backed metrics (contiguity, evaluation, exports) load a per-state adjacency graph — the system's expensive resource; see the `performance-memory` skill.
 
 ## Auth and sharing
 

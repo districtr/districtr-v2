@@ -6,7 +6,11 @@ import {afterEach, beforeEach, describe, expect, spyOn, test} from 'bun:test';
 import * as putUpdateDocumentModule from './putUpdateDocument';
 import * as getAssignmentsModule from './getAssignments';
 import * as getDocumentModule from './getDocument';
-import {putUpdateAssignmentsAndVerify} from './putUpdateAssignmentsAndVerify';
+import {
+  putUpdateAssignmentsAndVerify,
+  resetLastVerifiedAssignments,
+} from './putUpdateAssignmentsAndVerify';
+import {hashAssignments} from '../../map/hashAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {idb} from '@/app/utils/idb/idb';
@@ -44,12 +48,14 @@ describe('putUpdateAssignmentsAndVerify', () => {
   let spies: {mockRestore: () => void}[] = [];
   let updateIdbAssignments: ReturnType<typeof spyOn>;
   let putUpdateDocument: ReturnType<typeof spyOn>;
+  let getAssignments: ReturnType<typeof spyOn>;
   // Runs while the PUT is in flight, standing in for a stroke or undo landing mid-save.
   let duringPut = () => {};
 
   beforeEach(() => {
     duringPut = () => {};
     duringWrite = () => {};
+    resetLastVerifiedAssignments();
     records = new Map([['d1', localCopy('T2')]]);
     idb.documents = fakeDocuments;
     useMapStore.setState({mapDocument: doc, updated: {metadata: true, comments: false}});
@@ -73,16 +79,19 @@ describe('putUpdateAssignmentsAndVerify', () => {
       // Spied, not left to read the fake table: another test file may have left a spy.
       spyOn(idb, 'getDocument').mockImplementation(async id => records.get(id)),
       spyOn(idb, 'transaction').mockImplementation(((...args: any[]) => args.at(-1)()) as any),
-      spyOn(getAssignmentsModule, 'getAssignments').mockImplementation((async () => ({
-        ok: true,
-        response: [{geo_id: 'a', zone: 1}],
-      })) as any),
+      (getAssignments = spyOn(getAssignmentsModule, 'getAssignments').mockImplementation(
+        (async () => ({
+          ok: true,
+          response: [{geo_id: 'a', zone: 1}],
+        })) as any
+      )),
       spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
         ok: false,
       })) as any),
     ];
     // Another test file may already have spied on idb; start each count at zero.
     updateIdbAssignments.mockClear();
+    getAssignments.mockClear();
   });
   afterEach(() => {
     spies.forEach(spy => spy.mockRestore());
@@ -230,5 +239,78 @@ describe('putUpdateAssignmentsAndVerify', () => {
     // Advanced, so reopening the map sees an unsaved edit, not a conflict.
     expect(copy.document_metadata.updated_at).toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
+  });
+
+  /** The server's reply to a save: a new version, and the hash of `plan`. */
+  const serverSaves = (updatedAt: string, plan: Map<string, number | null>) =>
+    putUpdateDocument.mockImplementation((async () => ({
+      ok: true,
+      response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan)},
+    })) as any);
+
+  test('a save the server confirms by hash skips the download, and the next sends changes', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    expect((await save()).ok).toBe(true);
+    expect(getAssignments).not.toHaveBeenCalled();
+    expect(putUpdateDocument.mock.calls[0][0].assignments).toEqual([['a', 1]]);
+    expect(records.get('d1').assignments).toEqual([
+      {document_id: 'd1', geo_id: 'a', zone: 1, parent_path: null},
+    ]);
+
+    const next = new Map<string, number | null>([
+      ['b', 2],
+      ['c', null],
+    ]);
+    useAssignmentsStore.setState({zoneAssignments: next});
+    serverSaves('T4', next);
+    expect((await save(useMapStore.getState().mapDocument!)).ok).toBe(true);
+    const body = putUpdateDocument.mock.calls[1][0];
+    expect(body.assignments).toBeUndefined();
+    expect(body.assignments_delta).toEqual({
+      set: [
+        ['b', 2],
+        ['c', null],
+      ],
+      remove: ['a'],
+    });
+  });
+
+  test("a hash that doesn't match fails the save, and the next sends the whole plan", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    await save();
+    serverSaves('T4', new Map([['a', 9]]));
+    const result = await save(useMapStore.getState().mapDocument!);
+    expect(result.ok).toBe(false);
+    expect(putUpdateDocument.mock.calls[1][0].assignments_delta).toEqual({set: [], remove: []});
+    await save(useMapStore.getState().mapDocument!);
+    expect(putUpdateDocument.mock.calls[2][0].assignments).toEqual([['a', 1]]);
+  });
+
+  test('an overwrite always sends the whole plan', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    await save();
+    const {zoneAssignments, shatterIds, childToParent} = useAssignmentsStore.getState();
+    await putUpdateAssignmentsAndVerify({
+      mapDocument: useMapStore.getState().mapDocument!,
+      zoneAssignments,
+      shatterIds,
+      childToParent,
+      overwrite: true,
+    });
+    expect(putUpdateDocument.mock.calls[1][0].assignments).toEqual([['a', 1]]);
+  });
+});
+
+describe('hashAssignments', () => {
+  test('matches the backend (same vector as Postgres and the Python spec)', async () => {
+    const plan = new Map<string, number | null>([
+      ['b', null],
+      ['vtd:01', 3],
+      ['a1', 2],
+      ['a', 1],
+    ]);
+    expect(await hashAssignments(plan)).toBe(
+      '5940bf54ee31f2308c3798c6f8914405e299cd0bb429762b62214b89835c6362'
+    );
   });
 });

@@ -1,6 +1,7 @@
 import {NullableZone} from '@constants/map/zone';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
-import {AssignmentArray, DocumentObject} from './types';
+import {hashAssignments} from '../../map/hashAssignments';
+import {Assignment, AssignmentArray, DocumentObject} from './types';
 import {putUpdateDocument} from './putUpdateDocument';
 import {getDocument} from './getDocument';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
@@ -25,6 +26,31 @@ type PutUpdateAssignmentsAndVerifyResponse =
       ok: false;
       error: string;
     };
+/** The plan as of the last save the server confirmed by hash, and that save's
+ * updated_at. The next save of the same version sends only the changes. */
+let lastVerified: {
+  documentId: string;
+  updatedAt: string;
+  assignments: Map<string, NullableZone>;
+} | null = null;
+
+/** Test hook: forget the confirmed plan, so the next save sends all of it. */
+export const resetLastVerifiedAssignments = () => {
+  lastVerified = null;
+};
+
+const diffAssignments = (
+  base: Map<string, NullableZone>,
+  next: Map<string, NullableZone>
+): {set: AssignmentArray[]; remove: string[]} => {
+  const set: AssignmentArray[] = [];
+  for (const [geoId, zone] of next) {
+    if (base.get(geoId) !== zone) set.push([geoId, zone]);
+  }
+  const remove = Array.from(base.keys()).filter(geoId => !next.has(geoId));
+  return {set, remove};
+};
+
 export const putUpdateAssignmentsAndVerify = async ({
   mapDocument,
   zoneAssignments,
@@ -57,13 +83,25 @@ export const putUpdateAssignmentsAndVerify = async ({
   await idb.flushPendingUpdate();
   const idbClientLastUpdatedAtStart = (await idb.getDocument(mapDocument.document_id))
     ?.clientLastUpdated;
-  const formattedAssignments = formatAssignmentsFromState(
-    mapDocument.document_id,
-    zoneAssignments,
-    shatterIds,
-    childToParent,
-    'assignment_array'
-  );
+  // What this save sends: the store's map can change while it runs.
+  const sent = new Map(zoneAssignments);
+  const base =
+    !overwrite &&
+    lastVerified?.documentId === mapDocument.document_id &&
+    lastVerified.updatedAt === mapDocument.updated_at
+      ? lastVerified.assignments
+      : null;
+  const assignmentsPayload = base
+    ? {assignments_delta: diffAssignments(base, sent)}
+    : {
+        assignments: formatAssignmentsFromState(
+          mapDocument.document_id,
+          sent,
+          shatterIds,
+          childToParent,
+          'assignment_array'
+        ),
+      };
   // Build comments payload from document_comments
   const comments = (mapDocument.document_comments || []).map(c => {
     // Only send comment_id when it is a server-assigned integer. Unsaved notes
@@ -85,7 +123,7 @@ export const putUpdateAssignmentsAndVerify = async ({
 
   const numDistricts = mapDocument.num_districts ?? 0;
   const assignmentsPostResponse = await putUpdateDocument({
-    assignments: formattedAssignments,
+    ...assignmentsPayload,
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at!,
     overwrite,
@@ -112,25 +150,51 @@ export const putUpdateAssignmentsAndVerify = async ({
       error: assignmentsPostResponse.error.detail,
     };
   }
-  const freshServerAssignments = await getAssignments(mapDocument);
-  if (!freshServerAssignments.ok) {
-    return {
-      ok: false,
-      error: 'Failed to get fresh server assignments',
-    };
-  }
   // Verify assignments were saved correctly. The server already accepted the write
   // above, so throwing here would leave clientLastUpdated / mapDocument.updated_at
   // unadvanced and surface a spurious "unsaved changes" + conflict modal next save.
   // Return {ok: false} so the caller can surface the mismatch without rolling back.
-  const mismatch = freshServerAssignments.response.find(
-    assignment => assignment.zone !== zoneAssignments.get(assignment.geo_id)
-  );
-  if (mismatch) {
-    return {
-      ok: false,
-      error: `Conflict on save: server state differs (e.g., geo_id ${mismatch.geo_id}).`,
+  // Until a save is confirmed again, the next one sends the whole plan.
+  lastVerified = null;
+  const serverHash = assignmentsPostResponse.response.assignments_hash;
+  const localHash = serverHash ? await hashAssignments(sent) : null;
+  let savedAssignments: Assignment[];
+  if (serverHash && localHash) {
+    if (serverHash !== localHash) {
+      return {ok: false, error: 'Conflict on save: server state differs from this map.'};
+    }
+    lastVerified = {
+      documentId: mapDocument.document_id,
+      updatedAt: assignmentsPostResponse.response.updated_at,
+      assignments: sent,
     };
+    savedAssignments = formatAssignmentsFromState(
+      mapDocument.document_id,
+      sent,
+      shatterIds,
+      childToParent,
+      'assignment'
+    );
+  } else {
+    // No hash to compare (a server without them, or no WebCrypto): download the
+    // plan and compare it instead.
+    const freshServerAssignments = await getAssignments(mapDocument);
+    if (!freshServerAssignments.ok) {
+      return {
+        ok: false,
+        error: 'Failed to get fresh server assignments',
+      };
+    }
+    const mismatch = freshServerAssignments.response.find(
+      assignment => assignment.zone !== sent.get(assignment.geo_id)
+    );
+    if (mismatch) {
+      return {
+        ok: false,
+        error: `Conflict on save: server state differs (e.g., geo_id ${mismatch.geo_id}).`,
+      };
+    }
+    savedAssignments = freshServerAssignments.response;
   }
   // Refetch document to get server-assigned comment_ids for district comments
   const freshDoc = await getDocument(mapDocument.document_id);
@@ -201,7 +265,7 @@ export const putUpdateAssignmentsAndVerify = async ({
       {
         id: mapDocument.document_id,
         document_metadata: documentMetadata,
-        assignments: freshServerAssignments.response,
+        assignments: savedAssignments,
         clientLastUpdated: updated_at,
       },
       idbClientLastUpdatedAtStart

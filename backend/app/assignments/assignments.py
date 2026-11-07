@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
-from uuid import uuid4
+import json
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
 from app.core.db import get_session
-from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, Table
+from sqlalchemy import cast, literal, text
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
@@ -152,19 +152,14 @@ def duplicate_document_assignments(
         int | None: The number of assignments inserted into the receiving document, or
         None if the operation failed.
     """
-    prev_assignments = select(Assignments).where(
-        Assignments.document_id == from_document_id
+    session.connection().execute(
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "SELECT CAST(:to_id AS uuid), assignments "
+            "FROM document.document_assignments WHERE document_id = CAST(:from_id AS uuid)"
+        ),
+        {"to_id": str(to_document_id), "from_id": str(from_document_id)},
     )
-    prev_assignments = select(
-        Assignments.geo_id,
-        Assignments.zone,
-        cast(literal(to_document_id), PG_UUID).label("document_id"),
-    ).where(Assignments.document_id == from_document_id)
-
-    create_copy_stmt = insert(Assignments).from_select(
-        ["geo_id", "zone", "document_id"], prev_assignments
-    )
-    session.connection().execute(create_copy_stmt)
 
     inserted_assignments = session.exec(
         select(count()).where(Assignments.document_id == to_document_id)
@@ -354,25 +349,12 @@ def batch_insert_assignments(
     else:
         zone_by_geo = zone_by_geo_int
 
-    load_id, _ = str(uuid4()).split("-", maxsplit=1)
-    temp_table = f"temp_assignments_{load_id}"
-
     session.connection().execute(
-        text(f"CREATE TEMP TABLE {temp_table} (geo_id TEXT, zone INT) ON COMMIT DROP")
-    )
-    cursor = session.connection().connection.cursor()
-    with cursor.copy(f"COPY {temp_table} (geo_id, zone) FROM STDIN") as copy:
-        for geo_id, zone in zone_by_geo.items():
-            copy.write_row([geo_id, zone])
-
-    temp = Table(
-        temp_table, MetaData(), Column("geo_id", String), Column("zone", Integer)
-    )
-    session.connection().execute(
-        insert(Assignments).from_select(
-            ["geo_id", "zone", "document_id"],
-            select(temp.c.geo_id, temp.c.zone, cast(literal(document_id), PG_UUID)),
-        )
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "VALUES (CAST(:document_id AS uuid), CAST(:assignments AS jsonb))"
+        ),
+        {"document_id": str(document_id), "assignments": json.dumps(zone_by_geo)},
     )
     inserted = len(zone_by_geo)
     logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
@@ -383,3 +365,131 @@ def batch_insert_assignments(
         zone_label_remapping=zone_label_remapping,
         max_assigned_zone=max(valid_zone_ids, default=None),
     )
+
+
+def parse_assignment_pairs(pairs: list[list]) -> dict[str, int | None]:
+    """[[geo_id, zone], ...] from a request -> {geo_id: zone}. A missing or null
+    zone is unassigned. Raises ValueError on a bad pair, DuplicateGeoIdError on a
+    repeated geo_id."""
+    out: dict[str, int | None] = {}
+    for pair in pairs:
+        geo_id = pair[0] if pair else None
+        zone = pair[1] if len(pair) > 1 else None
+        if not isinstance(geo_id, str) or not geo_id:
+            raise ValueError(f"Invalid geo_id {geo_id!r}")
+        if geo_id in out:
+            raise DuplicateGeoIdError(geo_id)
+        out[geo_id] = None if zone is None else int(zone)
+    return out
+
+
+_MISSING = object()
+
+
+def _dirty_zones(changed, old: dict, new: dict) -> set[int]:
+    """Zones whose membership changes when `changed` geo_ids go from old to new."""
+    zones = {old.get(g, _MISSING) for g in changed} | {
+        new.get(g, _MISSING) for g in changed
+    }
+    return {z for z in zones if isinstance(z, int)}
+
+
+def write_district_assignments(
+    session: Session,
+    document_id: str,
+    full: dict[str, int | None] | None = None,
+    patch: dict[str, int | None] | None = None,
+    remove: list[str] | None = None,
+) -> tuple[int, set[int]]:
+    """Replace a document's plan with `full`, or apply a delta (`patch` upserts,
+    `remove` drops geo_ids). Writes only when something changed.
+
+    Returns (number of geo_ids whose assignment changed, dirty zones) — the
+    zones whose district_unions rows are now stale.
+    """
+    doc = str(document_id)
+    if full is not None:
+        old = (
+            session.connection()
+            .execute(
+                text(
+                    "SELECT assignments FROM document.document_assignments "
+                    "WHERE document_id = CAST(:doc AS uuid)"
+                ),
+                {"doc": doc},
+            )
+            .scalar()
+        ) or {}
+        changed = {
+            g
+            for g in old.keys() | full.keys()
+            if old.get(g, _MISSING) != full.get(g, _MISSING)
+        }
+        if changed:
+            session.connection().execute(
+                text(
+                    "INSERT INTO document.document_assignments (document_id, assignments) "
+                    "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
+                    "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
+                ),
+                {"doc": doc, "blob": json.dumps(full)},
+            )
+        return len(changed), _dirty_zones(changed, old, full)
+
+    patch, remove = patch or {}, remove or []
+    # Current values of just the touched geo_ids. The `|| '{}'` hands back the
+    # detoasted object once, so the per-key lookups don't decompress the blob
+    # per key; with one document row the join is linear in the delta whatever
+    # plan Postgres picks.
+    old = dict(
+        session.connection()
+        .execute(
+            text(
+                "WITH cur AS MATERIALIZED ("
+                " SELECT assignments || '{}'::jsonb AS a"
+                " FROM document.document_assignments WHERE document_id = CAST(:doc AS uuid))"
+                " SELECT k, ((cur.a -> k) #>> '{}')::integer"
+                " FROM cur, unnest(CAST(:keys AS text[])) AS k WHERE cur.a ? k"
+            ),
+            {"doc": doc, "keys": [*patch, *remove]},
+        )
+        .all()
+    )
+    changed_patch = {g: z for g, z in patch.items() if old.get(g, _MISSING) != z}
+    removed = [g for g in remove if g in old and g not in patch]
+    if changed_patch or removed:
+        session.connection().execute(
+            text(
+                "INSERT INTO document.document_assignments AS t (document_id, assignments) "
+                "VALUES (CAST(:doc AS uuid), CAST(:patch AS jsonb)) "
+                "ON CONFLICT (document_id) DO UPDATE SET assignments = "
+                "(t.assignments - CAST(:remove AS text[])) || EXCLUDED.assignments"
+            ),
+            {"doc": doc, "patch": json.dumps(changed_patch), "remove": removed},
+        )
+    changed = [*changed_patch, *removed]
+    return len(changed), _dirty_zones(changed, old, changed_patch)
+
+
+# ponytail: rehashes the whole plan on every save (~50 ms at 52k units); keep an
+# order-independent hash updated per delta if save latency on big plans matters.
+def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:
+    """Number of stored geo_ids and the plan's SHA-256, for the client to check
+    its save against. Must match hashAssignments in the frontend: entries sorted
+    by geo_id (byte order), each "geo_id:zone" with an empty zone when
+    unassigned, joined by newlines, UTF-8."""
+    row = (
+        session.connection()
+        .execute(
+            text(
+                r"""SELECT count(e.key), encode(sha256(convert_to(coalesce(string_agg(
+                    e.key || ':' || coalesce(e.value #>> '{}', ''), E'\n'
+                    ORDER BY e.key COLLATE "C"), ''), 'UTF8')), 'hex')
+                FROM document.document_assignments a, jsonb_each(a.assignments) e
+                WHERE a.document_id = CAST(:doc AS uuid)"""
+            ),
+            {"doc": str(document_id)},
+        )
+        .one()
+    )
+    return row[0], row[1]

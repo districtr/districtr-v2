@@ -20,7 +20,10 @@ export interface DocumentCommentCreate {
 }
 
 export interface AssignmentsCreate {
-  assignments: AssignmentArray[];
+  /** The whole plan. Send this or `assignments_delta`, not both. */
+  assignments?: AssignmentArray[];
+  /** Changes since the save that produced `last_updated_at` (district maps). */
+  assignments_delta?: {set: AssignmentArray[]; remove: string[]};
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
@@ -38,6 +41,8 @@ export interface AssignmentsCreate {
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
   updated_at: string;
+  /** SHA-256 of the stored plan (district maps); see hashAssignments. */
+  assignments_hash?: string;
 }
 
 export interface AssignmentsReset {

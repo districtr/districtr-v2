@@ -1,3 +1,4 @@
+import hashlib
 import pytest
 from sqlmodel import Session, select
 from app.core.db import get_session
@@ -405,6 +406,87 @@ def test_put_assignments(client, document_id):
     assert updated_at is not None
 
 
+def _plan_hash(plan: dict) -> str:
+    """The save-check hash, per its spec (assignments_count_and_hash)."""
+    lines = [f"{g}:{'' if z is None else z}" for g, z in sorted(plan.items())]
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def test_put_assignments_delta(client, document_id):
+    plan = {"202090441022004": 1, "202090428002008": 1, "200979691001108": 2}
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [[g, z] for g, z in plan.items()],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["assignments_hash"] == _plan_hash(plan)
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments_delta": {
+                "set": [["202090441022004", 2], ["200979691001109", None]],
+                "remove": ["200979691001108"],
+            },
+            "last_updated_at": response.json()["updated_at"],
+        },
+    )
+    assert response.status_code == 200
+    expected = {"202090441022004": 2, "202090428002008": 1, "200979691001109": None}
+    assert response.json()["assignments_inserted"] == 3
+    assert response.json()["assignments_hash"] == _plan_hash(expected)
+    rows = client.get(f"/api/get_assignments/{uuid.UUID(document_id)}").json()
+    assert {r["geo_id"]: r["zone"] for r in rows} == expected
+
+
+def test_put_assignments_delta_conflict(client, document_id):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments_delta": {"set": [["202090441022004", 2]]},
+            "last_updated_at": "1970-01-01T00:00:00.000000Z",
+        },
+    )
+    assert response.status_code == 409
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"assignments": [], "assignments_delta": {"set": []}},  # both
+        {"metadata": {"color_scheme": ["#000000"]}},  # neither
+        {"assignments_delta": {"set": []}, "overwrite": True},
+        {"assignments": [["202090441022004", 1], ["202090441022004", 2]]},
+        {"assignments": [["202090441022004", "north"]]},
+    ],
+)
+def test_put_assignments_rejects_bad_bodies(client, document_id, body):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            **body,
+        },
+    )
+    assert response.status_code == 400
+
+
 def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
     response = client.put(
@@ -497,11 +579,11 @@ def test_put_assignments_twice(client, document_id):
     assert response.status_code == 200
     data = response.json()
     assert data is not None
-    assert len(data) == 2
-    assert data[0]["zone"] == 1
-    assert data[0]["geo_id"] == "202090441022004"
-    assert data[1]["zone"] == 1
-    assert data[1]["geo_id"] == "200979691001108"
+    # get_assignments has no ORDER BY, so compare as a mapping.
+    assert {r["geo_id"]: r["zone"] for r in data} == {
+        "202090441022004": 1,
+        "200979691001108": 1,
+    }
 
 
 def test_patch_reset_assignments(client, document_id):
@@ -1685,6 +1767,44 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
         if f["properties"]["zone"] is not None
     }
     assert set(after.keys()) == {2, 3}
+    assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
+
+
+def test_district_unions_dirty_zone_eviction_delta(client, document_id_total_vap):
+    """A delta evicts the cached rows of only the zones it changes."""
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [["202090441022004", 1], ["200979691001108", 2]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    updated_at = response.json()["updated_at"]
+
+    def cached():
+        response = client.get(f"/api/document/{document_id_total_vap}/stats")
+        assert response.status_code == 200
+        return {
+            f["properties"]["zone"]: f["properties"]["updated_at"]
+            for f in response.json()["features"]
+            if f["properties"]["zone"] is not None
+        }
+
+    initial = cached()
+    assert set(initial) == {1, 2}
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments_delta": {"set": [["202090441022004", 3]]},
+            "last_updated_at": updated_at,
+        },
+    )
+    assert response.status_code == 200
+    after = cached()
+    assert set(after) == {2, 3}
     assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 

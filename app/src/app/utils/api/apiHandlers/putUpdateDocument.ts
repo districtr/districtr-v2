@@ -4,6 +4,7 @@ import {MAP_TYPES} from '@constants/document/types';
 
 export const putUpdateDocument = async ({
   assignments,
+  assignments_delta,
   document_id,
   last_updated_at,
   overwrite = false,
@@ -12,7 +13,9 @@ export const putUpdateDocument = async ({
   comments,
 }: AssignmentsCreate) => {
   return await putMsgpack<AssignmentsCreate, AssignmentsCreateResponse>('assignments', {
-    assignments,
+    // Only the key in use: a server without delta support then rejects a delta
+    // rather than reading a missing plan as an empty one.
+    ...(assignments_delta ? {assignments_delta} : {assignments}),
     document_id,
     last_updated_at,
     overwrite,

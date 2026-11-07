@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.core.db import engine
-from app.models import Assignments, Document
+from app.models import Document, DocumentAssignments
 from app.utils import publish_district_stats_to_s3
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,10 @@ def stale_idle_plans(
         # that were cleared.
         or_(
             Document.stats_published_at.is_not(None),
-            exists().where(Assignments.document_id == Document.document_id),
+            exists().where(
+                DocumentAssignments.document_id == Document.document_id,
+                DocumentAssignments.assignments != {},
+            ),
         ),
     )
     if document_id is not None:
