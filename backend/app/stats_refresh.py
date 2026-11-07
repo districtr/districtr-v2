@@ -68,6 +68,8 @@ def stale_idle_plans(
     )
     if document_id is not None:
         query = query.where(Document.document_id == document_id)
+    else:
+        query = query.where(Document.assignments_updated_at > now - LOOKBACK)
     return list(session.exec(query.order_by(Document.assignments_updated_at)).all())
 
 
