@@ -80,6 +80,7 @@ from app.submissions.models import (
     SubmissionStatus,
 )
 import app.thumbnails.main as thumbnails
+from app.stats_refresh import start_nightly_stats_refresh
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -146,6 +147,9 @@ async def lifespan(app: FastAPI):
     # (60 per worker process, app/core/db.py). Needs a running event loop,
     # hence lifespan.
     anyio.to_thread.current_default_thread_limiter().total_tokens = 80
+    # Publishes stale district stats overnight for plans nobody is editing
+    # (app/stats_refresh.py); a no-op without S3.
+    start_nightly_stats_refresh()
     yield
 
 
@@ -362,7 +366,6 @@ def get_document_evaluation(
 )
 def create_document(
     data: DocumentCreate,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
@@ -700,13 +703,6 @@ def create_document(
 
     session.commit()
 
-    if doc.public_id and (total_assignments > 0 or copied_document is not None):
-        background_tasks.add_task(
-            publish_district_stats_to_s3,
-            document_id=document_id,
-            public_id=doc.public_id,
-        )
-
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
@@ -716,7 +712,6 @@ def create_document(
 
 def _sync_update_assignments(
     data: AssignmentsCreate,
-    background_tasks: BackgroundTasks,
     session: Session,
 ) -> dict:
     """Sync core of update_assignments, run in the threadpool by its async wrapper."""
@@ -1089,16 +1084,7 @@ def _sync_update_assignments(
             ),
             {"document_id": document_id},
         )
-    public_id = session.exec(
-        select(Document.public_id).where(Document.document_id == document_id)
-    ).one_or_none()
     session.commit()
-    if mutated and not is_community_map and public_id is not None:
-        background_tasks.add_task(
-            publish_district_stats_to_s3,
-            document_id=document_id,
-            public_id=public_id,
-        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1110,7 +1096,6 @@ def _sync_update_assignments(
 @app.put("/api/assignments", dependencies=[Depends(require_session)])
 async def update_assignments(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     """
@@ -1190,9 +1175,7 @@ async def update_assignments(
             detail="No changes provided",
         )
 
-    return await run_in_threadpool(
-        _sync_update_assignments, data, background_tasks, session
-    )
+    return await run_in_threadpool(_sync_update_assignments, data, session)
 
 
 @app.get(

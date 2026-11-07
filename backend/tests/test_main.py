@@ -2183,6 +2183,35 @@ def test_copy_document_duplicates_assignments(
     assert orig_map == copied_map
 
 
+def test_saves_and_copies_do_not_publish_stats(
+    client, document_id_all_stats, monkeypatch
+):
+    """Stats publish overnight or on a public read (ADR 0067), not on save or copy."""
+    published = []
+    monkeypatch.setattr(
+        "app.main.publish_district_stats_to_s3",
+        lambda *args, **kwargs: published.append(kwargs),
+    )
+    r = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_all_stats,
+            "assignments": [["202090441022004", 1], ["200979691001108", 2]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert r.status_code == 200
+    r = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "copy_from_doc": document_id_all_stats,
+        },
+    )
+    assert r.status_code == 201
+    assert published == []
+
+
 def test_create_document_with_metadata_no_copy(
     client, ks_demo_view_census_blocks_districtrmap
 ):
