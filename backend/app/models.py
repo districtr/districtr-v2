@@ -288,8 +288,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
         )
     )
     # Bumped only on assignment writes that actually change geo_id → zone
-    # mapping. Drives per-zone district_unions cache invalidation and the
-    # CDN-vs-inline branch in /stats.
+    # mapping. Drives per-zone district_unions cache invalidation, the
+    # CDN-vs-inline branch in /stats, and (with stats_published_at) which
+    # plans the nightly refresh rebuilds (app/stats_refresh.py).
     assignments_updated_at: datetime = Field(
         sa_column=Column(
             TIMESTAMP(timezone=True),
@@ -297,9 +298,10 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=text("NOW()"),
         )
     )
-    # Last successful upload of plans/display/{public_id}.geojson to S3.
-    # Compared against assignments_updated_at to decide if the CDN object is
-    # fresh enough to redirect to.
+    # Last successful upload of plans/display/{public_id}.geojson to S3,
+    # stamped with the assignments_updated_at it was built from. Compared
+    # against assignments_updated_at to decide if the CDN object is fresh
+    # enough to redirect to; older means the nightly refresh's work list.
     stats_published_at: datetime | None = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )

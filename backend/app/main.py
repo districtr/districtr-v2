@@ -147,9 +147,9 @@ async def lifespan(app: FastAPI):
     # (60 per worker process, app/core/db.py). Needs a running event loop,
     # hence lifespan.
     anyio.to_thread.current_default_thread_limiter().total_tokens = 80
-    # Saves no longer publish stats; a nightly pass rebuilds idle plans.
-    if settings.get_s3_client() is not None and settings.AWS_S3_BUCKET:
-        start_nightly_stats_refresh()
+    # Publishes stale district stats overnight for plans nobody is editing
+    # (app/stats_refresh.py); a no-op without S3.
+    start_nightly_stats_refresh()
     yield
 
 
