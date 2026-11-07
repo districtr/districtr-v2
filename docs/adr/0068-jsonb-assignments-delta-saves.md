@@ -8,7 +8,7 @@ Accepted. Amends [0025](0025-save-sync-model.md) and [0046](0046-assignments-dep
 
 ## Context
 
-Every save rewrote the whole plan. `PUT /api/assignments` copied every row into a temp table, deleted all of the document's rows, re-inserted them, and diffed a snapshot to find the changed districts. The browser then downloaded the whole plan again to check the save. For a 52k-unit plan that meant 374 ms in the database, 12 MB of WAL, 3.6 MB of dead rows, and a 1.7 MB / 350 ms download, whether one unit or a thousand changed. The rows themselves cost about 148 bytes each, mostly in the `(document_id, geo_id)` index. Benchmarks: `prototypes/jsonb-assignments/README.md`.
+Every save rewrote the whole plan. `PUT /api/assignments` copied every row into a temp table, deleted all of the document's rows, re-inserted them, and diffed a snapshot to find the changed districts. The browser then downloaded the whole plan again to check the save. For a 52k-unit plan that meant 374 ms in the database, 12 MB of WAL, 3.6 MB of dead rows, and a 1.7 MB / 350 ms download, whether one unit or a thousand changed. The rows themselves cost about 148 bytes each, mostly in the `(document_id, geo_id)` index. Measured on local Docker Postgres 15 against a copy of 645 real plans.
 
 ## Decision
 

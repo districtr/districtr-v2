@@ -5,7 +5,7 @@ Moves district assignments from one `document.assignments` row per unit to one
 (about 30x smaller on disk). `document.assignments` becomes a read-only view
 that expands the jsonb, so every reader (district_unions rebuild, contiguity,
 thumbnails, exports, evaluation, get_assignments) is unchanged; only writers
-target the new table. Benchmarks: prototypes/jsonb-assignments/README.md.
+target the new table. Rationale and benchmarks: docs/adr/0068.
 
 community_assignments is untouched (a geo_id can belong to several
 communities, so it doesn't fit a {geo_id: zone} object).

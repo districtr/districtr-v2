@@ -1,3 +1,0 @@
-{"plan": "CO 8k", "rows": 8286, "blocks": 140345, "runs": 725, "ben_bytes": 1655, "xben_bytes": 868, "numpy_rle_zlib_bytes": 1050, "ben_encode_ms": 1.09, "ben_decode_ms": 0.62, "xben_encode_ms": 12.8, "xben_decode_ms": 8.1}
-{"plan": "TX 23k", "rows": 22686, "blocks": 668757, "runs": 3796, "ben_bytes": 9513, "xben_bytes": 4004, "numpy_rle_zlib_bytes": 5557, "ben_encode_ms": 5.01, "ben_decode_ms": 2.94, "xben_encode_ms": 11.0, "xben_decode_ms": 8.1}
-{"plan": "KS 52k", "rows": 52432, "blocks": 172529, "runs": 5194, "ben_bytes": 10411, "xben_bytes": 2872, "numpy_rle_zlib_bytes": 3977, "ben_encode_ms": 1.36, "ben_decode_ms": 0.76, "xben_encode_ms": 13.8, "xben_decode_ms": 8.0}
