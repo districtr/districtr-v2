@@ -54,7 +54,6 @@ def stale_idle_plans(
         Document.public_id.is_not(None),
         func.greatest(Document.updated_at, Document.assignments_updated_at)
         < now - IDLE,
-        Document.assignments_updated_at > now - LOOKBACK,
         or_(
             Document.stats_published_at.is_(None),
             Document.stats_published_at < Document.assignments_updated_at,
