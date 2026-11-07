@@ -20,6 +20,7 @@ from app.utils import (
     create_spatial_index as _create_spatial_index,
 )
 from app.core.io import get_local_or_s3_path
+from app.stats_refresh import refresh_stale_plans
 from app.evaluation.graph_loader import S3_GRAPH_PREFIX
 from app.constants import GERRY_DB_SCHEMA
 from functools import wraps
@@ -1166,6 +1167,23 @@ def check_missing_graphs(session: Session, skip_alert: bool):
         ),
     )
     logger.info("Alert published to SNS topic %s", topic_arn)
+
+
+@cli.command("refresh-stale-stats")
+@click.option(
+    "--spread-seconds",
+    default=0.0,
+    show_default=True,
+    help="Space the rebuilds over this many seconds (the nightly pass uses 3 h).",
+)
+def refresh_stale_stats(spread_seconds: float):
+    """Publish stale district stats for idle plans now, as the nightly pass does (ADR 0067).
+
+    Safe next to the in-process nightly threads: one advisory lock lets only
+    one run at a time, and this exits with 0 published if another holds it.
+    """
+    published = refresh_stale_plans(spread_seconds=spread_seconds)
+    logger.info("Published district stats for %s plan(s)", published)
 
 
 @cli.command("stress-test-seed")

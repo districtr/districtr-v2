@@ -78,7 +78,7 @@ What follows, including what a later change would have to undo.
 | [0044](0044-graph-integrity-check.md) | Daily S3 graph comprehensiveness check with SNS alerting | 2026-07-06 | Accepted |
 | [0045](0045-concurrency-ceilings.md) | Concurrency ceilings sized from stress-test evidence | 2026-07-15 | Accepted. Amended by 0052 |
 | [0046](0046-assignments-departitioned.md) | Assignments tables departitioned | 2026-07-16 | Accepted |
-| [0047](0047-stats-cdn-offload.md) | /stats offloaded to S3/CDN with staleness timestamps | 2026-07-17 | Accepted. Amends 0024 |
+| [0047](0047-stats-cdn-offload.md) | /stats offloaded to S3/CDN with staleness timestamps | 2026-07-17 | Accepted. Amends 0024. Amended by 0067 |
 | [0048](0048-undo-redo-per-gesture.md) | Undo/redo per gesture, not time-throttled | 2026-07-21 | Accepted |
 | [0049](0049-waf-session-tokens.md) | Edge protection: WAF plus stateless session tokens | 2026-07-22 | Accepted. Amended by 0055 |
 | [0050](0050-turnstile-captcha.md) | Turnstile for public writes, two widgets with per-widget secrets | 2026-07-30 | Accepted |
@@ -97,3 +97,4 @@ What follows, including what a later change would have to undo.
 | [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
+| [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047 |

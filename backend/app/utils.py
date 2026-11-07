@@ -625,6 +625,7 @@ def update_or_select_district_stats(
     geometry as native JSON (`ST_AsGeoJSON(...)::json`) so callers don't have
     to re-parse a stringified payload.
     """
+    public_id = None  # names the plan in logs; the document UUID never goes in one
     try:
         # Identify the zones that need rebuilding by comparing current
         # assignments against whatever rows are already cached.
@@ -683,6 +684,7 @@ def update_or_select_district_stats(
             )
             .where(Document.document_id == document_id)
         ).one()
+        public_id = doc_row.public_id
         gerrydb_table = doc_row.gerrydb_table_name
         parent_layer = doc_row.parent_layer
 
@@ -800,9 +802,9 @@ def update_or_select_district_stats(
             except Exception:
                 sp.rollback()
                 logger.info(
-                    "ST_CoverageUnion failed for document %s zones %s; "
+                    "ST_CoverageUnion failed for plan %s zones %s; "
                     "falling back to ST_UnaryUnion",
-                    document_id,
+                    public_id,
                     list(missing_zones),
                 )
                 result = session.execute(
@@ -939,8 +941,11 @@ def update_or_select_district_stats(
         return returned_rows
 
     except Exception as e:
+        # Type only: SQLAlchemy messages carry the bound document UUID.
         logger.error(
-            f"Failed to update district unions for document {document_id}: {e}"
+            "Failed to update district unions for plan %s: %s",
+            public_id,
+            type(e).__name__,
         )
         raise
 
@@ -978,16 +983,19 @@ def _stats_object_key(public_id: int | str) -> str:
 def publish_district_stats_to_s3(
     document_id: str,
     public_id: int | str,
-) -> None:
-    """Background task: rebuild stats + upload to S3 + stamp stats_published_at.
+) -> bool:
+    """Rebuild stats + upload to S3 + stamp stats_published_at. Returns
+    whether it published (False: no S3, plan gone, or already fresh).
 
-    Owns its own session because FastAPI background tasks must not share the
-    request-scoped session (closed at teardown — would leak the checkout).
+    Runs as a request background task (/stats, submissions) and from the
+    nightly refresh (app/stats_refresh.py). Owns its own session because
+    background tasks must not share the request-scoped session (closed at
+    teardown — would leak the checkout).
     """
     s3 = settings.get_s3_client()
     bucket = settings.AWS_S3_BUCKET
     if s3 is None or bucket is None:
-        return
+        return False
 
     with Session(engine) as owned_session:
         # Read freshness snapshot before any work. In test environments the
@@ -1001,7 +1009,7 @@ def publish_district_stats_to_s3(
             {"document_id": document_id},
         ).first()
         if not doc_snap:
-            return
+            return False
         # Thundering-herd guard — skip if another task already published
         # a fresh object for this document.
         if (
@@ -1009,7 +1017,7 @@ def publish_district_stats_to_s3(
             and doc_snap.assignments_updated_at is not None
             and doc_snap.stats_published_at >= doc_snap.assignments_updated_at
         ):
-            return
+            return False
         # Snapshot the assignments timestamp before rebuilding so the stamp
         # reflects what we built from, not when we finished. If a save commits
         # mid-publish its newer assignments_updated_at will still exceed our
@@ -1019,6 +1027,19 @@ def publish_district_stats_to_s3(
         rows = update_or_select_district_stats(
             owned_session, document_id, BackgroundTasks()
         )
+        # Check again after the rebuild, which may have waited on the
+        # per-plan lock behind another publish of this plan (viewers who
+        # arrive together each queue one). If that one has stamped this
+        # snapshot by now, skip the duplicate thumbnail and upload.
+        published_at = owned_session.execute(
+            text(
+                "SELECT stats_published_at FROM document.document "
+                "WHERE document_id = :document_id"
+            ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+            {"document_id": document_id},
+        ).scalar_one_or_none()
+        if published_at is not None and published_at >= snap_ts:
+            return False
         # Call thumbnail directly — passing BackgroundTasks() would swallow the enqueue.
         if any(r.zone is not None and r.geometry is not None for r in rows):
             generate_thumbnail(document_id=document_id, out_directory=THUMBNAIL_BUCKET)
@@ -1047,6 +1068,7 @@ def publish_district_stats_to_s3(
             {"document_id": document_id, "ts": snap_ts},
         )
         owned_session.commit()
+        return True
 
 
 def stats_cdn_url(public_id: int | str, cache_buster: str | None = None) -> str | None:
