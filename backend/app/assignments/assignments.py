@@ -471,8 +471,6 @@ def write_district_assignments(
     return len(changed), _dirty_zones(changed, old, changed_patch)
 
 
-# ponytail: rehashes the whole plan on every save (~50 ms at 52k units); keep an
-# order-independent hash updated per delta if save latency on big plans matters.
 def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:
     """Number of stored geo_ids and the plan's SHA-256, for the client to check
     its save against. Must match hashAssignments in the frontend: entries sorted

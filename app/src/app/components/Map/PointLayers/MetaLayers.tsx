@@ -342,8 +342,6 @@ const ZoneNumbersLayer = () => {
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
-          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
-          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
           'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
           'text-overlap': 'never',
         }}
