@@ -49,7 +49,6 @@ def stale_idle_plans(
     """(document_id, public_id) of plans whose published stats are stale;
     pass document_id to re-check just that plan."""
     now = func.now()
-    # ponytail: seq scan of document once a night; index assignments_updated_at if it gets slow.
     query = select(Document.document_id, Document.public_id).where(
         Document.map_type != "community",
         Document.public_id.is_not(None),
