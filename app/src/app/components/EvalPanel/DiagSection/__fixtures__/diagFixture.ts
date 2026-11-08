@@ -15,8 +15,8 @@ export const fixturePreset: DiagPresetIndex = {
     {key: 'county_splits', label: 'County splits', election: null},
     {key: 'county_pieces', label: 'County pieces', election: null},
     {key: 'polsby_popper_mean', label: 'Polsby-Popper mean', election: null},
-    {key: 'seats_dem_PRES16', label: 'Dem seats PRES16', election: 'PRES16'},
-    {key: 'seats_dem_PRES20', label: 'Dem seats PRES20', election: 'PRES20'},
+    {key: 'seats__pres_16', label: 'Dem seats PRES16', election: 'pres_16'},
+    {key: 'seats__pres_20', label: 'Dem seats PRES20', election: 'pres_20'},
     {key: 'cut_edges', label: 'Cut edges', election: null},
   ],
   buckets: {

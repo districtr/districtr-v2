@@ -84,7 +84,7 @@ describe('headline metrics', () => {
       'County splits': 'county_splits',
       'County pieces': 'county_pieces',
       'Polsby-Popper mean': 'polsby_popper_mean',
-      'Dem seats (latest presidential)': 'seats_dem_PRES20',
+      'Dem seats (latest presidential)': 'seats__pres_20',
       'Cut edges': 'cut_edges',
     });
   });
