@@ -4,10 +4,7 @@ import {Flex, Select, Spinner, Text} from '@radix-ui/themes';
 import {ParentSize} from '@visx/responsive';
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@utils/elections';
-import {
-  ensembleExtremeThumbUrl,
-  useEnsembleJoint,
-} from './ensembleData';
+import {ensembleExtremeThumbUrl, useEnsembleJoint} from './ensembleData';
 import {metricForRef, type EnsembleMetricDef} from './ensembleMetrics';
 import {sliceComparison, sliceGoal, sliceSentence} from './ensembleJoint';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';

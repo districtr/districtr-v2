@@ -21,7 +21,8 @@ import {
 } from './diagRegistry';
 import type {DiagPresetIndex, DiagRange, DiagRegistryEntry} from './diagTypes';
 
-const btn = 'border border-gray-400 rounded px-2 py-0.5 text-xs hover:bg-gray-100 disabled:opacity-50';
+const btn =
+  'border border-gray-400 rounded px-2 py-0.5 text-xs hover:bg-gray-100 disabled:opacity-50';
 
 const fmt = (v: number | null | undefined) =>
   v === undefined ? '…' : v === null ? '–' : Number.isInteger(v) ? String(v) : v.toFixed(4);
@@ -98,7 +99,8 @@ export const DiagSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const bucketMetrics = Object.keys(preset?.buckets ?? {});
-  const activeMetric = metricKey && bucketMetrics.includes(metricKey) ? metricKey : bucketMetrics[0];
+  const activeMetric =
+    metricKey && bucketMetrics.includes(metricKey) ? metricKey : bucketMetrics[0];
   const buckets = (activeMetric && preset?.buckets[activeMetric]) || [];
   const bucket = buckets[Math.min(bucketIdx, buckets.length - 1)];
   const rows: {step: number; tag: string}[] = bucket
@@ -146,8 +148,12 @@ export const DiagSection: React.FC = () => {
   };
 
   const stepNum = Number(stepText);
-  const stepValid = stepText.trim() !== '' && Number.isInteger(stepNum) && !!preset &&
-    stepNum >= 0 && stepNum < preset.n_plans;
+  const stepValid =
+    stepText.trim() !== '' &&
+    Number.isInteger(stepNum) &&
+    !!preset &&
+    stepNum >= 0 &&
+    stepNum < preset.n_plans;
 
   return (
     <div className="mx-5 mb-4 border border-dashed border-gray-400 p-3 text-xs flex flex-col gap-3">
@@ -279,9 +285,7 @@ export const DiagSection: React.FC = () => {
             </button>
           </div>
 
-          {shown !== null && (
-            <StepMetrics preset={preset} step={shown} range={rangeFor(shown)} />
-          )}
+          {shown !== null && <StepMetrics preset={preset} step={shown} range={rangeFor(shown)} />}
         </>
       )}
 

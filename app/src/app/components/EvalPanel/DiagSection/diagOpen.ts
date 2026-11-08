@@ -46,7 +46,11 @@ export const openDiagPlan = async ({
     note: '',
     when: new Date().toISOString(),
   };
-  saveLocalRegistry(localStorage, module, upsertEntry(loadLocalRegistry(localStorage, module), entry));
+  saveLocalRegistry(
+    localStorage,
+    module,
+    upsertEntry(loadLocalRegistry(localStorage, module), entry)
+  );
   return entry;
 };
 

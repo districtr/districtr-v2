@@ -237,16 +237,7 @@ export const JointDensity: React.FC<JointDensityProps> = ({
       })
     );
     return {xScale, yScale, cells};
-  }, [
-    grid,
-    plan?.x,
-    plan?.y,
-    selected?.x,
-    selected?.y,
-    extremes,
-    innerWidth,
-    innerHeight,
-  ]);
+  }, [grid, plan?.x, plan?.y, selected?.x, selected?.y, extremes, innerWidth, innerHeight]);
 
   // The cells are the bulk of the drawing; hover leaves them untouched.
   const cellLayer = useMemo(

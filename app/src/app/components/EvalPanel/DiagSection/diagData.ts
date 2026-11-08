@@ -1,11 +1,6 @@
 import {CDN_URL} from '@utils/api/constants';
 import {sanitizeEntries} from './diagRegistry';
-import type {
-  DiagModuleIndex,
-  DiagPresetIndex,
-  DiagRange,
-  DiagRegistryEntry,
-} from './diagTypes';
+import type {DiagModuleIndex, DiagPresetIndex, DiagRange, DiagRegistryEntry} from './diagTypes';
 
 const diagUrl = (folder: string, path: string) => `${CDN_URL}/ensembles-diag/${folder}/${path}`;
 

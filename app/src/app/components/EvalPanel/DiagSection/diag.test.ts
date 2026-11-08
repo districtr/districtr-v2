@@ -12,12 +12,7 @@ import {
   rangeIndexOf,
   toZones,
 } from './diagCodec';
-import {
-  mergeRegistries,
-  parseRegistry,
-  registryExport,
-  upsertEntry,
-} from './diagRegistry';
+import {mergeRegistries, parseRegistry, registryExport, upsertEntry} from './diagRegistry';
 import {
   fixtureNodes,
   fixturePreset,

@@ -82,14 +82,18 @@ export const headlineMetrics = (metrics: DiagMetricInfo[]): HeadlineMetric[] => 
     'Subdivision splits',
     m => /(subdiv|municip|place|town|city).*split/.test(text(m)) && !/county/.test(text(m))
   );
-  first('Polsby-Popper mean', m => /polsby|\bpp\b/.test(text(m)) && /mean|avg|average/.test(text(m)));
+  first(
+    'Polsby-Popper mean',
+    m => /polsby|\bpp\b/.test(text(m)) && /mean|avg|average/.test(text(m))
+  );
   const seats = metrics
     .filter(
-      m => /seats/.test(m.key.toLowerCase()) && /pres/.test(`${m.election ?? ''} ${m.key}`.toLowerCase())
+      m =>
+        /seats/.test(m.key.toLowerCase()) &&
+        /pres/.test(`${m.election ?? ''} ${m.key}`.toLowerCase())
     )
     .sort(
-      (a, b) =>
-        electionYear(`${b.election ?? b.key}`) - electionYear(`${a.election ?? a.key}`)
+      (a, b) => electionYear(`${b.election ?? b.key}`) - electionYear(`${a.election ?? a.key}`)
     );
   if (seats[0]) out.push({role: 'Dem seats (latest presidential)', info: seats[0]});
   first('Cut edges', m => /cut.?edge/.test(text(m)));
