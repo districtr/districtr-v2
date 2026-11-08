@@ -32,8 +32,6 @@ export interface EnsemblePreset {
  * dialog. A flag that is absent or false means the files are absent.
  */
 export interface EnsembleAnalysis {
-  /** `bounds.json` and `extremes/<objective>/`: the extreme plans a search found. */
-  bounds?: boolean;
   /** `joint/index.json` and its pair files: two-way bucket counts. */
   joint?: boolean;
   /** Number of `chunks/<k>.json` files of 100 shuffled plans each. */

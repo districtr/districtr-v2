@@ -8,7 +8,6 @@
    "n_plans": 100000,
    "generated_at": "2026-10-13T19:07:57+00:00",
    "analysis": {
-    "bounds": true,
     "joint": true,
     "chunks": 1000,
     "trajectory": true

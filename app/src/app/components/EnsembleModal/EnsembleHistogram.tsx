@@ -4,9 +4,9 @@ import {Group} from '@visx/group';
 import {Bar, Line} from '@visx/shape';
 import {scaleLinear} from '@visx/scale';
 import {AxisBottom, AxisLeft} from '@visx/axis';
-import {HoverCard, Text as ThemeText} from '@radix-ui/themes';
+import {Text as ThemeText} from '@radix-ui/themes';
 import {formatEnsembleValue, type EnsembleValueFormat} from './ensembleMetrics';
-import {spreadMarkers} from './ensembleExtremes';
+import {spreadMarkers} from './ensembleMarkers';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
 import type {EnsembleDistribution} from './ensembleTypes';
 
@@ -19,9 +19,6 @@ const SPARSE_BAR_MIN_WIDTH = 8;
 /** Markers closer than this are nudged apart so each stays visible. */
 const MARKER_MIN_GAP = 4;
 const LEGEND_HEIGHT = 20;
-/** Extreme plans are dotted, against the solid plan and dashed step markers. */
-const EXTREME_DASH = '1 3';
-const EXTREME_THUMB_WIDTH = 180;
 const DEFAULT_HEIGHT = 280;
 /** Bar fills recede; the two markers carry the color weight. */
 const BAR_FILL = 'var(--gray-a7)';
@@ -46,19 +43,6 @@ interface Bucket {
   samplePercent?: number;
 }
 
-/** An extreme plan a search found, marked at its value of the charted series. */
-export interface HistogramExtreme {
-  key: string;
-  /** The objective's label, for the legend. */
-  label: string;
-  /** The objective in plain words, for the popover. */
-  objective: string;
-  color: string;
-  value: number;
-  thumbUrl: string;
-}
-
-const NO_EXTREMES: HistogramExtreme[] = [];
 const NO_SAMPLE: number[] = [];
 
 export interface EnsembleHistogramProps {
@@ -80,8 +64,6 @@ export interface EnsembleHistogramProps {
   percentAxisLabel?: string;
   /** The charted series, for the figure's accessible name. */
   metricLabel: string;
-  /** Extreme plans to mark, each with a legend entry that previews its map. */
-  extremes?: HistogramExtreme[];
 }
 
 /** Half the span a discrete value's bar covers: a third of the smallest gap
@@ -166,7 +148,6 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
   height = DEFAULT_HEIGHT,
   percentAxisLabel,
   metricLabel,
-  extremes = NO_EXTREMES,
 }) => {
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -179,7 +160,7 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
     let domainMax = buckets.length ? buckets[buckets.length - 1].to : 1;
     // The axis stretches to hold a plan whose value falls outside everything the
     // ensemble reached — that gap is the whole point of the comparison.
-    [planValue, selectedValue, ...extremes.map(extreme => extreme.value)].forEach(value => {
+    [planValue, selectedValue].forEach(value => {
       if (value === undefined || !Number.isFinite(value)) return;
       const low = dist.kind === 'integer' ? Math.floor(value) - 0.5 : value;
       const high = dist.kind === 'integer' ? Math.ceil(value) + 0.5 : value;
@@ -210,21 +191,18 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
       : undefined;
     const percentDigits = maxPercent < 5 ? 1 : 0;
     return {buckets, xScale, yScale, tickValues, percentDigits, widen};
-  }, [dist, planValue, selectedValue, sample, extremes, innerWidth, innerHeight]);
+  }, [dist, planValue, selectedValue, sample, innerWidth, innerHeight]);
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
   const {buckets, xScale, yScale, tickValues, percentDigits, widen} = layout;
 
-  // Coinciding values (the plan and an extreme on the same seat count, say)
-  // would hide one line under another; nudge them apart instead.
+  // Coinciding values (the evaluated plan and the selected plan on the same
+  // seat count, say) would hide one line under another; nudge them apart.
   const finite = (value: number | undefined): value is number =>
     value !== undefined && Number.isFinite(value);
   const placed = [
     finite(planValue) ? {id: 'plan', x: xScale(planValue)} : null,
     finite(selectedValue) ? {id: 'selected', x: xScale(selectedValue)} : null,
-    ...extremes.map(extreme =>
-      finite(extreme.value) ? {id: `extreme:${extreme.key}`, x: xScale(extreme.value)} : null
-    ),
   ].filter((item): item is {id: string; x: number} => item !== null);
   const spread = spreadMarkers(
     placed.map(item => item.x),
@@ -233,17 +211,8 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
   const positions = new Map(placed.map((item, index) => [item.id, spread[index]]));
   const planX = positions.get('plan');
   const selectedX = positions.get('selected');
-  const sampleLow = buckets.length ? buckets[0].from : 0;
-  const sampleHigh = buckets.length ? buckets[buckets.length - 1].to : 0;
-  const outsideSample = (value: number) => value < sampleLow || value > sampleHigh;
 
-  const marker = (
-    x: number | undefined,
-    key: string,
-    color: string,
-    dash: string | undefined,
-    strokeWidth = 1
-  ) => {
+  const marker = (x: number | undefined, key: string, color: string, dash: string | undefined) => {
     if (x === undefined) return null;
     return (
       <Line
@@ -251,7 +220,7 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
         from={{x, y: 0}}
         to={{x, y: innerHeight}}
         stroke={color}
-        strokeWidth={strokeWidth}
+        strokeWidth={1}
         strokeDasharray={dash}
       />
     );
@@ -333,35 +302,6 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
               </React.Fragment>
             );
           })}
-          {extremes.map(extreme =>
-            marker(
-              positions.get(`extreme:${extreme.key}`),
-              `extreme:${extreme.key}`,
-              extreme.color,
-              EXTREME_DASH,
-              1.5
-            )
-          )}
-          {extremes.map(extreme => {
-            // An extreme beyond everything the sample reached stands alone on
-            // the axis, so its value is written beside the line.
-            const x = positions.get(`extreme:${extreme.key}`);
-            if (x === undefined || !outsideSample(extreme.value)) return null;
-            const rightSide = x > innerWidth / 2;
-            return (
-              <text
-                key={`extreme-label:${extreme.key}`}
-                x={x + (rightSide ? -4 : 4)}
-                y={10}
-                fontSize={10}
-                fill={extreme.color}
-                textAnchor={rightSide ? 'end' : 'start'}
-                pointerEvents="none"
-              >
-                {formatEnsembleValue(extreme.value, format)}
-              </text>
-            );
-          })}
           {marker(selectedX, 'selected', SELECTED_COLOR, '4 3')}
           {marker(planX, 'plan', PLAN_COLOR, undefined)}
           <AxisLeft
@@ -412,15 +352,6 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
           </span>
         )}
         {legendItem(selectedValue, selectedLabel, SELECTED_COLOR, true)}
-        {extremes.map(extreme => (
-          <ExtremeLegendItem
-            key={extreme.key}
-            extreme={extreme}
-            format={format}
-            metricLabel={metricLabel}
-            swatch={legendSwatch(extreme.color, EXTREME_DASH)}
-          />
-        ))}
       </div>
       {hoveredBucket && (
         <div
@@ -446,62 +377,5 @@ export const EnsembleHistogram: React.FC<EnsembleHistogramProps> = ({
         </div>
       )}
     </div>
-  );
-};
-
-/**
- * A legend entry for one extreme plan. Hovering or clicking it opens a small
- * card with the plan's map; the thumbnail is requested only once the card opens.
- */
-const ExtremeLegendItem: React.FC<{
-  extreme: HistogramExtreme;
-  format: EnsembleValueFormat;
-  metricLabel: string;
-  swatch: React.ReactNode;
-}> = ({extreme, format, metricLabel, swatch}) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <HoverCard.Root open={open} onOpenChange={setOpen} openDelay={150} closeDelay={100}>
-      <HoverCard.Trigger>
-        <button
-          type="button"
-          onClick={() => setOpen(current => !current)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-          }}
-        >
-          {swatch}
-          <ThemeText size="1" style={{color: INK, textDecoration: 'underline dotted'}}>
-            {extreme.label}
-          </ThemeText>
-        </button>
-      </HoverCard.Trigger>
-      <HoverCard.Content size="1" maxWidth={`${EXTREME_THUMB_WIDTH + 24}px`}>
-        <img
-          src={extreme.thumbUrl}
-          alt={fillEnsembleText(ENSEMBLE_MODAL_TEXT.extremeThumbAlt, {label: extreme.label})}
-          width={EXTREME_THUMB_WIDTH}
-          style={{display: 'block', height: 'auto', marginBottom: 6}}
-        />
-        <ThemeText as="p" size="1" weight="bold" style={{color: INK}}>
-          {extreme.label}
-        </ThemeText>
-        <ThemeText as="p" size="1" style={{color: MUTED_INK}}>
-          {extreme.objective}
-        </ThemeText>
-        <ThemeText as="p" size="1" style={{color: INK, marginTop: 4}}>
-          {fillEnsembleText(ENSEMBLE_MODAL_TEXT.extremeValue, {
-            metric: metricLabel,
-            value: formatEnsembleValue(extreme.value, format),
-          })}
-        </ThemeText>
-      </HoverCard.Content>
-    </HoverCard.Root>
   );
 };

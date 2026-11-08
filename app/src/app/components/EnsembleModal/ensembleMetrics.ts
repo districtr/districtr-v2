@@ -30,7 +30,7 @@ export interface EnsembleMetricDef {
   distribution: (summary: EnsembleSummary, election?: string) => EnsembleDistribution | undefined;
   /** The value for the plan the user is editing, from the evaluation endpoint. */
   planValue: (evaluation: DocumentEvaluation, election?: string) => number | undefined;
-  /** The value for one plan of the package: a segment step, an extreme plan. */
+  /** The value for one plan of the package: a segment step, a sampled plan. */
   stepValue: (step: EnsembleMetricsPayload, election?: string) => number | undefined;
 }
 

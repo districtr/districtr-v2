@@ -2,7 +2,6 @@
 import {useQuery} from '@tanstack/react-query';
 import {CDN_URL} from '@utils/api/constants';
 import type {
-  EnsembleBounds,
   EnsembleChunk,
   EnsembleGeometry,
   EnsembleIndex,
@@ -23,12 +22,11 @@ import type {
  * Transfer sizes decide what is fetched when: the index and the summary are
  * small enough (≈60 KB gzipped together) for the evaluation panel to load them
  * on open, while the segment (≈200 KB) and its thumbnails (0.5–1 MB for all
- * 100) are loaded only once the modal is open. The analysis files (bounds,
- * the joint-pair index) are a few KB each and load with the modal; a pair's
- * counts file loads only once that pair is chosen, and an extreme plan's
- * thumbnail only once its popover opens. A chunk of sampled plans (≈100 KB
- * gzipped, mostly assignments) and the unit geometry (≈60 KB gzipped) load
- * once the individual-plans section asks for them.
+ * 100) are loaded only once the modal is open. The joint-pair index is a few
+ * KB and loads with the modal; a pair's counts file loads only once that pair
+ * is chosen. A chunk of sampled plans (≈100 KB gzipped, mostly assignments)
+ * and the unit geometry (≈60 KB gzipped) load once the individual-plans
+ * section asks for them.
  */
 const ensembleBase = (moduleSlug: string) => `${CDN_URL}/ensembles/${moduleSlug}`;
 
@@ -62,23 +60,6 @@ export const resolvePresetPath = (
 const presetFileUrl = (moduleSlug: string, preset: string, path: string) =>
   `${ensembleBase(moduleSlug)}/${preset}/${path}`;
 
-export const ensembleBoundsUrl = (moduleSlug: string, preset: string) =>
-  presetFileUrl(moduleSlug, preset, 'bounds.json');
-
-/** `rank` is the plan's position among its objective's plans, best first. */
-export const ensembleExtremeThumbUrl = (
-  moduleSlug: string,
-  preset: string,
-  objective: string,
-  rank: number,
-  listed?: string
-) =>
-  presetFileUrl(
-    moduleSlug,
-    preset,
-    resolvePresetPath(listed, `extremes/${objective}`, `extremes/${objective}/${rank}.svg`)
-  );
-
 export const ensembleChunkUrl = (moduleSlug: string, preset: string, chunk: number) =>
   presetFileUrl(moduleSlug, preset, `chunks/${chunk}.json`);
 
@@ -103,8 +84,6 @@ export const ensembleQueryKeys = {
     ['ensemble', 'summary', moduleSlug, preset] as const,
   segment: (moduleSlug: string, preset: string) =>
     ['ensemble', 'segment', moduleSlug, preset] as const,
-  bounds: (moduleSlug: string, preset: string) =>
-    ['ensemble', 'bounds', moduleSlug, preset] as const,
   jointIndex: (moduleSlug: string, preset: string) =>
     ['ensemble', 'joint-index', moduleSlug, preset] as const,
   joint: (moduleSlug: string, preset: string, pairId: string) =>
@@ -139,9 +118,6 @@ export const fetchEnsembleSummary = (moduleSlug: string, preset: string) =>
 
 export const fetchEnsembleSegment = (moduleSlug: string, preset: string) =>
   fetchJson<EnsembleSegment>(ensembleSegmentUrl(moduleSlug, preset));
-
-export const fetchEnsembleBounds = (moduleSlug: string, preset: string) =>
-  fetchOptionalJson<EnsembleBounds>(ensembleBoundsUrl(moduleSlug, preset));
 
 export const fetchEnsembleJointIndex = (moduleSlug: string, preset: string) =>
   fetchOptionalJson<EnsembleJointIndex>(ensembleJointIndexUrl(moduleSlug, preset));
@@ -183,14 +159,6 @@ export const useEnsembleSegment = (moduleSlug?: string, preset?: string, enabled
 
 /** Optional files resolve to null when absent; a failed read stays an error
  * the caller renders as nothing, and is retried once like the rest. */
-export const useEnsembleBounds = (moduleSlug?: string, preset?: string, enabled = true) =>
-  useQuery({
-    queryKey: ensembleQueryKeys.bounds(moduleSlug ?? '', preset ?? ''),
-    queryFn: () => fetchEnsembleBounds(moduleSlug!, preset!),
-    enabled: enabled && !!moduleSlug && !!preset,
-    ...STATIC_QUERY_OPTIONS,
-  });
-
 export const useEnsembleJointIndex = (moduleSlug?: string, preset?: string, enabled = true) =>
   useQuery({
     queryKey: ensembleQueryKeys.jointIndex(moduleSlug ?? '', preset ?? ''),
