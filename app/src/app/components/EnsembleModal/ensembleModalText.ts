@@ -85,7 +85,6 @@ export const ENSEMBLE_MODAL_TEXT = {
   jointLegendFew: 'Fewer plans',
   jointLegendMany: 'More plans (up to {share} per cell)',
   jointLoading: 'Loading the pair…',
-  jointFrontierLegend: 'Plans a search found at the edge',
 
   sliceSentence:
     'Among the {plans} plans drawn by the {preset} recipe, {group} {measure}, {comparison}.',

@@ -4,7 +4,6 @@ import {CDN_URL} from '@utils/api/constants';
 import type {
   EnsembleBounds,
   EnsembleChunk,
-  EnsembleFrontier,
   EnsembleGeometry,
   EnsembleIndex,
   EnsembleJoint,
@@ -110,8 +109,6 @@ export const ensembleQueryKeys = {
     ['ensemble', 'joint-index', moduleSlug, preset] as const,
   joint: (moduleSlug: string, preset: string, pairId: string) =>
     ['ensemble', 'joint', moduleSlug, preset, pairId] as const,
-  frontier: (moduleSlug: string, preset: string, pairId: string) =>
-    ['ensemble', 'frontier', moduleSlug, preset, pairId] as const,
   chunk: (moduleSlug: string, preset: string, chunk: number) =>
     ['ensemble', 'chunk', moduleSlug, preset, chunk] as const,
   geometry: (moduleSlug: string, preset: string) =>
@@ -154,13 +151,6 @@ export const fetchEnsembleJoint = (
   preset: string,
   pair: {id: string; file?: string}
 ) => fetchOptionalJson<EnsembleJoint>(ensembleJointUrl(moduleSlug, preset, pair));
-
-/** A file the package lists by a preset-relative path, such as a frontier point's thumbnail. */
-export const ensembleListedFileUrl = (moduleSlug: string, preset: string, listed: string) =>
-  presetFileUrl(moduleSlug, preset, listed);
-
-export const fetchEnsembleFrontier = (moduleSlug: string, preset: string, path: string) =>
-  fetchOptionalJson<EnsembleFrontier>(`${ensembleBase(moduleSlug)}/${preset}/${path}`);
 
 export const fetchEnsembleChunk = (moduleSlug: string, preset: string, chunk: number) =>
   fetchJson<EnsembleChunk>(ensembleChunkUrl(moduleSlug, preset, chunk));
@@ -219,19 +209,6 @@ export const useEnsembleJoint = (
     queryKey: ensembleQueryKeys.joint(moduleSlug ?? '', preset ?? '', pair?.id ?? ''),
     queryFn: () => fetchEnsembleJoint(moduleSlug!, preset!, pair!),
     enabled: enabled && !!moduleSlug && !!preset && !!pair,
-    ...STATIC_QUERY_OPTIONS,
-  });
-
-export const useEnsembleFrontier = (
-  moduleSlug?: string,
-  preset?: string,
-  pair?: {id: string; frontier?: string} | null,
-  enabled = true
-) =>
-  useQuery({
-    queryKey: ensembleQueryKeys.frontier(moduleSlug ?? '', preset ?? '', pair?.id ?? ''),
-    queryFn: () => fetchEnsembleFrontier(moduleSlug!, preset!, pair!.frontier!),
-    enabled: enabled && !!moduleSlug && !!preset && !!pair?.frontier,
     ...STATIC_QUERY_OPTIONS,
   });
 

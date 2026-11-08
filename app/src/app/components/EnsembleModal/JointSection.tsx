@@ -6,14 +6,12 @@ import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@utils/elections';
 import {
   ensembleExtremeThumbUrl,
-  ensembleListedFileUrl,
-  useEnsembleFrontier,
   useEnsembleJoint,
 } from './ensembleData';
 import {metricForRef, type EnsembleMetricDef} from './ensembleMetrics';
 import {sliceComparison, sliceGoal, sliceSentence} from './ensembleJoint';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
-import {JointDensity, type JointExtreme, type JointFrontierPoint} from './JointDensity';
+import {JointDensity, type JointExtreme} from './JointDensity';
 import {isRelevantObjective, objectiveColor, objectiveRank} from './ensembleExtremes';
 import type {EnsembleJointPair, EnsembleMetricsPayload, EnsembleObjective} from './ensembleTypes';
 
@@ -108,18 +106,6 @@ export const JointSection: React.FC<JointSectionProps> = ({
   const selected = pairs.find(entry => entry.pair.id === pairId) ?? pairs[0];
   const jointQuery = useEnsembleJoint(moduleSlug, presetKey, selected?.pair, open);
   const joint = jointQuery.data;
-  // Fetched only for a pair whose index entry names a frontier file.
-  const frontierQuery = useEnsembleFrontier(moduleSlug, presetKey, selected?.pair, open);
-  const frontier = useMemo((): JointFrontierPoint[] | undefined => {
-    const points = frontierQuery.data?.points;
-    if (!points) return undefined;
-    return points.map(point => ({
-      x: point.x,
-      y: point.y,
-      label: ENSEMBLE_MODAL_TEXT.jointFrontierLegend,
-      thumbUrl: point.thumb ? ensembleListedFileUrl(moduleSlug, presetKey, point.thumb) : undefined,
-    }));
-  }, [frontierQuery.data, moduleSlug, presetKey]);
 
   // Each search's best plan at its two values; by default only the searches
   // that bear on either series of the pair.
@@ -225,7 +211,6 @@ export const JointSection: React.FC<JointSectionProps> = ({
                   sample={samplePoints}
                   sampleLabel={sampleLabel}
                   extremes={extremes}
-                  frontier={frontier}
                   width={width}
                   height={CHART_HEIGHT}
                 />

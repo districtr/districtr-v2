@@ -68,12 +68,6 @@ export interface JointExtreme extends JointPoint {
   thumbUrl?: string;
 }
 
-/** A frontier plan: the label names what it is extreme on, for the hover card. */
-export interface JointFrontierPoint extends JointPoint {
-  label: string;
-  thumbUrl?: string;
-}
-
 /** A plotted plan under the pointer. */
 interface HoveredPoint {
   label: string;
@@ -103,8 +97,6 @@ export interface JointDensityProps {
   sampleLabel: string;
   /** Extreme plans drawn as filled diamonds, so they read apart from the two rings. */
   extremes?: JointExtreme[];
-  /** Plans a search found at the edge of the feasible space, as hollow squares. */
-  frontier?: JointFrontierPoint[];
   width: number;
   height: number;
 }
@@ -117,10 +109,6 @@ const jitter = (index: number, salt: number) => {
   const n = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
   return 2 * (n - Math.floor(n)) - 1;
 };
-
-const NO_FRONTIER: JointFrontierPoint[] = [];
-const FRONTIER_COLOR = 'var(--gray-12)';
-const FRONTIER_SIDE = 7;
 
 /** A diamond path centred on the origin, used for the extreme-plan markers. */
 const diamond = (r: number) => `M0,${-r} L${r},0 L0,${r} L${-r},0 Z`;
@@ -211,7 +199,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
   sample = NO_SAMPLE,
   sampleLabel,
   extremes = NO_EXTREMES,
-  frontier = NO_FRONTIER,
   width,
   height,
 }) => {
@@ -224,7 +211,7 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   const layout = useMemo(() => {
     if (!grid) return null;
-    const marked = [...extremes, ...frontier];
+    const marked = extremes;
     const xScale = scaleLinear<number>({
       domain: axisDomain(grid.x, [plan?.x, selected?.x, ...marked.map(point => point.x)]),
       range: [0, innerWidth],
@@ -257,7 +244,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
     selected?.x,
     selected?.y,
     extremes,
-    frontier,
     innerWidth,
     innerHeight,
   ]);
@@ -282,8 +268,8 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   if (!grid || !layout || innerWidth <= 0 || innerHeight <= 0) return null;
   const {xScale, yScale, cells} = layout;
-  const markedX = [plan?.x, selected?.x, ...extremes.map(p => p.x), ...frontier.map(p => p.x)];
-  const markedY = [plan?.y, selected?.y, ...extremes.map(p => p.y), ...frontier.map(p => p.y)];
+  const markedX = [plan?.x, selected?.x, ...extremes.map(p => p.x)];
+  const markedY = [plan?.y, selected?.y, ...extremes.map(p => p.y)];
   const xTicks = axisTicks(grid.x, xFormat, markedX);
   const yTicks = axisTicks(grid.y, yFormat, markedY);
 
@@ -310,10 +296,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
   const extremesAt = extremes.flatMap(extreme => {
     const at = position(extreme);
     return at.x === undefined || at.y === undefined ? [] : [{...extreme, cx: at.x, cy: at.y}];
-  });
-  const frontierAt = frontier.flatMap((point, index) => {
-    const at = position(point);
-    return at.x === undefined || at.y === undefined ? [] : [{index, cx: at.x, cy: at.y}];
   });
 
   const handleMove = (event: React.MouseEvent<SVGRectElement>) => {
@@ -432,23 +414,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
             onMouseMove={handleMove}
             onMouseLeave={() => setHovered(null)}
           />
-          {frontierAt.map(point => (
-            <rect
-              key={`frontier:${point.index}`}
-              x={point.cx - FRONTIER_SIDE / 2}
-              y={point.cy - FRONTIER_SIDE / 2}
-              width={FRONTIER_SIDE}
-              height={FRONTIER_SIDE}
-              fill="var(--color-panel-solid)"
-              stroke={FRONTIER_COLOR}
-              strokeWidth={1.5}
-              style={{cursor: 'default'}}
-              onMouseEnter={() =>
-                setHoveredPoint({...frontier[point.index], cx: point.cx, cy: point.cy})
-              }
-              onMouseLeave={() => setHoveredPoint(null)}
-            />
-          ))}
           {extremesAt.map(extreme => (
             <path
               key={extreme.key}
@@ -532,24 +497,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
           ? legendLine(SELECTED_COLOR, selectedLabel, true)
           : null}
         {extremesAt.map(extreme => legendLine(extreme.color, extreme.label, false, true))}
-        {frontierAt.length > 0 && (
-          <span style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
-            <svg width={14} height={14} aria-hidden="true">
-              <rect
-                x={(14 - FRONTIER_SIDE) / 2}
-                y={(14 - FRONTIER_SIDE) / 2}
-                width={FRONTIER_SIDE}
-                height={FRONTIER_SIDE}
-                fill="none"
-                stroke={FRONTIER_COLOR}
-                strokeWidth={1.5}
-              />
-            </svg>
-            <ThemeText size="1" style={{color: INK}}>
-              {ENSEMBLE_MODAL_TEXT.jointFrontierLegend}
-            </ThemeText>
-          </span>
-        )}
       </div>
       {hoveredPoint && (
         <div

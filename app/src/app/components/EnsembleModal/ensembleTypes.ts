@@ -246,35 +246,6 @@ export interface EnsembleJointPair {
    * not show it, since it is a hypothesis about the module rather than a
    * reading of the data. */
   why: string;
-  /** Path of the pair's frontier file, when a search traced one. */
-  frontier?: string;
-}
-
-/** One plan a frontier search found, at its two values. */
-export interface EnsembleFrontierPoint {
-  x: number;
-  y: number;
-  /** Path of the plan's file (assignment and metrics payload). */
-  file?: string;
-  /** Path of the plan's thumbnail. */
-  thumb?: string;
-  /** Which run or set the plan came from, for the expert. */
-  source?: string;
-}
-
-/**
- * `frontier/<pair>.json`: plans a search found at the edge of the feasible
- * space for one pair. Possibilities, not samples: each point says such a plan
- * exists, nothing about how common it is.
- */
-export interface EnsembleFrontier {
-  pair: string;
-  x: EnsembleSeriesRef;
-  y: EnsembleSeriesRef;
-  method: string;
-  /** Which edge the points trace, in plain words. */
-  envelope?: string;
-  points: EnsembleFrontierPoint[];
 }
 
 /** `joint/index.json`. */
