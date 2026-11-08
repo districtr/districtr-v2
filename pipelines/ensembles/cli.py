@@ -8,7 +8,7 @@ import click
 import networkx as nx
 import numpy as np
 
-from ensembles import chain, graph, package
+from ensembles import chain, diag, graph, package
 from ensembles.presets import PRESETS
 
 # The optimize module's objective keys, listed here so the CLI loads without
@@ -440,6 +440,59 @@ def analyze_cmd(
     package.write_index(out / package.PACKAGE_DIRNAME, module_slug)
 
 
+@ensembles.command("diag-package")
+@click.option(
+    "--ensemble-dir",
+    required=True,
+    help="Directory holding <preset>.npz, <preset>.scores.npz and their manifests",
+)
+@click.option(
+    "--module-slug", required=True, help="districtr_map_slug the ensemble belongs to"
+)
+@click.option(
+    "--preset",
+    "presets",
+    multiple=True,
+    type=click.Choice(sorted(PRESETS)),
+    default=sorted(PRESETS),
+    show_default=True,
+)
+@click.option("--range-size", default=diag.RANGE_SIZE, show_default=True)
+@click.option(
+    "--seed", default=diag.SAMPLE_SEED, show_default=True, help="Bucket sampling seed"
+)
+@click.option(
+    "--graph-npz",
+    default=None,
+    help="Combined block/VTD graph npz; cut edges are then counted between blocks",
+)
+def diag_package_cmd(
+    ensemble_dir: str,
+    module_slug: str,
+    presets: tuple[str, ...],
+    range_size: int,
+    seed: int,
+    graph_npz: str | None,
+) -> None:
+    """Build the diagnosis package (<ensemble-dir>/diag/): every plan in range
+    files, with metric buckets, for each preset that has a scored chain."""
+    out = Path(ensemble_dir)
+    for key in presets:
+        if not (out / f"{key}.scores.npz").exists():
+            logger.info("Skipping %s: no scores", key)
+            continue
+        folder = diag.write_preset(out, key, range_size, seed, graph_npz)
+        logger.info("Wrote %s", folder)
+    diag.write_index(out / diag.DIAG_DIRNAME, module_slug)
+
+
+# Package folder each CDN prefix publishes by default, under the ensemble dir.
+PREFIX_DIRNAMES = {
+    "ensembles": package.PACKAGE_DIRNAME,
+    "ensembles-diag": diag.DIAG_DIRNAME,
+}
+
+
 @ensembles.command("publish")
 @click.option(
     "--module-slug", required=True, help="districtr_map_slug the ensemble belongs to"
@@ -456,22 +509,35 @@ def analyze_cmd(
     help="Another module slug that reads this package (e.g. the custom-districts "
     "module); gets an index.json of its own pointing here. Repeatable.",
 )
+@click.option(
+    "--prefix",
+    default="ensembles",
+    show_default=True,
+    help="Key prefix; ensembles-diag publishes the diagnosis package",
+)
 @click.option("--dry-run", is_flag=True, help="List the uploads without uploading")
 def publish(
-    module_slug: str, package_dir: str | None, aliases: tuple[str, ...], dry_run: bool
+    module_slug: str,
+    package_dir: str | None,
+    aliases: tuple[str, ...],
+    prefix: str,
+    dry_run: bool,
 ) -> None:
-    """Upload a module's package to s3://<S3_BUCKET>/ensembles/<module-slug>/,
+    """Upload a module's package to s3://<S3_BUCKET>/<prefix>/<module-slug>/,
     plus an index.json under each --alias slug that points at it."""
     from core.settings import settings
 
-    folder = (
-        Path(package_dir)
-        if package_dir
-        else Path("../data/ensembles") / module_slug / package.PACKAGE_DIRNAME
-    )
+    if package_dir:
+        folder = Path(package_dir)
+    elif prefix in PREFIX_DIRNAMES:
+        folder = Path("../data/ensembles") / module_slug / PREFIX_DIRNAMES[prefix]
+    else:
+        raise click.ClickException(f"Prefix {prefix} needs --package-dir")
     if not (folder / "index.json").exists():
-        raise click.ClickException(f"{folder} has no index.json; run package first")
-    targets = package.upload_targets(folder, module_slug)
+        raise click.ClickException(
+            f"{folder} has no index.json; build the package first"
+        )
+    targets = package.upload_targets(folder, module_slug, prefix)
     index = json.loads((folder / "index.json").read_text())
     alias_dir = folder / package.ALIASES_DIRNAME
     for alias in aliases:
@@ -480,7 +546,7 @@ def publish(
         alias_path.write_text(
             json.dumps(package.alias_index(index, alias, module_slug), indent=1)
         )
-        targets.append((alias_path, f"ensembles/{alias}/index.json"))
+        targets.append((alias_path, f"{prefix}/{alias}/index.json"))
     s3_client = None if dry_run else settings.get_s3_client()
     if not dry_run and s3_client is None:
         raise click.ClickException("S3 client is not initialized")
