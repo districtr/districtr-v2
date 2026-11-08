@@ -33,6 +33,7 @@ def ensemble_dir(tmp_path):
         "district_vote_shares__pres_24": rng.random((N_PLANS, N_DISTS)),
         "county_splits": np.arange(N_PLANS)[::-1].copy(),
         "polsby_popper": rng.random((N_PLANS, N_DISTS)),
+        "reock": rng.random((N_PLANS, N_DISTS)),
         "polsby_popper_mean": rng.random(N_PLANS),
     }
     np.savez_compressed(
