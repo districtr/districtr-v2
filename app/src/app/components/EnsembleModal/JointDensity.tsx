@@ -59,28 +59,6 @@ export interface JointPoint {
   y?: number;
 }
 
-/** An extreme plan a search found, marked at its two values. */
-export interface JointExtreme extends JointPoint {
-  key: string;
-  /** The objective's label, for the legend. */
-  label: string;
-  color: string;
-  thumbUrl?: string;
-}
-
-/** A plotted plan under the pointer. */
-interface HoveredPoint {
-  label: string;
-  x?: number;
-  y?: number;
-  thumbUrl?: string;
-  cx: number;
-  cy: number;
-}
-const CARD_WIDTH = 200;
-
-const NO_EXTREMES: JointExtreme[] = [];
-
 export interface JointDensityProps {
   joint: EnsembleJoint;
   xLabel: string;
@@ -95,8 +73,6 @@ export interface JointDensityProps {
   /** The sampled plans of the individual-plans section, as small dots. */
   sample?: JointPoint[];
   sampleLabel: string;
-  /** Extreme plans drawn as filled diamonds, so they read apart from the two rings. */
-  extremes?: JointExtreme[];
   width: number;
   height: number;
 }
@@ -109,9 +85,6 @@ const jitter = (index: number, salt: number) => {
   const n = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
   return 2 * (n - Math.floor(n)) - 1;
 };
-
-/** A diamond path centred on the origin, used for the extreme-plan markers. */
-const diamond = (r: number) => `M0,${-r} L${r},0 L0,${r} L${-r},0 Z`;
 
 const finite = (value: number | undefined): value is number =>
   value !== undefined && Number.isFinite(value);
@@ -198,12 +171,10 @@ export const JointDensity: React.FC<JointDensityProps> = ({
   selectedLabel,
   sample = NO_SAMPLE,
   sampleLabel,
-  extremes = NO_EXTREMES,
   width,
   height,
 }) => {
   const [hovered, setHovered] = useState<{row: number; column: number} | null>(null);
-  const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom);
 
@@ -211,13 +182,12 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   const layout = useMemo(() => {
     if (!grid) return null;
-    const marked = extremes;
     const xScale = scaleLinear<number>({
-      domain: axisDomain(grid.x, [plan?.x, selected?.x, ...marked.map(point => point.x)]),
+      domain: axisDomain(grid.x, [plan?.x, selected?.x]),
       range: [0, innerWidth],
     });
     const yScale = scaleLinear<number>({
-      domain: axisDomain(grid.y, [plan?.y, selected?.y, ...marked.map(point => point.y)]),
+      domain: axisDomain(grid.y, [plan?.y, selected?.y]),
       range: [innerHeight, 0],
     });
     const cells = grid.shares.flatMap((row, rowIndex) =>
@@ -237,16 +207,7 @@ export const JointDensity: React.FC<JointDensityProps> = ({
       })
     );
     return {xScale, yScale, cells};
-  }, [
-    grid,
-    plan?.x,
-    plan?.y,
-    selected?.x,
-    selected?.y,
-    extremes,
-    innerWidth,
-    innerHeight,
-  ]);
+  }, [grid, plan?.x, plan?.y, selected?.x, selected?.y, innerWidth, innerHeight]);
 
   // The cells are the bulk of the drawing; hover leaves them untouched.
   const cellLayer = useMemo(
@@ -268,8 +229,8 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   if (!grid || !layout || innerWidth <= 0 || innerHeight <= 0) return null;
   const {xScale, yScale, cells} = layout;
-  const markedX = [plan?.x, selected?.x, ...extremes.map(p => p.x)];
-  const markedY = [plan?.y, selected?.y, ...extremes.map(p => p.y)];
+  const markedX = [plan?.x, selected?.x];
+  const markedY = [plan?.y, selected?.y];
   const xTicks = axisTicks(grid.x, xFormat, markedX);
   const yTicks = axisTicks(grid.y, yFormat, markedY);
 
@@ -293,10 +254,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
       },
     ];
   });
-  const extremesAt = extremes.flatMap(extreme => {
-    const at = position(extreme);
-    return at.x === undefined || at.y === undefined ? [] : [{...extreme, cx: at.x, cy: at.y}];
-  });
 
   const handleMove = (event: React.MouseEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -310,22 +267,18 @@ export const JointDensity: React.FC<JointDensityProps> = ({
 
   const hoveredCell = hovered ? cells[hovered.row * grid.x.cells.length + hovered.column] : null;
 
-  const legendLine = (color: string, label: string, dashed: boolean, filled = false) => (
+  const legendLine = (color: string, label: string, dashed: boolean) => (
     <span key={label} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
       <svg width={14} height={14} aria-hidden="true">
-        {filled ? (
-          <path d={diamond(MARKER_RADIUS)} transform="translate(7 7)" fill={color} />
-        ) : (
-          <circle
-            cx={7}
-            cy={7}
-            r={MARKER_RADIUS}
-            fill="none"
-            stroke={color}
-            strokeWidth={2}
-            strokeDasharray={dashed ? '2 2' : undefined}
-          />
-        )}
+        <circle
+          cx={7}
+          cy={7}
+          r={MARKER_RADIUS}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeDasharray={dashed ? '2 2' : undefined}
+        />
       </svg>
       <ThemeText size="1" style={{color: INK}}>
         {label}
@@ -414,19 +367,6 @@ export const JointDensity: React.FC<JointDensityProps> = ({
             onMouseMove={handleMove}
             onMouseLeave={() => setHovered(null)}
           />
-          {extremesAt.map(extreme => (
-            <path
-              key={extreme.key}
-              d={diamond(MARKER_RADIUS)}
-              transform={`translate(${extreme.cx} ${extreme.cy})`}
-              fill={extreme.color}
-              stroke="var(--color-panel-solid)"
-              strokeWidth={1}
-              style={{cursor: 'default'}}
-              onMouseEnter={() => setHoveredPoint({...extreme, cx: extreme.cx, cy: extreme.cy})}
-              onMouseLeave={() => setHoveredPoint(null)}
-            />
-          ))}
           <AxisLeft
             scale={yScale}
             numTicks={yTicks.tickValues ? undefined : 5}
@@ -496,42 +436,8 @@ export const JointDensity: React.FC<JointDensityProps> = ({
         {selectedAt.x !== undefined && selectedAt.y !== undefined
           ? legendLine(SELECTED_COLOR, selectedLabel, true)
           : null}
-        {extremesAt.map(extreme => legendLine(extreme.color, extreme.label, false, true))}
       </div>
-      {hoveredPoint && (
-        <div
-          style={{
-            position: 'absolute',
-            left: Math.min(MARGIN.left + hoveredPoint.cx + 10, Math.max(0, width - CARD_WIDTH - 4)),
-            top: Math.max(0, MARGIN.top + hoveredPoint.cy - 24),
-            width: CARD_WIDTH,
-            background: 'var(--color-panel-solid)',
-            border: '1px solid var(--gray-a6)',
-            borderRadius: 4,
-            padding: '4px 6px',
-            pointerEvents: 'none',
-            zIndex: 1,
-          }}
-        >
-          <ThemeText size="1" weight="medium" as="div" style={{color: INK}}>
-            {hoveredPoint.label}
-          </ThemeText>
-          <ThemeText size="1" as="div" style={{color: MUTED_INK}}>
-            {xLabel}: {finite(hoveredPoint.x) ? formatEnsembleValue(hoveredPoint.x, xFormat) : '—'}
-          </ThemeText>
-          <ThemeText size="1" as="div" style={{color: MUTED_INK}}>
-            {yLabel}: {finite(hoveredPoint.y) ? formatEnsembleValue(hoveredPoint.y, yFormat) : '—'}
-          </ThemeText>
-          {hoveredPoint.thumbUrl && (
-            <img
-              src={hoveredPoint.thumbUrl}
-              alt=""
-              style={{display: 'block', width: '100%', marginTop: 4}}
-            />
-          )}
-        </div>
-      )}
-      {hoveredCell && !hoveredPoint && (
+      {hoveredCell && (
         <div
           style={{
             position: 'absolute',

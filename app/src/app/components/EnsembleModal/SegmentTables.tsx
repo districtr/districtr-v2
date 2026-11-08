@@ -102,7 +102,7 @@ const selectedStyle = (selected: boolean): React.CSSProperties =>
   selected ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
 
 export interface SegmentTablesProps {
-  /** The scores of one plan of the package: a sampled plan, an extreme plan. */
+  /** The scores of one plan of the package: a segment step, a sampled plan. */
   step: EnsembleMetricsPayload;
   focus: EnsembleMetricFocus;
   onSelectMetric: (focus: EnsembleMetricFocus) => void;

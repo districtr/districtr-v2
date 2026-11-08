@@ -13,8 +13,6 @@ export {
   type EnsembleValueFormat,
 } from './ensembleMetrics';
 export {
-  ensembleBoundsUrl,
-  ensembleExtremeThumbUrl,
   ensembleIndexUrl,
   ensembleJointIndexUrl,
   ensembleJointUrl,
@@ -22,13 +20,11 @@ export {
   ensembleSegmentUrl,
   ensembleSummaryUrl,
   ensembleThumbUrl,
-  fetchEnsembleBounds,
   fetchEnsembleIndex,
   fetchEnsembleJoint,
   fetchEnsembleJointIndex,
   fetchEnsembleSegment,
   fetchEnsembleSummary,
-  useEnsembleBounds,
   useEnsembleJoint,
   useEnsembleJointIndex,
   useEnsembleSegment,
@@ -36,7 +32,6 @@ export {
 } from './ensembleData';
 export type {
   EnsembleAnalysis,
-  EnsembleBounds,
   EnsembleCompactnessSummary,
   EnsembleDistribution,
   EnsembleDistributionByElection,
@@ -46,8 +41,6 @@ export type {
   EnsembleJointIndex,
   EnsembleJointPair,
   EnsembleMetricsPayload,
-  EnsembleObjective,
-  EnsembleObjectiveKey,
   EnsemblePreset,
   EnsembleSegment,
   EnsembleSegmentStep,

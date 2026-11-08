@@ -25,8 +25,6 @@ export interface EnsemblePreset {
 /** Optional files beside a preset's summary; each flag absent or false means
  * the files are absent. */
 export interface EnsembleAnalysis {
-  /** `bounds.json` and `extremes/`. */
-  bounds?: boolean;
   /** `joint/index.json` and the pair files it lists. */
   joint?: boolean;
   /** Number of `chunks/<k>.json` files. */
@@ -141,8 +139,8 @@ export interface EnsembleSegment {
 }
 
 /**
- * The metrics of one plan, shaped as a segment step without its `plan` index.
- * Extreme plans, chunk plans and trajectory steps all carry this payload.
+ * The metrics of one plan, shaped as a segment step without its `plan` index;
+ * a chunk's sampled plans carry this payload.
  */
 export type EnsembleMetricsPayload = Omit<EnsembleSegmentStep, 'plan'>;
 
@@ -180,59 +178,6 @@ export interface EnsembleSeriesRef {
   metric: string;
   election?: string | null;
   stat?: string | null;
-}
-
-/** The single-metric goals a search optimized for. */
-export type EnsembleObjectiveKey =
-  | 'dem_seats'
-  | 'rep_seats'
-  | 'competitive'
-  | 'county_splits'
-  | 'cut_edges'
-  | 'polsby_popper';
-
-/** One of the distinct plans a search found for an objective, best first. */
-export interface EnsembleExtremePlan {
-  /** Path of the plan's `extremes/<key>/<k>.json`. */
-  file: string;
-  /** Path of the plan's thumbnail SVG. */
-  thumb: string;
-  /** The plan's objective score. */
-  value: number;
-  metrics: EnsembleMetricsPayload;
-}
-
-/** The search configuration behind one objective's plans. */
-export interface EnsembleSearchRun {
-  method: string;
-  burst_length: number;
-  bursts: number;
-  plateau: number;
-  restarts: number;
-  /** Chain indices of the sampled plans the restarts started from. */
-  seeds: number[];
-}
-
-/**
- * The most extreme plans a search found for one goal. These are possibilities
- * found by optimization, outside the random sample.
- */
-export interface EnsembleObjective {
-  key: EnsembleObjectiveKey | string;
-  label: string;
-  direction: 'max' | 'min';
-  /** The objective in plain words. */
-  objective: string;
-  best_value: number;
-  /** The best objective score of each restart. */
-  restarts: number[];
-  run: EnsembleSearchRun;
-  plans: EnsembleExtremePlan[];
-}
-
-/** `bounds.json`. */
-export interface EnsembleBounds {
-  objectives: EnsembleObjective[];
 }
 
 /** One pair of series offered as a joint density. */

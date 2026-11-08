@@ -39,16 +39,10 @@ export const ENSEMBLE_MODAL_TEXT = {
 
   plansHeading: 'Individual plans',
   plansIntro:
-    'Read the scores of single plans: a random sample of 100 of the {plans} plans drawn by the {preset} recipe, or a plan a search found by pursuing one goal. Select any score to chart it below.',
-  plansSourceLabel: 'Plans',
-  plansSampleOption: 'A random sample of 100 plans',
-  plansExtremeOption: 'Search: {label}',
+    'Read the scores of single plans: a random sample of 100 of the {plans} plans drawn by the {preset} recipe. Select any score to chart it below.',
   plansAnotherSample: 'Another sample',
   plansSampleCaption: 'Sampled plan {n} of {count}',
   plansSampleNote: 'Step {step} of the chain; sample {sample} of {samples}.',
-  plansExtremeCaption: '{label}: plan {n} of {count}',
-  plansExtremeNote:
-    'The plans a search found, best first; each differs from the others in at least a tenth of the units.',
   plansSliderLabel: 'Plan',
   plansLoading: 'Loading the sample…',
   plansFailed: 'The sampled plans are unavailable right now. The rest of this page still works.',
@@ -68,12 +62,6 @@ export const ENSEMBLE_MODAL_TEXT = {
     'Pick a metric here, or click any value in the tables above, to see where the evaluated plan sits. Each grey bar is the percent of the {plans} ensemble plans whose score falls in that range; the narrow bars are the same share among the 100 sampled plans above.',
   thisPlanMarker: 'Evaluated plan',
   axisLabel: 'Percent of plans',
-
-  extremesCaption:
-    'Dotted lines mark plans a search found by pursuing one goal at a time under the {preset} recipe’s rules. They lie outside the {plans} sampled plans: they show what the rules allow, while the bars show what random drawing typically gives.',
-  extremesToggle: 'Show all {count} searches',
-  extremeValue: 'This plan’s {metric}: {value}',
-  extremeThumbAlt: 'Districts of the plan found for “{label}”',
 
   jointHeading: 'Two metrics at once',
   jointIntro:

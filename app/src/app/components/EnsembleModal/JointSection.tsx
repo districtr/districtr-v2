@@ -4,16 +4,12 @@ import {Flex, Select, Spinner, Text} from '@radix-ui/themes';
 import {ParentSize} from '@visx/responsive';
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey} from '@utils/elections';
-import {
-  ensembleExtremeThumbUrl,
-  useEnsembleJoint,
-} from './ensembleData';
+import {useEnsembleJoint} from './ensembleData';
 import {metricForRef, type EnsembleMetricDef} from './ensembleMetrics';
 import {sliceComparison, sliceGoal, sliceSentence} from './ensembleJoint';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
-import {JointDensity, type JointExtreme} from './JointDensity';
-import {isRelevantObjective, objectiveColor, objectiveRank} from './ensembleExtremes';
-import type {EnsembleJointPair, EnsembleMetricsPayload, EnsembleObjective} from './ensembleTypes';
+import {JointDensity} from './JointDensity';
+import type {EnsembleJointPair, EnsembleMetricsPayload} from './ensembleTypes';
 
 const CHART_HEIGHT = 360;
 const CHART_MAX_WIDTH = 760;
@@ -71,13 +67,8 @@ export interface JointSectionProps {
   planLabel: string;
   selectedLabel: string;
   sampleLabel: string;
-  /** The searches' extreme plans; each is marked at its two values. */
-  objectives?: EnsembleObjective[];
-  /** Mark every search's plan, not only the ones bearing on the pair's series. */
-  showAllExtremes?: boolean;
 }
 
-const NO_OBJECTIVES: EnsembleObjective[] = [];
 const NO_SAMPLE: EnsembleMetricsPayload[] = [];
 
 /**
@@ -99,43 +90,11 @@ export const JointSection: React.FC<JointSectionProps> = ({
   planLabel,
   selectedLabel,
   sampleLabel,
-  objectives = NO_OBJECTIVES,
-  showAllExtremes = false,
 }) => {
   const [pairId, setPairId] = useState<string | null>(null);
   const selected = pairs.find(entry => entry.pair.id === pairId) ?? pairs[0];
   const jointQuery = useEnsembleJoint(moduleSlug, presetKey, selected?.pair, open);
   const joint = jointQuery.data;
-
-  // Each search's best plan at its two values; by default only the searches
-  // that bear on either series of the pair.
-  const extremes = useMemo((): JointExtreme[] => {
-    if (!selected) return [];
-    const {x, y} = selected;
-    return objectives
-      .filter(
-        objective =>
-          objective.plans.length > 0 &&
-          (showAllExtremes ||
-            isRelevantObjective(x.def.id, objective.key) ||
-            isRelevantObjective(y.def.id, objective.key))
-      )
-      .sort((a, b) => objectiveRank(a.key) - objectiveRank(b.key))
-      .flatMap(objective => {
-        const best = objective.plans[0];
-        if (!best.metrics) return [];
-        return [
-          {
-            key: objective.key,
-            label: objective.label,
-            color: objectiveColor(objective.key),
-            x: x.def.stepValue(best.metrics, x.election),
-            y: y.def.stepValue(best.metrics, y.election),
-            thumbUrl: ensembleExtremeThumbUrl(moduleSlug, presetKey, objective.key, 0, best.thumb),
-          },
-        ];
-      });
-  }, [objectives, selected, showAllExtremes, moduleSlug, presetKey]);
 
   const sentence = useMemo(() => {
     if (!joint || !selected) return null;
@@ -210,7 +169,6 @@ export const JointSection: React.FC<JointSectionProps> = ({
                   selectedLabel={selectedLabel}
                   sample={samplePoints}
                   sampleLabel={sampleLabel}
-                  extremes={extremes}
                   width={width}
                   height={CHART_HEIGHT}
                 />

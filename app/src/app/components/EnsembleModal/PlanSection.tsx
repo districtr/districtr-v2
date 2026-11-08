@@ -1,25 +1,22 @@
 'use client';
 import React from 'react';
-import {Button, Callout, Flex, Select, Slider, Spinner, Text} from '@radix-ui/themes';
+import {Button, Callout, Flex, Slider, Spinner, Text} from '@radix-ui/themes';
 import {InfoCircledIcon, ShuffleIcon} from '@radix-ui/react-icons';
-import {ensembleExtremeThumbUrl} from './ensembleData';
 import type {EnsembleMetricFocus} from './ensembleMetrics';
 import {ENSEMBLE_MODAL_TEXT, fillEnsembleText} from './ensembleModalText';
-import {anotherChunk, SAMPLE_SOURCE_VALUE, selectedPlanOf, type PlanSource} from './ensemblePlans';
+import {anotherChunk, selectedPlanOf} from './ensemblePlans';
 import {PlanThumbnail} from './PlanThumbnail';
 import {SegmentTables} from './SegmentTables';
-import type {EnsembleChunk, EnsembleGeometry, EnsembleObjective} from './ensembleTypes';
+import type {EnsembleChunk, EnsembleGeometry} from './ensembleTypes';
 
 export interface PlanSectionProps {
-  moduleSlug: string;
-  presetKey: string;
   presetLabel: string;
   planCountText: string;
-  /** Number of chunks the package holds; 0 offers searches only. */
+  /** Number of chunks the package holds. */
   chunkCount: number;
-  objectives: EnsembleObjective[];
-  source: PlanSource;
-  onSourceChange: (source: PlanSource) => void;
+  /** The chunk whose plans the section shows. */
+  chunkIndex: number;
+  onChunkChange: (chunk: number) => void;
   planIndex: number;
   onPlanIndexChange: (index: number) => void;
   chunk?: EnsembleChunk;
@@ -32,19 +29,15 @@ export interface PlanSectionProps {
 
 /**
  * "Individual plans": one plan at a time, with its map and its full scores.
- * The reader walks a random sample of a hundred plans, or the plans a search
- * found for one goal; the charts below mark the selected plan and dot the
- * sample.
+ * The reader walks a random sample of a hundred plans; the charts below mark
+ * the selected plan and dot the sample.
  */
 export const PlanSection: React.FC<PlanSectionProps> = ({
-  moduleSlug,
-  presetKey,
   presetLabel,
   planCountText,
   chunkCount,
-  objectives,
-  source,
-  onSourceChange,
+  chunkIndex,
+  onChunkChange,
   planIndex,
   onPlanIndexChange,
   chunk,
@@ -54,44 +47,19 @@ export const PlanSection: React.FC<PlanSectionProps> = ({
   focus,
   onSelectMetric,
 }) => {
-  const searches = objectives.filter(objective => objective.plans.length > 0);
-  const objective =
-    source.kind === 'extreme' ? searches.find(o => o.key === source.objective) : undefined;
-  const plans = source.kind === 'sample' ? (chunk?.plans ?? []) : (objective?.plans ?? []);
-  const count = plans.length;
+  const count = chunk?.plans.length ?? 0;
   const index = Math.min(planIndex, Math.max(0, count - 1));
-  const selected = selectedPlanOf(source, index, chunk, objectives);
-  const sampled = source.kind === 'sample' ? chunk?.plans[index] : undefined;
-  const extreme = source.kind === 'extreme' ? objective?.plans[index] : undefined;
+  const selected = selectedPlanOf(chunkIndex, index, chunk);
+  const sampled = selected ? chunk?.plans[index] : undefined;
 
-  const sourceValue = source.kind === 'sample' ? SAMPLE_SOURCE_VALUE : source.objective;
-  const handleSourceChange = (value: string) => {
-    onPlanIndexChange(0);
-    onSourceChange(
-      value === SAMPLE_SOURCE_VALUE
-        ? {kind: 'sample', chunk: source.kind === 'sample' ? source.chunk : 0}
-        : {kind: 'extreme', objective: value}
-    );
-  };
-
-  const caption =
-    source.kind === 'sample'
-      ? fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansSampleCaption, {n: index + 1, count})
-      : fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansExtremeCaption, {
-          label: objective?.label ?? '',
-          n: index + 1,
-          count,
-        });
-  const note =
-    source.kind === 'sample'
-      ? sampled
-        ? fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansSampleNote, {
-            step: sampled.plan.toLocaleString(),
-            sample: source.chunk + 1,
-            samples: chunkCount.toLocaleString(),
-          })
-        : ''
-      : ENSEMBLE_MODAL_TEXT.plansExtremeNote;
+  const caption = fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansSampleCaption, {n: index + 1, count});
+  const note = sampled
+    ? fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansSampleNote, {
+        step: sampled.plan.toLocaleString(),
+        sample: chunkIndex + 1,
+        samples: chunkCount.toLocaleString(),
+      })
+    : '';
 
   return (
     <Flex direction="column" gap="3" pb="2">
@@ -101,37 +69,21 @@ export const PlanSection: React.FC<PlanSectionProps> = ({
           preset: presetLabel,
         })}
       </Text>
-      <Flex gap="2" align="center" wrap="wrap">
-        <Select.Root size="1" value={sourceValue} onValueChange={handleSourceChange}>
-          <Select.Trigger aria-label={ENSEMBLE_MODAL_TEXT.plansSourceLabel} />
-          <Select.Content>
-            {chunkCount > 0 && (
-              <Select.Item value={SAMPLE_SOURCE_VALUE}>
-                {ENSEMBLE_MODAL_TEXT.plansSampleOption}
-              </Select.Item>
-            )}
-            {searches.map(search => (
-              <Select.Item key={search.key} value={search.key}>
-                {fillEnsembleText(ENSEMBLE_MODAL_TEXT.plansExtremeOption, {label: search.label})}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-        {source.kind === 'sample' && chunkCount > 1 && (
-          <Button
-            size="1"
-            variant="soft"
-            className="cursor-pointer"
-            onClick={() => {
-              onPlanIndexChange(0);
-              onSourceChange({kind: 'sample', chunk: anotherChunk(source.chunk, chunkCount)});
-            }}
-          >
-            <ShuffleIcon />
-            {ENSEMBLE_MODAL_TEXT.plansAnotherSample}
-          </Button>
-        )}
-      </Flex>
+      {chunkCount > 1 && (
+        <Button
+          size="1"
+          variant="soft"
+          className="cursor-pointer"
+          style={{alignSelf: 'flex-start'}}
+          onClick={() => {
+            onPlanIndexChange(0);
+            onChunkChange(anotherChunk(chunkIndex, chunkCount));
+          }}
+        >
+          <ShuffleIcon />
+          {ENSEMBLE_MODAL_TEXT.plansAnotherSample}
+        </Button>
+      )}
       {chunkLoading && (
         <Flex align="center" gap="2" py="3">
           <Spinner />
@@ -150,32 +102,13 @@ export const PlanSection: React.FC<PlanSectionProps> = ({
         <Flex gap="4" align="start" wrap="wrap">
           <div style={{flex: '0 0 28%', minWidth: 200}}>
             <Flex direction="column" gap="2">
-              {sampled && geometry ? (
+              {sampled && geometry && (
                 <PlanThumbnail
                   geometry={geometry}
                   assignment={sampled.assignment}
                   alt={ENSEMBLE_MODAL_TEXT.planThumbnailAlt}
                 />
-              ) : extreme && objective ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={ensembleExtremeThumbUrl(
-                    moduleSlug,
-                    presetKey,
-                    objective.key,
-                    index,
-                    extreme.thumb
-                  )}
-                  alt={ENSEMBLE_MODAL_TEXT.planThumbnailAlt}
-                  style={{
-                    width: '100%',
-                    aspectRatio: '4 / 3',
-                    objectFit: 'contain',
-                    background: 'var(--gray-2)',
-                    borderRadius: 'var(--radius-2)',
-                  }}
-                />
-              ) : null}
+              )}
               <Text size="2" weight="bold">
                 {caption}
               </Text>
