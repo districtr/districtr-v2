@@ -12,12 +12,12 @@ import type {DiagPresetIndex, DiagRegistryEntry} from './diagTypes';
  */
 export const openDiagPlan = async ({
   module,
-  presetPath,
+  folder,
   preset,
   step,
 }: {
   module: string;
-  presetPath: string;
+  folder: string;
   preset: DiagPresetIndex;
   step: number;
 }): Promise<DiagRegistryEntry> => {
@@ -25,8 +25,8 @@ export const openDiagPlan = async ({
     throw new Error(`Step must be an integer from 0 to ${preset.n_plans - 1}`);
   }
   const [nodes, range] = await Promise.all([
-    getDiagNodes(module, presetPath),
-    getDiagRange(module, presetPath, rangeIndexOf(step, preset.range_size)),
+    getDiagNodes(folder, preset.preset),
+    getDiagRange(folder, preset.preset, rangeIndexOf(step, preset.range_size)),
   ]);
   const assignments = assignmentPairs(nodes, decodeRow(range, step, preset.n_nodes));
   const result = await uploadAssignments({assignments, districtr_map_slug: module});

@@ -9,6 +9,7 @@ import {
   getDiagPresetIndex,
   getDiagRange,
   getDiagSeedRegistry,
+  diagFolder,
 } from './diagData';
 import {evalPath, openDiagPlan} from './diagOpen';
 import {
@@ -22,11 +23,11 @@ import type {DiagPresetIndex, DiagRange, DiagRegistryEntry} from './diagTypes';
 
 const btn = 'border border-gray-400 rounded px-2 py-0.5 text-xs hover:bg-gray-100 disabled:opacity-50';
 
-const fmt = (v: number | undefined) =>
-  v === undefined ? '…' : Number.isInteger(v) ? String(v) : v.toFixed(4);
+const fmt = (v: number | null | undefined) =>
+  v === undefined ? '…' : v === null ? '–' : Number.isInteger(v) ? String(v) : v.toFixed(4);
 
 /** Range files for a set of steps, loaded as they arrive. */
-const useRanges = (module: string, presetPath: string, preset: DiagPresetIndex | undefined, steps: number[]) => {
+const useRanges = (folder: string, preset: DiagPresetIndex | undefined, steps: number[]) => {
   const [ranges, setRanges] = useState<Record<number, DiagRange>>({});
   const key = steps.join(',');
   useEffect(() => {
@@ -34,7 +35,7 @@ const useRanges = (module: string, presetPath: string, preset: DiagPresetIndex |
     let live = true;
     const ks = [...new Set(steps.map(s => rangeIndexOf(s, preset.range_size)))];
     ks.forEach(k =>
-      getDiagRange(module, presetPath, k)
+      getDiagRange(folder, preset.preset, k)
         .then(r => live && setRanges(prev => ({...prev, [k]: r})))
         .catch(() => undefined)
     );
@@ -42,7 +43,7 @@ const useRanges = (module: string, presetPath: string, preset: DiagPresetIndex |
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [module, presetPath, preset, key]);
+  }, [folder, preset, key]);
   return ranges;
 };
 
@@ -60,11 +61,11 @@ export const DiagSection: React.FC = () => {
   const presets = moduleIndex?.presets ?? [];
   const [presetKey, setPresetKey] = useState<string | null>(null);
   const presetEntry = presets.find(p => p.key === presetKey) ?? presets[0];
-  const presetPath = presetEntry?.path ?? '';
+  const folder = diagFolder(module, presetEntry);
 
   const {data: preset} = useQuery({
-    queryKey: ['diag', 'preset', module, presetPath],
-    queryFn: () => getDiagPresetIndex(module, presetPath),
+    queryKey: ['diag', 'preset', folder, presetEntry?.key],
+    queryFn: () => getDiagPresetIndex(folder, presetEntry!.key),
     enabled: !!presetEntry,
     staleTime: Infinity,
     retry: false,
@@ -77,8 +78,8 @@ export const DiagSection: React.FC = () => {
   }, [module]);
   useEffect(() => {
     let live = true;
-    Promise.all(presets.map(p => getDiagSeedRegistry(module, p.path)))
-      .then(all => live && setSeed(all.flat()))
+    getDiagSeedRegistry(diagFolder(module, presets[0]))
+      .then(all => live && setSeed(all))
       .catch(() => undefined);
     return () => {
       live = false;
@@ -113,7 +114,7 @@ export const DiagSection: React.FC = () => {
     : [];
   const headline = useMemo(() => headlineMetrics(preset?.metrics ?? []), [preset]);
   const shownStepNums = [...rows.map(r => r.step), ...(shown !== null ? [shown] : [])];
-  const ranges = useRanges(module, presetPath, preset, shownStepNums);
+  const ranges = useRanges(folder, preset, shownStepNums);
   const rangeFor = (step: number) =>
     preset ? ranges[rangeIndexOf(step, preset.range_size)] : undefined;
 
@@ -129,7 +130,7 @@ export const DiagSection: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      const entry = await openDiagPlan({module, presetPath, preset, step});
+      const entry = await openDiagPlan({module, folder, preset, step});
       router.push(evalPath(entry.public_id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -203,7 +204,7 @@ export const DiagSection: React.FC = () => {
               >
                 {buckets.map((b, i) => (
                   <option key={b.label} value={i}>
-                    {b.label} ({fmt(b.range[0])} to {fmt(b.range[1])})
+                    {b.label} {b.range ? `(${fmt(b.range[0])} to ${fmt(b.range[1])})` : '(empty)'}
                   </option>
                 ))}
               </select>

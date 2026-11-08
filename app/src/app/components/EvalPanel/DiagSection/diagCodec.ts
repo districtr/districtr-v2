@@ -45,7 +45,7 @@ export const assignmentPairs = (nodes: string[], row: Uint8Array): [string, stri
 };
 
 /** Value of metric `key` at `step`, or undefined when the range lacks it. */
-export const metricAt = (range: DiagRange, key: string, step: number): number | undefined =>
+export const metricAt = (range: DiagRange, key: string, step: number): number | null | undefined =>
   range.metrics[key]?.[offsetInRange(step, range)];
 
 /** Name of the document created for a step. */
@@ -84,10 +84,12 @@ export const headlineMetrics = (metrics: DiagMetricInfo[]): HeadlineMetric[] => 
   );
   first('Polsby-Popper mean', m => /polsby|\bpp\b/.test(text(m)) && /mean|avg|average/.test(text(m)));
   const seats = metrics
-    .filter(m => /seat/.test(text(m)) && /pres/.test(`${text(m)} ${m.election ?? ''}`.toLowerCase()))
+    .filter(
+      m => /seats/.test(m.key.toLowerCase()) && /pres/.test(`${m.election ?? ''} ${m.key}`.toLowerCase())
+    )
     .sort(
       (a, b) =>
-        electionYear(`${b.election ?? ''} ${b.key}`) - electionYear(`${a.election ?? ''} ${a.key}`)
+        electionYear(`${b.election ?? b.key}`) - electionYear(`${a.election ?? a.key}`)
     );
   if (seats[0]) out.push({role: 'Dem seats (latest presidential)', info: seats[0]});
   first('Cut edges', m => /cut.?edge/.test(text(m)));
