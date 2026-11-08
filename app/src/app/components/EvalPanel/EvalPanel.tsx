@@ -14,6 +14,7 @@ import {CountySplitsSection} from './CountySplitsSection';
 import {CompactnessSection} from './CompactnessSection';
 import {EnsembleControl} from './EnsembleControl';
 import {EnsembleModal} from './EnsembleModal';
+import {DiagSection} from './DiagSection/DiagSection';
 import {useEnsembleReference} from '@/app/hooks/useEnsembleReference';
 import {useEnsembleStore} from '@store/ensembleStore';
 
@@ -81,6 +82,8 @@ export const EvalPanel: React.FC = () => {
         )}
         {ensemble.available && hasMetrics && <EnsembleControl ensemble={ensemble} />}
       </Flex>
+
+      <DiagSection />
 
       {isLoading && (
         <Flex justify="center" mt="6">
