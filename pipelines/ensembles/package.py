@@ -640,12 +640,17 @@ def alias_index(index: dict, alias_slug: str, base_slug: str) -> dict:
     }
 
 
-def upload_targets(package_dir: str | Path, module_slug: str) -> list[tuple[Path, str]]:
+def upload_targets(
+    package_dir: str | Path, module_slug: str, prefix: str = "ensembles"
+) -> list[tuple[Path, str]]:
     """(local file, S3 key) for every file in ``package_dir``, keyed
-    ``ensembles/<module_slug>/<relative path>``."""
+    ``<prefix>/<module_slug>/<relative path>``."""
     package_dir = Path(package_dir)
     return [
-        (path, f"ensembles/{module_slug}/{path.relative_to(package_dir).as_posix()}")
+        (
+            path,
+            f"{prefix}/{module_slug}/{path.relative_to(package_dir).as_posix()}",
+        )
         for path in sorted(package_dir.rglob("*"))
         if path.is_file() and path.relative_to(package_dir).parts[0] != ALIASES_DIRNAME
     ]
