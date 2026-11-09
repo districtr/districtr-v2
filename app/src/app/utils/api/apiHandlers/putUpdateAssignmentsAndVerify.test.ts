@@ -262,15 +262,22 @@ describe('putUpdateAssignmentsAndVerify', () => {
 });
 
 describe('hashAssignments', () => {
-  test('matches the backend (same vector as Postgres and the Python spec)', async () => {
-    const plan = new Map<string, number | null>([
-      ['b', null],
-      ['vtd:01', 3],
-      ['a1', 2],
-      ['a', 1],
-    ]);
-    expect(await hashAssignments(plan)).toBe(
-      '5940bf54ee31f2308c3798c6f8914405e299cd0bb429762b62214b89835c6362'
+  // The same plans and digests as HASH_VECTORS in backend/tests/test_main.py, which
+  // checks them against Postgres and the Python spec: change both or neither. The
+  // second plan's ids sort differently by byte and by locale.
+  test.each([
+    [
+      {b: null, 'vtd:01': 3, a1: 2, a: 1},
+      '5940bf54ee31f2308c3798c6f8914405e299cd0bb429762b62214b89835c6362',
+    ],
+    [
+      {Z9: 1, 'a-1': 2, a1: null, a_1: 5, 'vtd:A1': 3, 'vtd:a1': 4},
+      'c35bdbacd754d1521e7bce3a6eb2b21df9ac2e8f04e9888845f7d607e996e23f',
+    ],
+    [{}, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'],
+  ])('matches the backend for %j', async (plan, digest) => {
+    expect(await hashAssignments(new Map<string, number | null>(Object.entries(plan)))).toBe(
+      digest
     );
   });
 });

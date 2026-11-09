@@ -314,6 +314,22 @@ describe('checkAssignments', () => {
     expect(edgesMock).not.toHaveBeenCalled();
   });
 
+  test('after a refused save, the full check finds blocks the local pass cannot', async () => {
+    const st = districtState();
+    st.zoneAssignments = new Map([['a1', 2]]);
+    useAssignmentsStore.setState(st as any);
+    edgesMock.mockImplementation(async () => [
+      {parent_path: 'vtd:A', child_path: 'a1'},
+      {parent_path: 'vtd:A', child_path: 'a2'},
+      {parent_path: 'vtd:B', child_path: 'b1'},
+    ]);
+    expect(await checkAssignments('save')).toBe(true);
+    expect(await checkAssignments('rejected')).toBe(false);
+    const r = useAssignmentRepairStore.getState();
+    expect([...r.issues!.missingBlocks]).toEqual([['vtd:A', ['a2']]]);
+    expect(r.open).toBe(true);
+  });
+
   test('a broken-up unit missing from demography is not counted as unmatched', async () => {
     const st = districtState();
     st.zoneAssignments = new Map([['a1', 2]]);

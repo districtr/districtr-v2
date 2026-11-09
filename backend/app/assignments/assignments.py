@@ -379,10 +379,20 @@ def parse_assignment_pairs(pairs: list[list]) -> dict[str, int | None]:
             raise ValueError(f"Invalid geo_id {geo_id!r}")
         if geo_id in out:
             raise DuplicateGeoIdError(geo_id)
-        out[geo_id] = None if zone is None else int(zone)
+        if zone is not None:
+            try:
+                zone = int(zone)
+            except ValueError:
+                zone = None
+            # The view casts zones to integer: one outside its range would save
+            # and then fail every read of the plan.
+            if zone is None or not _INT4_MIN <= zone <= _INT4_MAX:
+                raise ValueError(f"Invalid zone {pair[1]!r} for geo_id {geo_id!r}")
+        out[geo_id] = zone
     return out
 
 
+_INT4_MIN, _INT4_MAX = -(2**31), 2**31 - 1
 _MISSING = object()
 
 
@@ -394,15 +404,14 @@ def _dirty_zones(changed, old: dict, new: dict) -> set[int]:
     return {z for z in zones if isinstance(z, int)}
 
 
-def write_district_assignments(
-    session: Session, document_id: str, full: dict[str, int | None]
+def diff_district_assignments(
+    session: Session, document_id: str, plan: dict[str, int | None]
 ) -> tuple[list[str], set[int]]:
-    """Replace a document's plan with `full`. Writes only when something changed.
+    """How `plan` differs from the document's stored plan.
 
-    Returns (geo_ids whose assignment changed, dirty zones) — the zones whose
-    district_unions rows are now stale.
+    Returns (geo_ids whose assignment differs, dirty zones) — the zones whose
+    district_unions rows go stale once `plan` is written.
     """
-    doc = str(document_id)
     old = (
         session.connection()
         .execute(
@@ -410,25 +419,30 @@ def write_district_assignments(
                 "SELECT assignments FROM document.document_assignments "
                 "WHERE document_id = CAST(:doc AS uuid)"
             ),
-            {"doc": doc},
+            {"doc": str(document_id)},
         )
         .scalar()
     ) or {}
     changed = {
         g
-        for g in old.keys() | full.keys()
-        if old.get(g, _MISSING) != full.get(g, _MISSING)
+        for g in old.keys() | plan.keys()
+        if old.get(g, _MISSING) != plan.get(g, _MISSING)
     }
-    if changed:
-        session.connection().execute(
-            text(
-                "INSERT INTO document.document_assignments (document_id, assignments) "
-                "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
-                "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
-            ),
-            {"doc": doc, "blob": json.dumps(full)},
-        )
-    return sorted(changed), _dirty_zones(changed, old, full)
+    return sorted(changed), _dirty_zones(changed, old, plan)
+
+
+def write_district_assignments(
+    session: Session, document_id: str, plan: dict[str, int | None]
+) -> None:
+    """Replace a document's stored plan with `plan`."""
+    session.connection().execute(
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
+            "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
+        ),
+        {"doc": str(document_id), "blob": json.dumps(plan)},
+    )
 
 
 def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:

@@ -39,6 +39,7 @@ from app.assignments import (
     duplicate_document_community_assignments,
     batch_insert_assignments,
     parse_assignment_pairs,
+    diff_district_assignments,
     write_district_assignments,
     assignments_count_and_hash,
     find_shatter_problems,
@@ -129,6 +130,7 @@ from app.evaluation.context import (
     elections_from_columns,
     demographic_columns_from_columns,
 )
+from app.evaluation.dual_graph import DualLevelGraph
 from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -738,16 +740,12 @@ def create_document(
     return doc_dict
 
 
-def _reject_shatter_problems(
-    session: Session,
-    document_id: str,
-    changed: list[str],
-    plan: dict[str, int | None],
-) -> None:
-    """422 if the save breaks the shattered-parent contract in the parents it
-    touches (see find_shatter_problems). Runs after the write and rolls it back
-    on rejection. Skipped, with a warning, when the map's graph can't be
-    loaded: saving must not depend on it."""
+def _graph_for_shatter_check(
+    session: Session, document_id: str
+) -> DualLevelGraph | None:
+    """The map's graph for _reject_shatter_problems, or None (with a warning)
+    when it can't be loaded: saving must not depend on it. Called before the
+    save takes the document's row lock, because a cold load can take seconds."""
     gerrydb_table_name = session.exec(
         select(DistrictrMap.gerrydb_table_name)
         .join(
@@ -757,15 +755,23 @@ def _reject_shatter_problems(
         .where(Document.document_id == document_id)
     ).one()
     try:
-        G = get_graph(gerrydb_table_name)
+        return get_graph(gerrydb_table_name)
     except HTTPException:
         logger.warning(
-            "Graph %s unavailable; saved without the shatter check", gerrydb_table_name
+            "Graph %s unavailable; saving without the shatter check", gerrydb_table_name
         )
-        return
+        return None
+
+
+def _reject_shatter_problems(
+    G: DualLevelGraph,
+    changed: list[str],
+    plan: dict[str, int | None],
+) -> None:
+    """422 if the save breaks the shattered-parent contract in the parents it
+    touches (see find_shatter_problems). Runs before anything is written."""
     problems = find_shatter_problems(G, changed, plan)
     if problems:
-        session.rollback()
         shown = problems[:MAX_REPORTED_PROBLEMS]
         more = len(problems) - len(shown)
         raise HTTPException(
@@ -886,6 +892,10 @@ def _sync_update_assignments(
                 f"validated_metadata={'present' if validated_community_metadata else 'None'}"
             )
 
+    shatter_graph = (
+        None if is_community_map else _graph_for_shatter_check(session, document_id)
+    )
+
     # FOR UPDATE: saves to one document run one at a time, so the diff below
     # (which picks the district_unions rows to evict) is against the version the
     # conflict check passed.
@@ -920,9 +930,6 @@ def _sync_update_assignments(
     if not is_community_map:
         try:
             plan = parse_assignment_pairs(assignments)
-            changed, dirty_zones = write_district_assignments(
-                session, document_id, plan
-            )
         except DuplicateGeoIdError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -930,9 +937,12 @@ def _sync_update_assignments(
             )
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        changed, dirty_zones = diff_district_assignments(session, document_id, plan)
         mutated = bool(changed)
         if changed:
-            _reject_shatter_problems(session, document_id, changed, plan)
+            if shatter_graph is not None:
+                _reject_shatter_problems(shatter_graph, changed, plan)
+            write_district_assignments(session, document_id, plan)
     else:
         # The assignments field is always a full replacement set:
         #   [] means "delete all assignments" (user cleared everything)
@@ -1214,9 +1224,9 @@ async def update_assignments(
     """
     Update assignments for a document with optimistic concurrency control.
 
-    This endpoint replaces a document's assignments with the provided set, or applies
-    the provided changes. It uses optimistic concurrency control to prevent
-    overwriting changes made by other clients.
+    This endpoint replaces all existing assignments for a document with the provided
+    assignments. It uses optimistic concurrency control to prevent overwriting changes
+    made by other clients.
 
     Wire format (NOTE: the contract is not visible in the signature):
         This endpoint takes the raw ``request`` body instead of a Pydantic body
@@ -1261,10 +1271,14 @@ async def update_assignments(
               its own hash to confirm the save.
 
     Raises:
-        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
+        HTTPException: 400 if the body cannot be msgpack-decoded, no changes are
+            provided, or an assignment pair is invalid (repeated or non-string
+            geo_id, zone not an integer or out of range)
         HTTPException: 404 if the document does not exist
         HTTPException: 409 if document was updated by another client and overwrite=False
-        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
+        HTTPException: 422 if the decoded body fails AssignmentsCreate validation, or
+            (district maps) the save breaks the shattered-parent contract in the
+            parents it touches or names a geo_id the map doesn't have
     """
     body_bytes = await request.body()
     try:
@@ -1339,6 +1353,16 @@ def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
+    # The document row first, as PUT /api/assignments locks it: the other order
+    # can deadlock with a save in flight.
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
     for table in ("document.document_assignments", "document.community_assignments"):
         session.connection().execute(
             text(f"DELETE FROM {table} WHERE document_id = :document_id").bindparams(
@@ -1350,14 +1374,6 @@ def reset_map(
     session.connection().execute(
         text(
             "DELETE FROM document.district_unions WHERE document_id = :document_id"
-        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
-        {"document_id": document.document_id},
-    )
-    session.connection().execute(
-        text(
-            "UPDATE document.document "
-            "SET color_scheme = NULL, assignments_updated_at = NOW() "
-            "WHERE document_id = :document_id"
         ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )

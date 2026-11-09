@@ -25,6 +25,8 @@ type PutUpdateAssignmentsAndVerifyResponse =
   | {
       ok: false;
       error: string;
+      /** HTTP status when the server refused the save. */
+      status?: number;
     };
 export const putUpdateAssignmentsAndVerify = async ({
   mapDocument,
@@ -112,6 +114,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     return {
       ok: false,
       error: assignmentsPostResponse.error.detail,
+      status: assignmentsPostResponse.error.status,
     };
   }
   // Verify assignments were saved correctly. The server already accepted the write

@@ -125,8 +125,8 @@ slugs against `districtrmap` and, for cleanup, to delete assignment rows.
 - **cleanup**: `-m/--manifest` (repeatable, local or `s3://`) accepts both
   manifest shapes (seed `{documents: [...]}` and runtime
   `{created_documents: [...]}`). Deletes each document fully: removes rows
-  from `document.assignments` and `document.community_assignments` (plain
-  tables — no per-document partitions since migration `7e57b49573e0`), deletes
+  from `document.document_assignments` (one jsonb row per plan since migration
+  `71fa732b1bbc`) and `document.community_assignments`, deletes
   comment/district-union/session/token rows, then the document row
   (`document.evaluation` cascades). Chunked commits (50 docs/transaction).
   Afterwards it lists any leftover document whose metadata name starts with
