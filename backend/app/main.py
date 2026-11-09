@@ -164,7 +164,10 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    dependencies=[Depends(cms.reject_writes_under_construction)],
+)
 app.include_router(admin_ops.router)
 app.include_router(cms.router)
 app.include_router(exports.router)
