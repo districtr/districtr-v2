@@ -6,6 +6,9 @@ saving big plans at once doesn't stack spatial unions on the database.
 Viewing, exporting or evaluating a plan still rebuilds its missing districts
 on demand.
 
+The same pass then evicts district_unions rows of plans untouched for two
+weeks (ADR 0069), to keep the table small.
+
 To run a pass by hand (after a deploy lands in the window, say):
 `python cli.py refresh-stale-stats`.
 """
@@ -41,6 +44,8 @@ LOOKBACK = timedelta(days=2) + IDLE
 # evaluation locks hash document_id over the whole bigint range; a collision
 # there is ~2^-64 and would only delay one evaluation.
 LOCK_KEY = -734817263
+EVICT_AFTER = timedelta(days=14)
+EVICT_BATCH = 500  # plans per DELETE, to stay well under statement_timeout
 
 
 def stale_idle_plans(
@@ -70,6 +75,39 @@ def stale_idle_plans(
     else:
         query = query.where(Document.assignments_updated_at > now - LOOKBACK)
     return list(session.exec(query.order_by(Document.assignments_updated_at)).all())
+
+
+def evict_old_district_unions() -> int:
+    """Delete the cached district_unions rows of every plan whose cache and
+    assignments are both older than EVICT_AFTER. Whole plans only: thumbnails
+    read the table as-is, so a partly evicted plan would draw with districts
+    missing. Returns the number of rows deleted."""
+    # ponytail: each batch re-scans the table to find old plans; add an
+    # index on updated_at if the scan gets slow.
+    evict = text(
+        """
+        DELETE FROM document.district_unions
+        WHERE document_id IN (
+            SELECT du.document_id
+            FROM document.district_unions du
+            JOIN document.document d USING (document_id)
+            GROUP BY du.document_id, d.assignments_updated_at
+            HAVING greatest(max(du.updated_at), d.assignments_updated_at)
+                < now() - :age
+            LIMIT :batch
+        )
+        """
+    )
+    deleted = 0
+    while True:
+        with Session(engine) as session:
+            n = session.execute(
+                evict, {"age": EVICT_AFTER, "batch": EVICT_BATCH}
+            ).rowcount
+            session.commit()
+        if not n:
+            return deleted
+        deleted += n
 
 
 def _safe_reason(e: Exception) -> str:
@@ -137,6 +175,15 @@ def refresh_stale_plans(spread_seconds: float = SPREAD_SECONDS) -> int:
                         public_id,
                         _safe_reason(e),
                     )
+            # After the publishes: a plan just republished has fresh rows and
+            # is kept.
+            try:
+                logger.info(
+                    "Nightly stats refresh: evicted %s old district_unions rows",
+                    evict_old_district_unions(),
+                )
+            except Exception as e:
+                logger.error("District unions eviction failed: %s", _safe_reason(e))
             left = len(plans) - published - skipped - failed
             # ERROR (a Sentry event) when a plan failed or the run ran out of
             # time, so a plan that fails every night or a backlog that never

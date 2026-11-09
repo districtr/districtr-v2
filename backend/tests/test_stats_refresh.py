@@ -1,4 +1,5 @@
 import logging
+from contextlib import nullcontext
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -279,3 +280,50 @@ def test_lifespan_starts_the_nightly_refresh(monkeypatch):
     with TestClient(app):
         pass
     start.assert_called_once()
+
+
+def test_evicts_only_plans_whose_cache_and_assignments_are_two_weeks_old(
+    session, document_id, monkeypatch
+):
+    # The test session rolls back, so nothing it writes is visible to another
+    # connection: run the eviction on it.
+    monkeypatch.setattr(stats_refresh, "Session", lambda _engine: nullcontext(session))
+
+    def rows(*days_old):
+        session.execute(
+            text("DELETE FROM document.district_unions WHERE document_id = :d"),
+            {"d": document_id},
+        )
+        for zone, days in enumerate(days_old, 1):
+            session.execute(
+                text(
+                    "INSERT INTO document.district_unions "
+                    "(document_id, zone, created_at, updated_at) VALUES "
+                    "(:d, :zone, now(), now() - :age)"
+                ),
+                {"d": document_id, "zone": zone, "age": D * days},
+            )
+        session.commit()
+
+    def left():
+        return session.execute(
+            text(
+                "SELECT count(*) FROM document.district_unions WHERE document_id = :d"
+            ),
+            {"d": document_id},
+        ).scalar_one()
+
+    set_plan(session, document_id, assigned=False, assignments_updated_at=D * 15)
+    rows(15, 1)  # one district rebuilt yesterday: keep the whole plan
+    assert stats_refresh.evict_old_district_unions() == 0
+    assert left() == 2
+
+    rows(15, 20)
+    set_plan(session, document_id, assigned=False, assignments_updated_at=D)
+    stats_refresh.evict_old_district_unions()  # edited yesterday: keep
+    assert left() == 2
+
+    set_plan(session, document_id, assigned=False, assignments_updated_at=D * 15)
+    monkeypatch.setattr(stats_refresh, "EVICT_BATCH", 1)  # loop runs twice
+    assert stats_refresh.evict_old_district_unions() >= 2
+    assert left() == 0

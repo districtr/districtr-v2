@@ -55,7 +55,7 @@ What follows, including what a later change would have to undo.
 | [0021](0021-auth0-scopes.md) | Auth0 JWT with scopes for admin/CMS surfaces | 2025-05-05 | Superseded by 0055 |
 | [0022](0022-share-model-public-ids.md) | Share model: the document UUID is the edit capability; public ids for everything else | 2025-08-06 | Accepted |
 | [0023](0023-comment-moderation.md) | Comment moderation: OpenAI moderation API with local-lexicon fallback | 2025-09-02 | Superseded by 0059 and 0060 |
-| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted. Amended by 0047 |
+| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted. Amended by 0047 and 0069 |
 | [0025](0025-save-sync-model.md) | Save/sync model: IndexedDB drafts, automated server sync, derived dirtiness | 2025-12-19 | Accepted |
 | [0026](0026-bun-runtime.md) | Bun as frontend runtime | 2025-12-19 | Accepted |
 | [0027](0027-per-plan-num-districts.md) | num_districts: a per-plan override of the module value | 2026-02-03 | Accepted |
@@ -97,4 +97,5 @@ What follows, including what a later change would have to undo.
 | [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
-| [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047 |
+| [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
+| [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
