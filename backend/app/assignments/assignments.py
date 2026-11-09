@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
 from fastapi import Depends
@@ -400,12 +401,12 @@ def write_district_assignments(
     full: dict[str, int | None] | None = None,
     patch: dict[str, int | None] | None = None,
     remove: list[str] | None = None,
-) -> tuple[int, set[int]]:
+) -> tuple[list[str], set[int]]:
     """Replace a document's plan with `full`, or apply a delta (`patch` upserts,
     `remove` drops geo_ids). Writes only when something changed.
 
-    Returns (number of geo_ids whose assignment changed, dirty zones) — the
-    zones whose district_unions rows are now stale.
+    Returns (geo_ids whose assignment changed, dirty zones) — the zones whose
+    district_unions rows are now stale.
     """
     doc = str(document_id)
     if full is not None:
@@ -434,7 +435,7 @@ def write_district_assignments(
                 ),
                 {"doc": doc, "blob": json.dumps(full)},
             )
-        return len(changed), _dirty_zones(changed, old, full)
+        return sorted(changed), _dirty_zones(changed, old, full)
 
     patch, remove = patch or {}, remove or []
     # Current values of just the touched geo_ids. The `|| '{}'` hands back the
@@ -468,7 +469,7 @@ def write_district_assignments(
             {"doc": doc, "patch": json.dumps(changed_patch), "remove": removed},
         )
     changed = [*changed_patch, *removed]
-    return len(changed), _dirty_zones(changed, old, changed_patch)
+    return changed, _dirty_zones(changed, old, changed_patch)
 
 
 def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:
@@ -491,3 +492,67 @@ def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int,
         .one()
     )
     return row[0], row[1]
+
+
+def stored_geo_ids(session: Session, document_id: str, keys: set[str]) -> set[str]:
+    """Which of `keys` the stored plan has an entry for (null zones included)."""
+    if not keys:
+        return set()
+    return set(
+        session.connection()
+        .execute(
+            text(
+                "WITH cur AS MATERIALIZED ("
+                " SELECT assignments || '{}'::jsonb AS a"
+                " FROM document.document_assignments WHERE document_id = CAST(:doc AS uuid))"
+                " SELECT k FROM cur, unnest(CAST(:keys AS text[])) AS k WHERE cur.a ? k"
+            ),
+            {"doc": str(document_id), "keys": list(keys)},
+        )
+        .scalars()
+    )
+
+
+MAX_REPORTED_PROBLEMS = 5
+
+
+def find_shatter_problems(
+    G: DualLevelGraph,
+    touched: list[str],
+    present_among: Callable[[set[str]], set[str]],
+) -> list[str]:
+    """What a save leaves wrong in the parents it touches, one sentence each.
+
+    The shattered-parent contract: a shattered parent has no entry of its own,
+    and every one of its children has one (zone null when unpainted). Only
+    parents of `touched` geo_ids (and touched geo_ids that are parents) are
+    checked, so a plan already broken elsewhere can still save. Also reports
+    touched geo_ids that the map's graph doesn't have.
+
+    `present_among(keys)` returns which of `keys` the saved plan has.
+    """
+    parents = {p for p in G.parents_of(touched) if p} | {
+        g for g in touched if G.num_children_of(g)
+    }
+    children_of = {parent: G.children_of(parent) for parent in parents}
+    present = present_among(
+        set(touched) | parents | {c for cs in children_of.values() for c in cs}
+    )
+
+    problems = []
+    unknown = sorted(g for g in touched if g in present and g not in G)
+    if unknown:
+        problems.append(
+            f"{len(unknown)} geo_id(s) aren't in this map (e.g. {', '.join(unknown[:3])})"
+        )
+    for parent in sorted(parents):
+        children = children_of[parent]
+        n_present = len(children & present)
+        if n_present and parent in present:
+            problems.append(f"{parent} is saved along with its blocks")
+        elif parent not in present and 0 < n_present < len(children):
+            problems.append(
+                f"{parent} is missing {len(children) - n_present} of its "
+                f"{len(children)} blocks"
+            )
+    return problems

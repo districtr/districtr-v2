@@ -9,6 +9,7 @@ from app.contiguity.main import (
 import app.evaluation.graph_loader as graph
 from app.models import DistrictrMap
 from tests.constants import FIXTURES_PATH
+from tests.conftest import seed_assignments
 from tests.graph_helpers import make_graph
 from sqlmodel import Session
 from datetime import datetime
@@ -496,23 +497,22 @@ def test_unassigned_all_parents_group_by_adjacency(
 
 
 def test_unassigned_groups_parent_and_block_across_levels(
-    client: TestClient, document_id: str, mock_gerrydb_graph_file
+    client: TestClient, session: Session, document_id: str, mock_gerrydb_graph_file
 ):
     """Cross-level grouping: an unassigned parent (vtd:...001) and an unassigned
     block in a different parent (block ...006, child of vtd:...003) are joined
     via the hybrid graph's cross-level edge — no child->parent resolution."""
-    client.put(
-        "/api/assignments",
-        json={
-            "document_id": document_id,
-            "assignments": [
-                ["vtd:000010000002", 1],
-                ["vtd:000010000003", 1],
-                ["000010000000006", None],  # block child of vtd:...003, unassigned
-                ["vtd:000010000001", None],  # parent unit, unassigned
-            ],
-            "last_updated_at": datetime.now().astimezone().isoformat(),
-        },
+    # vtd:...003 saved along with its block: PUT refuses that now, older plans
+    # may have it.
+    seed_assignments(
+        session,
+        document_id,
+        [
+            ["vtd:000010000002", 1],
+            ["vtd:000010000003", 1],
+            ["000010000000006", None],  # block child of vtd:...003, unassigned
+            ["vtd:000010000001", None],  # parent unit, unassigned
+        ],
     )
     response = client.get(f"/api/document/{document_id}/unassigned")
     assert response.status_code == 200, response.json()

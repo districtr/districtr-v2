@@ -7,6 +7,9 @@ from app.assignments.assignments import (
     parse_assignment_pairs,
     write_district_assignments,
     assignments_count_and_hash,
+    find_shatter_problems,
+    stored_geo_ids,
+    MAX_REPORTED_PROBLEMS,
 )
 
 __all__ = [
@@ -18,4 +21,7 @@ __all__ = [
     "parse_assignment_pairs",
     "write_district_assignments",
     "assignments_count_and_hash",
+    "find_shatter_problems",
+    "stored_geo_ids",
+    "MAX_REPORTED_PROBLEMS",
 ]

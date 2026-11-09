@@ -487,6 +487,83 @@ def test_put_assignments_rejects_bad_bodies(client, document_id, body):
     assert response.status_code == 400
 
 
+# simple_geos: vtd:…001 = {…001, …005}, vtd:…002 = {…002, …003, …004}, vtd:…003 = {…006}
+P1, P2, P3 = "vtd:000010000001", "vtd:000010000002", "vtd:000010000003"
+B = {i: f"00001000000000{i}" for i in range(1, 7)}
+VALID_SHATTERED = [[P1, 1], [B[2], 1], [B[3], None], [B[4], 2], [P3, 3]]
+
+
+def _new_simple_geos_plan(client):
+    response = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_geos"}
+    )
+    assert response.status_code == 201
+    return response.json()["document_id"]
+
+
+def _put(client, document_id, last_updated_at=None, **body):
+    return client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "last_updated_at": last_updated_at
+            or datetime.now().astimezone().isoformat(),
+            **body,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "assignments, problem",
+    [
+        ([[P1, 1], [B[1], 1], [B[5], 1]], f"{P1} is saved along with its blocks"),
+        ([[B[2], 1], [B[3], None]], f"{P2} is missing 1 of its 3 blocks"),
+        ([[P1, 1], ["vtd:999", 2]], "aren't in this map (e.g. vtd:999)"),
+    ],
+)
+def test_put_assignments_rejects_broken_shatters(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file, assignments, problem
+):
+    document_id = _new_simple_geos_plan(client)
+    response = _put(client, document_id, assignments=assignments)
+    assert response.status_code == 422
+    assert problem in response.json()["detail"]
+
+
+def test_put_assignments_shatter_checks_deltas(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    document_id = _new_simple_geos_plan(client)
+    response = _put(client, document_id, assignments=VALID_SHATTERED)
+    assert response.status_code == 200, response.json()
+    saved_at = response.json()["updated_at"]
+
+    # Dropping one block of a shattered parent is refused, and rolls back.
+    response = _put(client, document_id, saved_at, assignments_delta={"remove": [B[4]]})
+    assert response.status_code == 422
+    assert f"{P2} is missing 1 of its 3 blocks" in response.json()["detail"]
+    rows = client.get(f"/api/get_assignments/{document_id}").json()
+    assert B[4] in {r["geo_id"] for r in rows}
+
+    # Healing (the parent back, its blocks gone) is fine.
+    response = _put(
+        client,
+        document_id,
+        saved_at,
+        assignments_delta={"set": [[P2, 2]], "remove": [B[2], B[3], B[4]]},
+    )
+    assert response.status_code == 200, response.json()
+
+    # So is shattering P1, if every block comes along.
+    response = _put(
+        client,
+        document_id,
+        response.json()["updated_at"],
+        assignments_delta={"set": [[B[1], 1], [B[5], None]], "remove": [P1]},
+    )
+    assert response.status_code == 200, response.json()
+
+
 def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
     response = client.put(

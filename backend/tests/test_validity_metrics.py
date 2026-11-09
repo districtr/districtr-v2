@@ -35,7 +35,7 @@ from app.evaluation.validity import (
     population_deviation,
 )
 from app.evaluation.context import DocumentEvaluationContext
-from tests.conftest import _block_geoid, _vtd_geoid
+from tests.conftest import _block_geoid, _vtd_geoid, seed_assignments
 
 
 def _put_assignments(client, document_id, assignments):
@@ -269,8 +269,9 @@ def test_assigned_units_shatterable_partial_blocks(
         for pc in range(4)
         if (pr, pc) != (0, 0)
     ]
-    _put_assignments(
-        client, document_id, partial_block_assignments + other_vtd_assignments
+    # A partly shattered parent: PUT refuses it now, older plans may have it.
+    seed_assignments(
+        session, document_id, partial_block_assignments + other_vtd_assignments
     )
 
     ctx = DocumentEvaluationContext(
@@ -465,7 +466,8 @@ def test_malformed_parent_and_some_children_coexist(
         for pc in range(4)
         if (pr, pc) != (0, 0)
     ]
-    _put_assignments(client, document_id, malformed)
+    # PUT refuses this now; plans saved before the check may still have it.
+    seed_assignments(session, document_id, malformed)
 
     ctx = DocumentEvaluationContext(
         background_tasks=BackgroundTasks(), session=session, document_id=document_id

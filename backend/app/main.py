@@ -41,6 +41,9 @@ from app.assignments import (
     parse_assignment_pairs,
     write_district_assignments,
     assignments_count_and_hash,
+    find_shatter_problems,
+    stored_geo_ids,
+    MAX_REPORTED_PROBLEMS,
     DuplicateGeoIdError,
 )
 from app.core.db import get_session
@@ -736,6 +739,53 @@ def create_document(
     return doc_dict
 
 
+def _reject_shatter_problems(
+    session: Session,
+    document_id: str,
+    changed: list[str],
+    full: dict[str, int | None] | None,
+) -> None:
+    """422 if the save breaks the shattered-parent contract in the parents it
+    touches (see find_shatter_problems). Runs after the write and rolls it back
+    on rejection. Skipped, with a warning, when the map's graph can't be
+    loaded: saving must not depend on it."""
+    gerrydb_table_name = session.exec(
+        select(DistrictrMap.gerrydb_table_name)
+        .join(
+            Document,
+            col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
+        )
+        .where(Document.document_id == document_id)
+    ).one()
+    try:
+        G = get_graph(gerrydb_table_name)
+    except HTTPException:
+        logger.warning(
+            "Graph %s unavailable; saved without the shatter check", gerrydb_table_name
+        )
+        return
+    problems = find_shatter_problems(
+        G,
+        changed,
+        (lambda keys: keys & full.keys())
+        if full is not None
+        else (lambda keys: stored_geo_ids(session, document_id, keys)),
+    )
+    if problems:
+        session.rollback()
+        shown = problems[:MAX_REPORTED_PROBLEMS]
+        more = len(problems) - len(shown)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Not saved: this map's broken-up districts don't match their blocks ("
+                + "; ".join(shown)
+                + (f"; and {more} more" if more else "")
+                + "). Reload the map to check and repair them."
+            ),
+        )
+
+
 def _sync_update_assignments(
     data: AssignmentsCreate,
     session: Session,
@@ -880,6 +930,7 @@ def _sync_update_assignments(
     dirty_zones: set[int] = set()
     if not is_community_map:
         try:
+            full = None
             if data.assignments_delta is not None:
                 changed, dirty_zones = write_district_assignments(
                     session,
@@ -888,8 +939,9 @@ def _sync_update_assignments(
                     remove=data.assignments_delta.remove,
                 )
             else:
+                full = parse_assignment_pairs(assignments)
                 changed, dirty_zones = write_district_assignments(
-                    session, document_id, full=parse_assignment_pairs(assignments)
+                    session, document_id, full=full
                 )
         except DuplicateGeoIdError as e:
             raise HTTPException(
@@ -898,7 +950,9 @@ def _sync_update_assignments(
             )
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-        mutated = changed > 0
+        mutated = bool(changed)
+        if changed:
+            _reject_shatter_problems(session, document_id, changed, full)
     else:
         # The assignments field is always a full replacement set:
         #   [] means "delete all assignments" (user cleared everything)
