@@ -26,38 +26,39 @@ export const ShowAllDistrictsButton: React.FC<{
     </Button>
   ) : null;
 
-/** Pinned districts, active only in Super Draw: pins are set from its meters,
- * so outside it they'd filter tables with no way to unpin. Kept in the store
- * either way, so they come back on returning to Super Draw. */
-export const usePinnedZones = () => {
-  const pinnedZones = useMapControlsStore(state => state.pinnedZones);
+/** Focused districts, active only in Super Draw: focus is set from its meters,
+ * so outside it a focused-only table would have no way to clear it. Kept in the
+ * store either way, so it comes back on returning to Super Draw. */
+export const useFocusedZones = () => {
+  const focusedZones = useMapControlsStore(state => state.focusedZones);
   const superDraw = useToolbarStore(state => state.superDraw);
-  return superDraw ? pinnedZones : [];
+  return superDraw ? focusedZones : [];
 };
 
-/** Rows of the pinned districts. Rows without a district number (universe or
+/** Rows of the focused districts. Rows without a district number (universe or
  * unassigned totals) always stay. */
-export const filterPinnedRows = <T extends {zone?: unknown}>(rows: T[], pinnedZones: Zone[]) =>
-  rows.filter(({zone}) => typeof zone !== 'number' || zone <= 0 || pinnedZones.includes(zone));
+export const filterFocusedRows = <T extends {zone?: unknown}>(rows: T[], focusedZones: Zone[]) =>
+  rows.filter(({zone}) => typeof zone !== 'number' || zone <= 0 || focusedZones.includes(zone));
 
-/** What the line atop a pinned table says, e.g. "Showing pinned districts 3, 7". */
-export const pinnedFilterLabel = (pinnedZones: Zone[], showAll: boolean) => {
-  const zones = [...pinnedZones].sort((a, b) => a - b).join(', ');
-  if (showAll) return `Showing all districts (pinned: ${zones})`;
-  return `Showing pinned district${pinnedZones.length === 1 ? '' : 's'} ${zones}`;
+/** What the line atop a table with focused districts says, e.g. "Focused: 3, 7". */
+export const focusFilterLabel = (focusedZones: Zone[], focusedOnly: boolean) => {
+  const zones = [...focusedZones].sort((a, b) => a - b).join(', ');
+  if (focusedOnly)
+    return `Showing focused district${focusedZones.length === 1 ? '' : 's'} ${zones}`;
+  return `Focused: ${zones}`;
 };
 
-const PinnedFilterLine: React.FC<{pinnedZones: Zone[]; hiddenCount: number}> = ({
-  pinnedZones,
+const FocusFilterLine: React.FC<{focusedZones: Zone[]; hiddenCount: number}> = ({
+  focusedZones,
   hiddenCount,
 }) => {
-  const showAll = useMapControlsStore(state => state.showAllPinned);
-  const setShowAll = useMapControlsStore(state => state.setShowAllPinned);
-  const clearPinnedZones = useMapControlsStore(state => state.clearPinnedZones);
+  const focusedOnly = useMapControlsStore(state => state.showFocusedOnly);
+  const setFocusedOnly = useMapControlsStore(state => state.setShowFocusedOnly);
+  const clearFocusedZones = useMapControlsStore(state => state.clearFocusedZones);
   return (
     <Flex align="center" gap="2" wrap="wrap" px="1" pb="2">
       <Text size="1" color="gray">
-        {pinnedFilterLabel(pinnedZones, showAll)}
+        {focusFilterLabel(focusedZones, focusedOnly)}
       </Text>
       {hiddenCount > 0 && (
         <>
@@ -67,37 +68,39 @@ const PinnedFilterLine: React.FC<{pinnedZones: Zone[]; hiddenCount: number}> = (
           <Button
             variant="ghost"
             size="1"
-            onClick={() => setShowAll(!showAll)}
+            onClick={() => setFocusedOnly(!focusedOnly)}
+            aria-pressed={focusedOnly}
             style={{fontWeight: 600}}
           >
-            {showAll ? 'Show pinned only' : 'Show all'}
+            {focusedOnly ? 'Show all' : 'Show focused districts'}
           </Button>
         </>
       )}
       <Text size="1" color="gray" aria-hidden>
         ·
       </Text>
-      <Button variant="ghost" size="1" onClick={clearPinnedZones} style={{fontWeight: 600}}>
-        Clear pins
+      <Button variant="ghost" size="1" onClick={clearFocusedZones} style={{fontWeight: 600}}>
+        Clear focus
       </Button>
     </Flex>
   );
 };
 
-/** Pinned-districts filter for a district table: `filter` narrows rows to the
- * pinned districts unless the shared "show all" is on, and `line` goes at the
- * top of the table to say so and offer Show all / Clear pins. `enabled` false
- * (COI tables, single-district views) passes rows through. */
-export const usePinnedFilter = (total: number, enabled = true) => {
-  const allPinnedZones = usePinnedZones();
-  const showAll = useMapControlsStore(state => state.showAllPinned);
-  const pinnedZones = enabled ? allPinnedZones : [];
-  const pinning = pinnedZones.length > 0;
-  const filtering = pinning && !showAll;
+/** Focused-districts filter for a district table. Focusing alone filters
+ * nothing: `filter` narrows rows to the focused districts only once the shared
+ * "Show focused districts" is on, and `line` goes at the top of the table to
+ * list them and offer that toggle and Clear focus. `enabled` false (COI tables,
+ * single-district views) passes rows through. */
+export const useFocusFilter = (total: number, enabled = true) => {
+  const allFocusedZones = useFocusedZones();
+  const focusedOnly = useMapControlsStore(state => state.showFocusedOnly);
+  const focusedZones = enabled ? allFocusedZones : [];
+  const focusing = focusedZones.length > 0;
+  const filtering = focusing && focusedOnly;
   const filter = <T extends {zone?: unknown}>(rows: T[]) =>
-    filtering ? filterPinnedRows(rows, pinnedZones) : rows;
-  const line = pinning && (
-    <PinnedFilterLine pinnedZones={pinnedZones} hiddenCount={total - pinnedZones.length} />
+    filtering ? filterFocusedRows(rows, focusedZones) : rows;
+  const line = focusing && (
+    <FocusFilterLine focusedZones={focusedZones} hiddenCount={total - focusedZones.length} />
   );
   return {filter, line, filtering};
 };

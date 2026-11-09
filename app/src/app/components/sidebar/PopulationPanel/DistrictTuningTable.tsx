@@ -1,7 +1,7 @@
 'use client';
 import React, {useEffect, useRef} from 'react';
 import {Flex, IconButton, Table, Text, Tooltip} from '@radix-ui/themes';
-import {LockClosedIcon, LockOpen2Icon, ZoomInIcon} from '@radix-ui/react-icons';
+import {ZoomInIcon} from '@radix-ui/react-icons';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -14,7 +14,6 @@ import {zoomToBounds} from '@utils/map/fitBounds';
 import {formatNumber, signedNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
-import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
 import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
 import {useZoneLabelGetter} from '@/app/hooks/useZoneLabel';
 import {useZoneRowDrag, ZoneDragHandle, ZoneRowLabel} from './ZoneRowControls';
@@ -42,23 +41,14 @@ export const DistrictTuningTable: React.FC<{
   idealPopulation?: number;
   showRowIcons: boolean;
   isReadOnly: boolean;
-  onToggleLock: (zone: number) => void;
-  /** The bars header's lock-all control, shown over the lock column. */
-  lockAllButton: React.ReactNode;
-  /** The bar rows' pin control, so pinning works from either view. */
-  pinButton: (zone: number) => React.ReactNode;
-}> = ({
-  rows,
-  idealPopulation,
-  showRowIcons,
-  isReadOnly,
-  onToggleLock,
-  lockAllButton,
-  pinButton,
-}) => {
+  /** The bars' header over their row icons (with the lock-all). */
+  iconHeader: React.ReactNode;
+  /** The bars' row icons (focus, comment, lock), placed right after the
+   * district label as in the bars. */
+  rowIcons: (zone: number) => React.ReactNode;
+}> = ({rows, idealPopulation, showRowIcons, isReadOnly, iconHeader, rowIcons}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
-  const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
   const getZoneLabel = useZoneLabelGetter();
@@ -127,20 +117,10 @@ export const DistrictTuningTable: React.FC<{
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
+              {showRowIcons && <Table.ColumnHeaderCell>{iconHeader}</Table.ColumnHeaderCell>}
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Pop</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Deviation</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Contiguous</Table.ColumnHeaderCell>
-              {showRowIcons && (
-                <>
-                  <Table.ColumnHeaderCell>
-                    <span className="sr-only">Pin</span>
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>
-                    <span className="sr-only">Description</span>
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>{lockAllButton}</Table.ColumnHeaderCell>
-                </>
-              )}
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -150,7 +130,6 @@ export const DistrictTuningTable: React.FC<{
               const deviation =
                 idealPopulation && population > 0 ? population - idealPopulation : undefined;
               const pieces = components?.[d.zone];
-              const locked = lockPaintedAreas.includes(d.zone);
               const label = getZoneLabel(d.zone);
               return (
                 <Table.Row
@@ -158,7 +137,7 @@ export const DistrictTuningTable: React.FC<{
                   onClick={() => selectCommunity(d.zone)}
                   {...drag.rowProps(d.zone)}
                   style={drag.rowStyle(d.zone)}
-                  // `group`: the pin and ZoneDescriptionPopover's bubble fade in on row hover
+                  // `group`: the focus button and ZoneDescriptionPopover's bubble fade in on row hover
                   className={`group cursor-pointer ${
                     selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
                   }`}
@@ -199,6 +178,7 @@ export const DistrictTuningTable: React.FC<{
                       />
                     </Flex>
                   </Table.Cell>
+                  {showRowIcons && <Table.Cell>{rowIcons(d.zone)}</Table.Cell>}
                   <Table.Cell style={NUM_CELL_STYLE}>
                     {formatNumber(population, NUMBER_FORMATS.STRING)}
                   </Table.Cell>
@@ -243,37 +223,6 @@ export const DistrictTuningTable: React.FC<{
                       </Flex>
                     )}
                   </Table.Cell>
-                  {showRowIcons && (
-                    <Table.Cell onClick={e => e.stopPropagation()}>{pinButton(d.zone)}</Table.Cell>
-                  )}
-                  {showRowIcons && (
-                    <Table.Cell onClick={e => e.stopPropagation()}>
-                      <ZoneDescriptionPopover zone={d.zone} color={getZoneColor(d.zone)} />
-                    </Table.Cell>
-                  )}
-                  {showRowIcons && (
-                    <Table.Cell onClick={e => e.stopPropagation()}>
-                      <Tooltip
-                        content={
-                          locked
-                            ? 'Unlock this district to allow painting over it'
-                            : "Lock this district so it can't be painted over"
-                        }
-                      >
-                        <IconButton
-                          onClick={() => onToggleLock(d.zone)}
-                          variant="ghost"
-                          size="1"
-                          disabled={isReadOnly}
-                          aria-label={
-                            locked ? `Unlock district ${label}` : `Lock district ${label}`
-                          }
-                        >
-                          {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                        </IconButton>
-                      </Tooltip>
-                    </Table.Cell>
-                  )}
                 </Table.Row>
               );
             })}

@@ -24,7 +24,7 @@ import {
   aliasesForCount,
   cleanZoneLabel,
   colorsInZoneOrder,
-  findLabelConflict,
+  uniqueZoneLabel,
   normalizeZoneOrder,
   swapsToDropLastRows,
 } from '../utils/zoneLabels';
@@ -256,9 +256,9 @@ export interface MapStore {
   getZonesWithDescriptions: () => number[];
 
   // DISTRICT LABELS / PANEL ORDER
-  /** Set (or reset to its number, with a blank name) a district's label. Returns
-   * why the label was refused (another district already has it), or null. */
-  setZoneAlias: (zone: number, alias: string) => string | null;
+  /** Set (or reset to its number, with a blank name) a district's label. A
+   * label another district already shows gets a _2, _3, … suffix. */
+  setZoneAlias: (zone: number, alias: string) => void;
   /** Set the districts' order in the population panel (district numbers, first
    * row first). Assignments and labels don't change. `colorsFollow: false` keeps
    * each panel row's color in place, so the moved districts take the colors of
@@ -542,8 +542,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
               : ACTIVE_TOOLS.BRUSH,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
-        pinnedZones: [],
-        showAllPinned: false,
+        focusedZones: [],
+        showFocusedOnly: false,
         isPainting: false,
         // Drop a remembered viewport when loading a different map so a fresh map
         // fits to its extent; keep it across same-map view switches.
@@ -783,25 +783,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
 
     setZoneAlias: (zone, alias) => {
       const {mapDocument} = get();
-      if (!mapDocument) return null;
+      if (!mapDocument) return;
       const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
       // Same pipeline and cap the server applies, so the stored name is what's shown.
-      const label = cleanZoneLabel(alias);
-      const conflict = findLabelConflict(zone, label, zone_aliases, mapDocument.num_districts ?? 0);
-      if (conflict !== null) {
-        return `Another district is already labeled “${label || zone}”.`;
-      }
+      // A label another district already shows gets a _2, _3, … suffix.
+      const label = uniqueZoneLabel(
+        zone,
+        cleanZoneLabel(alias),
+        zone_aliases,
+        mapDocument.num_districts ?? 0
+      );
       // A label equal to the district's number is its default: nothing to store.
       const stored = label && label !== String(zone) ? label : undefined;
       // Unchanged once cleaned: not an edit, so no unsaved mark and no save.
-      if (stored === zone_aliases[zone]) return null;
+      if (stored === zone_aliases[zone]) return;
       if (stored) {
         zone_aliases[zone] = stored;
       } else {
         delete zone_aliases[zone];
       }
       get().editMapMetadata({zone_aliases});
-      return null;
     },
 
     setZoneOrder: (order, {colorsFollow = true} = {}) => {
@@ -857,7 +858,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const lowering = numDistricts < prevCount;
       // The districts that go are the panel's last rows: they swap numbers with
       // the kept districts above the new count, carrying color, label,
-      // description, lock and pin with them.
+      // description, lock and focus with them.
       const renumber = lowering
         ? swapsToDropLastRows(
             normalizeZoneOrder(mapDocument.map_metadata?.zone_order, prevCount),
@@ -912,14 +913,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (keptLocks.join() !== lockPaintedAreas.join()) {
         useMapControlsStore.getState().setLockedZones(keptLocks);
       }
-      // Pins on districts that no longer exist would filter tables down to
+      // Focus on districts that no longer exist would filter tables down to
       // rows that aren't there.
       useMapControlsStore.setState(state => {
-        const pinnedZones = state.pinnedZones.map(remap).filter(zone => zone <= numDistricts);
+        const focusedZones = state.focusedZones.map(remap).filter(zone => zone <= numDistricts);
         const selectedZone = remap(state.selectedZone);
         return {
-          pinnedZones,
-          showAllPinned: pinnedZones.length > 0 && state.showAllPinned,
+          focusedZones,
+          showFocusedOnly: focusedZones.length > 0 && state.showFocusedOnly,
           selectedZone: selectedZone <= numDistricts ? selectedZone : 1,
         };
       });

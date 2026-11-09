@@ -9,8 +9,8 @@ import {cleanZoneLabel} from '@/app/utils/zoneLabels';
 /**
  * Edits a district's label, starting from what's shown (its number by default).
  * Saves on blur, Enter or unmount, and Escape discards the edit; clearing it
- * goes back to the number. A label another district already has is refused
- * with a notice.
+ * goes back to the number. A label another district already has gets a _2,
+ * _3, … suffix (see setZoneAlias).
  */
 export const ZoneLabelField: React.FC<{
   zone: number;
@@ -23,11 +23,8 @@ export const ZoneLabelField: React.FC<{
   const field = useCommittedDraft(
     label,
     draft => {
-      const {setZoneAlias, setNotification} = useMapStore.getState();
-      const refusal = setZoneAlias(zone, draft);
-      if (refusal === null) return true;
-      setNotification({message: refusal, type: 'error', importance: 2});
-      return false;
+      useMapStore.getState().setZoneAlias(zone, draft);
+      return true;
     },
     // Blank means the default label, the district's number.
     draft => cleanZoneLabel(draft) || String(zone)

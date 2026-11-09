@@ -23,7 +23,7 @@ afterEach(() => mock.restore());
 
 describe('setZoneAlias', () => {
   test('stores a label as a local edit; the number itself is the default', () => {
-    expect(useMapStore.getState().setZoneAlias(1, ' North <b>Shore</b> ')).toBeNull();
+    useMapStore.getState().setZoneAlias(1, ' North <b>Shore</b> ');
     expect(aliases()).toEqual({'1': 'North Shore'});
     expect(useMapStore.getState().updated.metadata).toBe(true);
     expect(writeIdb).toHaveBeenCalledTimes(1);
@@ -36,20 +36,20 @@ describe('setZoneAlias', () => {
 
   test('a name that cleans up to the stored one is not an edit', () => {
     useMapStore.setState({mapDocument: doc({zone_aliases: {'1': 'North Shore'}})});
-    expect(useMapStore.getState().setZoneAlias(1, 'North  Shore ')).toBeNull();
+    useMapStore.getState().setZoneAlias(1, 'North  Shore ');
     // Nor is resetting a district that already shows its number.
-    expect(useMapStore.getState().setZoneAlias(2, '2')).toBeNull();
+    useMapStore.getState().setZoneAlias(2, '2');
     expect(useMapStore.getState().updated.metadata).toBe(false);
     expect(writeIdb).not.toHaveBeenCalled();
     expect(useAssignmentsStore.getState().clientLastUpdated).toBe('T0');
   });
 
-  test('refuses a label another district shows, without changing anything', () => {
-    const refusal = useMapStore.getState().setZoneAlias(1, '3');
-    expect(refusal).toContain('3');
-    expect(aliases()).toBeUndefined();
-    expect(useMapStore.getState().updated.metadata).toBe(false);
-    expect(writeIdb).not.toHaveBeenCalled();
+  test('a label another district shows gets the next free suffix', () => {
+    useMapStore.getState().setZoneAlias(1, '3');
+    expect(aliases()).toEqual({'1': '3_2'});
+    useMapStore.getState().setZoneAlias(2, '3');
+    expect(aliases()).toEqual({'1': '3_2', '2': '3_3'});
+    expect(useMapStore.getState().updated.metadata).toBe(true);
   });
 });
 
@@ -79,7 +79,7 @@ describe('setNumDistricts', () => {
         ['o', 1],
       ]),
     });
-    useMapControlsStore.setState({selectedZone: 4, pinnedZones: [4]});
+    useMapControlsStore.setState({selectedZone: 4, focusedZones: [4]});
 
     useMapStore.getState().setNumDistricts(3);
     const {mapDocument} = useMapStore.getState();
@@ -92,7 +92,7 @@ describe('setNumDistricts', () => {
       ['o', 1],
     ]);
     expect(useMapControlsStore.getState().selectedZone).toBe(3);
-    expect(useMapControlsStore.getState().pinnedZones).toEqual([3]);
+    expect(useMapControlsStore.getState().focusedZones).toEqual([3]);
     // One IndexedDB write, carrying the new document and assignments.
     expect(writeAssignments).toHaveBeenCalledTimes(1);
     expect(writeIdb).not.toHaveBeenCalled();

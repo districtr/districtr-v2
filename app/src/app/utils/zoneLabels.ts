@@ -42,6 +42,27 @@ export const findLabelConflict = (
   return null;
 };
 
+/**
+ * `label` (already cleaned; blank means the default, its number) if no other
+ * district has it, else the first free `label_2`, `label_3`, … — the base cut
+ * so the suffix fits the length cap. Renames never fail on a collision.
+ */
+export const uniqueZoneLabel = (
+  zone: number,
+  label: string,
+  aliases: ZoneAliases,
+  numDistricts: number
+) => {
+  const base = label || String(zone);
+  if (findLabelConflict(zone, base, aliases, numDistricts) === null) return label;
+  for (let n = 2; ; n++) {
+    const suffix = `_${n}`;
+    const cut = Array.from(base).slice(0, MAX_COMMUNITY_NAME_LENGTH - suffix.length);
+    const candidate = cut.join('').trimEnd() + suffix;
+    if (findLabelConflict(zone, candidate, aliases, numDistricts) === null) return candidate;
+  }
+};
+
 /** Stored labels for districts 1..numDistricts only. */
 export const aliasesWithin = (aliases: ZoneAliases, numDistricts: number) =>
   Object.fromEntries(

@@ -3,8 +3,6 @@ import React, {useContext, useEffect, useLayoutEffect, useRef, useState} from 'r
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
-  DrawingPinFilledIcon,
-  DrawingPinIcon,
   EyeNoneIcon,
   EyeOpenIcon,
   LockClosedIcon,
@@ -33,7 +31,8 @@ import {
   FlatRowsContext,
   SCROLL_RESERVED_WIDTH,
 } from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton, usePinnedFilter, usePinnedZones} from '../ShowAllDistrictsButton';
+import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAllDistrictsButton';
+import {FocusIcon} from '../FocusIcon';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {DistrictTuningTable} from './DistrictTuningTable';
 import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
@@ -43,12 +42,12 @@ import {ACCESS_STATES} from '@constants/document/state';
 
 const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
-// Width of the rows' Super Draw icon cluster (pin, comment, lock), shared by
+// Width of the rows' Super Draw icon cluster (focus, comment, lock), shared by
 // the header strip so its x-scale matches the bars'. The three ghost buttons
 // and their trailing space render about 69px wide.
 const ICONS_WIDTH = 72;
-// Extra space after the pin, so it doesn't crowd the comment button.
-const PIN_TRAIL = 4;
+// Extra space after the focus button, so it doesn't crowd the comment button.
+const FOCUS_TRAIL = 4;
 // ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
@@ -150,8 +149,8 @@ export const DistrictMeters = () => {
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
-  const pinnedZones = usePinnedZones();
-  const togglePinnedZone = useMapControlsStore(state => state.togglePinnedZone);
+  const focusedZones = useFocusedZones();
+  const toggleFocusedZone = useMapControlsStore(state => state.toggleFocusedZone);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
@@ -179,21 +178,22 @@ export const DistrictMeters = () => {
   const drag = useZoneRowDrag();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
-  // default to all); null = no explicit choice yet. Pinned districts, when
+  // default to all); null = no explicit choice yet. Focused districts, when
   // there are any, replace started as the subset at every plan size, and the
-  // shared pinned "show all" (in the line atop each table) replaces the choice.
+  // shared "Show focused districts" (in the line atop each table) replaces the
+  // choice — off until the user turns it on, so focusing alone shows all.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
-  const pinFilter = usePinnedFilter(populationData.length);
-  const pinning = pinnedZones.length > 0;
-  const showAll = pinning
-    ? !pinFilter.filtering
+  const focusFilter = useFocusFilter(populationData.length);
+  const focusing = focusedZones.length > 0;
+  const showAll = focusing
+    ? !focusFilter.filtering
     : (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const inSubset = (d: (typeof populationData)[number]) =>
-    pinning ? pinnedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
+    focusing ? focusedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
   // The selected district always gets a row, in the subset or not: picking an
   // empty district to draw into and having no bar appear reads as a broken
-  // panel, and it's how an unpinned district shows up to be pinned.
+  // panel, and it's how an unfocused district shows up to be focused.
   const byOrder = byZoneOrder(zoneOrder);
   const orderedData = [...populationData].sort((a, b) => byOrder(a.zone, b.zone));
   const visibleData = showAll
@@ -262,39 +262,99 @@ export const DistrictMeters = () => {
     </HelpTip>
   );
 
-  // Shared by the bar rows and the tuning table's rows. Unpinned pins stay
-  // hidden until the row is hovered or focused (opacity, not visibility, so
-  // they remain focusable); rows carry the `group` class.
-  const pinButton = (zone: number) => {
-    const pinned = pinnedZones.includes(zone);
+  // Unfocused districts' focus buttons stay hidden until the row is hovered or
+  // focused (opacity, not visibility, so they remain focusable); rows carry the
+  // `group` class.
+  const focusButton = (zone: number) => {
+    const focused = focusedZones.includes(zone);
     return (
       <HelpTip
-        tip="districtPin"
+        tip="districtFocus"
         openDelay={HELP_TIP_FAST_DELAY}
-        text={
-          pinned
-            ? 'Unpin this district. With no pins left, the district tables show every district again.'
-            : undefined
-        }
+        text={focused ? 'Remove this district from focus.' : undefined}
       >
         <IconButton
-          onClick={() => togglePinnedZone(zone)}
+          onClick={() => toggleFocusedZone(zone)}
           variant="ghost"
           size="1"
-          aria-pressed={pinned}
-          aria-label={`Pin district ${getZoneLabel(zone)}`}
+          aria-pressed={focused}
+          aria-label={`Focus district ${getZoneLabel(zone)}`}
           className={
-            pinned
+            focused
               ? undefined
               : 'opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100'
           }
-          style={{marginRight: PIN_TRAIL}}
+          style={{marginRight: FOCUS_TRAIL}}
         >
-          {pinned ? <DrawingPinFilledIcon /> : <DrawingPinIcon />}
+          <FocusIcon filled={focused} />
         </IconButton>
       </HelpTip>
     );
   };
+
+  // A row's Super Draw icons (focus, comment, lock), shared by the bars and the
+  // tuning table so they sit in the same spot, right after the label, in both.
+  // Icons manage their own interactions; clicks don't re-select the row.
+  const rowIcons = (zone: number) => {
+    const locked = lockPaintedAreas.includes(zone);
+    const label = getZoneLabel(zone);
+    return (
+      <Flex
+        align="center"
+        gap="1"
+        flexShrink="0"
+        style={{width: ICONS_WIDTH}}
+        onClick={e => e.stopPropagation()}
+      >
+        {focusButton(zone)}
+        <ZoneDescriptionPopover zone={zone} color={getZoneColor(zone)} />
+        <Tooltip
+          content={
+            locked
+              ? 'Unlock this district to allow painting over it'
+              : "Lock this district so it can't be painted over"
+          }
+        >
+          <IconButton
+            onClick={() => handleLockChange(zone)}
+            variant="ghost"
+            size="1"
+            disabled={isReadOnly}
+            aria-label={locked ? `Unlock district ${label}` : `Lock district ${label}`}
+          >
+            {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
+          </IconButton>
+        </Tooltip>
+      </Flex>
+    );
+  };
+
+  // Header over rowIcons: invisible twins of the focus and comment buttons,
+  // then the lock-all, so it lands directly above the rows' locks (ghost-margin
+  // quirks included).
+  const iconHeader = (
+    <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+      <IconButton
+        variant="ghost"
+        size="1"
+        aria-hidden
+        tabIndex={-1}
+        style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
+      >
+        <FocusIcon />
+      </IconButton>
+      <IconButton
+        variant="ghost"
+        size="1"
+        aria-hidden
+        tabIndex={-1}
+        style={{visibility: 'hidden', marginRight: TWIN_TRAIL}}
+      >
+        <LockOpen2Icon />
+      </IconButton>
+      {lockAllButton}
+    </Flex>
+  );
 
   // Fixed label column sized to the longest label (capped; longer ones end in an
   // ellipsis) so every bar starts at the same x.
@@ -352,11 +412,11 @@ export const DistrictMeters = () => {
         }
       : undefined;
 
-  // Shared by the bars and the tuning table. While pinning, the pinned line
+  // Shared by the bars and the tuning table. While focusing, the focus line
   // atop the table replaces the started/all toggle.
   const footer = (
     <Flex align="center" justify="between" mt="1">
-      {!pinning && (
+      {!focusing && (
         <ShowAllDistrictsButton
           showAll={showAll}
           onToggle={() => setShowAllOverride(!showAll)}
@@ -395,8 +455,8 @@ export const DistrictMeters = () => {
   return (
     <Flex direction="column" gap="0" mt="2" style={{width: '100%'}}>
       {/* Above the empty state too: with every district erased, it's the way
-          out of a pinned filter the other tables still apply. */}
-      {pinFilter.line}
+          out of a focused-only filter the other tables still apply. */}
+      {focusFilter.line}
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
@@ -408,9 +468,8 @@ export const DistrictMeters = () => {
             idealPopulation={idealPopulation}
             showRowIcons={showRowIcons}
             isReadOnly={isReadOnly}
-            onToggleLock={handleLockChange}
-            lockAllButton={lockAllButton}
-            pinButton={pinButton}
+            iconHeader={iconHeader}
+            rowIcons={rowIcons}
           />
           {footer}
         </>
@@ -440,33 +499,7 @@ export const DistrictMeters = () => {
                 style={{width: numCellWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}}
               />
             )}
-            {showRowIcons && (
-              /* Mirrors the rows' icon cluster exactly — invisible twins of the
-                 pin and comment buttons, then the lock — so the lock-all lands
-                 directly above the rows' lock icons (ghost-margin quirks
-                 included). */
-              <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  aria-hidden
-                  tabIndex={-1}
-                  style={{visibility: 'hidden', marginRight: PIN_TRAIL}}
-                >
-                  <DrawingPinIcon />
-                </IconButton>
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  aria-hidden
-                  tabIndex={-1}
-                  style={{visibility: 'hidden', marginRight: TWIN_TRAIL}}
-                >
-                  <LockOpen2Icon />
-                </IconButton>
-                {lockAllButton}
-              </Flex>
-            )}
+            {showRowIcons && iconHeader}
             {showCommentCol && <Box style={{width: COMMENT_COL_WIDTH, flexShrink: 0}} />}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
               {!!idealPopulation && tickFraction !== undefined && (
@@ -528,7 +561,6 @@ export const DistrictMeters = () => {
                 const chevrons = idealPopulation ? chevronCount(population, idealPopulation) : 0;
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
-                const locked = lockPaintedAreas.includes(d.zone);
                 const label = getZoneLabel(d.zone);
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
@@ -586,40 +618,8 @@ export const DistrictMeters = () => {
                         )}
                       </Flex>
                     )}
-                    {/* Comment and per-district lock are Super Draw features.
-                        Icons manage their own interactions; don't let clicks
-                        re-select the row. */}
-                    {showRowIcons && (
-                      <Flex
-                        align="center"
-                        gap="1"
-                        flexShrink="0"
-                        style={{width: ICONS_WIDTH}}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {pinButton(d.zone)}
-                        <ZoneDescriptionPopover zone={d.zone} color={color} />
-                        <Tooltip
-                          content={
-                            locked
-                              ? 'Unlock this district to allow painting over it'
-                              : "Lock this district so it can't be painted over"
-                          }
-                        >
-                          <IconButton
-                            onClick={() => handleLockChange(d.zone)}
-                            variant="ghost"
-                            size="1"
-                            disabled={isReadOnly}
-                            aria-label={
-                              locked ? `Unlock district ${label}` : `Lock district ${label}`
-                            }
-                          >
-                            {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                          </IconButton>
-                        </Tooltip>
-                      </Flex>
-                    )}
+                    {/* Focus, comment and per-district lock are Super Draw features. */}
+                    {showRowIcons && rowIcons(d.zone)}
                     {showCommentCol && (
                       <Flex
                         align="center"

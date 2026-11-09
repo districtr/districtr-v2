@@ -110,9 +110,9 @@ export const helpTipContent = {
     videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
-  districtPin: {
-    title: 'Pinning districts',
-    text: 'Pin: the district tables show only pinned districts until you unpin them or choose Show all.',
+  districtFocus: {
+    title: 'Focusing districts',
+    text: 'Focus: mark districts to work on together. Choose Show focused districts to narrow the district tables to them.',
   },
   idealPopulation: {
     title: 'Ideal population',
