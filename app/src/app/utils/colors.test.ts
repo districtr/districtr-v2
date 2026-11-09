@@ -1,9 +1,14 @@
 import {afterAll, describe, expect, test} from 'bun:test';
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
+import {LATEX_EXTENDED_COLORS} from '@/app/constants/latexColors';
 import {
+  colorDistance,
   extendColorArray,
   isNearGray,
   latexBaseAlternative,
+  looksUnassigned,
+  matchingPalette,
+  NEAR_DUPLICATE_DISTANCE,
   randomColorsInRange,
   resolveColorInput,
 } from './colors';
@@ -99,6 +104,23 @@ describe('resolveColorInput', () => {
     expect(latexBaseAlternative('latex:lime')).toBeNull();
   });
 
+  test("resolves latexcolor.com's names, ignoring case, spaces and punctuation", () => {
+    expect(Object.keys(LATEX_EXTENDED_COLORS)).toHaveLength(758);
+    expect(resolveColorInput('Byzantium')).toBe('#702963');
+    expect(resolveColorInput('latex:byzantium')).toBe('#702963');
+    expect(resolveColorInput('Amaranth')).toBe('#e52b50');
+    expect(resolveColorInput('Burnt orange')).toBe('#cc5500');
+    expect(resolveColorInput("davy's grey")).toBe('#555555');
+    expect(resolveColorInput('Tenné (Tawny)')).toBe('#cd5700');
+    // xcolor's own spellings keep xcolor's values.
+    expect(resolveColorInput('BurntOrange')).toBe('#ff7d00');
+    expect(resolveColorInput('latex:lime')).toBe('#bfff00');
+    for (const [name, hex] of Object.entries(LATEX_EXTENDED_COLORS)) {
+      expect(resolveColorInput(`latex:${name}`), name).toMatch(/^#[0-9a-f]{6}$/);
+      if (!/^[a-z]+$/i.test(name)) expect(resolveColorInput(name), name).toBe(hex);
+    }
+  });
+
   test('rejects empty and unknown input, including Object prototype keys', () => {
     expect(resolveColorInput('')).toBeNull();
     expect(resolveColorInput('notacolor')).toBeNull();
@@ -180,6 +202,57 @@ test('ColorBrewer palettes contain no grays', () => {
   }
   // Set1 keeps its 8 hues after losing #999999.
   expect(DISTRICT_PALETTES.find(p => p.name === 'ColorBrewer Set1')!.colors).toHaveLength(8);
+});
+
+describe('matchingPalette', () => {
+  const palette = (name: string) => DISTRICT_PALETTES.find(p => p.name === name)!;
+
+  test('names the applied palette, not the default that contains its colors', () => {
+    for (const name of ['ColorBrewer Set3', 'ColorBrewer Paired']) {
+      const scheme = extendColorArray([...palette(name).colors], 40);
+      for (const count of [4, 8, 11, 20]) {
+        expect(matchingPalette(scheme.slice(0, count), 0.5)?.name, `${name} ${count}`).toBe(name);
+      }
+    }
+    for (const count of [4, 8, 20]) {
+      expect(matchingPalette(DISTRICT_PALETTES[0].colors.slice(0, count), 0.5)?.name).toBe(
+        'Districtr default'
+      );
+    }
+  });
+
+  test('needs the minimum share', () => {
+    expect(matchingPalette(['#123456', '#654321', '#8dd3c7'], 0.5)).toBeUndefined();
+    expect(matchingPalette(['#123456'])).toBeUndefined();
+  });
+});
+
+test('only colors near the unassigned fill look unassigned', () => {
+  for (const color of ['#cecece', '#c0c0c0', '#d3d3d3', '#dcdcdc', '#d0cec4', '#c8cfd0']) {
+    expect(looksUnassigned(color), color).toBe(true);
+  }
+  // Darker or lighter grays, white and black read as their own fills.
+  for (const color of ['#b0b0b0', '#808080', '#ffffff', '#000000', '#bab0ab', '#cbd5e8']) {
+    expect(looksUnassigned(color), color).toBe(false);
+  }
+  for (const {name, colors} of DISTRICT_PALETTES) {
+    expect(colors.filter(looksUnassigned), name).toEqual([]);
+  }
+});
+
+test('near-duplicate warnings spare every pair a palette ships', () => {
+  expect(colorDistance('#0099cd', '#0099cf')).toBeLessThan(NEAR_DUPLICATE_DISTANCE);
+  expect(colorDistance('#0099cd', '#0b9ad2')).toBeLessThan(NEAR_DUPLICATE_DISTANCE);
+  for (const {name, colors} of DISTRICT_PALETTES) {
+    for (const a of colors) {
+      for (const b of colors) {
+        if (a !== b)
+          expect(colorDistance(a, b), `${name} ${a} ${b}`).toBeGreaterThanOrEqual(
+            NEAR_DUPLICATE_DISTANCE
+          );
+      }
+    }
+  }
 });
 
 test('near-grays, including the unassigned fill, count as gray; pale tints do not', () => {

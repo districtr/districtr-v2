@@ -1,4 +1,5 @@
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
+import {LATEX_EXTENDED_COLORS} from '@/app/constants/latexColors';
 
 /**
  * Picks readable text color for a given background: 'white' if the background
@@ -147,6 +148,11 @@ const LATEX_BASE_COLORS = new Map<string, string>(
     violet: '#800080',
   })
 );
+// latexcolor.com's list, keyed loosely: case, spaces and punctuation dropped.
+const latexKey = (name: string) => name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+const LATEX_EXTENDED_BY_KEY = new Map(
+  Object.entries(LATEX_EXTENDED_COLORS).map(([name, hex]) => [latexKey(name), hex])
+);
 const LATEX_PREFIX = 'latex:';
 
 let colorContext: CanvasRenderingContext2D | null | undefined;
@@ -169,7 +175,11 @@ function cssColorToHex(color: string): string | null {
     : null;
 }
 
-/** Resolves a LaTeX color name: case-sensitive like LaTeX, then case-insensitive. */
+/**
+ * Resolves a LaTeX color name: xcolor's base and dvipsnames case-sensitively
+ * like LaTeX, then case-insensitively, then latexcolor.com's list ignoring
+ * case, spaces and punctuation (`Burnt orange`, `byzantium`).
+ */
 function latexColorToHex(name: string): string | null {
   const lower = name.toLowerCase();
   return (
@@ -177,6 +187,7 @@ function latexColorToHex(name: string): string | null {
     LATEX_DVIPS_COLORS.get(name) ??
     LATEX_BASE_COLORS.get(lower) ??
     LATEX_DVIPS_COLORS_LOWER.get(lower) ??
+    LATEX_EXTENDED_BY_KEY.get(latexKey(name)) ??
     null
   );
 }
@@ -210,45 +221,76 @@ export function latexBaseAlternative(input: string): {input: string; hex: string
 }
 
 /**
- * The palette sharing the most colors with `colors` (lowercased), the shorter
- * on a tie (the default holds most of ColorBrewer Set3), and the Districtr
- * default when none shares any.
+ * The palette sharing the most colors with `colors` (case-insensitively), or
+ * undefined when none shares any. A tie goes to the shorter palette: the
+ * Districtr default holds all of ColorBrewer Set3 and all but one of Paired,
+ * so those would otherwise always read as the default. With `minShare`, a
+ * palette counts only if it covers that share of min(colors, its length).
  */
-const sourcePalette = (colors: Set<string>) => {
-  let best = DISTRICT_PALETTES[0];
+export function matchingPalette(
+  colors: readonly string[],
+  minShare = 0
+): (typeof DISTRICT_PALETTES)[number] | undefined {
+  const used = new Set(colors.map(color => color.toLowerCase()));
+  let best: (typeof DISTRICT_PALETTES)[number] | undefined;
   let bestHits = 0;
   for (const palette of DISTRICT_PALETTES) {
-    const hits = palette.colors.filter(color => colors.has(color.toLowerCase())).length;
-    if (
-      hits > bestHits ||
-      (hits && hits === bestHits && palette.colors.length < best.colors.length)
-    ) {
+    const hits = palette.colors.filter(color => used.has(color.toLowerCase())).length;
+    if (!hits || hits < minShare * Math.min(colors.length, palette.colors.length)) continue;
+    if (hits > bestHits || (hits === bestHits && palette.colors.length < best!.colors.length)) {
       [best, bestHits] = [palette, hits];
     }
   }
-  return best.colors;
-};
+  return best;
+}
 
-/**
- * Whether a color reads as gray, so as unassigned land (filled #cecece) or,
- * at the dark end, as no fill over the basemap. Gray here is CIELAB chroma
- * under 10: a just-noticeable difference is about 2, and the cut keeps the
- * palest palette tints (Pastel2's #cbd5e8 is 10.5). Every color within
- * ΔE*ab 10 of the unassigned fill falls under it too.
- */
-export function isNearGray(color: string): boolean {
+/** The unassigned land fill (GeometryBackgroundLayer). */
+export const UNASSIGNED_FILL = '#cecece';
+
+function hexToLab(color: string): [number, number, number] | null {
   const rgb = parseColorToRgb(color);
-  if (!rgb) return false;
+  if (!rgb) return null;
   const [r, g, b] = rgb.map(channel => {
     const c = channel / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116);
   const fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
-  const a = 500 * (f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047) - fy);
-  const bStar = 200 * (fy - f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883));
-  return Math.hypot(a, bStar) < 10;
+  return [
+    116 * fy - 16,
+    500 * (f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047) - fy),
+    200 * (fy - f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883)),
+  ];
 }
+
+/** CIELAB ΔE*ab between two colors; about 2 is just noticeable. */
+export function colorDistance(a: string, b: string): number {
+  const [x, y] = [hexToLab(a), hexToLab(b)];
+  return x && y ? Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) : Infinity;
+}
+
+/**
+ * Whether a color has CIELAB chroma under 10 (a just-noticeable difference is
+ * about 2). Generated suggestions skip these so they bring real hues; a user's
+ * own pick is only questioned near the unassigned fill (looksUnassigned).
+ */
+export function isNearGray(color: string): boolean {
+  const lab = hexToLab(color);
+  return !!lab && Math.hypot(lab[1], lab[2]) < 10;
+}
+
+/**
+ * Whether a district in this color could pass for unassigned land: within
+ * ΔE*ab 10 of the #cecece fill. Grays well lighter or darker (#b0b0b0, white,
+ * black) and the palest palette tints (Pastel2's #cbd5e8, 10.7) stay clear.
+ */
+export const looksUnassigned = (color: string) => colorDistance(color, UNASSIGNED_FILL) < 10;
+
+/**
+ * Below this ΔE*ab two district colors are hard to tell apart on the map. The
+ * closest pair any palette ships is the default's #fdb462/#fdbf6f at 6.3.
+ */
+export const NEAR_DUPLICATE_DISTANCE = 5;
 
 const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
@@ -339,7 +381,7 @@ export function randomColorsInRange(
 export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   const result = colorArray.slice(0, numDistricts);
   const seen = new Set(result.map(color => color.toLowerCase()));
-  for (const color of sourcePalette(seen)) {
+  for (const color of (matchingPalette(result) ?? DISTRICT_PALETTES[0]).colors) {
     if (result.length >= numDistricts) break;
     if (seen.has(color.toLowerCase())) continue;
     seen.add(color.toLowerCase());

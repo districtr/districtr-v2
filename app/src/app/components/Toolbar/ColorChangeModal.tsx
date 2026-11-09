@@ -17,10 +17,13 @@ import {
 } from '@radix-ui/themes';
 import {DISTRICT_PALETTES} from '@constants/colors';
 import {
+  colorDistance,
   extendColorArray,
   getReadableTextColor,
-  isNearGray,
   latexBaseAlternative,
+  looksUnassigned,
+  matchingPalette,
+  NEAR_DUPLICATE_DISTANCE,
   randomColorsInRange,
   resolveColorInput,
 } from '@/app/utils/colors';
@@ -72,21 +75,24 @@ export const ColorChangeModal: React.FC<{
     const owner = ownerOf.get(color.toLowerCase());
     return owner && owner !== colorSelectIndex + 1 ? owner : undefined;
   };
+  // Another district whose color is nearly the same, which the user may still
+  // choose (exact matches are otherOwner's).
+  const nearOwner = (color: string) => {
+    const index = innerColorScheme
+      .slice(0, numDistricts)
+      .findIndex(
+        (other, i) =>
+          i !== colorSelectIndex && colorDistance(color, other) < NEAR_DUPLICATE_DISTANCE
+      );
+    return index === -1 ? undefined : index + 1;
+  };
 
-  // The palette the districts mostly come from, if any, offered in full.
-  const currentPalette = useMemo(() => {
-    let best: {palette: (typeof DISTRICT_PALETTES)[number]; hits: number} | undefined;
-    for (const palette of DISTRICT_PALETTES) {
-      const colors = new Set(palette.colors.map(color => color.toLowerCase()));
-      const hits = innerColorScheme
-        .slice(0, numDistricts)
-        .filter(color => colors.has(color.toLowerCase())).length;
-      if (hits * 2 >= Math.min(numDistricts, palette.colors.length) && hits > (best?.hits ?? 0)) {
-        best = {palette, hits};
-      }
-    }
-    return best?.palette;
-  }, [innerColorScheme, numDistricts]);
+  // The palette the districts mostly come from, if any, offered in full. Ties
+  // go to the shorter palette, or Set3 and Paired would read as the default.
+  const currentPalette = useMemo(
+    () => matchingPalette(innerColorScheme.slice(0, numDistricts), 0.5),
+    [innerColorScheme, numDistricts]
+  );
 
   // Only palette colors no district uses yet; when none are left, the
   // similar tones row is the whole offer.
@@ -103,13 +109,20 @@ export const ColorChangeModal: React.FC<{
   const typedColor = resolveColorInput(colorText);
   const colorTextInvalid = colorTextTouched && !typedColor;
   const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
-  const typedGray = !!typedColor && isNearGray(typedColor);
   const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
   // Text in the field that isn't the selected district's color yet: typed and
-  // not applied, or refused.
+  // not applied, or held back.
   const pendingText =
     colorText.trim() !== '' && typedColor?.toLowerCase() !== selectedColor.toLowerCase();
-  const pendingRefused = pendingText && (!typedColor || !!typedOwner || typedGray);
+  // Colors that could be confused on the map wait for a "Use anyway" instead
+  // of applying; only an unknown color or another district's exact color is
+  // refused outright (the toolbar picker tells districts apart by color).
+  const typedNearOwner =
+    pendingText && typedColor && !typedOwner ? nearOwner(typedColor) : undefined;
+  const typedUnassigned =
+    pendingText && !!typedColor && !typedOwner && !typedNearOwner && looksUnassigned(typedColor);
+  const typedWarning = !!typedNearOwner || typedUnassigned;
+  const pendingRefused = pendingText && (!typedColor || !!typedOwner || typedWarning);
   const lowerScheme = (scheme: string[]) =>
     scheme
       .slice(0, numDistricts)
@@ -118,8 +131,7 @@ export const ColorChangeModal: React.FC<{
   const dirty = pendingText || lowerScheme(innerColorScheme) !== lowerScheme(colorScheme);
 
   const setDistrictColor = (hex: string) => {
-    // Grays read as unassigned land, like the palettes' grays.
-    if (otherOwner(hex) || isNearGray(hex)) return;
+    if (otherOwner(hex)) return;
     // Preserve the full scheme length — slicing to numDistricts here used to
     // truncate the saved color_scheme.
     const dupe = [...innerColorScheme];
@@ -128,11 +140,20 @@ export const ColorChangeModal: React.FC<{
   };
 
   // Typed text applies on Enter or blur, not per keystroke, so `tangerine`
-  // never applies `tan` on the way. The preview box shows it meanwhile.
+  // never applies `tan` on the way. The preview box shows it meanwhile. A
+  // color that could be confused on the map stays in the field with a note
+  // and a "Use anyway" button.
   const commitColorText = (text = colorText) => {
     setColorTextTouched(true);
     const hex = resolveColorInput(text);
-    if (hex && hex !== selectedColor.toLowerCase()) setDistrictColor(hex);
+    if (!hex || hex === selectedColor.toLowerCase()) return;
+    if (nearOwner(hex) || looksUnassigned(hex)) return;
+    setDistrictColor(hex);
+  };
+  // Swatches go through the field too, so a held-back one shows its note.
+  const pickColor = (hex: string) => {
+    setColorText(hex);
+    commitColorText(hex);
   };
 
   const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
@@ -184,21 +205,14 @@ export const ColorChangeModal: React.FC<{
 
   const suggestionSwatch = (color: string, fill?: boolean) => {
     const owner = otherOwner(color);
-    const gray = isNearGray(color);
     return (
       <ColorSwatch
         key={color}
         color={color}
-        label={
-          owner
-            ? `${color}, used by ${heading(owner)}`
-            : gray
-              ? `${color}, too close to gray`
-              : color
-        }
+        label={owner ? `${color}, used by ${heading(owner)}` : color}
         selected={color.toLowerCase() === selectedColor.toLowerCase()}
-        disabled={!!owner || gray}
-        onClick={() => setDistrictColor(color)}
+        disabled={!!owner}
+        onClick={() => pickColor(color)}
         round
         fill={fill}
       />
@@ -313,7 +327,7 @@ export const ColorChangeModal: React.FC<{
                 autoCorrect="off"
                 spellCheck={false}
                 aria-label={`Color for ${heading(colorSelectIndex + 1)}`}
-                aria-invalid={colorTextInvalid || !!typedOwner || typedGray}
+                aria-invalid={colorTextInvalid || !!typedOwner}
               />
               {/* Button size 2 matches the TextField's height. */}
               <Button
@@ -328,25 +342,46 @@ export const ColorChangeModal: React.FC<{
                     type="color"
                     className="sr-only"
                     value={selectedColor}
-                    onChange={event => {
-                      setColorText(event.target.value);
-                      commitColorText(event.target.value);
-                    }}
+                    onChange={event => pickColor(event.target.value)}
                   />
                 </label>
               </Button>
             </Flex>
-            <Text size="1" color={colorTextInvalid || typedOwner || typedGray ? 'red' : 'gray'}>
-              {colorTextInvalid
-                ? 'Not a usable color. Try a CSS or LaTeX color name, or a hex code (no transparency).'
-                : typedOwner
-                  ? `${heading(typedOwner)} already uses this color. Pick another.`
-                  : typedGray
-                    ? 'Too close to gray, which reads as unassigned land. Pick another.'
-                    : latexAlternative
-                      ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
-                      : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
-            </Text>
+            <Flex align="center" gapX="2">
+              <Text
+                size="1"
+                color={
+                  colorTextInvalid || typedOwner
+                    ? 'red'
+                    : typedWarning && colorTextTouched
+                      ? 'amber'
+                      : 'gray'
+                }
+              >
+                {colorTextInvalid
+                  ? "We don't recognize that color. Try a CSS or LaTeX color name, or a hex code like #ff8800 (without transparency)."
+                  : typedOwner
+                    ? `${heading(typedOwner)} already has this color. Each district needs its own, so try a different shade.`
+                    : typedNearOwner && colorTextTouched
+                      ? `This looks a lot like ${heading(typedNearOwner)}'s color, so the two may be hard to tell apart on the map.`
+                      : typedUnassigned && colorTextTouched
+                        ? 'This is close to the gray of unassigned areas, so the district may be hard to spot on the map.'
+                        : latexAlternative
+                          ? `This is the CSS color. LaTeX's color by this name is different (${latexAlternative.hex}); type ${latexAlternative.input} to use it.`
+                          : 'Type a CSS or LaTeX color name or a hex code and press Enter, or pick a suggestion.'}
+              </Text>
+              {typedWarning && colorTextTouched && typedColor && (
+                <Button
+                  size="1"
+                  variant="soft"
+                  color="gray"
+                  className="shrink-0"
+                  onClick={() => setDistrictColor(typedColor)}
+                >
+                  Use anyway
+                </Button>
+              )}
+            </Flex>
             {currentPalette && freePaletteColors.length > 0 && (
               <>
                 <Text size="1" weight="medium" mt="1">
