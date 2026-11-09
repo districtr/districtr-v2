@@ -147,19 +147,21 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       filter={populationFilter}
       layout={{
         'text-field': ['get', 'total_pop_20'],
-        'text-font': ['Barlow Bold'],
+        // Lighter than the Barlow Bold district badges, so the numbers read as
+        // secondary detail. Every basemap style already loads Barlow Medium glyphs.
+        'text-font': ['Barlow Medium'],
         'text-size': [
           'interpolate',
           ['linear'],
           ['zoom'],
           0,
           0,
-          10, // readable as soon as the labels appear
-          14,
+          10,
+          10,
           13,
-          20,
-          16, // keeps growing at block-level zooms
-          28,
+          13,
+          16, // grows modestly at block-level zooms
+          17,
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],
@@ -172,9 +174,13 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       }}
       paint={{
         'text-color': '#000',
-        'text-halo-color': '#fff',
-        // Scales with the larger text so the numbers stay legible over color.
-        'text-halo-width': 2.5,
+        // Fade a little when zoomed out, where the numbers crowd together.
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.75, 13, 0.9],
+        // A thin, soft, translucent halo: legible over district color without a
+        // heavy white outline.
+        'text-halo-color': 'rgba(255, 255, 255, 0.8)',
+        'text-halo-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 16, 1.5],
+        'text-halo-blur': 0.5,
       }}
     />
   );
