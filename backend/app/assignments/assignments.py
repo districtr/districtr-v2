@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
 from fastapi import Depends
@@ -396,80 +395,40 @@ def _dirty_zones(changed, old: dict, new: dict) -> set[int]:
 
 
 def write_district_assignments(
-    session: Session,
-    document_id: str,
-    full: dict[str, int | None] | None = None,
-    patch: dict[str, int | None] | None = None,
-    remove: list[str] | None = None,
+    session: Session, document_id: str, full: dict[str, int | None]
 ) -> tuple[list[str], set[int]]:
-    """Replace a document's plan with `full`, or apply a delta (`patch` upserts,
-    `remove` drops geo_ids). Writes only when something changed.
+    """Replace a document's plan with `full`. Writes only when something changed.
 
     Returns (geo_ids whose assignment changed, dirty zones) — the zones whose
     district_unions rows are now stale.
     """
     doc = str(document_id)
-    if full is not None:
-        old = (
-            session.connection()
-            .execute(
-                text(
-                    "SELECT assignments FROM document.document_assignments "
-                    "WHERE document_id = CAST(:doc AS uuid)"
-                ),
-                {"doc": doc},
-            )
-            .scalar()
-        ) or {}
-        changed = {
-            g
-            for g in old.keys() | full.keys()
-            if old.get(g, _MISSING) != full.get(g, _MISSING)
-        }
-        if changed:
-            session.connection().execute(
-                text(
-                    "INSERT INTO document.document_assignments (document_id, assignments) "
-                    "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
-                    "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
-                ),
-                {"doc": doc, "blob": json.dumps(full)},
-            )
-        return sorted(changed), _dirty_zones(changed, old, full)
-
-    patch, remove = patch or {}, remove or []
-    # Current values of just the touched geo_ids. The `|| '{}'` hands back the
-    # detoasted object once, so the per-key lookups don't decompress the blob
-    # per key; with one document row the join is linear in the delta whatever
-    # plan Postgres picks.
-    old = dict(
+    old = (
         session.connection()
         .execute(
             text(
-                "WITH cur AS MATERIALIZED ("
-                " SELECT assignments || '{}'::jsonb AS a"
-                " FROM document.document_assignments WHERE document_id = CAST(:doc AS uuid))"
-                " SELECT k, ((cur.a -> k) #>> '{}')::integer"
-                " FROM cur, unnest(CAST(:keys AS text[])) AS k WHERE cur.a ? k"
+                "SELECT assignments FROM document.document_assignments "
+                "WHERE document_id = CAST(:doc AS uuid)"
             ),
-            {"doc": doc, "keys": [*patch, *remove]},
+            {"doc": doc},
         )
-        .all()
-    )
-    changed_patch = {g: z for g, z in patch.items() if old.get(g, _MISSING) != z}
-    removed = [g for g in remove if g in old and g not in patch]
-    if changed_patch or removed:
+        .scalar()
+    ) or {}
+    changed = {
+        g
+        for g in old.keys() | full.keys()
+        if old.get(g, _MISSING) != full.get(g, _MISSING)
+    }
+    if changed:
         session.connection().execute(
             text(
-                "INSERT INTO document.document_assignments AS t (document_id, assignments) "
-                "VALUES (CAST(:doc AS uuid), CAST(:patch AS jsonb)) "
-                "ON CONFLICT (document_id) DO UPDATE SET assignments = "
-                "(t.assignments - CAST(:remove AS text[])) || EXCLUDED.assignments"
+                "INSERT INTO document.document_assignments (document_id, assignments) "
+                "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
+                "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
             ),
-            {"doc": doc, "patch": json.dumps(changed_patch), "remove": removed},
+            {"doc": doc, "blob": json.dumps(full)},
         )
-    changed = [*changed_patch, *removed]
-    return changed, _dirty_zones(changed, old, changed_patch)
+    return sorted(changed), _dirty_zones(changed, old, full)
 
 
 def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:
@@ -494,32 +453,13 @@ def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int,
     return row[0], row[1]
 
 
-def stored_geo_ids(session: Session, document_id: str, keys: set[str]) -> set[str]:
-    """Which of `keys` the stored plan has an entry for (null zones included)."""
-    if not keys:
-        return set()
-    return set(
-        session.connection()
-        .execute(
-            text(
-                "WITH cur AS MATERIALIZED ("
-                " SELECT assignments || '{}'::jsonb AS a"
-                " FROM document.document_assignments WHERE document_id = CAST(:doc AS uuid))"
-                " SELECT k FROM cur, unnest(CAST(:keys AS text[])) AS k WHERE cur.a ? k"
-            ),
-            {"doc": str(document_id), "keys": list(keys)},
-        )
-        .scalars()
-    )
-
-
 MAX_REPORTED_PROBLEMS = 5
 
 
 def find_shatter_problems(
     G: DualLevelGraph,
     touched: list[str],
-    present_among: Callable[[set[str]], set[str]],
+    plan: dict[str, int | None],
 ) -> list[str]:
     """What a save leaves wrong in the parents it touches, one sentence each.
 
@@ -528,14 +468,12 @@ def find_shatter_problems(
     parents of `touched` geo_ids (and touched geo_ids that are parents) are
     checked, so a plan already broken elsewhere can still save. Also reports
     touched geo_ids that the map's graph doesn't have.
-
-    `present_among(keys)` returns which of `keys` the saved plan has.
     """
     parents = {p for p in G.parents_of(touched) if p} | {
         g for g in touched if G.num_children_of(g)
     }
     children_of = {parent: G.children_of(parent) for parent in parents}
-    present = present_among(
+    present = plan.keys() & (
         set(touched) | parents | {c for cs in children_of.values() for c in cs}
     )
 

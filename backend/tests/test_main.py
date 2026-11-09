@@ -412,7 +412,7 @@ def _plan_hash(plan: dict) -> str:
     return hashlib.sha256("\n".join(lines).encode()).hexdigest()
 
 
-def test_put_assignments_delta(client, document_id):
+def test_put_assignments_returns_plan_hash(client, document_id):
     plan = {"202090441022004": 1, "202090428002008": 1, "200979691001108": 2}
     response = client.put(
         "/api/assignments",
@@ -429,10 +429,11 @@ def test_put_assignments_delta(client, document_id):
         "/api/assignments",
         json={
             "document_id": document_id,
-            "assignments_delta": {
-                "set": [["202090441022004", 2], ["200979691001109", None]],
-                "remove": ["200979691001108"],
-            },
+            "assignments": [
+                ["202090441022004", 2],
+                ["202090428002008", 1],
+                ["200979691001109", None],
+            ],
             "last_updated_at": response.json()["updated_at"],
         },
     )
@@ -444,33 +445,9 @@ def test_put_assignments_delta(client, document_id):
     assert {r["geo_id"]: r["zone"] for r in rows} == expected
 
 
-def test_put_assignments_delta_conflict(client, document_id):
-    response = client.put(
-        "/api/assignments",
-        json={
-            "document_id": document_id,
-            "assignments": [["202090441022004", 1]],
-            "last_updated_at": datetime.now().astimezone().isoformat(),
-        },
-    )
-    assert response.status_code == 200
-    response = client.put(
-        "/api/assignments",
-        json={
-            "document_id": document_id,
-            "assignments_delta": {"set": [["202090441022004", 2]]},
-            "last_updated_at": "1970-01-01T00:00:00.000000Z",
-        },
-    )
-    assert response.status_code == 409
-
-
 @pytest.mark.parametrize(
     "body",
     [
-        {"assignments": [], "assignments_delta": {"set": []}},  # both
-        {"metadata": {"color_scheme": ["#000000"]}},  # neither
-        {"assignments_delta": {"set": []}, "overwrite": True},
         {"assignments": [["202090441022004", 1], ["202090441022004", 2]]},
         {"assignments": [["202090441022004", "north"]]},
     ],
@@ -530,7 +507,7 @@ def test_put_assignments_rejects_broken_shatters(
     assert problem in response.json()["detail"]
 
 
-def test_put_assignments_shatter_checks_deltas(
+def test_put_assignments_shatter_check_on_edits(
     client, simple_shatterable_districtr_map, mock_grid_graph_file
 ):
     document_id = _new_simple_geos_plan(client)
@@ -539,7 +516,9 @@ def test_put_assignments_shatter_checks_deltas(
     saved_at = response.json()["updated_at"]
 
     # Dropping one block of a shattered parent is refused, and rolls back.
-    response = _put(client, document_id, saved_at, assignments_delta={"remove": [B[4]]})
+    response = _put(
+        client, document_id, saved_at, assignments=VALID_SHATTERED[:3] + [[P3, 3]]
+    )
     assert response.status_code == 422
     assert f"{P2} is missing 1 of its 3 blocks" in response.json()["detail"]
     rows = client.get(f"/api/get_assignments/{document_id}").json()
@@ -550,7 +529,7 @@ def test_put_assignments_shatter_checks_deltas(
         client,
         document_id,
         saved_at,
-        assignments_delta={"set": [[P2, 2]], "remove": [B[2], B[3], B[4]]},
+        assignments=[[P1, 1], [P2, 2], [P3, 3]],
     )
     assert response.status_code == 200, response.json()
 
@@ -559,7 +538,7 @@ def test_put_assignments_shatter_checks_deltas(
         client,
         document_id,
         response.json()["updated_at"],
-        assignments_delta={"set": [[B[1], 1], [B[5], None]], "remove": [P1]},
+        assignments=[[B[1], 1], [B[5], None], [P2, 2], [P3, 3]],
     )
     assert response.status_code == 200, response.json()
 
@@ -1844,44 +1823,6 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
         if f["properties"]["zone"] is not None
     }
     assert set(after.keys()) == {2, 3}
-    assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
-
-
-def test_district_unions_dirty_zone_eviction_delta(client, document_id_total_vap):
-    """A delta evicts the cached rows of only the zones it changes."""
-    response = client.put(
-        "/api/assignments",
-        json={
-            "document_id": document_id_total_vap,
-            "assignments": [["202090441022004", 1], ["200979691001108", 2]],
-            "last_updated_at": datetime.now().astimezone().isoformat(),
-        },
-    )
-    assert response.status_code == 200
-    updated_at = response.json()["updated_at"]
-
-    def cached():
-        response = client.get(f"/api/document/{document_id_total_vap}/stats")
-        assert response.status_code == 200
-        return {
-            f["properties"]["zone"]: f["properties"]["updated_at"]
-            for f in response.json()["features"]
-            if f["properties"]["zone"] is not None
-        }
-
-    initial = cached()
-    assert set(initial) == {1, 2}
-    response = client.put(
-        "/api/assignments",
-        json={
-            "document_id": document_id_total_vap,
-            "assignments_delta": {"set": [["202090441022004", 3]]},
-            "last_updated_at": updated_at,
-        },
-    )
-    assert response.status_code == 200
-    after = cached()
-    assert set(after) == {2, 3}
     assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 

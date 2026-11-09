@@ -20,10 +20,7 @@ export interface DocumentCommentCreate {
 }
 
 export interface AssignmentsCreate {
-  /** The whole plan. Send this or `assignments_delta`, not both. */
-  assignments?: AssignmentArray[];
-  /** Changes since the save that produced `last_updated_at` (district maps). */
-  assignments_delta?: {set: AssignmentArray[]; remove: string[]};
+  assignments: AssignmentArray[];
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;

@@ -6,10 +6,7 @@ import {afterEach, beforeEach, describe, expect, spyOn, test} from 'bun:test';
 import * as putUpdateDocumentModule from './putUpdateDocument';
 import * as getAssignmentsModule from './getAssignments';
 import * as getDocumentModule from './getDocument';
-import {
-  putUpdateAssignmentsAndVerify,
-  resetLastVerifiedAssignments,
-} from './putUpdateAssignmentsAndVerify';
+import {putUpdateAssignmentsAndVerify} from './putUpdateAssignmentsAndVerify';
 import {hashAssignments} from '../../map/hashAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
@@ -55,7 +52,6 @@ describe('putUpdateAssignmentsAndVerify', () => {
   beforeEach(() => {
     duringPut = () => {};
     duringWrite = () => {};
-    resetLastVerifiedAssignments();
     records = new Map([['d1', localCopy('T2')]]);
     idb.documents = fakeDocuments;
     useMapStore.setState({mapDocument: doc, updated: {metadata: true, comments: false}});
@@ -248,7 +244,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
       response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan)},
     })) as any);
 
-  test('a save the server confirms by hash skips the download, and the next sends changes', async () => {
+  test('a save the server confirms by hash skips the download', async () => {
     serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
     expect((await save()).ok).toBe(true);
     expect(getAssignments).not.toHaveBeenCalled();
@@ -256,48 +252,12 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(records.get('d1').assignments).toEqual([
       {document_id: 'd1', geo_id: 'a', zone: 1, parent_path: null},
     ]);
-
-    const next = new Map<string, number | null>([
-      ['b', 2],
-      ['c', null],
-    ]);
-    useAssignmentsStore.setState({zoneAssignments: next});
-    serverSaves('T4', next);
-    expect((await save(useMapStore.getState().mapDocument!)).ok).toBe(true);
-    const body = putUpdateDocument.mock.calls[1][0];
-    expect(body.assignments).toBeUndefined();
-    expect(body.assignments_delta).toEqual({
-      set: [
-        ['b', 2],
-        ['c', null],
-      ],
-      remove: ['a'],
-    });
   });
 
-  test("a hash that doesn't match fails the save, and the next sends the whole plan", async () => {
-    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
-    await save();
-    serverSaves('T4', new Map([['a', 9]]));
-    const result = await save(useMapStore.getState().mapDocument!);
-    expect(result.ok).toBe(false);
-    expect(putUpdateDocument.mock.calls[1][0].assignments_delta).toEqual({set: [], remove: []});
-    await save(useMapStore.getState().mapDocument!);
-    expect(putUpdateDocument.mock.calls[2][0].assignments).toEqual([['a', 1]]);
-  });
-
-  test('an overwrite always sends the whole plan', async () => {
-    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
-    await save();
-    const {zoneAssignments, shatterIds, childToParent} = useAssignmentsStore.getState();
-    await putUpdateAssignmentsAndVerify({
-      mapDocument: useMapStore.getState().mapDocument!,
-      zoneAssignments,
-      shatterIds,
-      childToParent,
-      overwrite: true,
-    });
-    expect(putUpdateDocument.mock.calls[1][0].assignments).toEqual([['a', 1]]);
+  test("a hash that doesn't match fails the save", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
+    expect((await save()).ok).toBe(false);
+    expect(records.get('d1').clientLastUpdated).toBe('T2');
   });
 });
 

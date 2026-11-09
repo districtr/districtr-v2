@@ -42,7 +42,6 @@ from app.assignments import (
     write_district_assignments,
     assignments_count_and_hash,
     find_shatter_problems,
-    stored_geo_ids,
     MAX_REPORTED_PROBLEMS,
     DuplicateGeoIdError,
 )
@@ -743,7 +742,7 @@ def _reject_shatter_problems(
     session: Session,
     document_id: str,
     changed: list[str],
-    full: dict[str, int | None] | None,
+    plan: dict[str, int | None],
 ) -> None:
     """422 if the save breaks the shattered-parent contract in the parents it
     touches (see find_shatter_problems). Runs after the write and rolls it back
@@ -764,13 +763,7 @@ def _reject_shatter_problems(
             "Graph %s unavailable; saved without the shatter check", gerrydb_table_name
         )
         return
-    problems = find_shatter_problems(
-        G,
-        changed,
-        (lambda keys: keys & full.keys())
-        if full is not None
-        else (lambda keys: stored_geo_ids(session, document_id, keys)),
-    )
+    problems = find_shatter_problems(G, changed, plan)
     if problems:
         session.rollback()
         shown = problems[:MAX_REPORTED_PROBLEMS]
@@ -792,7 +785,7 @@ def _sync_update_assignments(
 ) -> dict:
     """Sync core of update_assignments, run in the threadpool by its async wrapper."""
     document_id = data.document_id
-    assignments = data.assignments or []
+    assignments = data.assignments
     last_updated_at = data.last_updated_at
     actual_map_type = session.exec(
         select(Document.map_type).where(Document.document_id == document_id)
@@ -816,11 +809,6 @@ def _sync_update_assignments(
         )
 
     is_community_map = actual_is_community
-    if is_community_map and data.assignments_delta is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Community maps take the full assignments list, not a delta.",
-        )
 
     # District labels and panel order must fit the plan's district count: the
     # one this request sets, or the stored one. Checked before anything writes.
@@ -898,8 +886,9 @@ def _sync_update_assignments(
                 f"validated_metadata={'present' if validated_community_metadata else 'None'}"
             )
 
-    # FOR UPDATE: saves to one document run one at a time, so a delta always
-    # applies to the version the conflict check passed.
+    # FOR UPDATE: saves to one document run one at a time, so the diff below
+    # (which picks the district_unions rows to evict) is against the version the
+    # conflict check passed.
     db_last_updated_at = session.exec(
         select(Document.updated_at)
         .where(Document.document_id == document_id)
@@ -930,19 +919,10 @@ def _sync_update_assignments(
     dirty_zones: set[int] = set()
     if not is_community_map:
         try:
-            full = None
-            if data.assignments_delta is not None:
-                changed, dirty_zones = write_district_assignments(
-                    session,
-                    document_id,
-                    patch=parse_assignment_pairs(data.assignments_delta.set),
-                    remove=data.assignments_delta.remove,
-                )
-            else:
-                full = parse_assignment_pairs(assignments)
-                changed, dirty_zones = write_district_assignments(
-                    session, document_id, full=full
-                )
+            plan = parse_assignment_pairs(assignments)
+            changed, dirty_zones = write_district_assignments(
+                session, document_id, plan
+            )
         except DuplicateGeoIdError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -952,7 +932,7 @@ def _sync_update_assignments(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         mutated = bool(changed)
         if changed:
-            _reject_shatter_problems(session, document_id, changed, full)
+            _reject_shatter_problems(session, document_id, changed, plan)
     else:
         # The assignments field is always a full replacement set:
         #   [] means "delete all assignments" (user cleared everything)
@@ -1265,10 +1245,6 @@ async def update_assignments(
               ``[[geo_id, zone], ...]`` (NOT objects). ``[]`` means "clear all".
               ``zone`` is an int, or null/absent for unassigned (community maps
               coerce a missing/null zone to the 0 "unassigned" sentinel).
-            - assignments_delta: Instead of ``assignments`` (district maps only):
-              ``{"set": [[geo_id, zone], ...], "remove": [geo_id, ...]}``, the
-              changes since the save that produced ``last_updated_at``. Send
-              exactly one of the two.
             - last_updated_at: Timestamp of the client's last known update (for conflict detection)
             - overwrite: If True, allows overwriting even if document was updated by another client
             - map_type: Optional; must match the document's stored map_type ("default" vs "community")
@@ -1310,21 +1286,7 @@ async def update_assignments(
             ),
         )
 
-    if (data.assignments is None) == (data.assignments_delta is None):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Send exactly one of assignments or assignments_delta",
-        )
-    delta = data.assignments_delta
-    if delta is not None and data.overwrite:
-        # A delta only means something against the version it was computed from.
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="overwrite takes the full assignments list, not a delta",
-        )
-    has_assignments = bool(data.assignments) or bool(
-        delta and (delta.set or delta.remove)
-    )
+    has_assignments = len(data.assignments) > 0
     has_metadata = data.metadata is not None
     has_comments = data.comments is not None
     if not has_assignments and not has_metadata and not has_comments:

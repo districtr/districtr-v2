@@ -556,21 +556,9 @@ class AssignmentsMetadata(BaseModel):
         return validate_zone_order(value)
 
 
-class AssignmentsDelta(BaseModel):
-    """Changes since the client's last verified save: `set` upserts
-    [geo_id, zone] pairs, `remove` drops geo_ids from the plan."""
-
-    set: list[list[str | int | None]] = []
-    remove: list[str] = []
-
-
 class AssignmentsCreate(BaseModel):
     document_id: str
-    # Exactly one of these (district maps only take a delta). A delta-only body
-    # has no `assignments` key, so a server without delta support rejects it
-    # (422) instead of reading it as "clear the plan".
-    assignments: list[list[str | int | None]] | None = None  # [[geo_id, zone], ...]
-    assignments_delta: AssignmentsDelta | None = None
+    assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
     map_type: str | None = None

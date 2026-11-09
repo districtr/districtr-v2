@@ -35,7 +35,7 @@ graph TD
     end
 
     subgraph API["FastAPI Backend"]
-        Endpoints["Assignments (jsonb deltas) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control · Admin ops"]
+        Endpoints["Assignments (jsonb) · Documents<br/>Contiguity · Submissions · District notes<br/>Exports · Share/Access Control · Admin ops"]
         Note["Does NOT serve tiles or demographic data"]
     end
 
@@ -120,7 +120,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 |-------|---------|
 | `DistrictrMap` | Map metadata (slug, layers, tiles path, num_districts, visibility) |
 | `Document` | Map document instance (UUID, auto-increment public_id, metadata JSON) |
-| `DocumentAssignments` | One row per document: `{geo_id: zone}` jsonb ([ADR 0068](adr/0068-jsonb-assignments-delta-saves.md)) |
+| `DocumentAssignments` | One row per document: `{geo_id: zone}` jsonb ([ADR 0068](adr/0068-jsonb-assignments-hash-checked-saves.md)) |
 | `Assignments` | Read-only view expanding `DocumentAssignments` to one row per unit; readers query this, writers never do |
 | `CommunityAssignments` | Plain table: geo_id → community_id mapping (LIST partitioning removed — was causing ACCESS EXCLUSIVE lock convoys) |
 | `DistrictUnions` | Per-zone cached geometry + demographic stats; `zone` and `geometry` nullable for the unassigned-totals row |
@@ -128,7 +128,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 
 ### Key API Patterns
 
-- **Saving assignments**: `PUT /api/assignments` takes the full plan or a delta since the last confirmed save, with optimistic concurrency; it returns a SHA-256 of the stored plan that the client checks instead of re-downloading
+- **Saving assignments**: `PUT /api/assignments` takes the full plan, with optimistic concurrency; it returns a SHA-256 of the stored plan that the client checks instead of re-downloading
 - **Shatter operations**: `PATCH /api/assignments/{doc_id}/shatter` handles parent → child decomposition
 - **Contiguity**: Graph-based checking via `DualLevelGraph` (numpy/scipy `csgraph`, not NetworkX at runtime)
 - **Auth**: CMS-issued JWTs verified by scope against the CMS's JWKS ([ADR 0055](adr/0055-cms-identity-provider.md)); portal moderation scoped by the `teams` claim ([ADR 0057](adr/0057-roles-team-scoped-moderation.md)); Cloudflare Turnstile for public forms
