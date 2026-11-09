@@ -203,7 +203,7 @@ export const ColorChangeModal: React.FC<{
     shuffleSuggestions(colorScheme);
   }, [open]);
 
-  const suggestionSwatch = (color: string, fill?: boolean) => {
+  const suggestionSwatch = (color: string) => {
     const owner = otherOwner(color);
     return (
       <ColorSwatch
@@ -214,7 +214,6 @@ export const ColorChangeModal: React.FC<{
         disabled={!!owner}
         onClick={() => pickColor(color)}
         round
-        fill={fill}
       />
     );
   };
@@ -387,9 +386,9 @@ export const ColorChangeModal: React.FC<{
                 <Text size="1" weight="medium" mt="1">
                   {currentPalette.name}
                 </Text>
-                <Flex wrap="wrap" gap="1">
+                <div className={SWATCH_GRID}>
                   {freePaletteColors.map(color => suggestionSwatch(color))}
-                </Flex>
+                </div>
               </>
             )}
             <Flex align="center" gapX="1" mt="1">
@@ -407,9 +406,7 @@ export const ColorChangeModal: React.FC<{
                 <ShuffleIcon />
               </IconButton>
             </Flex>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] justify-items-center gap-1">
-              {suggestions.map(color => suggestionSwatch(color, true))}
-            </div>
+            <div className={SWATCH_GRID}>{suggestions.map(color => suggestionSwatch(color))}</div>
           </Flex>
         </Flex>
         <Flex justify="end" gapX="2" mt="4">
@@ -468,18 +465,20 @@ export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick})
   );
 };
 
+// Palette colors and similar tones share one grid, so their circles match.
+const SWATCH_GRID = 'grid grid-cols-[repeat(16,minmax(0,1fr))] justify-items-center gap-1';
+
 const ColorSwatch: React.FC<{
   color: string;
   label: string;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
-  /** Small circles for colors, so they don't read as more district buttons. */
+  /** Circles that fill their SWATCH_GRID cell (up to size-7), so colors
+   * don't read as more district buttons. */
   round?: boolean;
-  /** Grow to the grid cell (up to size-7) instead of a fixed size. */
-  fill?: boolean;
   children?: React.ReactNode;
-}> = ({color, label, selected, disabled, onClick, round, fill, children}) => (
+}> = ({color, label, selected, disabled, onClick, round, children}) => (
   <button
     type="button"
     aria-label={label}
@@ -488,11 +487,7 @@ const ColorSwatch: React.FC<{
     disabled={disabled}
     onClick={onClick}
     className={`inline-flex shrink-0 items-center justify-center border border-black/10 font-medium ${
-      fill
-        ? 'aspect-square w-full max-w-7 rounded-full'
-        : round
-          ? 'size-6 rounded-full'
-          : 'size-8 rounded-md text-xs'
+      round ? 'aspect-square w-full max-w-7 rounded-full' : 'size-8 rounded-md text-xs'
     } ${
       selected
         ? 'ring-2 ring-offset-1 ring-gray-900'

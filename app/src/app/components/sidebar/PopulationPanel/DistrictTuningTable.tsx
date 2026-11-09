@@ -23,6 +23,11 @@ const NUM_CELL_STYLE: React.CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
   whiteSpace: 'nowrap',
 };
+// width 1% shrinks the icon column to its icons; the table's spare width goes
+// to the other columns instead of padding out the cluster.
+const ICON_CELL_STYLE: React.CSSProperties = {width: '1%', paddingRight: 0};
+// Room between the right-aligned deviations and the verdicts.
+const CONTIGUITY_CELL_STYLE: React.CSSProperties = {paddingLeft: 'var(--space-5)'};
 
 /**
  * Super Draw's tuning view of the population chart: once every district is
@@ -117,10 +122,16 @@ export const DistrictTuningTable: React.FC<{
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeaderCell>District</Table.ColumnHeaderCell>
-              {showRowIcons && <Table.ColumnHeaderCell>{iconHeader}</Table.ColumnHeaderCell>}
+              {showRowIcons && (
+                <Table.ColumnHeaderCell style={ICON_CELL_STYLE}>
+                  {iconHeader}
+                </Table.ColumnHeaderCell>
+              )}
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Pop</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell style={NUM_CELL_STYLE}>Deviation</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Contiguous</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell style={CONTIGUITY_CELL_STYLE}>
+                Contiguous
+              </Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -178,7 +189,9 @@ export const DistrictTuningTable: React.FC<{
                       />
                     </Flex>
                   </Table.Cell>
-                  {showRowIcons && <Table.Cell>{rowIcons(d.zone)}</Table.Cell>}
+                  {showRowIcons && (
+                    <Table.Cell style={ICON_CELL_STYLE}>{rowIcons(d.zone)}</Table.Cell>
+                  )}
                   <Table.Cell style={NUM_CELL_STYLE}>
                     {formatNumber(population, NUMBER_FORMATS.STRING)}
                   </Table.Cell>
@@ -187,7 +200,7 @@ export const DistrictTuningTable: React.FC<{
                   </Table.Cell>
                   {/* Grey while unsaved edits make the last verdict stale;
                       dimmed while a post-save recheck is in flight. */}
-                  <Table.Cell style={{opacity: isFetching ? 0.5 : 1}}>
+                  <Table.Cell style={{...CONTIGUITY_CELL_STYLE, opacity: isFetching ? 0.5 : 1}}>
                     {pieces === undefined ? (
                       <Text color="gray">—</Text>
                     ) : (
