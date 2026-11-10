@@ -20,7 +20,7 @@ from app.evaluation.context import (
 from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import patch_turnstile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import BackgroundTasks
 import app.evaluation.main as evaluation_main
 from unittest.mock import MagicMock
@@ -1605,6 +1605,58 @@ def test_district_unions_lock_loser_gives_up_at_deadline(
     monkeypatch.setattr("app.utils.STATS_LOCK_WAIT_SECONDS", 0.2)
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 504
+
+
+def test_reading_cached_district_unions_marks_them_read_once_a_day(
+    client, session, document_id_total_vap
+):
+    """A cache-hit read bumps the rows' updated_at when it is over a day old,
+    which keeps the plan out of the nightly eviction, and never touches the
+    document's updated_at (the save-conflict timestamp)."""
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id_total_vap,
+            "assignments": [["202090441022004", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    url = f"/api/document/{document_id_total_vap}/stats"
+    assert client.get(url).status_code == 200
+
+    def stamps():
+        session.expire_all()
+        return session.execute(
+            text(
+                "SELECT (SELECT max(now() - updated_at) FROM document.district_unions "
+                "WHERE document_id = :d), "
+                "(SELECT updated_at FROM document.document WHERE document_id = :d)"
+            ),
+            {"d": document_id_total_vap},
+        ).one()
+
+    def age_rows(interval):
+        session.execute(
+            text(
+                "UPDATE document.district_unions SET updated_at = now() - "
+                f"interval '{interval}' WHERE document_id = :d"
+            ),
+            {"d": document_id_total_vap},
+        )
+        session.commit()
+
+    _, doc_updated_at = stamps()
+
+    age_rows("2 hours")  # read today already: left alone
+    assert client.get(url).status_code == 200
+    assert stamps()[0] >= timedelta(hours=2)
+
+    age_rows("2 days")
+    assert client.get(url).status_code == 200
+    age, doc_updated_at_after = stamps()
+    assert age < timedelta(hours=1)
+    assert doc_updated_at_after == doc_updated_at
 
 
 def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
