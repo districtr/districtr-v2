@@ -30,7 +30,7 @@ import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAl
 import {FocusIcon} from '../FocusIcon';
 import {ContiguityCell, ContiguityNotes, useDistrictContiguity} from './DistrictContiguity';
 import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
-import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {HelpTip, HELP_TIP_FAST_DELAY, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -241,7 +241,7 @@ export const DistrictMeters = () => {
   };
 
   const lockAllButton = (
-    <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
+    <HelpTip tip="districtLock">
       <IconButton
         onClick={toggleLockAllAreas}
         variant="ghost"
@@ -260,11 +260,7 @@ export const DistrictMeters = () => {
   const focusButton = (zone: number) => {
     const focused = focusedZones.includes(zone);
     return (
-      <HelpTip
-        tip="districtFocus"
-        openDelay={HELP_TIP_FAST_DELAY}
-        text={focused ? 'Remove this district from focus.' : undefined}
-      >
+      <HelpTip tip="districtFocus" text={focused ? 'Remove this district from focus.' : undefined}>
         <IconButton
           onClick={() => toggleFocusedZone(zone)}
           variant="ghost"
@@ -300,6 +296,7 @@ export const DistrictMeters = () => {
         {focusButton(zone)}
         <ZoneDescriptionPopover zone={zone} color={getZoneColor(zone)} />
         <Tooltip
+          delayDuration={HELP_TIP_HOVER_DELAY}
           content={
             locked
               ? 'Unlock this district to allow painting over it'

@@ -10,6 +10,7 @@ import {getZoneConnectedComponentBBoxes} from '@utils/api/apiHandlers/getZoneCon
 import {zoomToBounds} from '@utils/map/fitBounds';
 import {ACCESS_STATES} from '@constants/document/state';
 import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
+import {HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
 /**
  * Contiguity for Super Draw's tuning view of the population meters: once every
@@ -117,7 +118,10 @@ export const ContiguityCell: React.FC<{
             {stale && <span className="sr-only">, as of the last save</span>}
           </Text>
           {pieces > 1 && (
-            <Tooltip content="Zoom to a piece other than the largest">
+            <Tooltip
+              content="Zoom to a piece other than the largest"
+              delayDuration={HELP_TIP_HOVER_DELAY}
+            >
               <IconButton
                 variant="ghost"
                 size="1"

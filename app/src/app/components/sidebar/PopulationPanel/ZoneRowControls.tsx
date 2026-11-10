@@ -4,6 +4,7 @@ import {Flex, Text, Tooltip} from '@radix-ui/themes';
 import {DragHandleDots2Icon} from '@radix-ui/react-icons';
 import {useZoneLabel} from '@/app/hooks/useZoneLabel';
 import {moveZoneInOrder} from '@utils/zoneLabels';
+import {HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {ZoneLabelField} from '@/app/components/ZoneDescriptions/ZoneLabelField';
 
 /**
@@ -127,7 +128,7 @@ export const ZoneRowLabel: React.FC<{
   );
   if (!editable) return text;
   return (
-    <Tooltip content="Click to rename">
+    <Tooltip content="Click to rename" delayDuration={HELP_TIP_HOVER_DELAY}>
       <button
         type="button"
         aria-label={`Rename district ${label}`}
