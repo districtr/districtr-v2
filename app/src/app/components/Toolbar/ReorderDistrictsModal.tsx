@@ -76,11 +76,6 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
                 <Text size="2" className="flex-1 truncate">
                   {alias}
                 </Text>
-                {zone !== i + 1 && (
-                  <Text size="1" color="gray">
-                    was district {zone}
-                  </Text>
-                )}
                 <IconButton
                   size="1"
                   variant="ghost"
