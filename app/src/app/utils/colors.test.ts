@@ -198,6 +198,18 @@ describe('extendColorArray', () => {
     }
   });
 
+  test('added colors stay apart from each other and from the palette', () => {
+    // The hue-only spacing this replaced left pairs at ΔE 1 to 5 by 40 districts.
+    for (const {name, colors} of DISTRICT_PALETTES) {
+      const scheme = extendColorArray([...colors], 40);
+      for (let i = colors.length; i < scheme.length; i++) {
+        for (let j = 0; j < i; j++) {
+          expect(colorDistance(scheme[i], scheme[j]), `${name} ${scheme[i]}`).toBeGreaterThan(6);
+        }
+      }
+    }
+  });
+
   test('terminates past the hue sequence', () => {
     expect(unique(extendColorArray([], 2000))).toBe(2000);
   });

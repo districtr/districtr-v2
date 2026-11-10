@@ -421,7 +421,6 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-const hueDistance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
@@ -472,12 +471,13 @@ export function randomColorsInRange(
  * entries are kept as they are, duplicates included, so no district's color
  * moves. The unused colors of the palette `colorArray` mostly comes from (the
  * Districtr default when none matches) come first, in palette order, so a
- * default-colored plan grows into the next default colors. Past those, new
- * colors take the scheme's average saturation and lightness and step around
- * the hue wheel by the golden ratio, skipping hues too close to one already
- * in use (the allowed gap halves each lap). Later laps also nudge lightness.
- * Every added color is distinct (case-insensitively) and the result is the
- * same on every call.
+ * default-colored plan grows into the next default colors. Past those, each
+ * new color is the candidate farthest (CIELAB ΔE*ab) from every color already
+ * in the scheme and from the unassigned fill. Candidates take the scheme's
+ * average saturation and lightness at every 2° of hue, plus lighter and darker
+ * variants that are picked only when they stand out clearly more. Every added
+ * color is distinct (case-insensitively) and the result is the same on every
+ * call.
  */
 export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   const result = colorArray.slice(0, numDistricts);
@@ -488,30 +488,58 @@ export const extendColorArray = (colorArray: string[], numDistricts: number) => 
     seen.add(color.toLowerCase());
     result.push(color);
   }
-  // Grays have no meaningful hue, so they don't set the style or block hues.
-  const chromatic = result
-    .map(hexToHsl)
-    .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
-  const mean = (i: number, fallback: number) =>
-    chromatic.length
-      ? chromatic.reduce((sum, hsl) => sum + hsl[i], 0) / chromatic.length
-      : fallback;
-  const saturation = clamp(mean(1, 0.65), 0.3, 1);
-  const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
-  const hues = chromatic.map(hsl => hsl[0]);
-  const lightnessShifts = [0, -0.08, 0.08, -0.16, 0.16];
-  // ponytail: ~360 hue steps per lap at a few lightness levels; past ~2,000
-  // colors this falls back to counting up through hex values.
-  for (let i = 0; result.length < numDistricts && i < 20_000; i++) {
-    const lap = Math.floor(i / 360);
-    const minGap = 24 / 2 ** lap;
-    const hue = (i * GOLDEN_RATIO_CONJUGATE * 360) % 360;
-    if (hues.some(used => hueDistance(used, hue) < minGap)) continue;
-    const hex = hslToHex(hue, saturation, clamp(lightness + lightnessShifts[lap % 5], 0.15, 0.9));
-    if (seen.has(hex) || isNearGray(hex)) continue;
-    seen.add(hex);
-    hues.push(hue);
-    result.push(hex);
+  if (result.length < numDistricts) {
+    // Grays have no meaningful hue, so they don't set the style.
+    const chromatic = result
+      .map(hexToHsl)
+      .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
+    const mean = (i: number, fallback: number) =>
+      chromatic.length
+        ? chromatic.reduce((sum, hsl) => sum + hsl[i], 0) / chromatic.length
+        : fallback;
+    const saturation = clamp(mean(1, 0.65), 0.3, 1);
+    const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
+    // A lighter or darker variant must beat the palette's own tone by this
+    // factor, so the first additions keep the palette's look.
+    const shifts: [number, number][] = [
+      [0, 1],
+      [-0.08, 1.5],
+      [0.08, 1.5],
+      [-0.16, 3],
+      [0.16, 3],
+    ];
+    const candidates: {hex: string; lab: [number, number, number]; weight: number}[] = [];
+    for (const [shift, weight] of shifts) {
+      for (let hue = 0; hue < 360; hue += 2) {
+        const hex = hslToHex(hue, saturation, clamp(lightness + shift, 0.15, 0.9));
+        if (seen.has(hex) || isNearGray(hex) || candidates.some(c => c.hex === hex)) continue;
+        candidates.push({hex, lab: hexToLab(hex)!, weight});
+      }
+    }
+    // Distance from each candidate to the nearest color in use.
+    const nearest = candidates.map(c =>
+      Math.min(...[...result, UNASSIGNED_FILL].map(color => colorDistance(c.hex, color)))
+    );
+    // ponytail: greedy farthest-point pick over ~900 candidates; past those the
+    // hex fallback below takes over.
+    while (result.length < numDistricts) {
+      let best = -1;
+      for (let i = 0; i < candidates.length; i++) {
+        if (nearest[i] < 0) continue;
+        if (best < 0 || nearest[i] / candidates[i].weight > nearest[best] / candidates[best].weight)
+          best = i;
+      }
+      if (best < 0) break;
+      const {hex, lab} = candidates[best];
+      seen.add(hex);
+      result.push(hex);
+      nearest[best] = -1;
+      for (let i = 0; i < candidates.length; i++) {
+        if (nearest[i] < 0) continue;
+        const [l, a, b] = candidates[i].lab;
+        nearest[i] = Math.min(nearest[i], Math.hypot(l - lab[0], a - lab[1], b - lab[2]));
+      }
+    }
   }
   for (let n = 0; result.length < numDistricts; n++) {
     const hex = `#${n.toString(16).padStart(6, '0')}`;
