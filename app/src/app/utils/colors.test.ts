@@ -1,5 +1,6 @@
 import {afterAll, describe, expect, test} from 'bun:test';
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
+import {CSS_NAMED_COLORS} from '@/app/constants/cssColors';
 import {LATEX_EXTENDED_COLORS} from '@/app/constants/latexColors';
 import {
   colorDistance,
@@ -11,6 +12,8 @@ import {
   NEAR_DUPLICATE_DISTANCE,
   randomColorsInRange,
   resolveColorInput,
+  colorNameIndex,
+  searchColorNames,
 } from './colors';
 
 const tone = (hex: string) => {
@@ -117,9 +120,9 @@ describe('resolveColorInput', () => {
     expect(resolveColorInput('latex:lime')).toBe('#bfff00');
     for (const [name, hex] of Object.entries(LATEX_EXTENDED_COLORS)) {
       expect(resolveColorInput(`latex:${name}`), name).toMatch(/^#[0-9a-f]{6}$/);
-      // The stub canvas knows few CSS names; in a browser a name CSS knows
-      // squashed (`Medium aquamarine`) takes CSS's value instead.
-      if (!/^[a-z]+$/i.test(name)) expect(resolveColorInput(name), name).toBe(hex);
+      // A name CSS knows squashed (`Medium aquamarine`) takes CSS's value.
+      const css = CSS_NAMED_COLORS[name.toLowerCase().replace(/[^a-z0-9]/g, '')];
+      if (!/^[a-z]+$/i.test(name)) expect(resolveColorInput(name), name).toBe(css ?? hex);
     }
   });
 
@@ -137,6 +140,10 @@ describe('resolveColorInput', () => {
     expect(resolveColorInput('latex:Forest Green')).toBe('#00e000');
     expect(resolveColorInput('latex:Teal')).toBe('#008080');
     expect(resolveColorInput('latex:teal')).toBe('#008080');
+  });
+
+  test('ignores accents', () => {
+    expect(resolveColorInput('tenne tawny')).toBe('#cd5700');
   });
 
   test('rejects empty and unknown input, including Object prototype keys', () => {
@@ -288,4 +295,47 @@ test('near-grays, including the unassigned fill, count as gray; pale tints do no
   for (const color of ['#cbd5e8', '#bebada', '#ffca5d', '#0099cd', '#a6cee3']) {
     expect(isNearGray(color), color).toBe(false);
   }
+});
+
+describe('color name search', () => {
+  test('every suggestion resolves to the color it shows', () => {
+    const index = colorNameIndex();
+    expect(index.length).toBeGreaterThan(800);
+    for (const entry of index) expect(resolveColorInput(entry.input), entry.input).toBe(entry.hex);
+  });
+
+  test('a LaTeX name CSS owns bare is picked with the prefix', () => {
+    const forest = colorNameIndex().find(entry => entry.name === 'ForestGreen');
+    expect(forest).toMatchObject({source: 'LaTeX', input: 'latex:ForestGreen', hex: '#00e000'});
+  });
+
+  test('ranks whole names, then prefixes, then word prefixes, then anywhere', () => {
+    const names = (query: string) => searchColorNames(query, Infinity).map(entry => entry.name);
+    expect(names('blue')[0]).toBe('blue');
+    expect(names('blue').indexOf('blueviolet')).toBeLessThan(
+      names('blue').indexOf('Air Force blue')
+    );
+    expect(names('blue').indexOf('Air Force blue')).toBeLessThan(
+      names('blue').indexOf('aliceblue')
+    );
+  });
+
+  test('normalizes the query like typed input', () => {
+    expect(searchColorNames('airforceblue')[0].name).toBe('Air Force blue');
+    expect(searchColorNames('AIR FORCE')[0].name).toBe('Air Force blue');
+    expect(searchColorNames('tenne')[0].name).toBe('Tenné (Tawny)');
+  });
+
+  test('latex: limits results to LaTeX names', () => {
+    const results = searchColorNames('latex:forest');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(entry => entry.source === 'LaTeX')).toBe(true);
+  });
+
+  test('offers nothing for hex or functional colors', () => {
+    expect(searchColorNames('#ff0')).toEqual([]);
+    expect(searchColorNames('rgb(1')).toEqual([]);
+    expect(searchColorNames('  ')).toEqual([]);
+    expect(searchColorNames('8').length).toBe(0);
+  });
 });

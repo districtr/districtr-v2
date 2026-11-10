@@ -1,7 +1,7 @@
 import {colorsInZoneOrder, districtHeading, fitsBadge, zoneLabel} from '@/app/utils/zoneLabels';
 import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useMapStore} from '@/app/store/mapStore';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useId, useMemo, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
 import {
@@ -26,6 +26,8 @@ import {
   NEAR_DUPLICATE_DISTANCE,
   randomColorsInRange,
   resolveColorInput,
+  searchColorNames,
+  type ColorName,
 } from '@/app/utils/colors';
 import {idb} from '@/app/utils/idb/idb';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
@@ -50,6 +52,10 @@ export const ColorChangeModal: React.FC<{
   const [colorTextTouched, setColorTextTouched] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Color names matching the field, while the user is typing in it.
+  const [nameListOpen, setNameListOpen] = useState(false);
+  const [activeName, setActiveName] = useState(-1);
+  const nameListId = useId();
   const setNotification = useMapStore(store => store.setNotification);
 
   const selectedColor = innerColorScheme[colorSelectIndex] ?? '#000000';
@@ -107,6 +113,11 @@ export const ColorChangeModal: React.FC<{
     setSuggestions(randomColorsInRange(scheme.slice(0, numDistricts), SUGGESTION_COUNT));
 
   const typedColor = resolveColorInput(colorText);
+  const nameMatches = useMemo(
+    () => (nameListOpen ? searchColorNames(colorText) : []),
+    [nameListOpen, colorText]
+  );
+  const activeMatch: ColorName | undefined = nameMatches[activeName];
   const colorTextInvalid = colorTextTouched && !typedColor;
   const typedOwner = typedColor ? otherOwner(typedColor) : undefined;
   const latexAlternative = typedColor ? latexBaseAlternative(colorText) : null;
@@ -154,6 +165,28 @@ export const ColorChangeModal: React.FC<{
   const pickColor = (hex: string) => {
     setColorText(hex);
     commitColorText(hex);
+  };
+
+  const pickName = (entry: ColorName) => {
+    setNameListOpen(false);
+    setActiveName(-1);
+    setColorText(entry.input);
+    commitColorText(entry.input);
+  };
+  const handleColorTextKey = (event: React.KeyboardEvent) => {
+    const count = nameMatches.length;
+    if (count && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      setActiveName(i =>
+        event.key === 'ArrowDown' ? (i + 1) % count : i <= 0 ? count - 1 : i - 1
+      );
+    } else if (event.key === 'Enter') {
+      // Text that isn't a color yet (`airforce`) takes the first match.
+      const match = activeMatch ?? (typedColor ? undefined : nameMatches[0]);
+      if (match) return pickName(match);
+      setNameListOpen(false);
+      commitColorText();
+    }
   };
 
   const handleApplyPalette = (palette: (typeof DISTRICT_PALETTES)[number]) => {
@@ -223,7 +256,15 @@ export const ColorChangeModal: React.FC<{
       open={dialogOpen}
       onOpenChange={isOpen => (isOpen ? setDialogOpen(true) : requestClose())}
     >
-      <Dialog.Content className="max-w-[600px]">
+      <Dialog.Content
+        className="max-w-[600px]"
+        // Escape closes the name list first, then the dialog.
+        onEscapeKeyDown={event => {
+          if (!nameMatches.length) return;
+          event.preventDefault();
+          setNameListOpen(false);
+        }}
+      >
         <Flex align="start">
           <Dialog.Title size="4" className="m-0 flex-1">
             Customize district colors
@@ -307,27 +348,84 @@ export const ColorChangeModal: React.FC<{
                 width="32px"
                 height="32px"
                 className="shrink-0 rounded-md border border-gray-300"
-                style={{backgroundColor: typedColor ?? selectedColor}}
+                style={{backgroundColor: activeMatch?.hex ?? typedColor ?? selectedColor}}
               />
               <Text size="2" weight="medium" className="shrink-0">
                 {heading(colorSelectIndex + 1)}
               </Text>
-              <TextField.Root
-                className="flex-1"
-                value={colorText}
-                onChange={event => {
-                  setColorText(event.target.value);
-                  setColorTextTouched(false);
-                }}
-                onBlur={() => commitColorText()}
-                onKeyDown={event => event.key === 'Enter' && commitColorText()}
-                placeholder="rebeccapurple, BrickRed, #ff8800"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                aria-label={`Color for ${heading(colorSelectIndex + 1)}`}
-                aria-invalid={colorTextInvalid || !!typedOwner}
-              />
+              <div className="relative flex-1">
+                <TextField.Root
+                  value={colorText}
+                  onChange={event => {
+                    setColorText(event.target.value);
+                    setColorTextTouched(false);
+                    setNameListOpen(true);
+                    setActiveName(-1);
+                  }}
+                  onBlur={() => {
+                    setNameListOpen(false);
+                    commitColorText();
+                  }}
+                  onKeyDown={handleColorTextKey}
+                  placeholder="rebeccapurple, BrickRed, #ff8800"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={nameMatches.length > 0}
+                  aria-controls={nameListId}
+                  aria-activedescendant={activeMatch ? `${nameListId}-${activeName}` : undefined}
+                  aria-label={`Color for ${heading(colorSelectIndex + 1)}`}
+                  aria-invalid={colorTextInvalid || !!typedOwner}
+                />
+                {nameMatches.length > 0 && (
+                  <ul
+                    id={nameListId}
+                    role="listbox"
+                    aria-label="Color names"
+                    className="absolute inset-x-0 top-full z-10 mt-1 rounded-md border border-gray-200 bg-white p-1 shadow-md"
+                  >
+                    {nameMatches.map((entry, i) => {
+                      const owner = otherOwner(entry.hex);
+                      return (
+                        <li
+                          key={entry.input}
+                          id={`${nameListId}-${i}`}
+                          role="option"
+                          aria-selected={i === activeName}
+                          // Keep focus in the field, so its blur doesn't commit the typed text.
+                          onMouseDown={event => event.preventDefault()}
+                          onMouseEnter={() => setActiveName(i)}
+                          onClick={() => pickName(entry)}
+                          className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
+                            i === activeName ? 'bg-gray-100' : ''
+                          }`}
+                        >
+                          <span
+                            aria-hidden
+                            className="size-4 shrink-0 rounded-full border border-black/10"
+                            style={{
+                              backgroundColor: entry.hex,
+                              backgroundImage: owner ? USED_SLASH : undefined,
+                            }}
+                          />
+                          <span className="flex-1 truncate">{entry.name}</span>
+                          {owner && (
+                            <span className="shrink-0 text-xs text-gray-500">
+                              used by {heading(owner)}
+                            </span>
+                          )}
+                          <span className="shrink-0 text-xs text-gray-500">{entry.source}</span>
+                          <span className="shrink-0 font-mono text-xs text-gray-500">
+                            {entry.hex}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
               {/* Button size 2 matches the TextField's height. */}
               <Button
                 asChild
@@ -465,6 +563,10 @@ export const DistrictColorsButton: React.FC<{onClick: () => void}> = ({onClick})
   );
 };
 
+// The slash over a color another district already uses.
+const USED_SLASH =
+  'linear-gradient(to top right, transparent calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% + 1px), transparent calc(50% + 1px))';
+
 // Palette colors and similar tones share one grid, so their circles match.
 const SWATCH_GRID = 'grid grid-cols-[repeat(16,minmax(0,1fr))] justify-items-center gap-1';
 
@@ -500,9 +602,7 @@ const ColorSwatch: React.FC<{
       color: getReadableTextColor(color) ?? '#111',
       // A slash marks colors another district already uses; fading them
       // instead makes them read as lighter tints on offer.
-      backgroundImage: disabled
-        ? 'linear-gradient(to top right, transparent calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% - 1px), rgb(0 0 0 / 0.6) calc(50% + 1px), transparent calc(50% + 1px))'
-        : undefined,
+      backgroundImage: disabled ? USED_SLASH : undefined,
     }}
   >
     {/* text-box trims the span to the digits' cap height, so flex centering

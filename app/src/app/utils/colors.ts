@@ -1,4 +1,5 @@
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
+import {CSS_NAMED_COLORS} from '@/app/constants/cssColors';
 import {LATEX_EXTENDED_COLORS} from '@/app/constants/latexColors';
 
 /**
@@ -148,8 +149,16 @@ const LATEX_BASE_COLORS = new Map<string, string>(
     violet: '#800080',
   })
 );
-// latexcolor.com's list, keyed loosely: case, spaces and punctuation dropped.
-const latexKey = (name: string) => name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+// Names compare loosely everywhere (typing and search): accents, case,
+// spaces and punctuation dropped, so `Tenné (Tawny)` is `tennetawny`.
+const latexKey = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '');
+// CSS names are all one lowercase word, so they are their own keys.
+const CSS_BY_KEY = new Map(Object.entries(CSS_NAMED_COLORS));
 const LATEX_EXTENDED_BY_KEY = new Map(
   Object.entries(LATEX_EXTENDED_COLORS).map(([name, hex]) => [latexKey(name), hex])
 );
@@ -210,7 +219,12 @@ export function resolveColorInput(input: string): string | null {
   if (color.toLowerCase().startsWith(LATEX_PREFIX)) {
     return latexColorToHex(color.slice(LATEX_PREFIX.length).trim());
   }
-  return cssColorToHex(color) ?? cssColorToHex(latexKey(color)) ?? latexColorToHex(color);
+  return (
+    CSS_BY_KEY.get(color.toLowerCase()) ??
+    cssColorToHex(color) ??
+    CSS_BY_KEY.get(latexKey(color)) ??
+    latexColorToHex(color)
+  );
 }
 
 /**
@@ -223,6 +237,88 @@ export function latexBaseAlternative(input: string): {input: string; hex: string
   const hex = latexColorToHex(name);
   if (!hex || hex === resolveColorInput(name)) return null;
   return {input: `${LATEX_PREFIX}${name}`, hex};
+}
+
+export type ColorName = {
+  name: string;
+  source: 'CSS' | 'LaTeX';
+  hex: string;
+  /** What picking it types: the name, or `latex:<name>` when CSS owns the bare name. */
+  input: string;
+  key: string;
+  words: string[];
+};
+
+let colorNames: ColorName[] | undefined;
+
+/**
+ * Every color name the field accepts, CSS first, then xcolor's base and
+ * dvipsnames, then latexcolor.com's, each with the text that resolves to it.
+ * Built from resolveColorInput itself, so a suggestion's swatch is always what
+ * picking it gives. Names no input reaches (latexcolor.com's `Apricot`, which
+ * dvipsnames' Apricot shadows) and same-color repeats are left out.
+ */
+export function colorNameIndex(): ColorName[] {
+  if (colorNames) return colorNames;
+  const seen = new Set<string>();
+  const out: ColorName[] = [];
+  const add = (source: ColorName['source'], entries: Iterable<[string, string]>) => {
+    for (const [name, hex] of entries) {
+      const input = resolveColorInput(name) === hex ? name : `${LATEX_PREFIX}${name}`;
+      const key = latexKey(name);
+      if (resolveColorInput(input) !== hex || seen.has(`${key}${hex}`)) continue;
+      seen.add(`${key}${hex}`);
+      const words = name
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u);
+      out.push({name, source, hex, input, key, words});
+    }
+  };
+  add('CSS', CSS_BY_KEY);
+  add('LaTeX', LATEX_BASE_COLORS);
+  add('LaTeX', LATEX_DVIPS_COLORS);
+  add('LaTeX', Object.entries(LATEX_EXTENDED_COLORS));
+  return (colorNames = out);
+}
+
+/**
+ * Color names matching typed text, compared the way the field resolves it:
+ * the whole name, then names starting with it, then a word starting with it
+ * (`blue` finds `Air Force blue`), then anywhere in the name. Ties keep index
+ * order (CSS first), then shorter names first. `latex:` limits results to
+ * LaTeX names; hex and functional colors (`rgb(`) get none.
+ */
+export function searchColorNames(text: string, limit = 8): ColorName[] {
+  let query = text.trim();
+  const latexOnly = query.toLowerCase().startsWith(LATEX_PREFIX);
+  if (latexOnly) query = query.slice(LATEX_PREFIX.length);
+  const key = latexKey(query);
+  if (!key || query.startsWith('#') || query.includes('(')) return [];
+  const rank = (entry: ColorName) =>
+    entry.key === key
+      ? 0
+      : entry.key.startsWith(key)
+        ? 1
+        : entry.words.some(word => word.startsWith(key))
+          ? 2
+          : entry.key.includes(key)
+            ? 3
+            : -1;
+  return colorNameIndex()
+    .map((entry, order) => ({entry, order, rank: rank(entry)}))
+    .filter(match => match.rank >= 0 && (!latexOnly || match.entry.source === 'LaTeX'))
+    .sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        Number(a.entry.source === 'LaTeX') - Number(b.entry.source === 'LaTeX') ||
+        a.entry.name.length - b.entry.name.length ||
+        a.order - b.order
+    )
+    .slice(0, limit)
+    .map(match => match.entry);
 }
 
 /**
