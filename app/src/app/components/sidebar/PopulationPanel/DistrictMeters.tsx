@@ -403,7 +403,11 @@ export const DistrictMeters = () => {
             variant={tuningView ? 'solid' : 'surface'}
             color="gray"
             highContrast={tuningView}
-            onClick={() => setChartOptions({popTuningView: !tuningView})}
+            onClick={() => {
+              // Population numbers on the map go on and off with the view.
+              setChartOptions({popTuningView: !tuningView});
+              setMapOptions({showPopulationNumbers: !tuningView});
+            }}
             aria-pressed={tuningView}
           >
             <TableIcon />
