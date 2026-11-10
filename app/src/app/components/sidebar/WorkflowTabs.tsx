@@ -86,6 +86,9 @@ const MapLayersPanel: React.FC = () => {
   const demographicsColumnSets = useDemographicsColumnSets();
   return (
     <Flex direction="column" px="2">
+      <TabSection id="layers-options" label="Map options">
+        <ToolSettings inWorkflowTab />
+      </TabSection>
       <TabSection id="layers-boundaries" label="Boundaries and areas" helpTip="boundariesAndAreas">
         <OverlaysPanel />
       </TabSection>
@@ -105,9 +108,6 @@ const MapLayersPanel: React.FC = () => {
           />
         </TabSection>
       )}
-      <TabSection id="layers-options" label="Map options">
-        <ToolSettings inWorkflowTab />
-      </TabSection>
     </Flex>
   );
 };

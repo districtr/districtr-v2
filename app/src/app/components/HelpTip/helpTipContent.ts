@@ -71,8 +71,13 @@ export const helpTipContent = {
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
+  tuningView: {
+    title: 'Tuning view',
+    text: 'Once districts are close to ideal, the bars look alike. The tuning view keeps the exact population and deviation of each district and shows whether it is contiguous in place of its bar. Contiguity updates each time the map saves.',
+  },
+  // No video for this one yet — text-only, unlike the other brush tips.
   showPopulationTooltip: {
-    title: 'Show population of paintable areas',
+    title: 'Show population tooltip',
     text: "Shows the total population of areas the brush can paint. Forbid paint-over areas or locked districts aren't counted.",
     guideAnchor: 'drawing-the-districts',
   },

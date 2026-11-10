@@ -21,7 +21,6 @@ import {getCoalitionLabel} from '@utils/demography/coalition';
 export const ActiveMapFeaturePills = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  const hasChildLayer = useMapStore(state => !!state.mapDocument?.child_layer);
   const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size > 0);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
@@ -72,15 +71,9 @@ export const ActiveMapFeaturePills = () => {
     },
     {
       kind: 'Labels',
-      name: 'Population on map (all units)',
+      name: 'Population numbers',
       on: !!mapOptions.showPopulationNumbers,
       off: () => setMapOptions({showPopulationNumbers: false}),
-    },
-    {
-      kind: 'Labels',
-      name: 'Block population',
-      on: hasChildLayer && !!mapOptions.showBlockPopulationNumbers,
-      off: () => setMapOptions({showBlockPopulationNumbers: false}),
     },
     {
       kind: 'Highlight',

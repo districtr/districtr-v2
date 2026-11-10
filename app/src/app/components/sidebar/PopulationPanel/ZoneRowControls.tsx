@@ -2,20 +2,15 @@
 import {useState} from 'react';
 import {Flex, Text, Tooltip} from '@radix-ui/themes';
 import {DragHandleDots2Icon} from '@radix-ui/react-icons';
-import {useMapStore} from '@store/mapStore';
-import {useChartStore} from '@store/chartStore';
-import {useZoneLabel, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {useZoneLabel} from '@/app/hooks/useZoneLabel';
 import {moveZoneInOrder} from '@utils/zoneLabels';
 import {ZoneLabelField} from '@/app/components/ZoneDescriptions/ZoneLabelField';
 
 /**
- * Drag-to-reorder for the district rows of the population meters and the tuning
- * table. A drop changes only the panel order (map_metadata.zone_order); the
- * districts' numbers and assignments stay as they are. Colors move with the
- * districts unless the chart's popColorsFollowDistricts option is off.
+ * Drag-to-reorder for the rows of the Reorder districts dialog. A drop hands
+ * `onReorder` the new order; the dialog saves it as a renumbering.
  */
-export const useZoneRowDrag = () => {
-  const order = useZoneOrder();
+export const useZoneRowDrag = (order: readonly number[], onReorder: (order: number[]) => void) => {
   const [dragZone, setDragZone] = useState<number | null>(null);
   const [dropZone, setDropZone] = useState<number | null>(null);
   const endDrag = () => {
@@ -37,11 +32,7 @@ export const useZoneRowDrag = () => {
     },
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
-      if (dragZone !== null) {
-        useMapStore.getState().setZoneOrder(moveZoneInOrder(order, dragZone, zone), {
-          colorsFollow: useChartStore.getState().chartOptions.popColorsFollowDistricts,
-        });
-      }
+      if (dragZone !== null) onReorder(moveZoneInOrder(order, dragZone, zone));
       endDrag();
     },
   });
@@ -57,15 +48,14 @@ export const useZoneRowDrag = () => {
 
 export const ZONE_DRAG_HANDLE_WIDTH = 15;
 
-/** The grip that starts a row drag. Shown on the selected row, or on hover. */
+/** The grip that starts a row drag. */
 export const ZoneDragHandle: React.FC<{
   zone: number;
-  selected: boolean;
   /** Matches the row element, which becomes the drag image. */
   rowSelector: string;
   onDragStart: (zone: number) => void;
   onDragEnd: () => void;
-}> = ({zone, selected, rowSelector, onDragStart, onDragEnd}) => {
+}> = ({zone, rowSelector, onDragStart, onDragEnd}) => {
   const label = useZoneLabel(zone);
   return (
     <Tooltip content="Drag to reorder">
@@ -73,9 +63,7 @@ export const ZoneDragHandle: React.FC<{
         draggable
         role="img"
         aria-label={`Drag to reorder district ${label}`}
-        className={`cursor-grab text-[var(--gray-9)] transition-opacity duration-200 ${
-          selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
+        className="cursor-grab text-[var(--gray-9)]"
         style={{width: ZONE_DRAG_HANDLE_WIDTH, flexShrink: 0}}
         onClick={e => e.stopPropagation()}
         onDragStart={e => {

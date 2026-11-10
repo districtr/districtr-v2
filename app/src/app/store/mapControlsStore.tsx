@@ -57,6 +57,8 @@ export interface MapControlsStore {
   setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
+  /** Picking a district to paint (a panel row, a number key) switches to the brush. */
+  startPainting: () => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
   paintFunction: PaintEventHandler;
@@ -123,7 +125,6 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPaintedDistricts: true,
   showZoneNumbers: true,
   showPopulationTooltip: false,
-  showBlockPopulationNumbers: false,
   showPopulationNumbers: false,
   demographicDisplayMode: undefined,
   overlayOpacity: OVERLAY_OPACITY,
@@ -166,6 +167,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
       if (canEdit) {
         set({activeTool: tool});
       }
+    },
+    startPainting: () => {
+      // Edit tools are off while painted districts are hidden (see setMapOptions).
+      if (get().mapOptions.showPaintedDistricts === false) return;
+      get().setActiveTool(ACTIVE_TOOLS.BRUSH);
     },
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),

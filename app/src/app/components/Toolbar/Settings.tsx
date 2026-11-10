@@ -76,9 +76,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
           value={[
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
-              ? 'showBlockPopulationNumbers'
-              : '',
             mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
@@ -137,20 +134,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
                 })
               }
             >
-              Population on map (all units)
-            </CheckboxGroup.Item>
-          )}
-          {superDraw && (
-            <CheckboxGroup.Item
-              value="showBlockPopulationNumbers"
-              onClick={() =>
-                setMapOptions({
-                  showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
-                })
-              }
-              disabled={!mapDocument?.child_layer}
-            >
-              Population labels on exposed blocks
+              Population numbers
             </CheckboxGroup.Item>
           )}
           <CheckboxGroup.Item
