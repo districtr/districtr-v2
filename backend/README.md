@@ -51,14 +51,16 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Migrating UDFs
 
+The database has no UDFs any more (the last were dropped in `f13875203b1a`), and new ones need an exception under ADR 0017. Their definitions live in `app/alembic/sql/` only because older migrations replay them to build a database from scratch; the notes below are for those migrations.
+
 UDFs can be tricky to handle in down revisions.
 
-When updating UDFs in a migration, previous UDF definitions should be stored in a new directory `sql/versions/{down_revision}`, unique to each migration.
+When updating UDFs in a migration, previous UDF definitions should be stored in a new directory `app/alembic/sql/versions/{down_revision}`, unique to each migration.
 This approach has three main benefits:
 
 1. UDF down-revisions are supported.\*
 1. A canonical version of the UDF is available in the `sql/` directory, which can be directly edited. This provides git tracking history for UDFs, which is nice.
-1. The `sql/versions` directory can be excluded from IDE searches, reducing noise when searching the codebase.
+1. The `app/alembic/sql/versions` directory can be excluded from IDE searches, reducing noise when searching the codebase.
 
 \* Previous methods for supporting UDF down-revisions were quite onerous, requiring either: (1) copy-pasting the previous definition into the alembic migration module or (2) creating entirely new UDF `.sql` files with prefixes or suffixes in the file name, even though modifying an existing UDF. These were the previous approachs taken before `fa7d5c356d1f`.
 

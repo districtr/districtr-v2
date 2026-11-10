@@ -140,11 +140,11 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 - `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
 - `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.
 - PostGIS geometry columns for spatial queries
-- **SQLAlchemy-first policy**: No new UDFs; existing UDF paths are legacy
+- **SQLAlchemy-first policy**: No UDFs. The last ones were dropped in PR #837; `backend/app/alembic/sql/` holds only the definitions older migrations replay
 
 ### Migrations
 
-Alembic with 60+ versions. UDF handling stores previous definitions under `sql/versions/{down_revision}/` for downgrade support. `deploy-api.yml` runs migrations as a one-off ECS task before each deploy that changes alembic, backend dependencies, or the Dockerfile (or is dispatched with `force_migrations`). The CMS runs `manage.py migrate` the same way in `deploy-cms.yml`.
+Alembic with 60+ versions. Older migrations that created UDFs read their definitions from `backend/app/alembic/sql/` (previous versions under `sql/versions/{down_revision}/`) so a database can still be built from scratch. `deploy-api.yml` runs migrations as a one-off ECS task before each deploy that changes alembic, backend dependencies, or the Dockerfile (or is dispatched with `force_migrations`). The CMS runs `manage.py migrate` the same way in `deploy-cms.yml`.
 
 ## Pipelines (`pipelines/`)
 

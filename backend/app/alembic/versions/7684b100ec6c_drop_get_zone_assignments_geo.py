@@ -32,7 +32,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Recreates the last definition. The file stays in app/sql because older
+    # Recreates the last definition. The file stays in app/alembic/sql: older
     # revisions (552ac8c1defd, fa7d5c356d1f) create the function from it.
     with open(f"{SQL_DIR}/export_zone_assignments_geo.sql") as f:
         op.execute(sa.text(f.read()))

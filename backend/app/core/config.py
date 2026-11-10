@@ -142,7 +142,8 @@ class Settings(BaseSettings):
     # Volumes
 
     VOLUME_PATH: str = "/data"
-    SQL_DIR: Path = Path(__file__).parent.parent / "sql"
+    # SQL that older migrations replay (see app/constants.py).
+    SQL_DIR: Path = Path(__file__).parent.parent / "alembic" / "sql"
 
     # Local directory of memory-mapped graph arrays shared by all uvicorn
     # workers in the container (one physical copy via the OS page cache).
