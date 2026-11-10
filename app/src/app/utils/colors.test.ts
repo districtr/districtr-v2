@@ -117,8 +117,26 @@ describe('resolveColorInput', () => {
     expect(resolveColorInput('latex:lime')).toBe('#bfff00');
     for (const [name, hex] of Object.entries(LATEX_EXTENDED_COLORS)) {
       expect(resolveColorInput(`latex:${name}`), name).toMatch(/^#[0-9a-f]{6}$/);
+      // The stub canvas knows few CSS names; in a browser a name CSS knows
+      // squashed (`Medium aquamarine`) takes CSS's value instead.
       if (!/^[a-z]+$/i.test(name)) expect(resolveColorInput(name), name).toBe(hex);
     }
+  });
+
+  test('matches names however they are spaced or capitalized', () => {
+    expect(resolveColorInput('Air Force blue')).toBe('#5d8aa8');
+    expect(resolveColorInput('airforceblue')).toBe('#5d8aa8');
+    expect(resolveColorInput('AIR-FORCE BLUE')).toBe('#5d8aa8');
+    // CSS names: canvas only knows them squashed.
+    expect(resolveColorInput('Forest green')).toBe('#228b22');
+    expect(resolveColorInput('Rebecca Purple')).toBe('#663399');
+    // xcolor names, with or without the prefix.
+    expect(resolveColorInput('olive green')).toBe('#009900');
+    // latexcolor.com's own spelling keeps its value over xcolor's BurntOrange.
+    expect(resolveColorInput('Burnt orange')).toBe('#cc5500');
+    expect(resolveColorInput('latex:Forest Green')).toBe('#00e000');
+    expect(resolveColorInput('latex:Teal')).toBe('#008080');
+    expect(resolveColorInput('latex:teal')).toBe('#008080');
   });
 
   test('rejects empty and unknown input, including Object prototype keys', () => {

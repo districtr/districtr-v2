@@ -177,17 +177,20 @@ function cssColorToHex(color: string): string | null {
 
 /**
  * Resolves a LaTeX color name: xcolor's base and dvipsnames case-sensitively
- * like LaTeX, then case-insensitively, then latexcolor.com's list ignoring
- * case, spaces and punctuation (`Burnt orange`, `byzantium`).
+ * like LaTeX, then case-insensitively, then ignoring case, spaces and
+ * punctuation: latexcolor.com's names (`Burnt orange`, `byzantium`) before
+ * xcolor's (`Forest Green`).
  */
 function latexColorToHex(name: string): string | null {
-  const lower = name.toLowerCase();
+  const key = latexKey(name);
   return (
     LATEX_BASE_COLORS.get(name) ??
     LATEX_DVIPS_COLORS.get(name) ??
-    LATEX_BASE_COLORS.get(lower) ??
-    LATEX_DVIPS_COLORS_LOWER.get(lower) ??
-    LATEX_EXTENDED_BY_KEY.get(latexKey(name)) ??
+    LATEX_BASE_COLORS.get(name.toLowerCase()) ??
+    LATEX_DVIPS_COLORS_LOWER.get(name.toLowerCase()) ??
+    LATEX_EXTENDED_BY_KEY.get(key) ??
+    LATEX_BASE_COLORS.get(key) ??
+    LATEX_DVIPS_COLORS_LOWER.get(key) ??
     null
   );
 }
@@ -198,6 +201,8 @@ function latexColorToHex(name: string): string | null {
  * - Otherwise CSS wins, so `Green` is CSS's #008000 however a phone
  *   capitalizes it, and a LaTeX name applies only when CSS doesn't know it
  *   (`BrickRed`, `brickred`).
+ * - Names match however they're spaced or capitalized: `Forest green` is
+ *   CSS's forestgreen, `olive green` is LaTeX's OliveGreen.
  */
 export function resolveColorInput(input: string): string | null {
   const color = input.trim();
@@ -205,7 +210,7 @@ export function resolveColorInput(input: string): string | null {
   if (color.toLowerCase().startsWith(LATEX_PREFIX)) {
     return latexColorToHex(color.slice(LATEX_PREFIX.length).trim());
   }
-  return cssColorToHex(color) ?? latexColorToHex(color);
+  return cssColorToHex(color) ?? cssColorToHex(latexKey(color)) ?? latexColorToHex(color);
 }
 
 /**
