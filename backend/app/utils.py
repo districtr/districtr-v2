@@ -605,6 +605,9 @@ def _json_build_object_sql(pairs: list[str]) -> str:
 STATS_LOCK_POLL_SECONDS = 1.0
 STATS_LOCK_WAIT_SECONDS = 120.0
 
+# (parent_layer, demographic columns) -> the layer's column totals.
+_LAYER_TOTALS: dict[tuple[str, tuple[str, ...]], dict] = {}
+
 
 def update_or_select_district_stats(
     session: Session,
@@ -676,6 +679,7 @@ def update_or_select_district_stats(
             select(
                 DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
                 DistrictrMap.parent_layer.label("parent_layer"),
+                DistrictrMap.child_layer.label("child_layer"),
                 Document.public_id.label("public_id"),
             )
             .join(
@@ -755,16 +759,31 @@ def update_or_select_district_stats(
                 if (gerrydb_table and demographic_json)
                 else ""
             )
+            # Geometry for the missing zones' units only: the zone filter sits
+            # in each branch, ahead of the geometry join, so a rebuild reads
+            # the districts it redraws, not the whole plan. Assignments name
+            # a parent or a child unit, so shatterable maps read both layers.
+            # Inner joins: a unit missing from its layer has no geometry to
+            # union, and the demographics join below drops it anyway.
+            child_layer = doc_row.child_layer
+            geos_sql = "\n                    UNION ALL\n".join(
+                f"""
+                    SELECT a.geo_id, a.zone, g.geometry
+                    FROM document.assignments a
+                    JOIN gerrydb.{assert_safe_ident(layer)} g ON g.path = a.geo_id
+                    WHERE a.document_id = :document_id
+                      AND a.zone = ANY(:missing_zones)"""
+                for layer in (parent_layer, child_layer)
+                if layer
+            )
             insert_sql = f"""
                 INSERT INTO document.district_unions
                     (document_id, zone, geometry, demographic_data, created_at, updated_at)
-                WITH geos AS (
-                    SELECT * FROM get_zone_assignments_geo(:document_id)
-                    WHERE zone IS NOT NULL AND zone::INTEGER = ANY(:missing_zones)
+                WITH geos AS ({geos_sql}
                 )
                 SELECT
                     {doc_id_sql} AS document_id,
-                    zone::INTEGER AS zone,
+                    zone,
                     ST_Multi(
                         ST_Transform(
                             ST_UnaryUnion(ST_Collect(geos.geometry)),
@@ -794,7 +813,9 @@ def update_or_select_district_stats(
             sp = session.begin_nested()
             try:
                 result = session.execute(
-                    text(coverage_sql),
+                    text(coverage_sql).bindparams(
+                        bindparam(key="document_id", type_=UUIDType)
+                    ),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
                 )
                 rebuilt_rows = list(result.mappings().all())
@@ -808,7 +829,9 @@ def update_or_select_district_stats(
                     list(missing_zones),
                 )
                 result = session.execute(
-                    text(insert_sql),
+                    text(insert_sql).bindparams(
+                        bindparam(key="document_id", type_=UUIDType)
+                    ),
                     {"document_id": document_id, "missing_zones": list(missing_zones)},
                 )
                 rebuilt_rows = list(result.mappings().all())
@@ -854,19 +877,27 @@ def update_or_select_district_stats(
                 {"document_id": document_id},
             )
 
-            safe_parent_layer = assert_safe_ident(parent_layer)
-            # demo_cols already validated by get_gerrydb_numeric_cols
-            total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-            total_json = _json_build_object_sql(total_json_pairs)
-            total_sql = (
-                f"SELECT {total_json} AS demographic_data "
-                f"FROM gerrydb.{safe_parent_layer}"
-            )
-            total_result = session.execute(text(total_sql)).mappings().first()
+            # The map's totals scan its whole parent layer and never change
+            # once a layer is imported, so compute them once per process.
+            # ponytail: per-process cache; an in-place data fix to a layer
+            # shows up after the next restart (any deploy).
+            totals_key = (parent_layer, tuple(demo_cols))
+            total_demo = _LAYER_TOTALS.get(totals_key)
+            if total_demo is None:
+                safe_parent_layer = assert_safe_ident(parent_layer)
+                # demo_cols already validated by get_gerrydb_numeric_cols
+                total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
+                total_json = _json_build_object_sql(total_json_pairs)
+                total_sql = (
+                    f"SELECT {total_json} AS demographic_data "
+                    f"FROM gerrydb.{safe_parent_layer}"
+                )
+                total_result = session.execute(text(total_sql)).mappings().first()
+                total_demo = total_result and total_result["demographic_data"]
+                if total_demo:
+                    _LAYER_TOTALS[totals_key] = total_demo
 
-            if total_result and total_result["demographic_data"]:
-                total_demo = total_result["demographic_data"]
-
+            if total_demo:
                 assigned_sum: dict = {}
                 for r in returned_rows:
                     if r.demographic_data:

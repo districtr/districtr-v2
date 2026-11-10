@@ -1688,6 +1688,78 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
     assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
 
 
+def test_district_unions_rebuild_reads_only_changed_zones(
+    client, session, document_id_total_vap
+):
+    """A rebuild fetches geometry only for the zones it redraws.
+
+    The map's layer is swapped for a same-named view that raises when zone
+    2's unit geometry is read; rebuilding zone 3 must not touch it.
+    """
+    zone_1_geo, zone_2_geo = "202090441022004", "200979691001108"
+
+    def put(assignments):
+        response = client.put(
+            "/api/assignments",
+            json={
+                "document_id": document_id_total_vap,
+                "assignments": assignments,
+                "last_updated_at": datetime.now().astimezone().isoformat(),
+                "overwrite": True,
+            },
+        )
+        assert response.status_code == 200
+
+    put([[zone_1_geo, 1], [zone_2_geo, 2]])
+    assert client.get(f"/api/document/{document_id_total_vap}/stats").status_code == 200
+    put([[zone_1_geo, 3], [zone_2_geo, 2]])  # zone 2 stays cached
+
+    layer = session.execute(
+        text(
+            "SELECT m.parent_layer FROM document.document d "
+            "JOIN districtrmap m USING (districtr_map_slug) "
+            "WHERE d.document_id = :id"
+        ),
+        {"id": document_id_total_vap},
+    ).scalar_one()
+    columns = session.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'gerrydb' AND table_name = :t "
+            "ORDER BY ordinal_position"
+        ),
+        {"t": layer},
+    ).scalars()
+    select_list = ", ".join(
+        f"CASE WHEN path = '{zone_2_geo}' THEN public.fail_geometry_read(path) "
+        "ELSE geometry END AS geometry"
+        if c == "geometry"
+        else f'"{c}"'
+        for c in columns
+    )
+    # Rolled back with the test's transaction.
+    session.execute(
+        text(
+            "CREATE FUNCTION public.fail_geometry_read(path text) RETURNS geometry "
+            "LANGUAGE plpgsql IMMUTABLE AS $$ BEGIN "
+            "RAISE EXCEPTION 'read the geometry of an unchanged zone'; END $$"
+        )
+    )
+    session.execute(text(f'ALTER TABLE gerrydb."{layer}" RENAME TO "{layer}_real"'))
+    session.execute(
+        text(
+            f'CREATE VIEW gerrydb."{layer}" AS '
+            f'SELECT {select_list} FROM gerrydb."{layer}_real"'
+        )
+    )
+    session.commit()
+
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    zones = {f["properties"]["zone"] for f in response.json()["features"]}
+    assert zones == {2, 3, None}
+
+
 @pytest.fixture
 def evaluation_metric_counter():
     compute_calls = 0
