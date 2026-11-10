@@ -1,5 +1,10 @@
 import {afterEach, describe, expect, test} from 'bun:test';
-import {filterFocusedRows, focusFilterLabel} from './ShowAllDistrictsButton';
+import {
+  applyFocusFilter,
+  filterFocusedRows,
+  focusFilterLabel,
+  focusFiltering,
+} from './ShowAllDistrictsButton';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 
@@ -17,6 +22,17 @@ describe('focused districts', () => {
     expect(filterFocusedRows(rows, [3])).toEqual([{zone: 3}, {zone: null}, {zone: 'Statewide'}]);
   });
 
+  test('tables narrow to focused districts only with Show focused districts on', () => {
+    const rows = [{zone: 1}, {zone: 2}, {zone: 3}];
+    expect(focusFiltering([3], false)).toBe(false);
+    expect(applyFocusFilter(rows, [3], false)).toEqual(rows);
+    expect(focusFiltering([3], true)).toBe(true);
+    expect(applyFocusFilter(rows, [3], true)).toEqual([{zone: 3}]);
+    // A leftover focused-only flag with nothing focused shows everything.
+    expect(focusFiltering([], true)).toBe(false);
+    expect(applyFocusFilter(rows, [], true)).toEqual(rows);
+  });
+
   test('toggleFocusedZone adds and removes', () => {
     const {toggleFocusedZone} = useMapControlsStore.getState();
     toggleFocusedZone(3);
@@ -31,7 +47,7 @@ describe('focused districts', () => {
     expect(focusFilterLabel([3], true)).toBe('Showing focused district 3');
   });
 
-  test('focusing never filters on its own; focused-only survives more focus and resets at none', () => {
+  test('focusing leaves focused-only off; focused-only survives more focus and resets at none', () => {
     const {toggleFocusedZone, setShowFocusedOnly} = useMapControlsStore.getState();
     toggleFocusedZone(3);
     expect(useMapControlsStore.getState().showFocusedOnly).toBe(false);

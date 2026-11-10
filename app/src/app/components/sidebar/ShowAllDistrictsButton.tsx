@@ -68,8 +68,9 @@ const FocusFilterLine: React.FC<{focusedZones: Zone[]; hiddenCount: number}> = (
           <Button
             variant="ghost"
             size="1"
+            // No aria-pressed: the label already says what a press does, and
+            // "Show all, pressed" would read as the opposite of the state.
             onClick={() => setFocusedOnly(!focusedOnly)}
-            aria-pressed={focusedOnly}
             style={{fontWeight: 600}}
           >
             {focusedOnly ? 'Show all' : 'Show focused districts'}
@@ -86,6 +87,17 @@ const FocusFilterLine: React.FC<{focusedZones: Zone[]; hiddenCount: number}> = (
   );
 };
 
+/** Whether a table narrows to its focused districts: only with some focused
+ * and "Show focused districts" on. Focusing alone filters nothing. */
+export const focusFiltering = (focusedZones: number[], focusedOnly: boolean) =>
+  focusedZones.length > 0 && focusedOnly;
+
+export const applyFocusFilter = <T extends {zone?: unknown}>(
+  rows: T[],
+  focusedZones: number[],
+  focusedOnly: boolean
+) => (focusFiltering(focusedZones, focusedOnly) ? filterFocusedRows(rows, focusedZones) : rows);
+
 /** Focused-districts filter for a district table. Focusing alone filters
  * nothing: `filter` narrows rows to the focused districts only once the shared
  * "Show focused districts" is on, and `line` goes at the top of the table to
@@ -96,9 +108,9 @@ export const useFocusFilter = (total: number, enabled = true) => {
   const focusedOnly = useMapControlsStore(state => state.showFocusedOnly);
   const focusedZones = enabled ? allFocusedZones : [];
   const focusing = focusedZones.length > 0;
-  const filtering = focusing && focusedOnly;
+  const filtering = focusFiltering(focusedZones, focusedOnly);
   const filter = <T extends {zone?: unknown}>(rows: T[]) =>
-    filtering ? filterFocusedRows(rows, focusedZones) : rows;
+    applyFocusFilter(rows, focusedZones, focusedOnly);
   const line = focusing && (
     <FocusFilterLine focusedZones={focusedZones} hiddenCount={total - focusedZones.length} />
   );

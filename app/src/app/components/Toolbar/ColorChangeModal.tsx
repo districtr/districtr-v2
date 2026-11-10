@@ -1,7 +1,7 @@
 import {colorsInZoneOrder, districtHeading, fitsBadge, zoneLabel} from '@/app/utils/zoneLabels';
 import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useMapStore} from '@/app/store/mapStore';
-import React, {useEffect, useId, useMemo, useState} from 'react';
+import React, {useEffect, useId, useMemo, useRef, useState} from 'react';
 import {Cross2Icon, ShuffleIcon} from '@radix-ui/react-icons';
 import {ACCESS_STATES} from '@constants/document/state';
 import {
@@ -56,6 +56,7 @@ export const ColorChangeModal: React.FC<{
   const [nameListOpen, setNameListOpen] = useState(false);
   const [activeName, setActiveName] = useState(-1);
   const nameListId = useId();
+  const colorInputRef = useRef<HTMLInputElement>(null);
   const setNotification = useMapStore(store => store.setNotification);
 
   const selectedColor = innerColorScheme[colorSelectIndex] ?? '#000000';
@@ -355,6 +356,7 @@ export const ColorChangeModal: React.FC<{
               </Text>
               <div className="relative flex-1">
                 <TextField.Root
+                  ref={colorInputRef}
                   value={colorText}
                   onChange={event => {
                     setColorText(event.target.value);
@@ -473,7 +475,12 @@ export const ColorChangeModal: React.FC<{
                   variant="soft"
                   color="gray"
                   className="shrink-0"
-                  onClick={() => setDistrictColor(typedColor)}
+                  onClick={() => {
+                    setDistrictColor(typedColor);
+                    // Applying hides this button, which would drop focus to
+                    // the dialog; keep keyboard users in the field.
+                    colorInputRef.current?.focus();
+                  }}
                 >
                   Use anyway
                 </Button>

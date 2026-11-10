@@ -4,7 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useZoneLabel} from '@/app/hooks/useZoneLabel';
 import {useCommittedDraft} from '@/app/hooks/useCommittedDraft';
 import {MAX_COMMUNITY_NAME_LENGTH} from '@/app/utils/sanitize';
-import {cleanZoneLabel} from '@/app/utils/zoneLabels';
+import {cleanZoneLabel, zoneLabel} from '@/app/utils/zoneLabels';
 
 /**
  * Edits a district's label, starting from what's shown (its number by default).
@@ -24,7 +24,12 @@ export const ZoneLabelField: React.FC<{
     label,
     draft => {
       useMapStore.getState().setZoneAlias(zone, draft);
-      return true;
+      // Show what was stored: a collision may have suffixed the draft, or
+      // turned it into the label the district already has, which leaves the
+      // label unchanged and so wouldn't reset the field on its own.
+      field.setDraft(
+        zoneLabel(zone, useMapStore.getState().mapDocument?.map_metadata?.zone_aliases)
+      );
     },
     // Blank means the default label, the district's number.
     draft => cleanZoneLabel(draft) || String(zone)
