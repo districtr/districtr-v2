@@ -1778,17 +1778,22 @@ def test_district_unions_shatterable_rebuild_reads_only_changed_zones(
     )
     assert response.status_code == 201
     document_id = response.json()["document_id"]
-    # Zone 1 mixes a parent (A, 600) with a child of B (b, 200).
-    session.execute(
-        text(
-            "INSERT INTO document.assignments (document_id, geo_id, zone) VALUES "
-            "(:d, 'vtd:000010000001', 1), (:d, '000010000000002', 1), "
-            "(:d, '000010000000003', 2), (:d, '000010000000004', 2), "
-            "(:d, 'vtd:000010000003', 3)"
-        ).bindparams(bindparam("d", type_=UUIDType)),
-        {"d": document_id},
+    # Zone 1 mixes a parent (A, 600) with a child of the shattered B (b, 200).
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["vtd:000010000001", 1],
+                ["000010000000002", 1],
+                ["000010000000003", 2],
+                ["000010000000004", 2],
+                ["vtd:000010000003", 3],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
     )
-    session.commit()
+    assert response.status_code == 200
     before = _stats_by_zone(client, document_id)
     assert [before[z]["total_pop_20"] for z in (1, 2, 3)] == [800, 700, 600]
 
