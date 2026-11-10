@@ -1,5 +1,7 @@
 import pytest
 from app.utils import (
+    _LAYER_TOTALS,
+    layer_totals,
     add_districtr_map_to_map_group,
     create_districtr_map,
     create_map_group,
@@ -15,7 +17,11 @@ from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
 from app.models import DistrictrMap, GeoUnitType
-from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
+from tests.constants import (
+    OGR2OGR_PG_CONNECTION_STRING,
+    FIXTURES_PATH,
+    TEARDOWN_TEST_DB,
+)
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from app.core.security import turnstile, auth
@@ -408,3 +414,31 @@ def test_json_build_object_sql_survives_postgres_100_arg_cap(session: Session):
     assert len(result) == 60
     assert result["c0"] == 0
     assert result["c59"] == 59
+
+
+@pytest.mark.skipif(not TEARDOWN_TEST_DB, reason="edits a fixture layer")
+def test_layer_totals_cache(session: Session, simple_parent_geos_gerrydb):
+    """Totals are cached per (layer, columns), and a total still None (a
+    column mid-fill) isn't cached."""
+    cols = ["total_pop_20", "white_pop_20"]
+    session.execute(
+        text(
+            "CREATE TABLE gerrydb.simple_parent_geos_b AS SELECT * "
+            "FROM gerrydb.simple_parent_geos WHERE path = 'vtd:000010000002'"
+        )
+    )
+    assert layer_totals(session, "simple_parent_geos", cols) == {
+        "total_pop_20": 2100,
+        "white_pop_20": 1460,
+    }
+
+    session.execute(text("UPDATE gerrydb.simple_parent_geos SET total_pop_20 = 0"))
+    assert layer_totals(session, "simple_parent_geos", cols)["total_pop_20"] == 2100
+    assert layer_totals(session, "simple_parent_geos_b", cols)["total_pop_20"] == 900
+
+    session.execute(text("ALTER TABLE gerrydb.simple_parent_geos_b ADD filling int"))
+    filling = cols + ["filling"]
+    assert layer_totals(session, "simple_parent_geos_b", filling)["filling"] is None
+    assert ("simple_parent_geos_b", tuple(filling)) not in _LAYER_TOTALS
+    session.execute(text("UPDATE gerrydb.simple_parent_geos_b SET filling = 7"))
+    assert layer_totals(session, "simple_parent_geos_b", filling)["filling"] == 7

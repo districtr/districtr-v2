@@ -1,17 +1,22 @@
-"""drop the last unused UDFs
+"""drop unused UDFs
 
-Nothing calls these any more (ADR 0017's SQLAlchemy-first policy):
+Neither the current nor the previous release calls these (ADR 0017's
+SQLAlchemy-first policy), so dropping them is safe while old tasks are still
+serving during a rolling deploy:
 
 - create_shatterable_gerrydb_view: the Python helper of the same name
   (app/utils.py) builds the view with build_shatterable_view.
 - get_unassigned_bboxes: replaced by in-process computation (PR #550).
 - update_metadata_draft_status: no caller.
 
-Nothing in the schema depends on them (no triggers, views, defaults or
+get_zone_assignments_geo is not dropped here: the previous release's district
+rebuild still calls it, so it goes in a later release.
+
+Nothing in the schema depends on these (no triggers, views, defaults or
 indexes). Dropping a function takes no table locks.
 
 Revision ID: f13875203b1a
-Revises: 7684b100ec6c
+Revises: 55d7b369ed57
 Create Date: 2026-11-10
 
 """
@@ -25,7 +30,7 @@ from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "f13875203b1a"
-down_revision: Union[str, None] = "7684b100ec6c"
+down_revision: Union[str, None] = "55d7b369ed57"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

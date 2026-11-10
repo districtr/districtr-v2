@@ -605,8 +605,36 @@ def _json_build_object_sql(pairs: list[str]) -> str:
 STATS_LOCK_POLL_SECONDS = 1.0
 STATS_LOCK_WAIT_SECONDS = 120.0
 
-# (parent_layer, demographic columns) -> the layer's column totals.
+# (layer, demographic columns) -> the layer's column totals; see layer_totals.
 _LAYER_TOTALS: dict[tuple[str, tuple[str, ...]], dict] = {}
+
+
+def layer_totals(session: Session, layer: str, cols: list[str]) -> dict | None:
+    """Sum each of `cols` over the whole gerrydb `layer` (the map's totals,
+    which the unassigned row subtracts the districts from).
+
+    The scan reads the whole layer, so totals are cached per process. Values
+    in a layer never change once imported (management/gerrydb_columns.py);
+    add-gerrydb-columns adds and fills columns, which changes `cols` and so
+    the key. A total that is still None (a column mid-fill) is not cached.
+
+    ponytail: per-process cache; an in-place value fix to a layer shows up
+    after the next restart (any deploy).
+    """
+    key = (layer, tuple(cols))
+    totals = _LAYER_TOTALS.get(key)
+    if totals is None:
+        # cols come from get_gerrydb_numeric_cols, which validates them.
+        pairs = [f"'{col}', SUM({col})" for col in cols]
+        totals = session.execute(
+            text(
+                f"SELECT {_json_build_object_sql(pairs)} "
+                f"FROM gerrydb.{assert_safe_ident(layer)}"
+            )
+        ).scalar_one()
+        if totals and None not in totals.values():
+            _LAYER_TOTALS[key] = totals
+    return totals
 
 
 def update_or_select_district_stats(
@@ -691,13 +719,21 @@ def update_or_select_district_stats(
         public_id = doc_row.public_id
         gerrydb_table = doc_row.gerrydb_table_name
         parent_layer = doc_row.parent_layer
+        child_layer = doc_row.child_layer
 
+        # A shatterable map's table is its parent's rows UNION ALL its child's
+        # (build_shatterable_view), and a single-layer map's is the parent
+        # itself, so the layer rows the rebuild joins for geometry already
+        # carry the demographics. Summing those skips a scan of the whole
+        # view, which has no path index. Any other table is joined.
+        demo_from_layers = bool(child_layer) or gerrydb_table == parent_layer
         demographic_json = None
         demo_cols: list[str] = []
         if gerrydb_table:
             demo_cols = get_gerrydb_numeric_cols(session, gerrydb_table)
             if demo_cols:
-                json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
+                src = "geos" if demo_from_layers else "demo"
+                json_pairs = [f"'{col}', SUM({src}.{col})" for col in demo_cols]
                 demographic_json = _json_build_object_sql(json_pairs)
 
         # One rebuild per document; losers poll rather than block, since a
@@ -751,24 +787,30 @@ def update_or_select_district_stats(
             doc_id_sql = f"'{document_id}'::UUID"
             demo_select = (
                 f"{demographic_json} AS demographic_data"
-                if (gerrydb_table and demographic_json)
+                if demographic_json
                 else "NULL AS demographic_data"
             )
+            joined = demographic_json and not demo_from_layers
             demo_join = (
-                f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id"
-                if (gerrydb_table and demographic_json)
+                f"INNER JOIN gerrydb.{assert_safe_ident(gerrydb_table)} demo "
+                "ON demo.path = geos.geo_id"
+                if joined
                 else ""
             )
-            # Geometry for the missing zones' units only: the zone filter sits
-            # in each branch, ahead of the geometry join, so a rebuild reads
-            # the districts it redraws, not the whole plan. Assignments name
-            # a parent or a child unit, so shatterable maps read both layers.
-            # Inner joins: a unit missing from its layer has no geometry to
-            # union, and the demographics join below drops it anyway.
-            child_layer = doc_row.child_layer
+            layer_demo_cols = (
+                "".join(f", g.{col}" for col in demo_cols)
+                if demographic_json and demo_from_layers
+                else ""
+            )
+            # The missing zones' units only: the zone filter sits in each
+            # branch, ahead of the layer join, so a rebuild reads the
+            # districts it redraws, not the whole plan. Assignments name a
+            # parent or a child unit, so shatterable maps read both layers.
+            # Inner joins: a unit missing from its layer has no geometry or
+            # demographics to add.
             geos_sql = "\n                    UNION ALL\n".join(
                 f"""
-                    SELECT a.geo_id, a.zone, g.geometry
+                    SELECT a.geo_id, a.zone, g.geometry{layer_demo_cols}
                     FROM document.assignments a
                     JOIN gerrydb.{assert_safe_ident(layer)} g ON g.path = a.geo_id
                     WHERE a.document_id = :document_id
@@ -803,38 +845,19 @@ def update_or_select_district_stats(
                     demographic_data,
                     updated_at
             """
-            # ST_CoverageUnion is faster (linear) but requires valid coverage
-            # topology (no overlaps, shared edges identical). Fall back to
-            # ST_UnaryUnion if it errors (topology violation or old PostGIS).
-            coverage_sql = insert_sql.replace(
-                "ST_UnaryUnion(ST_Collect(geos.geometry))",
-                "ST_CoverageUnion(ST_Collect(geos.geometry))",
+            # ST_UnaryUnion only. An ST_CoverageUnion(ST_Collect(...)) attempt
+            # used to run first and never worked: PostGIS 3.4+ has only the
+            # aggregate and array forms, so it failed with "aggregate function
+            # calls cannot be nested" (3.3 lacks the function) and every
+            # rebuild fell back here. Trying the aggregate form needs a
+            # coverage-validity check first; it doesn't raise on bad input.
+            result = session.execute(
+                text(insert_sql).bindparams(
+                    bindparam(key="document_id", type_=UUIDType)
+                ),
+                {"document_id": document_id, "missing_zones": list(missing_zones)},
             )
-            sp = session.begin_nested()
-            try:
-                result = session.execute(
-                    text(coverage_sql).bindparams(
-                        bindparam(key="document_id", type_=UUIDType)
-                    ),
-                    {"document_id": document_id, "missing_zones": list(missing_zones)},
-                )
-                rebuilt_rows = list(result.mappings().all())
-                sp.commit()
-            except Exception:
-                sp.rollback()
-                logger.info(
-                    "ST_CoverageUnion failed for plan %s zones %s; "
-                    "falling back to ST_UnaryUnion",
-                    public_id,
-                    list(missing_zones),
-                )
-                result = session.execute(
-                    text(insert_sql).bindparams(
-                        bindparam(key="document_id", type_=UUIDType)
-                    ),
-                    {"document_id": document_id, "missing_zones": list(missing_zones)},
-                )
-                rebuilt_rows = list(result.mappings().all())
+            rebuilt_rows = list(result.mappings().all())
             # Zones that lost the race (DO NOTHING) won't appear in RETURNING —
             # re-select them from the now-populated cache.
             if len(rebuilt_rows) < len(missing_zones):
@@ -877,26 +900,7 @@ def update_or_select_district_stats(
                 {"document_id": document_id},
             )
 
-            # The map's totals scan its whole parent layer and never change
-            # once a layer is imported, so compute them once per process.
-            # ponytail: per-process cache; an in-place data fix to a layer
-            # shows up after the next restart (any deploy).
-            totals_key = (parent_layer, tuple(demo_cols))
-            total_demo = _LAYER_TOTALS.get(totals_key)
-            if total_demo is None:
-                safe_parent_layer = assert_safe_ident(parent_layer)
-                # demo_cols already validated by get_gerrydb_numeric_cols
-                total_json_pairs = [f"'{col}', SUM({col})" for col in demo_cols]
-                total_json = _json_build_object_sql(total_json_pairs)
-                total_sql = (
-                    f"SELECT {total_json} AS demographic_data "
-                    f"FROM gerrydb.{safe_parent_layer}"
-                )
-                total_result = session.execute(text(total_sql)).mappings().first()
-                total_demo = total_result and total_result["demographic_data"]
-                if total_demo:
-                    _LAYER_TOTALS[totals_key] = total_demo
-
+            total_demo = layer_totals(session, parent_layer, demo_cols)
             if total_demo:
                 assigned_sum: dict = {}
                 for r in returned_rows:

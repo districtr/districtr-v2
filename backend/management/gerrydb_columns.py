@@ -299,7 +299,9 @@ def invalidate_document_caches(
     other gerrydb tables keep all their rows. Returns the counts per name; with
     `dry_run`, only counts. A name no map reads counts zero, but at least one
     name must have maps. County aggregates refresh themselves when an
-    evaluation asks for a new column (`CountyContext.eguia_ideal`).
+    evaluation asks for a new column (`CountyContext.eguia_ideal`), and the
+    per-process layer totals (`app.utils.layer_totals`) are keyed by column
+    list, so added columns miss them.
     """
 
     def count(model, condition) -> int:
