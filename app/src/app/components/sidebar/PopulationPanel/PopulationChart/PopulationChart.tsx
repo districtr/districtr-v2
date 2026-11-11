@@ -161,18 +161,14 @@ export const PopulationChart: React.FC<{
   const colorScheme = useColorScheme();
   const getZoneColor = useZoneColorGetter();
 
-  const {
-    popTargetPopDeviation: targetDeviation,
-    popShowPopNumbers: showPopNumbers,
-    popShowTopBottomDeviation: showTopBottomDeviation,
-  } = chartOptions;
+  const {popShowPopNumbers: showPopNumbers, popShowTopBottomDeviation: showTopBottomDeviation} =
+    chartOptions;
   const {xScale, xMax, effectiveIdealPopulation, maxPop, isCommunityMode} = usePopulationXScale(
     width,
     data,
     idealPopulation,
     margins
   );
-  const effectiveTargetDeviation = isCommunityMode ? undefined : targetDeviation;
   const effectiveShowTopBottomDeviation = isCommunityMode ? false : showTopBottomDeviation;
   const height = getChartHeight(data.length, rowHeight, margins);
   const yMax = data.length * rowHeight;
@@ -207,19 +203,6 @@ export const PopulationChart: React.FC<{
           strokeWidth="1"
           strokeDasharray="3 3"
         />
-        {!!effectiveTargetDeviation && (
-          <Bar
-            x={xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))}
-            width={
-              xScale(Math.max(0, effectiveIdealPopulation + effectiveTargetDeviation)) -
-              xScale(Math.max(0, effectiveIdealPopulation - effectiveTargetDeviation))
-            }
-            y={0}
-            height={yMax}
-            fill="gray"
-            fillOpacity={0.15}
-          />
-        )}
       </>
     );
   };

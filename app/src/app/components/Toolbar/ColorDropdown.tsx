@@ -19,11 +19,9 @@ export const ColorDropdown: React.FC<{
     <Flex direction="row" gapX="3" align="center">
       <Text size="1">District</Text>
       <Select.Root
-        onValueChange={value => {
-          const index = colorScheme.indexOf(value);
-          if (index !== -1) onValueChange(index, value);
-        }}
-        value={value !== undefined ? colorScheme[value] : undefined}
+        // Keyed by district index, not color: districts may share a color.
+        onValueChange={value => onValueChange(+value, colorScheme[+value])}
+        value={value !== undefined ? String(value) : undefined}
       >
         <Select.Trigger variant="ghost">
           <Flex direction={'row'} gapX="2">
@@ -38,7 +36,7 @@ export const ColorDropdown: React.FC<{
         </Select.Trigger>
         <Select.Content>
           {zones.map(({zone, label}) => (
-            <Select.Item key={zone} value={colorScheme[zone - 1]}>
+            <Select.Item key={zone} value={String(zone - 1)}>
               <Flex direction={'row'} gapX="2">
                 <Box
                   style={{backgroundColor: colorScheme[zone - 1]}}

@@ -1,15 +1,12 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Text, Select, RadioCards} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
-import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {ColorChangeModal, DistrictColorsButton} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
 import {
@@ -33,12 +30,8 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const superDraw = useToolbarStore(state => state.superDraw);
-  const isSingleCounty = useIsSingleCounty();
-  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings) && !isSingleCounty;
   const variable = useDemographyStore(state => state.variable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
-
-  const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
   // Overlay layer: one selection among none / demographic / election (the
   // groups are mutually exclusive, so this is a mode picker, not independent
@@ -76,9 +69,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
           value={[
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
-              ? 'showBlockPopulationNumbers'
-              : '',
             mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
@@ -87,7 +77,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
             mapOptions.demographicDisplayMode === DEMOGRAPHIC_MODES.SIDE_BY_SIDE
               ? 'showDemographicMap'
               : '',
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
             parentsAreBroken && mapOptions.highlightBrokenDistricts === true
               ? 'highlightBrokenDistricts'
               : '',
@@ -137,20 +126,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
                 })
               }
             >
-              Population on map (all units)
-            </CheckboxGroup.Item>
-          )}
-          {superDraw && (
-            <CheckboxGroup.Item
-              value="showBlockPopulationNumbers"
-              onClick={() =>
-                setMapOptions({
-                  showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
-                })
-              }
-              disabled={!mapDocument?.child_layer}
-            >
-              Population labels on exposed blocks
+              Population numbers
             </CheckboxGroup.Item>
           )}
           <CheckboxGroup.Item
@@ -176,8 +152,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
               Highlight broken precincts
             </CheckboxGroup.Item>
           )}
-
-          {superDraw && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}
         </CheckboxGroup.Root>
         {!inWorkflowTab && overlayGroups.length > 0 && (
           <Flex direction="row" align="center" gap="3" wrap="wrap">
@@ -204,44 +178,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
             </RadioCards.Root>
           </Flex>
         )}
-        {boundarySettings && (
-          <>
-            <Heading as="h3" weight="bold" size="3">
-              Boundaries
-            </Heading>
-            <CheckboxGroup.Root
-              name="contextualLayers"
-              value={[
-                mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-                mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
-              ]}
-            >
-              <CheckboxGroup.Item
-                value="showCountyBoundaries"
-                onClick={() =>
-                  setMapOptions({
-                    showCountyBoundaries: !mapOptions.showCountyBoundaries,
-                  })
-                }
-              >
-                County boundaries
-              </CheckboxGroup.Item>
-              <CheckboxGroup.Item
-                value="prominentCountyNames"
-                onClick={() =>
-                  setMapOptions({
-                    prominentCountyNames: !mapOptions.prominentCountyNames,
-                  })
-                }
-              >
-                Emphasize county names
-              </CheckboxGroup.Item>
-            </CheckboxGroup.Root>
-          </>
-        )}
       </Flex>
-
-      <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
     </>
   );
 };

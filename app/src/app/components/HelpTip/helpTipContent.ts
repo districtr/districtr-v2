@@ -71,8 +71,13 @@ export const helpTipContent = {
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
+  tuningView: {
+    title: 'Tuning view',
+    text: 'Once districts are close to ideal, the bars look alike. The tuning view keeps the exact population and deviation of each district and shows whether it is contiguous in place of its bar, and turns on population numbers on the map. Contiguity updates each time the map saves.',
+  },
+  // No video for this one yet — text-only, unlike the other brush tips.
   showPopulationTooltip: {
-    title: 'Show population of paintable areas',
+    title: 'Show population tooltip',
     text: "Shows the total population of areas the brush can paint. Forbid paint-over areas or locked districts aren't counted.",
     guideAnchor: 'drawing-the-districts',
   },
@@ -110,9 +115,9 @@ export const helpTipContent = {
     videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
-  districtPin: {
-    title: 'Pinning districts',
-    text: 'Pin: the district tables show only pinned districts until you unpin them or choose Show all.',
+  districtFocus: {
+    title: 'Focusing districts',
+    text: 'Focus: mark districts to work on together. Choose Show focused districts to narrow the district tables to them.',
   },
   idealPopulation: {
     title: 'Ideal population',
@@ -129,7 +134,7 @@ export const helpTipContent = {
   },
   maxDeviation: {
     title: 'Maximum deviation',
-    text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
+    text: 'The maximum deviation is the largest deviation from the ideal population, shown as a number of people and as a percentage of the ideal population.',
   },
   // Stacked layout's Demographics accordion combines the Map Layers and Stats
   // tabs' content into one section, and keeps the original panel clip (which

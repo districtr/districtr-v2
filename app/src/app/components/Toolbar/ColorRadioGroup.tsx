@@ -45,12 +45,10 @@ export const ColorRadioGroup: React.FC<{
   return (
     <Box>
       <RadioGroup.Root
-        onValueChange={value => {
-          const index = colorScheme.indexOf(value);
-          if (index !== -1) onValueChange(index, value);
-        }}
-        value={value !== undefined ? colorScheme[value] : undefined}
-        defaultValue={colorScheme[defaultValue]}
+        // Keyed by district index, not color: districts may share a color.
+        onValueChange={value => onValueChange(+value, colorScheme[+value])}
+        value={value !== undefined ? String(value) : undefined}
+        defaultValue={String(defaultValue)}
       >
         <Flex direction="row" wrap="wrap" gapX="2">
           {zones.map(({zone, label}) => {
@@ -70,7 +68,7 @@ export const ColorRadioGroup: React.FC<{
                       data-testid={`zone-${zone}`}
                       aria-label={`District ${label}`}
                       style={{backgroundColor: color}}
-                      value={color}
+                      value={String(i)}
                       disabled={disabled}
                       className={disabled ? 'opacity-25' : ''}
                     ></StyledRadioGroupItem>

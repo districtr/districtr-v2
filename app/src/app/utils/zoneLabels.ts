@@ -42,6 +42,27 @@ export const findLabelConflict = (
   return null;
 };
 
+/**
+ * `label` (already cleaned; blank means the default, its number) if no other
+ * district has it, else the first free `label_2`, `label_3`, … — the base cut
+ * so the suffix fits the length cap. Renames never fail on a collision.
+ */
+export const uniqueZoneLabel = (
+  zone: number,
+  label: string,
+  aliases: ZoneAliases,
+  numDistricts: number
+) => {
+  const base = label || String(zone);
+  if (findLabelConflict(zone, base, aliases, numDistricts) === null) return label;
+  for (let n = 2; ; n++) {
+    const suffix = `_${n}`;
+    const cut = Array.from(base).slice(0, MAX_COMMUNITY_NAME_LENGTH - suffix.length);
+    const candidate = cut.join('').trimEnd() + suffix;
+    if (findLabelConflict(zone, candidate, aliases, numDistricts) === null) return candidate;
+  }
+};
+
 /** Stored labels for districts 1..numDistricts only. */
 export const aliasesWithin = (aliases: ZoneAliases, numDistricts: number) =>
   Object.fromEntries(
@@ -61,6 +82,38 @@ export const aliasesForCount = (aliases: ZoneAliases, prevCount: number, numDist
   const next: Record<string, string> = aliasesWithin(aliases, numDistricts);
   for (let zone = prevCount + 1; zone <= numDistricts; zone++) {
     if (findLabelConflict(zone, '', next, numDistricts) === null) continue;
+    let candidate = 1;
+    while (findLabelConflict(zone, String(candidate), next, numDistricts) !== null) candidate++;
+    next[zone] = String(candidate);
+  }
+  return next;
+};
+
+/**
+ * The renumbering a reorder makes: the district in row i becomes district i + 1.
+ * Old number -> new number, for the districts whose number changes.
+ */
+export const renumberingForOrder = (order: readonly number[]) =>
+  new Map(order.map((zone, i) => [zone, i + 1] as const).filter(([from, to]) => from !== to));
+
+/**
+ * Labels after a renumbering (old number -> new): each label moves with its
+ * district, and one equal to the new number is dropped as the default. A
+ * district whose new number another district has as its label takes the
+ * smallest free number instead, as in aliasesForCount.
+ */
+export const renumberedAliases = (
+  aliases: ZoneAliases,
+  renumber: ReadonlyMap<number, number>,
+  numDistricts: number
+) => {
+  const next: Record<string, string> = {};
+  Object.entries(aliases ?? {}).forEach(([zone, label]) => {
+    const to = renumber.get(Number(zone)) ?? Number(zone);
+    if (label !== String(to)) next[to] = label;
+  });
+  for (let zone = 1; zone <= numDistricts; zone++) {
+    if (zone in next || findLabelConflict(zone, '', next, numDistricts) === null) continue;
     let candidate = 1;
     while (findLabelConflict(zone, String(candidate), next, numDistricts) !== null) candidate++;
     next[zone] = String(candidate);

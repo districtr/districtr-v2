@@ -1,4 +1,6 @@
 import {DISTRICT_PALETTES} from '@/app/constants/colors';
+import {CSS_NAMED_COLORS} from '@/app/constants/cssColors';
+import {LATEX_EXTENDED_COLORS} from '@/app/constants/latexColors';
 
 /**
  * Picks readable text color for a given background: 'white' if the background
@@ -147,6 +149,19 @@ const LATEX_BASE_COLORS = new Map<string, string>(
     violet: '#800080',
   })
 );
+// Names compare loosely everywhere (typing and search): accents, case,
+// spaces and punctuation dropped, so `Tenné (Tawny)` is `tennetawny`.
+const latexKey = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '');
+// CSS names are all one lowercase word, so they are their own keys.
+const CSS_BY_KEY = new Map(Object.entries(CSS_NAMED_COLORS));
+const LATEX_EXTENDED_BY_KEY = new Map(
+  Object.entries(LATEX_EXTENDED_COLORS).map(([name, hex]) => [latexKey(name), hex])
+);
 const LATEX_PREFIX = 'latex:';
 
 let colorContext: CanvasRenderingContext2D | null | undefined;
@@ -169,14 +184,22 @@ function cssColorToHex(color: string): string | null {
     : null;
 }
 
-/** Resolves a LaTeX color name: case-sensitive like LaTeX, then case-insensitive. */
+/**
+ * Resolves a LaTeX color name: xcolor's base and dvipsnames case-sensitively
+ * like LaTeX, then case-insensitively, then ignoring case, spaces and
+ * punctuation: latexcolor.com's names (`Burnt orange`, `byzantium`) before
+ * xcolor's (`Forest Green`).
+ */
 function latexColorToHex(name: string): string | null {
-  const lower = name.toLowerCase();
+  const key = latexKey(name);
   return (
     LATEX_BASE_COLORS.get(name) ??
     LATEX_DVIPS_COLORS.get(name) ??
-    LATEX_BASE_COLORS.get(lower) ??
-    LATEX_DVIPS_COLORS_LOWER.get(lower) ??
+    LATEX_BASE_COLORS.get(name.toLowerCase()) ??
+    LATEX_DVIPS_COLORS_LOWER.get(name.toLowerCase()) ??
+    LATEX_EXTENDED_BY_KEY.get(key) ??
+    LATEX_BASE_COLORS.get(key) ??
+    LATEX_DVIPS_COLORS_LOWER.get(key) ??
     null
   );
 }
@@ -187,6 +210,11 @@ function latexColorToHex(name: string): string | null {
  * - Otherwise CSS wins, so `Green` is CSS's #008000 however a phone
  *   capitalizes it, and a LaTeX name applies only when CSS doesn't know it
  *   (`BrickRed`, `brickred`).
+ * - Capitalization never matters, and spacing mostly doesn't: `Forest green`
+ *   is CSS's forestgreen, `olive green` is LaTeX's OliveGreen. The exception
+ *   is 11 names that are both an xcolor name and a latexcolor.com name: the
+ *   run-together spelling gets xcolor's (`brickred` #b80000, `bluegreen`),
+ *   the spaced or hyphenated one latexcolor.com's (`brick red` #cb4154).
  */
 export function resolveColorInput(input: string): string | null {
   const color = input.trim();
@@ -194,7 +222,12 @@ export function resolveColorInput(input: string): string | null {
   if (color.toLowerCase().startsWith(LATEX_PREFIX)) {
     return latexColorToHex(color.slice(LATEX_PREFIX.length).trim());
   }
-  return cssColorToHex(color) ?? latexColorToHex(color);
+  return (
+    CSS_BY_KEY.get(color.toLowerCase()) ??
+    cssColorToHex(color) ??
+    CSS_BY_KEY.get(latexKey(color)) ??
+    latexColorToHex(color)
+  );
 }
 
 /**
@@ -209,46 +242,159 @@ export function latexBaseAlternative(input: string): {input: string; hex: string
   return {input: `${LATEX_PREFIX}${name}`, hex};
 }
 
+export type ColorName = {
+  name: string;
+  source: 'CSS' | 'LaTeX';
+  hex: string;
+  /** What picking it types: the name, or `latex:<name>` when CSS owns the bare name. */
+  input: string;
+  key: string;
+  words: string[];
+};
+
+let colorNames: ColorName[] | undefined;
+
 /**
- * The palette sharing the most colors with `colors` (lowercased), the shorter
- * on a tie (the default holds most of ColorBrewer Set3), and the Districtr
- * default when none shares any.
+ * Every color name the field accepts, CSS first, then xcolor's base and
+ * dvipsnames, then latexcolor.com's, each with the text that resolves to it.
+ * Built from resolveColorInput itself, so a suggestion's swatch is always what
+ * picking it gives. Names no input reaches (latexcolor.com's `Apricot`, which
+ * dvipsnames' Apricot shadows) and same-color repeats are left out.
  */
-const sourcePalette = (colors: Set<string>) => {
-  let best = DISTRICT_PALETTES[0];
+export function colorNameIndex(): ColorName[] {
+  if (colorNames) return colorNames;
+  const seen = new Set<string>();
+  const out: ColorName[] = [];
+  const add = (source: ColorName['source'], entries: Iterable<[string, string]>) => {
+    for (const [name, hex] of entries) {
+      const input = resolveColorInput(name) === hex ? name : `${LATEX_PREFIX}${name}`;
+      const key = latexKey(name);
+      if (resolveColorInput(input) !== hex || seen.has(`${key}${hex}`)) continue;
+      seen.add(`${key}${hex}`);
+      const words = name
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u);
+      out.push({name, source, hex, input, key, words});
+    }
+  };
+  add('CSS', CSS_BY_KEY);
+  add('LaTeX', LATEX_BASE_COLORS);
+  add('LaTeX', LATEX_DVIPS_COLORS);
+  add('LaTeX', Object.entries(LATEX_EXTENDED_COLORS));
+  return (colorNames = out);
+}
+
+/**
+ * Color names matching typed text, compared the way the field resolves it:
+ * the whole name, then names starting with it, then a word starting with it
+ * (`blue` finds `Air Force blue`), then anywhere in the name. Ties keep index
+ * order (CSS first), then shorter names first. `latex:` limits results to
+ * LaTeX names; hex and functional colors (`rgb(`) get none.
+ */
+export function searchColorNames(text: string, limit = 8): ColorName[] {
+  let query = text.trim();
+  const latexOnly = query.toLowerCase().startsWith(LATEX_PREFIX);
+  if (latexOnly) query = query.slice(LATEX_PREFIX.length);
+  const key = latexKey(query);
+  if (!key || query.startsWith('#') || query.includes('(')) return [];
+  const rank = (entry: ColorName) =>
+    entry.key === key
+      ? 0
+      : entry.key.startsWith(key)
+        ? 1
+        : entry.words.some(word => word.startsWith(key))
+          ? 2
+          : entry.key.includes(key)
+            ? 3
+            : -1;
+  return colorNameIndex()
+    .map((entry, order) => ({entry, order, rank: rank(entry)}))
+    .filter(match => match.rank >= 0 && (!latexOnly || match.entry.source === 'LaTeX'))
+    .sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        Number(a.entry.source === 'LaTeX') - Number(b.entry.source === 'LaTeX') ||
+        a.entry.name.length - b.entry.name.length ||
+        a.order - b.order
+    )
+    .slice(0, limit)
+    .map(match => match.entry);
+}
+
+/**
+ * The palette sharing the most colors with `colors` (case-insensitively), or
+ * undefined when none shares any. A tie goes to the shorter palette: the
+ * Districtr default holds all of ColorBrewer Set3 and all but one of Paired,
+ * so those would otherwise always read as the default. With `minShare`, a
+ * palette counts only if it covers that share of min(colors, its length).
+ */
+export function matchingPalette(
+  colors: readonly string[],
+  minShare = 0
+): (typeof DISTRICT_PALETTES)[number] | undefined {
+  const used = new Set(colors.map(color => color.toLowerCase()));
+  let best: (typeof DISTRICT_PALETTES)[number] | undefined;
   let bestHits = 0;
   for (const palette of DISTRICT_PALETTES) {
-    const hits = palette.colors.filter(color => colors.has(color.toLowerCase())).length;
-    if (
-      hits > bestHits ||
-      (hits && hits === bestHits && palette.colors.length < best.colors.length)
-    ) {
+    const hits = palette.colors.filter(color => used.has(color.toLowerCase())).length;
+    if (!hits || hits < minShare * Math.min(colors.length, palette.colors.length)) continue;
+    if (hits > bestHits || (hits === bestHits && palette.colors.length < best!.colors.length)) {
       [best, bestHits] = [palette, hits];
     }
   }
-  return best.colors;
-};
+  return best;
+}
 
-/**
- * Whether a color reads as gray, so as unassigned land (filled #cecece) or,
- * at the dark end, as no fill over the basemap. Gray here is CIELAB chroma
- * under 10: a just-noticeable difference is about 2, and the cut keeps the
- * palest palette tints (Pastel2's #cbd5e8 is 10.5). Every color within
- * ΔE*ab 10 of the unassigned fill falls under it too.
- */
-export function isNearGray(color: string): boolean {
+/** The unassigned land fill (GeometryBackgroundLayer). */
+export const UNASSIGNED_FILL = '#cecece';
+
+function hexToLab(color: string): [number, number, number] | null {
   const rgb = parseColorToRgb(color);
-  if (!rgb) return false;
+  if (!rgb) return null;
   const [r, g, b] = rgb.map(channel => {
     const c = channel / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116);
   const fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
-  const a = 500 * (f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047) - fy);
-  const bStar = 200 * (fy - f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883));
-  return Math.hypot(a, bStar) < 10;
+  return [
+    116 * fy - 16,
+    500 * (f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047) - fy),
+    200 * (fy - f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883)),
+  ];
 }
+
+/** CIELAB ΔE*ab between two colors; about 2 is just noticeable. */
+export function colorDistance(a: string, b: string): number {
+  const [x, y] = [hexToLab(a), hexToLab(b)];
+  return x && y ? Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) : Infinity;
+}
+
+/**
+ * Whether a color has CIELAB chroma under 10 (a just-noticeable difference is
+ * about 2). Generated suggestions skip these so they bring real hues; a user's
+ * own pick is only questioned near the unassigned fill (looksUnassigned).
+ */
+export function isNearGray(color: string): boolean {
+  const lab = hexToLab(color);
+  return !!lab && Math.hypot(lab[1], lab[2]) < 10;
+}
+
+/**
+ * Whether a district in this color could pass for unassigned land: within
+ * ΔE*ab 10 of the #cecece fill. Grays well lighter or darker (#b0b0b0, white,
+ * black) and the palest palette tints (Pastel2's #cbd5e8, 10.7) stay clear.
+ */
+export const looksUnassigned = (color: string) => colorDistance(color, UNASSIGNED_FILL) < 10;
+
+/**
+ * Below this ΔE*ab two district colors are hard to tell apart on the map. The
+ * closest pair any palette ships is the default's #fdb462/#fdbf6f at 6.3.
+ */
+export const NEAR_DUPLICATE_DISTANCE = 5;
 
 const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
@@ -278,7 +424,6 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-const hueDistance = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
@@ -329,46 +474,75 @@ export function randomColorsInRange(
  * entries are kept as they are, duplicates included, so no district's color
  * moves. The unused colors of the palette `colorArray` mostly comes from (the
  * Districtr default when none matches) come first, in palette order, so a
- * default-colored plan grows into the next default colors. Past those, new
- * colors take the scheme's average saturation and lightness and step around
- * the hue wheel by the golden ratio, skipping hues too close to one already
- * in use (the allowed gap halves each lap). Later laps also nudge lightness.
- * Every added color is distinct (case-insensitively) and the result is the
- * same on every call.
+ * default-colored plan grows into the next default colors. Past those, each
+ * new color is the candidate farthest (CIELAB ΔE*ab) from every color already
+ * in the scheme and from the unassigned fill. Candidates take the scheme's
+ * average saturation and lightness at every 2° of hue, plus lighter and darker
+ * variants that are picked only when they stand out clearly more. Every added
+ * color is distinct (case-insensitively) and the result is the same on every
+ * call.
  */
 export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   const result = colorArray.slice(0, numDistricts);
   const seen = new Set(result.map(color => color.toLowerCase()));
-  for (const color of sourcePalette(seen)) {
+  for (const color of (matchingPalette(result) ?? DISTRICT_PALETTES[0]).colors) {
     if (result.length >= numDistricts) break;
     if (seen.has(color.toLowerCase())) continue;
     seen.add(color.toLowerCase());
     result.push(color);
   }
-  // Grays have no meaningful hue, so they don't set the style or block hues.
-  const chromatic = result
-    .map(hexToHsl)
-    .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
-  const mean = (i: number, fallback: number) =>
-    chromatic.length
-      ? chromatic.reduce((sum, hsl) => sum + hsl[i], 0) / chromatic.length
-      : fallback;
-  const saturation = clamp(mean(1, 0.65), 0.3, 1);
-  const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
-  const hues = chromatic.map(hsl => hsl[0]);
-  const lightnessShifts = [0, -0.08, 0.08, -0.16, 0.16];
-  // ponytail: ~360 hue steps per lap at a few lightness levels; past ~2,000
-  // colors this falls back to counting up through hex values.
-  for (let i = 0; result.length < numDistricts && i < 20_000; i++) {
-    const lap = Math.floor(i / 360);
-    const minGap = 24 / 2 ** lap;
-    const hue = (i * GOLDEN_RATIO_CONJUGATE * 360) % 360;
-    if (hues.some(used => hueDistance(used, hue) < minGap)) continue;
-    const hex = hslToHex(hue, saturation, clamp(lightness + lightnessShifts[lap % 5], 0.15, 0.9));
-    if (seen.has(hex) || isNearGray(hex)) continue;
-    seen.add(hex);
-    hues.push(hue);
-    result.push(hex);
+  if (result.length < numDistricts) {
+    // Grays have no meaningful hue, so they don't set the style.
+    const chromatic = result
+      .map(hexToHsl)
+      .filter((hsl): hsl is [number, number, number] => !!hsl && hsl[1] > 0.15);
+    const mean = (i: number, fallback: number) =>
+      chromatic.length
+        ? chromatic.reduce((sum, hsl) => sum + hsl[i], 0) / chromatic.length
+        : fallback;
+    const saturation = clamp(mean(1, 0.65), 0.3, 1);
+    const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
+    // A lighter or darker variant must beat the palette's own tone by this
+    // factor, so the first additions keep the palette's look.
+    const shifts: [number, number][] = [
+      [0, 1],
+      [-0.08, 1.5],
+      [0.08, 1.5],
+      [-0.16, 3],
+      [0.16, 3],
+    ];
+    const candidates: {hex: string; lab: [number, number, number]; weight: number}[] = [];
+    for (const [shift, weight] of shifts) {
+      for (let hue = 0; hue < 360; hue += 2) {
+        const hex = hslToHex(hue, saturation, clamp(lightness + shift, 0.15, 0.9));
+        if (seen.has(hex) || isNearGray(hex) || candidates.some(c => c.hex === hex)) continue;
+        candidates.push({hex, lab: hexToLab(hex)!, weight});
+      }
+    }
+    // Distance from each candidate to the nearest color in use.
+    const nearest = candidates.map(c =>
+      Math.min(...[...result, UNASSIGNED_FILL].map(color => colorDistance(c.hex, color)))
+    );
+    // ponytail: greedy farthest-point pick over ~900 candidates; past those the
+    // hex fallback below takes over.
+    while (result.length < numDistricts) {
+      let best = -1;
+      for (let i = 0; i < candidates.length; i++) {
+        if (nearest[i] < 0) continue;
+        if (best < 0 || nearest[i] / candidates[i].weight > nearest[best] / candidates[best].weight)
+          best = i;
+      }
+      if (best < 0) break;
+      const {hex, lab} = candidates[best];
+      seen.add(hex);
+      result.push(hex);
+      nearest[best] = -1;
+      for (let i = 0; i < candidates.length; i++) {
+        if (nearest[i] < 0) continue;
+        const [l, a, b] = candidates[i].lab;
+        nearest[i] = Math.min(nearest[i], Math.hypot(l - lab[0], a - lab[1], b - lab[2]));
+      }
+    }
   }
   for (let n = 0; result.length < numDistricts; n++) {
     const hex = `#${n.toString(16).padStart(6, '0')}`;

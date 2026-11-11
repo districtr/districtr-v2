@@ -1,7 +1,6 @@
 'use client';
 import React, {useEffect} from 'react';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
-import {Checkbox, Text as RadixText} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
@@ -18,12 +17,6 @@ export const BlockModePill = () => {
   const activeTool = useMapControlsStore(state => state.activeTool);
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
-  // Same setting as "Population labels on exposed blocks" under Map Layers —
-  // surfaced here too since breaking a unit is exactly when someone wants it.
-  const showBlockPopulationNumbers = useMapControlsStore(
-    state => state.mapOptions.showBlockPopulationNumbers
-  );
-  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const captiveIds = useMapStore(state => state.captiveIds);
   const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
   const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
@@ -69,17 +62,6 @@ export const BlockModePill = () => {
         testId="block-mode-pill"
         onEscape={exitBlockView}
         action={{label: 'Exit block view (Esc)', onClick: exitBlockView}}
-        extra={
-          <RadixText as="label" size="2" className="flex items-center gap-1 cursor-pointer">
-            <Checkbox
-              checked={showBlockPopulationNumbers === true}
-              onCheckedChange={checked =>
-                setMapOptions({showBlockPopulationNumbers: checked === true})
-              }
-            />
-            Population labels on exposed blocks
-          </RadixText>
-        }
       >
         {activeTool === ACTIVE_TOOLS.SHATTER ? (
           <>

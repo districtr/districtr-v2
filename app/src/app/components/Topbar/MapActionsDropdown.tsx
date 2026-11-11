@@ -9,6 +9,7 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {ColorChangeModal} from '../Toolbar/ColorChangeModal';
+import {ReorderDistrictsModal} from '../Toolbar/ReorderDistrictsModal';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {MAP_MODES} from '@constants/map/mode';
 import {useDraftStatusHelperDismissal} from '@components/sidebar/DraftStatusHelper';
@@ -25,7 +26,7 @@ import {useDraftSubmissionStore} from '@store/draftSubmissionStore';
 export const MapActionsDropdown: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({handleMetadataChange}) => {
-  const [modal, setModal] = useState<'share' | 'colors' | null>(null);
+  const [modal, setModal] = useState<'share' | 'colors' | 'reorder' | null>(null);
   const isCommunityMode = useMapControlsStore(state => state.mapMode) === MAP_MODES.COI;
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -51,7 +52,7 @@ export const MapActionsDropdown: React.FC<{
 
   // Defer past the dropdown's close so Radix doesn't leave pointer-events:none
   // stuck on the body when a dialog opens from onSelect.
-  const openModal = (which: 'share' | 'colors') => setTimeout(() => setModal(which), 0);
+  const openModal = (which: 'share' | 'colors' | 'reorder') => setTimeout(() => setModal(which), 0);
 
   // "Share your map" guide: pulses this trigger, then the Share item.
   const guideTarget = useUiHintStore(state => state.guideTargets[0]);
@@ -222,6 +223,15 @@ export const MapActionsDropdown: React.FC<{
               Customize district colors
             </DropdownMenu.Item>
           )}
+          {!isCommunityMode && (
+            <DropdownMenu.Item
+              className="cursor-pointer"
+              disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
+              onSelect={() => openModal('reorder')}
+            >
+              Reorder districts
+            </DropdownMenu.Item>
+          )}
           {guideDismissed && (
             <DropdownMenu.Item
               className="cursor-pointer"
@@ -240,8 +250,8 @@ export const MapActionsDropdown: React.FC<{
             </DropdownMenu.SubTrigger>
             <DropdownMenu.SubContent>
               <Text size="2" className="w-[50vw] max-w-60 p-3">
-                Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                <b>Resetting your map cannot be undone.</b>
+                Are you sure? This will reset all zone assignments, broken geographies and district
+                labels. <b>Resetting your map cannot be undone.</b>
               </Text>
               <DropdownMenu.Item onClick={handleReset} color="red">
                 Reset map
@@ -256,6 +266,7 @@ export const MapActionsDropdown: React.FC<{
         handleMetadataChange={handleMetadataChange}
       />
       <ColorChangeModal open={modal === 'colors'} onClose={() => setModal(null)} />
+      <ReorderDistrictsModal open={modal === 'reorder'} onClose={() => setModal(null)} />
     </>
   );
 };

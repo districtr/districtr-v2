@@ -65,6 +65,15 @@ interface Exemplar {
 const PP_exemplars: Exemplar[] = [AL1, OK5, CO5];
 const REOCK_exemplars: Exemplar[] = [AL2, OK2, CO2];
 
+const ROWS_PER_TABLE = 10;
+/** `items` in the fewest chunks of at most `size`, as even as possible. */
+const chunkEvenly = <T,>(items: T[], size: number) => {
+  const per = Math.ceil(items.length / Math.max(1, Math.ceil(items.length / size)));
+  return Array.from({length: Math.ceil(items.length / per)}, (_, i) =>
+    items.slice(i * per, (i + 1) * per)
+  );
+};
+
 const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
   polsby_popper: 'A Polsby-Popper score of',
   reock: 'A Reock score of',
@@ -236,32 +245,12 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <Text size="2" weight="bold" mb="2" mt="4" as="p">
                 Per-district scores
               </Text>
-              {/* Table.Root hardcodes a ScrollArea wrapper (overflow:scroll) which breaks
-                  position:sticky on Table.Header. This is a known open issue in Radix Themes:
-                  https://github.com/radix-ui/themes/issues/584 (optional scrollArea prop)
-                  https://github.com/radix-ui/themes/issues/767 (sticky header broken)
-                  Workaround: apply Radix's own CSS classes to our own scroll div and render
-                  a plain <table> inside. Sub-components have no context dep on Table.Root. */}
-              <div
-                className="rt-TableRoot rt-r-size-1 rt-variant-surface"
-                style={{width: 'fit-content', overflow: 'hidden'}}
-              >
-                <div
-                  className={
-                    zones.length > 15
-                      ? 'max-h-[400px] overflow-y-auto [scrollbar-gutter:stable] print:max-h-none print:overflow-visible'
-                      : ''
-                  }
-                >
-                  <table className="rt-TableRootTable" style={{overflow: 'visible'}}>
-                    <Table.Header
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                        backgroundColor: 'var(--color-panel-solid)',
-                      }}
-                    >
+              {/* Side-by-side tables of up to ROWS_PER_TABLE rows each, so
+                  long plans fill the width instead of scrolling. */}
+              <Flex gap="3" wrap="wrap" align="start">
+                {chunkEvenly(zones, ROWS_PER_TABLE).map(chunk => (
+                  <Table.Root key={chunk[0]} size="1" variant="surface">
+                    <Table.Header>
                       <Table.Row>
                         <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell justify="center">
@@ -269,16 +258,11 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                           <br />
                           Popper
                         </Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell
-                          justify="center"
-                          style={{paddingRight: 'calc(var(--table-cell-padding) + 8px)'}}
-                        >
-                          Reock
-                        </Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell justify="center">Reock</Table.ColumnHeaderCell>
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                      {zones.map(zone => (
+                      {chunk.map(zone => (
                         <Table.Row
                           key={zone}
                           tabIndex={0}
@@ -294,13 +278,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                               {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
                             </Text>
                           </Table.Cell>
-                          <Table.Cell
-                            justify="center"
-                            style={{
-                              verticalAlign: 'middle',
-                              paddingRight: 'calc(var(--table-cell-padding) + 8px)',
-                            }}
-                          >
+                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
                             <Text size="2">
                               {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
                             </Text>
@@ -308,9 +286,9 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
                         </Table.Row>
                       ))}
                     </Table.Body>
-                  </table>
-                </div>
-              </div>
+                  </Table.Root>
+                ))}
+              </Flex>
             </>
           )}
         </Accordion.Content>

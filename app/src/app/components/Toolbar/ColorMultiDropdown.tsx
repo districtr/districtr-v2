@@ -21,7 +21,7 @@ export const ColorMultiDropdown: React.FC<{
         value={undefined}
         defaultValue="-1"
         onValueChange={newValue => {
-          const indexOfNewValue = colorScheme.indexOf(newValue);
+          const indexOfNewValue = +newValue;
           if (value.includes(indexOfNewValue)) {
             onValueChange(
               value.filter(v => v !== indexOfNewValue),
@@ -39,7 +39,7 @@ export const ColorMultiDropdown: React.FC<{
         </Select.Trigger>
         <Select.Content>
           {zones.map(({zone, index: i, label}) => (
-            <Select.Item key={zone} value={colorScheme[i]}>
+            <Select.Item key={zone} value={String(i)}>
               <Flex direction={'row'} gapX="2">
                 <Box
                   style={{backgroundColor: colorScheme[i]}}
