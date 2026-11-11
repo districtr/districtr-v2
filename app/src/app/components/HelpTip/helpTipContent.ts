@@ -16,9 +16,8 @@ export interface HelpTipEntry {
 // Stats' Demographics/Elections text — declared ahead of helpTipContent so
 // the stacked layout's combined tips (below) can reuse it instead of
 // duplicating it.
-const demographicsStatsText = 'Click here to view the racial makeup of your districts.';
-const electionsStatsText =
-  'Click here to view how your districts would have performed in past elections.';
+const demographicsStatsText = 'See the racial makeup of your districts.';
+const electionsStatsText = 'See how your districts would have voted in past elections.';
 
 // Not annotated as `Record<string, HelpTipEntry>` on purpose: that annotation would widen
 // `keyof typeof helpTipContent` to `string | number`, defeating HelpTipKey as a literal-key
@@ -32,7 +31,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    text: 'Paint by county for a rough outline, then use a smaller brush or eraser to clean up the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
@@ -41,7 +40,7 @@ export const helpTipContent = {
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
+    text: 'Once a district is roughly drawn, break units along its edge into smaller units to fine-tune its population:',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',
@@ -53,75 +52,75 @@ export const helpTipContent = {
   // shows alongside it (see HelpTip's `hideLink`).
   undoRedo: {
     title: 'Undo & redo',
-    text: 'Click the undo/redo buttons to revert or reapply changes to your district plan.',
+    text: 'Undo or redo your latest changes to the map.',
     videoFile: 'undo_redo.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to undo/redo',
   },
   brushSize: {
     title: 'Brush size',
-    text: 'Drag this slider to change how many units the paintbrush or eraser affects at once.',
+    text: 'Drag to change how many units the brush or eraser covers at once.',
     videoFile: 'brush_size.webm',
     guideAnchor: 'drawing-the-districts',
   },
   countyBrush: {
     title: 'Painting by county',
-    text: 'Toggle this to paint whole counties at once instead of individual units.',
+    text: 'Turn on to paint whole counties at once instead of single units.',
     videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
   showPopulationTooltip: {
     title: 'Show population of paintable areas',
-    text: "Shows the total population of areas the brush can paint. Forbid paint-over areas or locked districts aren't counted.",
+    text: "Shows the total population the brush can paint. Locked districts aren't counted, and neither are painted areas when Forbid paint-over is on.",
     guideAnchor: 'drawing-the-districts',
   },
   // No video for this one yet — text-only, unlike the other brush tips.
   disallowPaintOver: {
-    title: 'Disallow paint over',
-    text: 'When enabled, the brush will only add unassigned units, leaving painted areas untouched.',
+    title: 'Forbid paint-over',
+    text: 'When on, the brush paints only unassigned units and leaves painted areas alone.',
     guideAnchor: 'drawing-the-districts',
   },
   switchDistrict: {
     title: 'Switching districts',
-    text: 'Click a color to switch which district you’re painting. For plans with many districts, use the dropdown to find the one you want.',
+    text: 'Click a color to choose which district to paint. If your plan has many districts, pick one from the dropdown.',
     videoFile: 'drawing_another_district.webm',
     guideAnchor: 'drawing-the-districts',
   },
   sidebarLayoutToggle: {
     title: 'Sidebar layout',
-    text: 'Switch the sidebar between the tabbed and the stacked layouts.',
+    text: 'Switch the sidebar between tabbed and stacked layouts.',
   },
   visualSettings: {
     title: 'Visual settings',
-    text: 'Click to see a list of controls for what the map shows',
+    text: 'Choose what the map shows.',
     videoFile: 'visual_settings.webm',
     guideAnchor: 'map-layers',
     linkSuffix:
-      'on how to hide painted districts, toggle county boundaries, or highlight unassigned areas that still need a district.',
+      'on hiding painted districts, showing county lines, or highlighting unassigned areas.',
   },
   districtOverview: {
     title: 'District overview',
-    text: 'Expand here to monitor the district populations as you draw.',
+    text: 'Track district populations as you draw.',
   },
   districtLock: {
     title: 'Locking districts',
-    text: 'Toggle it to protect this district from being painted over or erased.',
+    text: 'Lock a district to keep it from being painted over or erased. Click again to unlock.',
     videoFile: 'lock_district.webm',
     guideAnchor: 'population',
   },
   districtPin: {
     title: 'Pinning districts',
-    text: 'Pin: the district tables show only pinned districts until you unpin them or choose Show all.',
+    text: 'Pin this district. The district tables show only pinned districts until you unpin them or choose Show all.',
   },
   idealPopulation: {
     title: 'Ideal population',
-    text: 'The ideal population is the total population divided by the number of districts. Each district should be as close to this number as possible so everyone has equal representation.',
+    text: 'Ideal population is the total population divided by the number of districts. Each district should be as close to it as possible so everyone is represented equally.',
     guideAnchor: 'population',
   },
   topToBottomDeviation: {
     title: 'Top-to-bottom deviation',
-    text: 'The top-to-bottom deviation is the difference in population between the largest and smallest districts.',
+    text: 'Top-to-bottom deviation is the population difference between the most and least populated districts.',
   },
   barScaling: {
     title: 'Bar scaling',
@@ -129,7 +128,7 @@ export const helpTipContent = {
   },
   maxDeviation: {
     title: 'Maximum deviation',
-    text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
+    text: 'Maximum deviation is the largest gap between any district and the ideal population, as a percentage of the ideal or a number of people.',
   },
   // Stacked layout's Demographics accordion combines the Map Layers and Stats
   // tabs' content into one section, and keeps the original panel clip (which
@@ -174,13 +173,13 @@ export const helpTipContent = {
   },
   mapValidation: {
     title: 'Validity check',
-    text: 'Click here to see whether your map is missing any geographic units, and whether each district forms a single, connected shape.',
+    text: 'Check whether any areas are still unassigned and whether each district is one connected piece.',
     videoFiles: ['completeness_check.webm', 'contiguity_check.webm'],
     guideAnchor: 'stats',
   },
   boundariesAndAreas: {
     title: 'Boundaries and areas',
-    text: 'Click here to see optional toggles for reference overlays relevant to redistricting, such as existing political boundaries.',
+    text: 'Show reference layers on the map, such as existing political boundaries.',
   },
   // Text-only on purpose (no videoFile): this renders inside the Mode switcher's
   // DropdownMenu.Item, whose own pointer handling closes the hover card before the
@@ -188,18 +187,18 @@ export const helpTipContent = {
   // link, so nothing ever needs to travel into the card.
   superDraw: {
     title: 'Super Draw',
-    text: 'Super Draw unlocks additional tools for fine-tuning your districts, including the break tool and a side-by-side view of demographic or election data next to your map.',
+    text: 'Super Draw adds tools for fine-tuning districts, including the break tool and demographic or election data shown beside your map.',
     guideAnchor: 'super-draw',
   },
   editMapDetails: {
     title: 'Edit map names and details',
-    text: 'Click here to rename your map, add a description, or update its map status.',
+    text: 'Rename your map, add a description, or update its status.',
     videoFile: 'edit_metadata.webm',
     guideAnchor: 'edit-map-names-and-details',
   },
   mapActions: {
     title: 'Map actions',
-    text: 'Share a link to your map, export it as a CSV, GeoJSON, Shapefile, or JSON, or customize district colors.',
+    text: 'Share a link to your map, export it (CSV, GeoJSON, Shapefile, or JSON), or change district colors.',
     videoFiles: ['share_map.webm', 'export.webm'],
     guideAnchor: 'saving-sharing-importing-and-exporting',
   },
@@ -214,11 +213,11 @@ export const helpTipContent = {
   // fallback (kept only so the entry satisfies HelpTipEntry's required `text`).
   freedomToVoteTest: {
     title: 'Freedom-to-Vote test',
-    text: 'Proposed in the Freedom to Vote Act (S.2747, 117th Congress, 2021). See Duchin & Schoenbach, "Redistricting for Proportionality" (2022). It tests whether a plan\'s seat share is reliably proportional to its vote share (specifically, whether absolute disproportionality stays within max(7%, 1/number of seats)) among the two most recent Presidential elections and two most recent Senate elections.',
+    text: 'Tests whether each party\'s share of seats stays close to its share of votes (within 7% or one seat, whichever is larger) in the two most recent Presidential and two most recent Senate elections. Proposed in the Freedom to Vote Act (S.2747, 2021). See Duchin & Schoenbach, "Redistricting for Proportionality" (2022).',
   },
   saveStatus: {
     title: 'Autosave',
-    text: 'Autosave is on: changes save automatically after 30 seconds of inactivity.',
+    text: 'Autosave is on. Changes save 30 seconds after your last edit.',
   },
   mapAccessStatus: {
     title: 'Map access',

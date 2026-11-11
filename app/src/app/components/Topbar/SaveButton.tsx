@@ -8,8 +8,9 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {helpTipContent} from '@components/HelpTip/helpTipContent';
 
-const AUTOSAVE_TIP = 'Autosave is on: changes save automatically after 30 seconds of inactivity.';
+const AUTOSAVE_TIP = helpTipContent.saveStatus.text;
 // Held long enough that a near-instant save doesn't flash by looking like a
 // glitch — same beat as autosave's notice.
 const NOTICE_MIN_MS = 1500;
@@ -68,7 +69,7 @@ export const SaveButton: React.FC = () => {
         openDelay={HELP_TIP_FAST_DELAY}
         text={
           isOutdated
-            ? `You have unsaved changes — click to save now. ${AUTOSAVE_TIP}`
+            ? `You have unsaved changes. Click to save now. ${AUTOSAVE_TIP}`
             : `All changes saved. ${AUTOSAVE_TIP}`
         }
       >

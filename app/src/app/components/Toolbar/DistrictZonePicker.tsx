@@ -174,11 +174,11 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
                   {numDistricts}
                 </Text>
                 {canEditNumDistricts && (
-                  <Tooltip content="Edit the number of districts in your plan">
+                  <Tooltip content="Change the number of districts">
                     <IconButton
                       variant="ghost"
                       onClick={() => setShowNumDistrictEditor(true)}
-                      aria-label="Edit the number of districts in your plan"
+                      aria-label="Change the number of districts"
                     >
                       <Pencil1Icon />
                     </IconButton>

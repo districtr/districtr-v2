@@ -100,11 +100,7 @@ export const CoiZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
             }}
           >
             <Tooltip
-              content={
-                anyNotSelectedVisible
-                  ? 'Show all communities'
-                  : "Hide all communities (except the one you're painting)"
-              }
+              content={anyNotSelectedVisible ? 'Hide other communities' : 'Show all communities'}
             >
               <IconButton size="1" variant="ghost" onClick={toggleNotSelectedVisibility}>
                 {anyNotSelectedVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
@@ -128,9 +124,7 @@ export const CoiZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
           <Flex justify="start">
             <Tooltip
               content={
-                canAdd
-                  ? 'Start drawing a new community'
-                  : 'Maximum number of communities reached (8).'
+                canAdd ? 'Start drawing a new community' : 'You can draw up to 8 communities'
               }
             >
               <IconButton

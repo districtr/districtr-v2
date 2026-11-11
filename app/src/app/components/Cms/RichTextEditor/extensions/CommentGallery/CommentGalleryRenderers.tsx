@@ -50,7 +50,7 @@ const ReportButton: React.FC<{submissionId: number}> = ({submissionId}) => {
       variant="ghost"
       color="gray"
       disabled={reported}
-      title="Report this submission for moderator review"
+      title="Report this submission to moderators"
       onClick={async e => {
         e.stopPropagation();
         const response = await flagSubmission(submissionId);

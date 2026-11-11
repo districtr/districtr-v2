@@ -273,7 +273,7 @@ export const DistrictMeters = () => {
         openDelay={HELP_TIP_FAST_DELAY}
         text={
           pinned
-            ? 'Unpin this district. With no pins left, the district tables show every district again.'
+            ? 'Unpin this district. When nothing is pinned, the district tables show every district again.'
             : undefined
         }
       >

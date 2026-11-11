@@ -80,7 +80,7 @@ export default function ContiguityDetail({
           {contiguity} component{contiguity > 1 ? 's' : ''}
         </Text>
         {Boolean(contiguity !== null && contiguity > 1) && (
-          <Tooltip content="View components">
+          <Tooltip content={showZoom ? 'Hide pieces' : 'Show pieces'}>
             <IconButton variant="ghost" onClick={() => setShowZoom(prev => !prev)}>
               {showZoom ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </IconButton>
