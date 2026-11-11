@@ -35,6 +35,7 @@ import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
+import {isBlocksTilesUrl} from '@constants/map/sources';
 import {ACCESS_STATES} from '@constants/document/state';
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
@@ -510,7 +511,12 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   const {mapDocument, setMapRenderingState} = useMapStore.getState();
   const {setStateFp} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
-  if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
+  if (
+    !tiles_s3_path ||
+    !parent_layer ||
+    !isBlocksTilesUrl((e?.source as {url?: string})?.url, tiles_s3_path)
+  )
+    return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
   if (!tileData.vtLayers) {

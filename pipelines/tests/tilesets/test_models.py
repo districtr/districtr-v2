@@ -21,6 +21,39 @@ def test_columns_survive_repeated_iteration():
     assert [c for c in tileset.columns if "pop" in c.lower()] == ["total_pop_20"]
 
 
+def test_create_all_adds_parent_only_archive_for_a_map_with_children(monkeypatch):
+    """A map with a child layer gets its parent tiles as a second archive beside
+    the combined one; a parent-only map gets its one archive."""
+    monkeypatch.setattr(
+        GerryDBTileset, "generate_tiles", lambda self, replace: f"{self.layer_name}.pm"
+    )
+    monkeypatch.setattr(
+        GerryDBTileset, "generate_points", lambda self, replace: f"{self.layer_name}.pq"
+    )
+    monkeypatch.setattr(
+        "tilesets.models.merge_tilesets", lambda **kwargs: f"{kwargs['out_name']}.pm"
+    )
+
+    def tileset(layer):
+        return GerryDBTileset(gpkg="x.gpkg", layer_name=layer, new_layer_name=None)
+
+    batch = TilesetBatch(
+        name="test",
+        tilesets={
+            "wy_view": (tileset("wy_vtd"), tileset("wy_block")),
+            "ri_view": (tileset("ri_vtd"), None),
+        },
+    )
+    batch.create_all()
+
+    pmtiles = {r.s3_key: r.file_path for r in batch._results if "pmtiles" in r.s3_key}
+    assert pmtiles == {
+        "tilesets/wy_view.pmtiles": "wy_view.pm",
+        "tilesets/wy_view.parent.pmtiles": "wy_vtd.pm",
+        "tilesets/ri_view.pmtiles": "ri_vtd.pm",
+    }
+
+
 @pytest.mark.parametrize("r2_bucket", [None, "r2-bucket"])
 def test_upload_results_copies_only_pmtiles_to_r2(monkeypatch, r2_bucket):
     """tiles-worker/ reads district tilesets from R2 under the S3 key; the

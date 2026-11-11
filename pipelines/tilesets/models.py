@@ -221,6 +221,12 @@ class TilesetBatch(Config):
                 out_name=k,
             )
             self.add_result(result, f"{S3_TILESETS_PREFIX}/{k}.pmtiles")
+            # The app's source starts on the parent tiles alone and loads the
+            # combined archive once blocks are needed. Key: parentTilesPath in
+            # app/src/app/constants/map/sources.ts.
+            self.add_result(
+                out_parent_tiles, f"{S3_TILESETS_PREFIX}/{k}.parent.pmtiles"
+            )
 
     def upload_results(self):
         logger.info("Uploading results to S3")

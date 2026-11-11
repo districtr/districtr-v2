@@ -17,6 +17,9 @@ export const PARQUET_URL =
 /** The tiles-worker/ Cloudflare Worker, serving district tilesets as z/x/y tiles.
  * Unset: the map reads the PMTiles archives from TILESET_URL directly. */
 export const TILES_WORKER_URL = process.env.NEXT_PUBLIC_TILES_WORKER_URL;
+/** With the Worker serving tiles, a map with a child layer loads its parent-only
+ * archive until blocks are needed (see BlockSource). */
+export const TILES_SPLIT = process.env.NEXT_PUBLIC_TILES_SPLIT === 'true';
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 export const TURNSTILE_SESSION_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SESSION_SITE_KEY ?? '';
