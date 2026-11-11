@@ -282,48 +282,96 @@ def test_lifespan_starts_the_nightly_refresh(monkeypatch):
     start.assert_called_once()
 
 
-def test_evicts_only_plans_whose_cache_and_assignments_are_two_weeks_old(
-    session, document_id, monkeypatch
-):
-    # The test session rolls back, so nothing it writes is visible to another
-    # connection: run the eviction on it.
+@pytest.fixture
+def unions(client, session, document_id, monkeypatch):
+    """Two plans, a and b, and helpers to seed and count their district_unions
+    rows. The test session rolls back, so nothing it writes is visible to
+    another connection: the eviction runs on it."""
     monkeypatch.setattr(stats_refresh, "Session", lambda _engine: nullcontext(session))
+    b = client.post(
+        "/api/create_document", json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME}
+    ).json()["document_id"]
 
-    def rows(*days_old):
+    def rows(plan, *days_old, edited=15):
+        """Replace the plan's rows with one per age, its last edit `edited` days ago."""
         session.execute(
             text("DELETE FROM document.district_unions WHERE document_id = :d"),
-            {"d": document_id},
+            {"d": plan},
         )
         for zone, days in enumerate(days_old, 1):
             session.execute(
                 text(
                     "INSERT INTO document.district_unions "
-                    "(document_id, zone, created_at, updated_at) VALUES "
-                    "(:d, :zone, now(), now() - :age)"
+                    "(document_id, zone, geometry, created_at, updated_at) VALUES "
+                    "(:d, :zone, ST_Multi(ST_GeomFromText("
+                    "'POLYGON((0 0,1 0,1 1,0 0))', 4326)), now(), now() - :age)"
                 ),
-                {"d": document_id, "zone": zone, "age": D * days},
+                {"d": plan, "zone": zone, "age": D * days},
             )
-        session.commit()
+        set_plan(session, plan, assigned=False, assignments_updated_at=D * edited)
 
-    def left():
+    def left(plan):
         return session.execute(
             text(
                 "SELECT count(*) FROM document.district_unions WHERE document_id = :d"
             ),
-            {"d": document_id},
+            {"d": plan},
         ).scalar_one()
 
-    set_plan(session, document_id, assigned=False, assignments_updated_at=D * 15)
-    rows(15, 1)  # one district rebuilt yesterday: keep the whole plan
-    assert stats_refresh.evict_old_district_unions() == 0
-    assert left() == 2
+    return SimpleNamespace(a=document_id, b=b, rows=rows, left=left)
 
-    rows(15, 20)
-    set_plan(session, document_id, assigned=False, assignments_updated_at=D)
-    stats_refresh.evict_old_district_unions()  # edited yesterday: keep
-    assert left() == 2
 
-    set_plan(session, document_id, assigned=False, assignments_updated_at=D * 15)
-    monkeypatch.setattr(stats_refresh, "EVICT_BATCH", 1)  # loop runs twice
-    assert stats_refresh.evict_old_district_unions() >= 2
-    assert left() == 0
+@pytest.mark.parametrize(
+    "case, days_old, edited, evicted",
+    [
+        ("cache and last edit both over two weeks old", (15, 20), 15, True),
+        ("one district rebuilt or read yesterday", (15, 1), 15, False),
+        ("edited yesterday", (15, 20), 1, False),
+        ("a day short of two weeks", (13, 13), 13, False),
+    ],
+)
+def test_evicts_only_whole_plans_idle_for_two_weeks(
+    unions, case, days_old, edited, evicted
+):
+    unions.rows(unions.a, *days_old, edited=edited)
+    rows, nbytes = stats_refresh.evict_old_district_unions()
+    assert (rows, nbytes > 0) == ((2, True) if evicted else (0, False)), case
+    assert unions.left(unions.a) == (0 if evicted else 2), case
+
+
+def test_eviction_takes_the_oldest_plans_first_and_stops_at_the_byte_cap(
+    unions, monkeypatch
+):
+    monkeypatch.setattr(stats_refresh, "EVICT_BATCH", 1)  # one plan per DELETE
+    unions.rows(unions.a, 15, edited=15)
+    unions.rows(unions.b, 30, edited=30)
+
+    assert stats_refresh.evict_old_district_unions(max_bytes=0) == (0, 0)  # off
+    assert stats_refresh.evict_old_district_unions(max_bytes=1)[0] == 1
+    assert (unions.left(unions.a), unions.left(unions.b)) == (1, 0)
+
+    unions.rows(unions.b, 30, edited=30)
+    monkeypatch.setattr(settings, "DISTRICT_UNIONS_EVICT_GB_PER_NIGHT", 10)
+    assert stats_refresh.evict_old_district_unions()[0] == 2  # two batches
+    assert (unions.left(unions.a), unions.left(unions.b)) == (0, 0)
+
+
+@pytest.mark.parametrize("evict_fails", [False, True])
+def test_nightly_pass_evicts_after_publishing_and_reports_a_failure(
+    run, caplog, monkeypatch, evict_fails
+):
+    def evict():
+        assert len(run.starts) == 3  # after the publishes
+        if evict_fails:
+            raise RuntimeError(UUID)
+        return 7, 5_000_000
+
+    monkeypatch.setattr(stats_refresh, "evict_old_district_unions", evict)
+    run.failing = set()
+    with caplog.at_level(logging.INFO):
+        assert stats_refresh.refresh_stale_plans() == 3
+    summary = caplog.records[-1]
+    assert ("; eviction failed" in summary.message) == evict_fails
+    assert summary.levelno == (logging.ERROR if evict_fails else logging.INFO)
+    assert ("eviction: 7 rows, 5 MB in" in caplog.text) != evict_fails
+    assert UUID not in caplog.text
