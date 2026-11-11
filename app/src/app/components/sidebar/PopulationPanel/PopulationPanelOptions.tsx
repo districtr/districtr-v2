@@ -3,19 +3,18 @@ import React, {useEffect} from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {ChartStore} from '@store/chartStore';
-import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
-import {useMapStore} from '@/app/store/mapStore';
+import {ColorChangeModal, DistrictColorsButton} from '../../Toolbar/ColorChangeModal';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {MAP_MODES, MAP_MODE_LABELS} from '@constants/map/mode';
-import {ACCESS_STATES} from '@constants/document/state';
 
 export const PopulationPanelOptions: React.FC<{
   chartOptions: ChartStore['chartOptions'];
   setChartOptions: ChartStore['setChartOptions'];
   idealPopulation?: number;
-}> = ({chartOptions, setChartOptions, idealPopulation}) => {
+  /** Rows can be dragged (Super Draw editing), so offer the reorder option. */
+  canReorder?: boolean;
+}> = ({chartOptions, setChartOptions, idealPopulation, canReorder}) => {
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
-  const access = useMapStore(state => state.mapStatus?.access);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const zoneLabel = MAP_MODE_LABELS[mapMode];
   const isCommunityMode = mapMode === MAP_MODES.COI;
@@ -53,6 +52,7 @@ export const PopulationPanelOptions: React.FC<{
               chartOptions.popShowDistrictNumbers ? 'numbers' : '',
               chartOptions.popShowPopNumbers ? 'pops' : '',
               chartOptions.popShowTopBottomDeviation ? 'topBottomDeviation' : '',
+              chartOptions.popColorsFollowDistricts ? 'colorsFollow' : '',
             ]}
           >
             <CheckboxGroup.Item
@@ -82,20 +82,23 @@ export const PopulationPanelOptions: React.FC<{
               }
               className="cursor-pointer"
             >
-              {`Show ${zoneLabel} numbers`}
+              {isCommunityMode ? `Show ${zoneLabel} numbers` : 'Show district labels'}
             </CheckboxGroup.Item>
+            {canReorder && !isCommunityMode && (
+              <CheckboxGroup.Item
+                value="colorsFollow"
+                onClick={() =>
+                  setChartOptions({
+                    popColorsFollowDistricts: !chartOptions.popColorsFollowDistricts,
+                  })
+                }
+                className="cursor-pointer"
+              >
+                Colors move with districts when reordering
+              </CheckboxGroup.Item>
+            )}
           </CheckboxGroup.Root>
-          {!isCommunityMode && (
-            <Button
-              onClick={() => setColorModalOpen(true)}
-              variant="outline"
-              size="1"
-              mt="2"
-              disabled={access === ACCESS_STATES.READ}
-            >
-              Customize colors
-            </Button>
-          )}
+          {!isCommunityMode && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}
           {!isCommunityMode && (
             <Flex direction="column" gap="1" py="2" mt="2">
               {!!idealPopulation && (

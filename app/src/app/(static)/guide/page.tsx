@@ -154,11 +154,12 @@ export default function GuidePage() {
             </Heading>
 
             <Text size="3">
-              The “Population” tab lists the districts — click a district number to select it and
-              switch the brush to that district&apos;s color (or type the number of the district on
-              your keyboard as a shortcut). The tab also shows the population of each district; to
-              balance your population evenly between districts, refer to the ideal population count
-              provided in this panel (shown visually with a vertical bar).
+              The “Population” tab lists the districts — click a district&apos;s bar to select it
+              and switch the brush to that district&apos;s color (or, if the district&apos;s label
+              is a number, type it on your keyboard as a shortcut). Click a label to rename the
+              district. The tab also shows the population of each district; to balance your
+              population evenly between districts, refer to the ideal population count provided in
+              this panel (shown visually with a vertical bar).
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_overview.webm`}

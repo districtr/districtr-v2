@@ -9,6 +9,7 @@ import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 import {HoverTrigger, hoverHandlers} from './HoverTrigger';
+import {districtHeading} from '@/app/utils/zoneLabels';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -25,6 +26,7 @@ interface BasicsSectionProps {
 
 export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const zoneAliases = mapDocument?.map_metadata?.zone_aliases;
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const zoomToDistrict = useZoomToDistrict();
 
@@ -183,7 +185,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                   onEnter={() => onDistrictEnter([population_deviation.most_populous_district])}
                   onLeave={onDistrictLeave}
                 >
-                  District {population_deviation.most_populous_district}
+                  {districtHeading(population_deviation.most_populous_district, zoneAliases)}
                 </HoverTrigger>{' '}
                 and least populous district is{' '}
                 <HoverTrigger
@@ -191,7 +193,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                   onEnter={() => onDistrictEnter([population_deviation.least_populous_district])}
                   onLeave={onDistrictLeave}
                 >
-                  District {population_deviation.least_populous_district}
+                  {districtHeading(population_deviation.least_populous_district, zoneAliases)}
                 </HoverTrigger>
                 {deviationView !== 'max_absolute' && (
                   <>

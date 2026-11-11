@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse, Response
 from typing import Annotated, Any, Literal
 import anyio
+import json
 import msgpack
 import psutil
 import time
@@ -80,6 +81,7 @@ from app.submissions.models import (
     SubmissionStatus,
 )
 import app.thumbnails.main as thumbnails
+from app.stats_refresh import start_nightly_stats_refresh
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -99,6 +101,9 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
     NumDistrictsSetResult,
+    check_zone_labels_for_plan,
+    validate_zone_order,
+    MAX_NUM_DISTRICTS,
 )
 from pydantic_geojson import FeatureModel, PolygonModel
 from pydantic import BaseModel, ValidationError
@@ -146,6 +151,9 @@ async def lifespan(app: FastAPI):
     # (60 per worker process, app/core/db.py). Needs a running event loop,
     # hence lifespan.
     anyio.to_thread.current_default_thread_limiter().total_tokens = 80
+    # Publishes stale district stats overnight for plans nobody is editing
+    # (app/stats_refresh.py); a no-op without S3.
+    start_nightly_stats_refresh()
     yield
 
 
@@ -362,7 +370,6 @@ def get_document_evaluation(
 )
 def create_document(
     data: DocumentCreate,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     # Get DistrictrMap to inherit num_districts and other fields
@@ -394,6 +401,25 @@ def create_document(
         if copied_document.map_type == "community":
             num_communities = copied_document.num_communities
             community_metadata_list = copied_document.community_metadata_list
+
+    # "Make a copy" sends the source's labels and order; check them like
+    # PUT /api/assignments does, since DocumentMetadata reads them leniently.
+    if data.metadata is not None and (
+        data.metadata.zone_aliases is not None or data.metadata.zone_order is not None
+    ):
+        try:
+            validate_zone_order(data.metadata.zone_order)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            )
+        problem = check_zone_labels_for_plan(
+            data.metadata.zone_aliases, data.metadata.zone_order, num_districts or 0
+        )
+        if problem:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=problem
+            )
 
     document_type = data.document_type or (
         copied_document.document_type if copied_document is not None else None
@@ -700,13 +726,6 @@ def create_document(
 
     session.commit()
 
-    if doc.public_id and (total_assignments > 0 or copied_document is not None):
-        background_tasks.add_task(
-            publish_district_stats_to_s3,
-            document_id=document_id,
-            public_id=doc.public_id,
-        )
-
     doc_dict = dict(doc._mapping)
     doc_dict["skipped_geo_ids"] = skipped_geo_ids
     doc_dict["zone_label_remapping"] = zone_label_remapping
@@ -716,7 +735,6 @@ def create_document(
 
 def _sync_update_assignments(
     data: AssignmentsCreate,
-    background_tasks: BackgroundTasks,
     session: Session,
 ) -> dict:
     """Sync core of update_assignments, run in the threadpool by its async wrapper."""
@@ -745,6 +763,41 @@ def _sync_update_assignments(
         )
 
     is_community_map = actual_is_community
+
+    # District labels and panel order must fit the plan's district count: the
+    # one this request sets, or the stored one. Checked before anything writes.
+    if data.metadata is not None and (
+        data.metadata.zone_aliases is not None or data.metadata.zone_order is not None
+    ):
+        # Bounded before the check below, which loops over every district; the
+        # count's own update further down checks it again.
+        if data.metadata.num_districts is not None and not (
+            2 <= data.metadata.num_districts <= MAX_NUM_DISTRICTS
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
+            )
+        num_districts = (
+            data.metadata.num_districts
+            or session.exec(
+                select(coalesce(Document.num_districts, DistrictrMap.num_districts))
+                .join(
+                    DistrictrMap,
+                    col(Document.districtr_map_slug)
+                    == col(DistrictrMap.districtr_map_slug),
+                )
+                .where(Document.document_id == document_id)
+            ).one_or_none()
+        )
+        problem = check_zone_labels_for_plan(
+            data.metadata.zone_aliases, data.metadata.zone_order, num_districts or 0
+        )
+        if problem:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=problem
+            )
+
     assignment_table = (
         "document.community_assignments" if is_community_map else "document.assignments"
     )
@@ -929,10 +982,10 @@ def _sync_update_assignments(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Number of districts is not modifiable for this map",
                 )
-            if data.metadata.num_districts < 2 or data.metadata.num_districts > 538:
+            if not 2 <= data.metadata.num_districts <= MAX_NUM_DISTRICTS:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Number of districts must be at least 2 and at most 538",
+                    detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
                 )
             stmt = text("""UPDATE document.document
                 SET num_districts = :num_districts
@@ -998,11 +1051,36 @@ def _sync_update_assignments(
                 stmt,
             )
 
+        # District labels and panel order live in map_metadata; null leaves each
+        # as stored. A key-level merge, so other map_metadata fields stay.
+        map_metadata_patch = {
+            key: value
+            for key, value in (
+                ("zone_aliases", data.metadata.zone_aliases),
+                ("zone_order", data.metadata.zone_order),
+            )
+            if value is not None
+        }
+        if map_metadata_patch:
+            stmt = text("""UPDATE document.document
+                SET map_metadata = (
+                    COALESCE(map_metadata::jsonb, '{}'::jsonb) || CAST(:patch AS jsonb)
+                )::json
+                WHERE document_id = :document_id""").bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+            )
+            session.connection().execute(
+                stmt,
+                {"document_id": document_id, "patch": json.dumps(map_metadata_patch)},
+            )
+
     if data.metadata is not None and (
         data.metadata.num_districts is not None
         or data.metadata.color_scheme is not None
         or data.metadata.num_communities is not None
         or data.metadata.community_metadata_list is not None
+        or data.metadata.zone_aliases is not None
+        or data.metadata.zone_order is not None
     ):
         mutated = True
 
@@ -1089,16 +1167,7 @@ def _sync_update_assignments(
             ),
             {"document_id": document_id},
         )
-    public_id = session.exec(
-        select(Document.public_id).where(Document.document_id == document_id)
-    ).one_or_none()
     session.commit()
-    if mutated and not is_community_map and public_id is not None:
-        background_tasks.add_task(
-            publish_district_stats_to_s3,
-            document_id=document_id,
-            public_id=public_id,
-        )
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1110,7 +1179,6 @@ def _sync_update_assignments(
 @app.put("/api/assignments", dependencies=[Depends(require_session)])
 async def update_assignments(
     request: Request,
-    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     """
@@ -1178,7 +1246,11 @@ async def update_assignments(
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.errors(),
+            # Without ctx (a validator's ValueError, which JSON can't carry) or
+            # the input (which can be a whole oversized payload).
+            detail=e.errors(
+                include_url=False, include_context=False, include_input=False
+            ),
         )
 
     has_assignments = len(data.assignments) > 0
@@ -1190,9 +1262,7 @@ async def update_assignments(
             detail="No changes provided",
         )
 
-    return await run_in_threadpool(
-        _sync_update_assignments, data, background_tasks, session
-    )
+    return await run_in_threadpool(_sync_update_assignments, data, session)
 
 
 @app.get(
@@ -1315,10 +1385,10 @@ def update_num_districts(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    if num_districts < 2 or num_districts > 538:
+    if not 2 <= num_districts <= MAX_NUM_DISTRICTS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Number of districts must be at least 2 and at most 538",
+            detail=f"Number of districts must be at least 2 and at most {MAX_NUM_DISTRICTS}",
         )
 
     districtr_map = session.exec(
@@ -1852,7 +1922,12 @@ def update_districtrmap_metadata(
         previous = document.map_metadata or {}
         merged = {
             **previous,
-            **metadata.model_dump(exclude_unset=True),
+            # District labels and panel order are written only by the
+            # conflict-checked PUT /api/assignments; a stale tab's form here would
+            # otherwise silently overwrite them.
+            **metadata.model_dump(
+                exclude_unset=True, exclude={"zone_aliases", "zone_order"}
+            ),
         }
         stmt = (
             update(Document)

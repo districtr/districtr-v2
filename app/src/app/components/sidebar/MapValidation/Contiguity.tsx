@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
+import {contiguityQueryKey, getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useMemo} from 'react';
@@ -7,12 +7,18 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
+import {usePinnedFilter} from '../ShowAllDistrictsButton';
+import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {byZoneOrder} from '@/app/utils/zoneLabels';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const getZoneColor = useZoneColorGetter();
+  const getZoneLabel = useZoneLabelGetter();
+  const zoneOrder = useZoneOrder();
+  const pinFilter = usePinnedFilter(mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => {
       return await getContiguity(mapDocument);
     },
@@ -49,12 +55,14 @@ export const Contiguity = () => {
         });
       }
     }
-    // Most components first; unchecked (null) districts sort last.
+    // Most components first, then panel order; unchecked (null) districts sort last.
+    const compareDistricts = byZoneOrder(zoneOrder);
     cleanData.sort(
-      (a: any, b: any) => (b.contiguity ?? 0) - (a.contiguity ?? 0) || a.zone - b.zone
+      (a: any, b: any) =>
+        (b.contiguity ?? 0) - (a.contiguity ?? 0) || compareDistricts(a.zone, b.zone)
     );
     return cleanData;
-  }, [data]);
+  }, [data, zoneOrder]);
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -66,10 +74,13 @@ export const Contiguity = () => {
     );
   }
 
+  const rows = pinFilter.filter(tableData);
+
   return (
     <Box>
+      {pinFilter.line}
       {/* One row per district — scroll past ten, like the population panel. */}
-      <ConditionalScrollArea shouldUseScrollableRows={tableData.length > 10} maxHeight="60vh">
+      <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
         <Table.Root size="1">
           <Table.Header>
             <Table.Row>
@@ -81,8 +92,8 @@ export const Contiguity = () => {
           </Table.Header>
 
           <Table.Body>
-            {tableData.map((row: any, i: number) => (
-              <Table.Row key={i}>
+            {rows.map((row: any) => (
+              <Table.Row key={row.zone}>
                 <Table.Cell>
                   <Flex align="center" gap="2">
                     <div
@@ -93,7 +104,7 @@ export const Contiguity = () => {
                         borderRadius: '4px',
                       }}
                     />
-                    <Text weight="bold">{row.zone}</Text>
+                    <Text weight="bold">{getZoneLabel(row.zone)}</Text>
                   </Flex>
                 </Table.Cell>
                 <Table.Cell>

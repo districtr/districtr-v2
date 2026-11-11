@@ -1,5 +1,5 @@
 import React from 'react';
-import {Heading, CheckboxGroup, Flex, Button, Text, Select, RadioCards} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Text, Select, RadioCards} from '@radix-ui/themes';
 import {type BasemapId, BASEMAP_IDS} from '@/app/constants/map/layerStyle';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
@@ -7,15 +7,14 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useDemographyStore} from '@store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
-import {ColorChangeModal} from './ColorChangeModal';
+import {ColorChangeModal, DistrictColorsButton} from './ColorChangeModal';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
-import {ACCESS_STATES} from '@constants/document/state';
 import {DEMOGRAPHIC_MODES} from '@constants/map/demographicMode';
 import {SUMMARY_TYPES, type OverlayGroup} from '@constants/demography/summary';
-import {OVERLAY_OPACITY} from '@/app/constants/document/limits';
 import {
   activateOverlayGroup,
+  deactivateOverlay,
   overlayGroupVariables,
   overlayMemory,
 } from '@utils/demography/overlayMemory';
@@ -36,7 +35,6 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
   const superDraw = useToolbarStore(state => state.superDraw);
   const isSingleCounty = useIsSingleCounty();
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings) && !isSingleCounty;
-  const access = useMapStore(state => state.mapStatus?.access);
   const variable = useDemographyStore(state => state.variable);
   const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
 
@@ -63,19 +61,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
 
   const handleOverlayChange = (value: string) => {
     if (value === 'none') {
-      // Remember the display mode and overlay preset so re-enabling restores
-      // them, then back out of "Show Thematic Map" (which hides painted
-      // districts) — turning the overlay off must never leave a blank map.
-      if (mapOptions.demographicDisplayMode) {
-        overlayMemory.displayMode = mapOptions.demographicDisplayMode;
-      }
-      overlayMemory.overlayOpacity = mapOptions.overlayOpacity;
-      overlayMemory.showPaintedDistricts = mapOptions.showPaintedDistricts ?? true;
-      setMapOptions({
-        demographicDisplayMode: undefined,
-        showPaintedDistricts: true,
-        overlayOpacity: OVERLAY_OPACITY,
-      });
+      deactivateOverlay();
       return;
     }
     activateOverlayGroup(value as OverlayGroup);
@@ -191,17 +177,7 @@ export const ToolSettings: React.FC<{inWorkflowTab?: boolean}> = ({inWorkflowTab
             </CheckboxGroup.Item>
           )}
 
-          {superDraw && (
-            <Button
-              onClick={() => setColorModalOpen(true)}
-              variant="outline"
-              size="1"
-              mt="2"
-              disabled={access === ACCESS_STATES.READ}
-            >
-              Customize district colors
-            </Button>
-          )}
+          {superDraw && <DistrictColorsButton onClick={() => setColorModalOpen(true)} />}
         </CheckboxGroup.Root>
         {!inWorkflowTab && overlayGroups.length > 0 && (
           <Flex direction="row" align="center" gap="3" wrap="wrap">

@@ -22,10 +22,18 @@ export interface CoalitionConfig {
   updatedAt: string;
 }
 
+/** Zones locked against painting, per document. Its own table so the whole-record
+ * assignment writes on `documents` can't drop it. */
+export interface ZoneLocks {
+  document_id: string;
+  zones: NullableZone[];
+}
+
 // --- Dexie Setup ---
 export class DocumentsDB extends Dexie {
   documents!: Table<StoredDocument, string>;
   coalition_configs!: Table<CoalitionConfig, string>;
+  zone_locks!: Table<ZoneLocks, string>;
 
   constructor() {
     super('DocumentsDB');
@@ -35,6 +43,11 @@ export class DocumentsDB extends Dexie {
     this.version(2).stores({
       documents: 'id, clientLastUpdated',
       coalition_configs: 'districtr_map_slug, updatedAt',
+    });
+    this.version(3).stores({
+      documents: 'id, clientLastUpdated',
+      coalition_configs: 'districtr_map_slug, updatedAt',
+      zone_locks: 'document_id',
     });
 
     if (typeof window !== 'undefined') {
@@ -56,12 +69,41 @@ export class DocumentsDB extends Dexie {
     await this.documents.put(document);
   }
 
+  /**
+   * Write a save's clean copy only if the stored copy's clientLastUpdated is
+   * still `expected` (read when the save started), in one transaction. If it
+   * changed, a local edit landed that the save didn't carry: keep that copy and
+   * its stamp, and only advance its updated_at to the save's, so it reads as an
+   * unsaved edit on the new server version. Returns whether the clean copy was
+   * written.
+   */
+  async updateDocumentIfUnchanged(document: StoredDocument, expected: string | undefined) {
+    return await this.transaction('rw', this.documents, async () => {
+      const current = await this.documents.get(document.id);
+      if (!current || current.clientLastUpdated === expected) {
+        await this.documents.put(document);
+        return true;
+      }
+      await this.documents.put({
+        ...current,
+        document_metadata: {
+          ...current.document_metadata,
+          updated_at: document.document_metadata.updated_at,
+        },
+      });
+      return false;
+    });
+  }
+
   async getDocument(document_id: string) {
     return await this.documents.get(document_id);
   }
 
   async deleteDocument(document_id: string) {
-    await this.documents.delete(document_id);
+    await this.transaction('rw', this.documents, this.zone_locks, async () => {
+      await this.documents.delete(document_id);
+      await this.zone_locks.delete(document_id);
+    });
   }
 
   async getAllDocuments(): Promise<StoredDocument[]> {
@@ -323,6 +365,13 @@ export class DocumentsDB extends Dexie {
   clearCoalitionConfigBySlug = async (districtr_map_slug: string) => {
     if (!districtr_map_slug) return;
     await this.coalition_configs.delete(districtr_map_slug);
+  };
+
+  getZoneLocks = async (document_id: string) =>
+    (await this.zone_locks.get(document_id))?.zones ?? [];
+
+  setZoneLocks = async (document_id: string, zones: NullableZone[]) => {
+    await this.zone_locks.put({document_id, zones: [...zones]});
   };
 
   /**

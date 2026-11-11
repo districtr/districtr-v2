@@ -31,7 +31,11 @@ from geoalchemy2 import Geometry
 MAX_COMMUNITY_NAME_LENGTH = 40
 COMMUNITY_HTML_TAG_RE = re.compile(r"<[^>]+>")
 COMMUNITY_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
-COMMUNITY_WHITESPACE_RE = re.compile(r"\s+")
+# Spelled out rather than \s so the frontend twin (app/src/app/utils/sanitize.ts)
+# can match it exactly: JS's \s is a different set. This is str.isspace()'s set.
+COMMUNITY_WHITESPACE_RE = re.compile(
+    r"[\t\n\v\f\r \x1c-\x1f\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+"
+)
 
 
 class GeoUnitType(StrEnum):
@@ -57,7 +61,95 @@ def sanitize_community_name(name: str) -> str:
     without_format_chars = "".join(
         c for c in without_control_chars if unicodedata.category(c) != "Cf"
     )
-    return without_format_chars.strip()
+    # Again after the removals, so cleaning a clean name changes nothing: a
+    # dropped zero-width space can leave two spaces side by side, and a dropped
+    # tag can leave a letter and its accent to compose.
+    collapsed_again = COMMUNITY_WHITESPACE_RE.sub(" ", without_format_chars)
+    return unicodedata.normalize("NFKC", collapsed_again).strip()
+
+
+# The most districts a plan can have.
+MAX_NUM_DISTRICTS = 538
+# Digits in the largest district number: longer keys are refused before int(),
+# which raises on strings past Python's 4,300-digit limit.
+MAX_ZONE_KEY_DIGITS = len(str(MAX_NUM_DISTRICTS))
+
+
+def _zone_key(zone: str) -> int | None:
+    """The district number a zone_aliases key names: ASCII digits in canonical
+    form ("3", not "03"), short enough to be a district; else None."""
+    if not (0 < len(zone) <= MAX_ZONE_KEY_DIGITS and zone.isascii() and zone.isdigit()):
+        return None
+    number = int(zone)
+    return number if number > 0 and str(number) == zone else None
+
+
+def clean_zone_aliases(
+    aliases: dict[str, str] | None, strict: bool = False
+) -> dict[str, str] | None:
+    """District labels, sanitized, with blank ones dropped. A key that isn't a
+    district number is dropped when reading stored labels, and refused with
+    `strict` (a client's write). The checks that need the plan's district count
+    are in check_zone_labels_for_plan."""
+    if aliases is None:
+        return None
+    if strict and len(aliases) > MAX_NUM_DISTRICTS:
+        raise ValueError(f"At most {MAX_NUM_DISTRICTS} district labels")
+    cleaned: dict[str, str] = {}
+    for zone, alias in aliases.items():
+        if _zone_key(zone) is None:
+            if strict:
+                raise ValueError(
+                    f"District label keys must be district numbers: {zone[:12]!r}"
+                )
+            continue
+        label = (
+            # rstrip: a cut can end on a space the next cleaning would strip.
+            sanitize_community_name(alias)[:MAX_COMMUNITY_NAME_LENGTH].rstrip()
+            if isinstance(alias, str)
+            else ""
+        )
+        if label:
+            cleaned[zone] = label
+    return cleaned
+
+
+def validate_zone_order(order: list[int] | None) -> list[int] | None:
+    """Strict check of a client's panel order: distinct positive district
+    numbers. Their range is checked in check_zone_labels_for_plan."""
+    if order is None:
+        return None
+    if len(order) > MAX_NUM_DISTRICTS:
+        raise ValueError(f"At most {MAX_NUM_DISTRICTS} districts in zone_order")
+    if any(zone < 1 for zone in order) or len(set(order)) != len(order):
+        raise ValueError("zone_order must list distinct district numbers")
+    return order
+
+
+def check_zone_labels_for_plan(
+    aliases: dict[str, str] | None, order: list[int] | None, num_districts: int
+) -> str | None:
+    """Why the labels or order don't fit a plan with `num_districts` districts,
+    or None. Every district shows its label, or its number by default, and no
+    two districts may show the same one."""
+    if aliases is not None:
+        for zone in aliases:
+            if int(zone) > num_districts:
+                return (
+                    f"District {zone} is not in this plan of {num_districts} districts"
+                )
+        seen: set[str] = set()
+        for zone in range(1, num_districts + 1):
+            label = aliases.get(str(zone), str(zone))
+            # Case-insensitive; the client twin uses toLowerCase().
+            key = label.lower()
+            if key in seen:
+                # Users never see district numbers, only labels.
+                return f"Two districts have the same label, {label!r}"
+            seen.add(key)
+    if order is not None and any(zone > num_districts for zone in order):
+        return f"zone_order lists a district this plan of {num_districts} doesn't have"
+    return None
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -185,6 +277,17 @@ class DocumentMetadata(BaseModel):
     description: str | None = None
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
+    # Read leniently: this model also shapes GET responses, so stored values
+    # that no longer fit are dropped rather than failing the read.
+    zone_aliases: dict[str, str] | None = None
+    zone_order: list[int] | None = None
+
+    @field_validator("zone_aliases")
+    @classmethod
+    def sanitize_zone_aliases(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
+        return clean_zone_aliases(value)
 
 
 class CommunityMetadata(BaseModel):
@@ -288,8 +391,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
         )
     )
     # Bumped only on assignment writes that actually change geo_id → zone
-    # mapping. Drives per-zone district_unions cache invalidation and the
-    # CDN-vs-inline branch in /stats.
+    # mapping. Drives per-zone district_unions cache invalidation, the
+    # CDN-vs-inline branch in /stats, and (with stats_published_at) which
+    # plans the nightly refresh rebuilds (app/stats_refresh.py).
     assignments_updated_at: datetime = Field(
         sa_column=Column(
             TIMESTAMP(timezone=True),
@@ -297,9 +401,10 @@ class Document(TimeStampMixin, SQLModel, table=True):
             server_default=text("NOW()"),
         )
     )
-    # Last successful upload of plans/display/{public_id}.geojson to S3.
-    # Compared against assignments_updated_at to decide if the CDN object is
-    # fresh enough to redirect to.
+    # Last successful upload of plans/display/{public_id}.geojson to S3,
+    # stamped with the assignments_updated_at it was built from. Compared
+    # against assignments_updated_at to decide if the CDN object is fresh
+    # enough to redirect to; older means the nightly refresh's work list.
     stats_published_at: datetime | None = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )
@@ -418,6 +523,21 @@ class AssignmentsMetadata(BaseModel):
     num_districts: int | None = None
     num_communities: int | None = None
     community_metadata_list: list[CommunityMetadata] | None = None
+    # District labels ({"3": "North Shore"}) and panel order (district numbers,
+    # first row first), stored in document.map_metadata. {} / [] reset them to
+    # the defaults (each district's number; 1..N), None leaves them as stored.
+    zone_aliases: dict[str, str] | None = None
+    zone_order: list[int] | None = None
+
+    @field_validator("zone_aliases")
+    @classmethod
+    def check_zone_aliases(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+        return clean_zone_aliases(value, strict=True)
+
+    @field_validator("zone_order")
+    @classmethod
+    def check_zone_order(cls, value: list[int] | None) -> list[int] | None:
+        return validate_zone_order(value)
 
 
 class AssignmentsCreate(BaseModel):

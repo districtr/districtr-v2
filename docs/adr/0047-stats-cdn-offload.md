@@ -4,7 +4,7 @@ Date: 2026-07-17 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted. Amends [0024](0024-district-unions-cache.md).
+Accepted. Amends [0024](0024-district-unions-cache.md). Amended by [0067](0067-nightly-district-stats-refresh.md).
 
 ## Context
 
