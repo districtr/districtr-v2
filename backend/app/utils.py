@@ -1,5 +1,6 @@
 import gzip
 import csv
+from datetime import datetime, timedelta, timezone
 import io
 import json as json_mod
 import logging
@@ -669,6 +670,23 @@ def update_or_select_district_stats(
 
         # Fast path: every current zone is cached and unassigned is present.
         if not missing_zones and cached_unassigned is not None:
+            # Mark the plan as read, at most once a day, so the nightly
+            # eviction (ADR 0069) keeps plans people still open. Touches
+            # district_unions only: document.updated_at drives save-conflict
+            # checks and must not move on a read.
+            if min(r["updated_at"] for r in cached_rows) < datetime.now(
+                timezone.utc
+            ) - timedelta(days=1):
+                # SKIP LOCKED: never wait on a concurrent eviction or touch.
+                session.execute(
+                    text(
+                        "UPDATE document.district_unions SET updated_at = now() "
+                        "WHERE id IN (SELECT id FROM document.district_unions "
+                        "WHERE document_id = :document_id FOR UPDATE SKIP LOCKED)"
+                    ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+                    {"document_id": document_id},
+                )
+                session.commit()
             return [DistrictUnionsResponse.model_validate(r) for r in cached_rows]
 
         # Need the gerrydb table + columns for any rebuild work.
