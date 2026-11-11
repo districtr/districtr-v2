@@ -37,6 +37,26 @@ def set_user_claims(token, user) -> None:
         token["teams"] = team_slugs_for_user(user) if user_is_team_scoped(user) else []
 
 
+EXTRACT_AUDIENCE = "districtr:extract"
+EXTRACT_SCOPE = "create:extract"
+
+
+def mint_extract_token(user, lifetime_minutes: int = 15) -> str:
+    """Token for the data-extract service (separate repo: districtr-extract).
+
+    Unlike mint_user_access_token this one reaches browser JS, so it carries
+    a single scope and its own audience: a leaked token can make extracts and
+    nothing else, since the FastAPI backend rejects the audience.
+    """
+    token = KidAccessToken()
+    token.set_exp(lifetime=timedelta(minutes=lifetime_minutes))
+    token["aud"] = EXTRACT_AUDIENCE
+    token["sub"] = str(user.pk)
+    token["email"] = user.email
+    token["scope"] = EXTRACT_SCOPE
+    return str(token)
+
+
 def mint_user_access_token(user, lifetime_minutes: int = 5) -> str:
     """Short-lived access token for `user`, minted in-process.
 
