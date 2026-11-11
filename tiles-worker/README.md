@@ -1,19 +1,41 @@
 # tiles-worker
 
-A Cloudflare Worker that serves district tilesets as `z/x/y` vector tiles from PMTiles archives in R2. Cloudflare doesn't charge for bandwidth, and district tilesets are about 80% of CloudFront's bytes (2,640 of 3,368 GB from 2026-09-30 to 2026-10-30). Moving them would cut the CDN bill from about $234 to about $27 a month: roughly $6 for the Worker and $20 for what stays on CloudFront.
+A Cloudflare Worker that serves district tilesets as `z/x/y` vector tiles from PMTiles archives in R2. Cloudflare doesn't charge for bandwidth, and district tilesets are about 80% of CloudFront's bytes (2,640 of 3,368 GB from 2026-09-30 to 2026-10-30). Moving them cuts the CDN bill from about $234 to about $27 a month: roughly $6 for the Worker and $20 for what stays on CloudFront.
 
 The paths mirror the S3 keys, so the app's source URL is `${NEXT_PUBLIC_TILES_WORKER_URL}/${tiles_s3_path}`:
 
 | Path | Returns |
 |---|---|
-| `/tilesets/tx_districtr_view_v2.pmtiles` | TileJSON (not cached) |
+| `/tilesets/tx_districtr_view_v2.pmtiles` | TileJSON (uncached, and without `vector_layers`) |
 | `/tilesets/tx_districtr_view_v2.pmtiles/{z}/{x}/{y}.mvt` | A tile, gzipped exactly as stored (`Content-Encoding: gzip`), or 204 if empty |
+| `/tilesets/tx_districtr_view_v2.parent.pmtiles` and its tiles | The same for the map's [parent-only archive](#parent-only-archives) |
 
 Anything else gets a 404, including query strings and non-GET requests, since Workers Cache would skip them and every one would read R2.
 
-## Caching
+## Parent-only archives
 
-Workers Cache (`cache` in `wrangler.jsonc`) answers repeat requests without running the Worker. Every request is billed, cached or not: $5/month covers 10M, then $0.30 per million. Tiles are cached for one day, by Cloudflare and by browsers. The cache key includes the Worker version, so a deploy purges Cloudflare's copy, for example after a tileset is rebuilt in place. Browsers can keep old tiles for up to a day after that.
+A combined tile is about 90% block geometry, and the map draws blocks only inside shattered parents. So every map with a child layer has a second archive beside the combined one, holding the parent layer alone, under the same key ending in `.parent.pmtiles` (`parentTilesPath` in the app).
+
+With `NEXT_PUBLIC_TILES_SPLIT=true`, the map's source starts on the parent-only archive. It switches to the combined archive at the first shatter, or when a plan opens with shattered parents, and stays there. The switch changes the source's URL in place, so the layers and feature-state carry over.
+
+The child layers stay on the source the whole time. MapLibre reports an error for each style layer whose source-layer the TileJSON's `vector_layers` leaves out, so the Worker's TileJSON omits the list.
+
+## Caching and cost guard
+
+Workers Cache (`cache` in `wrangler.jsonc`) answers repeat requests without running the Worker. Every request is billed, cached or not: $5/month covers 10M, then $0.30 per million. Tiles are cached for one day, by Cloudflare and by browsers. The cache key includes the Worker version, so a deploy purges Cloudflare's copy. Browsers can keep old tiles for up to a day after that, which is why a rebuilt tileset gets a new key.
+
+Only cache misses run the Worker, and each one reads R2. A rate limit (`MISS_LIMITER` in `wrangler.jsonc`) answers 429 past 3,000 misses a minute from one client address in one Cloudflare location. A Cloudflare billing notification on the account covers what the limit lets through.
+
+## Settings
+
+Each stack's app build reads two GitHub repo variables:
+
+| Variable | Effect |
+|---|---|
+| `TILES_WORKER_URL_DEV`, `TILES_WORKER_URL_PROD` | The Worker's hostname for that stack, such as `https://1.tilesets.districtr.org`. Empty: the app reads the PMTiles archives from the CDN. |
+| `TILES_SPLIT_DEV`, `TILES_SPLIT_PROD` | `true`: maps start on their parent-only archive. Takes effect only with the Worker URL set. |
+
+To turn one on or off, change the variable and run the app deploy on that stack's branch: `gh workflow run deploy-app.yml --ref dev`. The values are baked into the build and are part of its image tag, so the run builds a new image for the same commit. PR previews use the dev values as of their own build.
 
 ## Local
 
@@ -25,38 +47,48 @@ bun run dev     # http://localhost:8787
 bun run check   # tiles must match what pmtiles reads from the CDN
 ```
 
-To try it in the app, set `NEXT_PUBLIC_TILES_WORKER_URL=http://localhost:8787` in `app/.env.local`. If it's unset, the app reads PMTiles from the CDN as before.
+To try it in the app, set `NEXT_PUBLIC_TILES_WORKER_URL=http://localhost:8787` in `app/.env.local`, plus `NEXT_PUBLIC_TILES_SPLIT=true` for the split, and restart the frontend. The split needs the map's parent-only archive in the local bucket too:
 
-## Before production
+```bash
+docker-compose run --rm -v "$PWD:/data" pipelines tile-join --no-tile-size-limit \
+  -o /data/mt.parent.pmtiles -l mt_districtr_vtd_view_v2 /data/mt.pmtiles
+bunx wrangler r2 object put districtr-tilesets/tilesets/mt_districtr_view_v2.parent.pmtiles --local --file mt.parent.pmtiles
+```
 
-- **Hostnames: `1.tilesets.districtr.org`, `2.tilesets.districtr.org`, and so on (decided 2026-11-05).** [ADR 0008](../docs/adr/0008-tiles-from-object-storage.md) records that tiles left R2 because Cornell's network blocked `pub-….r2.dev` URLs (#130). `workers.dev` is the same kind of shared Cloudflare hostname, so production uses custom domains, with `workers.dev` turned off. All the names share one cache, since Workers Cache ignores the host. When the variable is first turned on, write an ADR that amends 0008.
-  - `districtr.org` stays on Netlify DNS (decided 2026-11-06). Each name is one CNAME there, served through Cloudflare for SaaS; see [Hostnames](#hostnames).
-  - Delegating `tilesets.districtr.org` to Cloudflare instead would need an Enterprise plan, because Cloudflare accepts a subdomain as its own zone only on Enterprise ([subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/)).
-- **Deploys through CI.** The [deploy-authority](../agent-skills/deploy-authority/SKILL.md) rule says live changes only go out from CI on `dev`/`main`. Add a `deploy-tiles-worker.yml` workflow with a `CLOUDFLARE_API_TOKEN` secret. The first bucket and deploy below are a one-time bootstrap.
-- **New tilesets.** Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key. For tilesets built one at a time, step 3 of `run-map-onboarding` has the copy command. Give a rebuilt tileset a new key instead of overwriting it, so nothing stale is served and nothing needs purging.
-- **Cost guard.** Nothing rate-limits cache misses yet. Add a Workers Rate Limiting binding and a Cloudflare billing notification.
+## Deploys
+
+Two Workers read the one bucket, as both stacks read one S3 bucket: `districtr-tiles-dev` (`env.dev` in `wrangler.jsonc`) for dev and `districtr-tiles` for prod. `.github/workflows/deploy-tiles-worker.yml` deploys the first on pushes to `dev` and the second on pushes to `main`, following the [deploy-authority](../agent-skills/deploy-authority/SKILL.md) rule; a pull request only type-checks. Once a stack's `TILES_WORKER_URL_*` is set, each deploy ends with `bun run check` against that hostname.
+
+The workflow needs the secret `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" token template) and the variable `CLOUDFLARE_ACCOUNT_ID`.
+
+## New tilesets
+
+Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key, parent-only archives included. For tilesets built one at a time, step 3 of `run-map-onboarding` has the commands. Give a rebuilt tileset a new key instead of overwriting it, so every cache serves the new tiles from the start.
 
 ## Bootstrap
 
 1. Use a Cloudflare account on Workers Paid. At about 14M requests a month, the free plan's daily cap is too small.
 2. Create the bucket: `bunx wrangler r2 bucket create districtr-tilesets`.
-3. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's a few GB, or under $1 of S3 egress.
+3. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's about 10 GB, or under $1 of S3 egress.
 4. Set up the hostnames (next section).
-5. Deploy once with `bun run deploy`, then check the deployed copy twice. The second run is served from cache: `bun run check https://1.tilesets.districtr.org`.
-6. To switch dev over, emit `https://1.tilesets.districtr.org` from the `Set stack` step's dev branch in `.github/workflows/deploy-app.yml`, and add `NEXT_PUBLIC_TILES_WORKER_URL=${{ steps.cfg.outputs.tiles_worker_url }}` to its `.env.production` heredoc. Prod stays on the CDN while its value is empty. `preview.yml` writes its own heredoc.
+5. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
+6. Deploy the dev Worker once by hand, `bun run deploy:dev`, then check it twice. The second run is served from cache: `bun run check https://dev.tilesets.districtr.org`. From the merge on, CI deploys both Workers.
+7. Switch each stack over with its [settings](#settings): the Worker URL first, then the split.
 
 ## Hostnames
 
-`districtr.org` stays on Netlify DNS. Each tile hostname gets one CNAME there, pointing at a Cloudflare zone that runs [Cloudflare for SaaS with this Worker as its origin](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/). The Free plan includes 100 such hostnames.
+Production serves `1.tilesets.districtr.org` and dev serves `dev.tilesets.districtr.org`, with `workers.dev` off. [ADR 0008](../docs/adr/0008-tiles-from-object-storage.md) records that tiles left R2 because a network blocked `pub-….r2.dev` URLs (#130), and `workers.dev` is the same kind of shared Cloudflare hostname.
+
+`districtr.org` stays on Netlify DNS. Each tile hostname gets one CNAME there, pointing at a Cloudflare zone that runs [Cloudflare for SaaS with a Worker as its origin](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/). The Free plan includes 100 such hostnames. Delegating `tilesets.districtr.org` to Cloudflare as its own zone would need an Enterprise plan ([subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/)).
 
 1. **Get a Cloudflare zone.** Any domain whose DNS is on Cloudflare works. If there isn't one, register one through Cloudflare Registrar, for about $10 a year. It's called `<tiles zone>` below.
 2. **Set up the zone for SaaS.**
    - Enable Cloudflare for SaaS.
-   - Add a proxied `AAAA` record, `origin.<tiles zone>` → `100::`. No server sits behind it.
+   - Add a proxied `AAAA` record, `origin.<tiles zone>` → `100::`. It stands in for an origin server; the Workers answer every request.
    - Set that record as the fallback origin.
-   - Add a Workers route, `*/*` on the zone, to `districtr-tiles`.
-3. **Add the custom hostnames** `1.tilesets.districtr.org`, `2.tilesets.districtr.org`, and so on, under SSL/TLS → Custom Hostnames.
-4. **In Netlify DNS, add one CNAME per name**: `1.tilesets` → `origin.<tiles zone>`. That's the only change to `districtr.org`. Cloudflare then checks each hostname and issues its certificate over HTTP, so no TXT records are needed. `districtr.org` has no CAA records, so nothing blocks the certificate.
-5. **Check it** with `bun run check https://1.tilesets.districtr.org`. Its TileJSON check also confirms the Worker sees the custom hostname. Then set `"workers_dev": false` in `wrangler.jsonc`.
+   - Add two Workers routes on the zone: `1.tilesets.districtr.org/*` to `districtr-tiles`, and `dev.tilesets.districtr.org/*` to `districtr-tiles-dev`.
+3. **Add the custom hostnames** `1.tilesets.districtr.org` and `dev.tilesets.districtr.org` under SSL/TLS → Custom Hostnames.
+4. **In Netlify DNS, add one CNAME per name**: `1.tilesets` → `origin.<tiles zone>`, and the same for `dev.tilesets`. That's the only change to `districtr.org`. Cloudflare then checks each hostname and issues its certificate over HTTP, so the zone needs no TXT records. `districtr.org` has no CAA records, so any CA can issue the certificate.
+5. **Check it** with `bun run check https://dev.tilesets.districtr.org`. Its TileJSON check also confirms the Worker sees the custom hostname.
 
-Skipping the CNAMEs works too: attach the Worker as a custom domain on the tiles zone itself, such as `1.tiles.<tiles zone>`. That needs no change to `districtr.org` at all, but the names are then outside it.
+Skipping the CNAMEs works too: attach each Worker as a custom domain on the tiles zone itself, such as `1.tiles.<tiles zone>`. That leaves `districtr.org` untouched, with the names outside it.

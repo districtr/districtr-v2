@@ -4,7 +4,7 @@ Date: 2024-10-21 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted.
+Accepted. Amended by [0070](0070-district-tiles-from-cloudflare-worker.md).
 
 ## Context
 
