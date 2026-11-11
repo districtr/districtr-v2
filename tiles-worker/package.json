@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy:dev": "wrangler deploy --env=dev",
     "types": "wrangler types",
     "typecheck": "wrangler types && tsc --noEmit",
     "check": "bun check.ts"

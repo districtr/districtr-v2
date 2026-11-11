@@ -23,6 +23,9 @@ assert(
   tilejson.minzoom === header.minZoom && tilejson.maxzoom === header.maxZoom,
   'TileJSON zooms differ'
 );
+// The app's child layers stay on the source while a parent-only archive is loaded;
+// a vector_layers list would make MapLibre report each of them.
+assert(!('vector_layers' in tilejson), 'TileJSON should omit vector_layers');
 assert(
   tilejson.tiles[0] === `${worker}/${key}/{z}/{x}/{y}.mvt`,
   `unexpected tile URL ${tilejson.tiles[0]}`

@@ -151,6 +151,9 @@ Mechanics:
   writes the SHA to `/districtr/{stack}/meta/{backend,frontend,cms}-image-tag`,
   then `pulumi up` reads it. Set `backendImageTag` / `frontendImageTag` /
   `cmsImageTag` in stack config to pin or roll back (config overrides SSM).
+  A frontend tag gains a `-tiles-{hash}` suffix while the tile settings
+  (`TILES_WORKER_URL_*`, `TILES_SPLIT_*`) are set, since they are baked into
+  the build.
 - **Gating**: `infra.yml`/`deploy-*.yml` run only on `dev` / `main`. On push
   they require the repo variable `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` =
   `true`. The CMS prod deploy reads `AWS_DEPLOY_CMS_PROD` instead.

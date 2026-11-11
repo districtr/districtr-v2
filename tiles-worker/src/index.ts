@@ -9,6 +9,7 @@ import {
 
 // Paths mirror the bucket's keys, so the app's source URL is `${worker}/${tiles_s3_path}`:
 //   /tilesets/tx.pmtiles                  TileJSON
+//   /tilesets/tx.parent.pmtiles           the same for the parent-only archive
 //   /tilesets/tx.pmtiles/{z}/{x}/{y}.mvt  one tile, still compressed as stored
 // Numbers must be canonical, so /09/… can't add a second cache entry for /9/….
 const ROUTE =
@@ -80,12 +81,26 @@ export default {
       !request.headers.has('Authorization');
     if (!match || !cacheable) return notFound();
     const [, key, z, x, y] = match;
+    // Workers Cache answers repeat requests, so a request that gets here is a cache miss
+    // about to read R2. The limit (wrangler.jsonc) counts per client address in each
+    // Cloudflare location: far above a classroom sharing one address, and a ceiling on
+    // what a scripted client can cost.
+    const client = request.headers.get('CF-Connecting-IP') ?? '';
+    if (!(await env.MISS_LIMITER.limit({key: client})).success) {
+      return respond('Too many requests', {'Cache-Control': 'no-store', 'Retry-After': '60'}, 429);
+    }
     const source = new R2Source(env.BUCKET, key);
     try {
       if (z === undefined) {
         // Not cached: the tile URLs inside name this request's origin, and the cache key
         // ignores the host. MapLibre fetches it once per map load.
-        const tilejson = await new PMTiles(source, DIRECTORIES).getTileJson(`${url.origin}/${key}`);
+        const tilejson = (await new PMTiles(source, DIRECTORIES).getTileJson(
+          `${url.origin}/${key}`
+        )) as Record<string, unknown>;
+        // MapLibre reports an error for each style layer whose source-layer the TileJSON
+        // leaves out, and the app's child layers stay on the source while a parent-only
+        // archive is loaded. With vector_layers absent, MapLibre skips that check.
+        delete tilejson.vector_layers;
         return respond(JSON.stringify(tilejson), {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
