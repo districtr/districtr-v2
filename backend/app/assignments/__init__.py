@@ -4,6 +4,12 @@ from app.assignments.assignments import (
     batch_insert_assignments,
     BatchInsertResult,
     DuplicateGeoIdError,
+    parse_assignment_pairs,
+    diff_district_assignments,
+    write_district_assignments,
+    assignments_count_and_hash,
+    find_shatter_problems,
+    MAX_REPORTED_PROBLEMS,
 )
 
 __all__ = [
@@ -12,4 +18,10 @@ __all__ = [
     "batch_insert_assignments",
     "BatchInsertResult",
     "DuplicateGeoIdError",
+    "parse_assignment_pairs",
+    "diff_district_assignments",
+    "write_district_assignments",
+    "assignments_count_and_hash",
+    "find_shatter_problems",
+    "MAX_REPORTED_PROBLEMS",
 ]

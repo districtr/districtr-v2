@@ -7,6 +7,7 @@ import * as putUpdateDocumentModule from './putUpdateDocument';
 import * as getAssignmentsModule from './getAssignments';
 import * as getDocumentModule from './getDocument';
 import {putUpdateAssignmentsAndVerify} from './putUpdateAssignmentsAndVerify';
+import {hashAssignments} from '../../map/hashAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {idb} from '@/app/utils/idb/idb';
@@ -44,6 +45,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
   let spies: {mockRestore: () => void}[] = [];
   let updateIdbAssignments: ReturnType<typeof spyOn>;
   let putUpdateDocument: ReturnType<typeof spyOn>;
+  let getAssignments: ReturnType<typeof spyOn>;
   // Runs while the PUT is in flight, standing in for a stroke or undo landing mid-save.
   let duringPut = () => {};
 
@@ -73,16 +75,19 @@ describe('putUpdateAssignmentsAndVerify', () => {
       // Spied, not left to read the fake table: another test file may have left a spy.
       spyOn(idb, 'getDocument').mockImplementation(async id => records.get(id)),
       spyOn(idb, 'transaction').mockImplementation(((...args: any[]) => args.at(-1)()) as any),
-      spyOn(getAssignmentsModule, 'getAssignments').mockImplementation((async () => ({
-        ok: true,
-        response: [{geo_id: 'a', zone: 1}],
-      })) as any),
+      (getAssignments = spyOn(getAssignmentsModule, 'getAssignments').mockImplementation(
+        (async () => ({
+          ok: true,
+          response: [{geo_id: 'a', zone: 1}],
+        })) as any
+      )),
       spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
         ok: false,
       })) as any),
     ];
     // Another test file may already have spied on idb; start each count at zero.
     updateIdbAssignments.mockClear();
+    getAssignments.mockClear();
   });
   afterEach(() => {
     spies.forEach(spy => spy.mockRestore());
@@ -230,5 +235,49 @@ describe('putUpdateAssignmentsAndVerify', () => {
     // Advanced, so reopening the map sees an unsaved edit, not a conflict.
     expect(copy.document_metadata.updated_at).toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
+  });
+
+  /** The server's reply to a save: a new version, and the hash of `plan`. */
+  const serverSaves = (updatedAt: string, plan: Map<string, number | null>) =>
+    putUpdateDocument.mockImplementation((async () => ({
+      ok: true,
+      response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan)},
+    })) as any);
+
+  test('a save the server confirms by hash skips the download', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    expect((await save()).ok).toBe(true);
+    expect(getAssignments).not.toHaveBeenCalled();
+    expect(putUpdateDocument.mock.calls[0][0].assignments).toEqual([['a', 1]]);
+    expect(records.get('d1').assignments).toEqual([
+      {document_id: 'd1', geo_id: 'a', zone: 1, parent_path: null},
+    ]);
+  });
+
+  test("a hash that doesn't match fails the save", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
+    expect((await save()).ok).toBe(false);
+    expect(records.get('d1').clientLastUpdated).toBe('T2');
+  });
+});
+
+describe('hashAssignments', () => {
+  // The same plans and digests as HASH_VECTORS in backend/tests/test_main.py, which
+  // checks them against Postgres and the Python spec: change both or neither. The
+  // second plan's ids sort differently by byte and by locale.
+  test.each([
+    [
+      {b: null, 'vtd:01': 3, a1: 2, a: 1},
+      '5940bf54ee31f2308c3798c6f8914405e299cd0bb429762b62214b89835c6362',
+    ],
+    [
+      {Z9: 1, 'a-1': 2, a1: null, a_1: 5, 'vtd:A1': 3, 'vtd:a1': 4},
+      'c35bdbacd754d1521e7bce3a6eb2b21df9ac2e8f04e9888845f7d607e996e23f',
+    ],
+    [{}, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'],
+  ])('matches the backend for %j', async (plan, digest) => {
+    expect(await hashAssignments(new Map<string, number | null>(Object.entries(plan)))).toBe(
+      digest
+    );
   });
 });

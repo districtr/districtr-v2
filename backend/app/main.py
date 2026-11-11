@@ -38,6 +38,12 @@ from app.assignments import (
     duplicate_document_assignments,
     duplicate_document_community_assignments,
     batch_insert_assignments,
+    parse_assignment_pairs,
+    diff_district_assignments,
+    write_district_assignments,
+    assignments_count_and_hash,
+    find_shatter_problems,
+    MAX_REPORTED_PROBLEMS,
     DuplicateGeoIdError,
 )
 from app.core.db import get_session
@@ -124,6 +130,7 @@ from app.evaluation.context import (
     elections_from_columns,
     demographic_columns_from_columns,
 )
+from app.evaluation.dual_graph import DualLevelGraph
 from app.evaluation.graph_loader import get_graph
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -157,7 +164,10 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    dependencies=[Depends(cms.reject_writes_under_construction)],
+)
 app.include_router(admin_ops.router)
 app.include_router(cms.router)
 app.include_router(exports.router)
@@ -733,6 +743,51 @@ def create_document(
     return doc_dict
 
 
+def _graph_for_shatter_check(
+    session: Session, document_id: str
+) -> DualLevelGraph | None:
+    """The map's graph for _reject_shatter_problems, or None (with a warning)
+    when it can't be loaded: saving must not depend on it. Called before the
+    save takes the document's row lock, because a cold load can take seconds."""
+    gerrydb_table_name = session.exec(
+        select(DistrictrMap.gerrydb_table_name)
+        .join(
+            Document,
+            col(Document.districtr_map_slug) == col(DistrictrMap.districtr_map_slug),
+        )
+        .where(Document.document_id == document_id)
+    ).one()
+    try:
+        return get_graph(gerrydb_table_name)
+    except HTTPException:
+        logger.warning(
+            "Graph %s unavailable; saving without the shatter check", gerrydb_table_name
+        )
+        return None
+
+
+def _reject_shatter_problems(
+    G: DualLevelGraph,
+    changed: list[str],
+    plan: dict[str, int | None],
+) -> None:
+    """422 if the save breaks the shattered-parent contract in the parents it
+    touches (see find_shatter_problems). Runs before anything is written."""
+    problems = find_shatter_problems(G, changed, plan)
+    if problems:
+        shown = problems[:MAX_REPORTED_PROBLEMS]
+        more = len(problems) - len(shown)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Not saved: this map's broken-up districts don't match their blocks ("
+                + "; ".join(shown)
+                + (f"; and {more} more" if more else "")
+                + "). Reload the map to check and repair them."
+            ),
+        )
+
+
 def _sync_update_assignments(
     data: AssignmentsCreate,
     session: Session,
@@ -840,8 +895,17 @@ def _sync_update_assignments(
                 f"validated_metadata={'present' if validated_community_metadata else 'None'}"
             )
 
+    shatter_graph = (
+        None if is_community_map else _graph_for_shatter_check(session, document_id)
+    )
+
+    # FOR UPDATE: saves to one document run one at a time, so the diff below
+    # (which picks the district_unions rows to evict) is against the version the
+    # conflict check passed.
     db_last_updated_at = session.exec(
-        select(Document.updated_at).where(Document.document_id == document_id)
+        select(Document.updated_at)
+        .where(Document.document_id == document_id)
+        .with_for_update()
     ).one_or_none()
 
     if (
@@ -862,107 +926,105 @@ def _sync_update_assignments(
     # true no-op requests (which would otherwise break optimistic concurrency for
     # other clients).
     mutated = False
-
-    # Snapshot pre-existing district-mode assignments to compute which zones
-    # changed, so only those rows are evicted from district_unions rather than
-    # wiping the whole document's cache. Community maps don't feed district_unions.
-    diff_load_id: str | None = None
+    inserted_count = 0
+    # Zones whose membership changed; only their district_unions rows are
+    # evicted below. Community maps don't feed district_unions.
+    dirty_zones: set[int] = set()
     if not is_community_map:
-        diff_load_id, _ = str(uuid4()).split("-", maxsplit=1)
-        old_snapshot_table = f"old_assignments_{diff_load_id}"
-        session.connection().execute(
-            text(
-                f"CREATE TEMP TABLE {old_snapshot_table} "
-                f"(geo_id TEXT, zone INT) ON COMMIT DROP"
+        try:
+            plan = parse_assignment_pairs(assignments)
+        except DuplicateGeoIdError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Duplicate geo_id in assignments: {e}",
             )
-        )
-        session.connection().execute(
-            text(
-                f"INSERT INTO {old_snapshot_table} (geo_id, zone) "
-                f"SELECT geo_id, zone FROM {assignment_table} "
-                f"WHERE document_id = :document_id"
-            ),
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        changed, dirty_zones = diff_district_assignments(session, document_id, plan)
+        mutated = bool(changed)
+        if changed:
+            if shatter_graph is not None:
+                _reject_shatter_problems(shatter_graph, changed, plan)
+            write_district_assignments(session, document_id, plan)
+    else:
+        # The assignments field is always a full replacement set:
+        #   [] means "delete all assignments" (user cleared everything)
+        #   [...] means "replace with these assignments"
+        # Always DELETE existing rows, then INSERT new ones if any.
+        delete_result = session.connection().execute(
+            text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
             {"document_id": document_id},
         )
-
-    # The assignments field is always a full replacement set:
-    #   [] means "delete all assignments" (user cleared everything)
-    #   [...] means "replace with these assignments"
-    # Always DELETE existing rows, then INSERT new ones if any.
-    delete_result = session.connection().execute(
-        text(f"DELETE FROM {assignment_table} WHERE document_id = :document_id"),
-        {"document_id": document_id},
-    )
-    if delete_result.rowcount and delete_result.rowcount > 0:
-        mutated = True
-    inserted_count = 0
-    has_assignments = len(assignments) > 0
-    if has_assignments:
-        # For community maps, build the set of valid community_ids so we can reject
-        # orphan-producing writes before they hit the table. 0 is the "unassigned"
-        # sentinel; positive ids must exist in the effective metadata list. Skip the
-        # check entirely when no metadata has been established yet (either in this
-        # request or previously persisted) — that's the bootstrap path where the UI
-        # writes assignments before the metadata save lands.
-        valid_community_ids: set[int] | None = None
-        if is_community_map:
-            if validated_community_metadata is not None:
-                effective_metadata = validated_community_metadata
-            else:
-                effective_metadata = _load_existing_community_metadata(
-                    session, document_id
-                )
-            if effective_metadata:
-                valid_community_ids = {c.id for c in effective_metadata} | {0}
-
-        load_id, _ = str(uuid4()).split("-", maxsplit=1)
-        temp_table_name = f"temp_assignments_{load_id}"
-        session.connection().execute(
-            text(
-                f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT) ON COMMIT DROP"
-            )
-        )
-
-        cursor = session.connection().connection.cursor()
-        with cursor.copy(
-            f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
-        ) as copy:
-            for assignment in assignments:
-                geo_id = assignment[0]
-                zone_val = assignment[1] if len(assignment) > 1 else None
-                if is_community_map and zone_val is None:
-                    zone_val = 0
-                if (
-                    valid_community_ids is not None
-                    and zone_val not in valid_community_ids
-                ):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=(
-                            f"Assignment references unknown community_id {zone_val!r}; "
-                            "it is not in the document's community metadata list."
-                        ),
-                    )
-                copy.write_row([document_id, geo_id, zone_val])
-
-        inserted_count = (
-            session.connection()
-            .execute(
-                text(f"""
-            INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
-            SELECT document_id, geo_id, zone
-            FROM {temp_table_name}
-            """),
-            )
-            .rowcount
-        )
-        if inserted_count and inserted_count > 0:
+        if delete_result.rowcount and delete_result.rowcount > 0:
             mutated = True
-        if VERBOSE_LOGGING:
-            logger.info(
-                f"Inserted {inserted_count} {'community' if is_community_map else ''} "
-                f"assignments to document {document_id}"
+        inserted_count = 0
+        has_assignments = len(assignments) > 0
+        if has_assignments:
+            # For community maps, build the set of valid community_ids so we can reject
+            # orphan-producing writes before they hit the table. 0 is the "unassigned"
+            # sentinel; positive ids must exist in the effective metadata list. Skip the
+            # check entirely when no metadata has been established yet (either in this
+            # request or previously persisted) — that's the bootstrap path where the UI
+            # writes assignments before the metadata save lands.
+            valid_community_ids: set[int] | None = None
+            if is_community_map:
+                if validated_community_metadata is not None:
+                    effective_metadata = validated_community_metadata
+                else:
+                    effective_metadata = _load_existing_community_metadata(
+                        session, document_id
+                    )
+                if effective_metadata:
+                    valid_community_ids = {c.id for c in effective_metadata} | {0}
+
+            load_id, _ = str(uuid4()).split("-", maxsplit=1)
+            temp_table_name = f"temp_assignments_{load_id}"
+            session.connection().execute(
+                text(
+                    f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT) ON COMMIT DROP"
+                )
             )
+
+            cursor = session.connection().connection.cursor()
+            with cursor.copy(
+                f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
+            ) as copy:
+                for assignment in assignments:
+                    geo_id = assignment[0]
+                    zone_val = assignment[1] if len(assignment) > 1 else None
+                    if is_community_map and zone_val is None:
+                        zone_val = 0
+                    if (
+                        valid_community_ids is not None
+                        and zone_val not in valid_community_ids
+                    ):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=(
+                                f"Assignment references unknown community_id {zone_val!r}; "
+                                "it is not in the document's community metadata list."
+                            ),
+                        )
+                    copy.write_row([document_id, geo_id, zone_val])
+
+            inserted_count = (
+                session.connection()
+                .execute(
+                    text(f"""
+                INSERT INTO {assignment_table} (document_id, geo_id, {assignment_column})
+                SELECT document_id, geo_id, zone
+                FROM {temp_table_name}
+                """),
+                )
+                .rowcount
+            )
+            if inserted_count and inserted_count > 0:
+                mutated = True
+            if VERBOSE_LOGGING:
+                logger.info(
+                    f"Inserted {inserted_count} {'community' if is_community_map else ''} "
+                    f"assignments to document {document_id}"
+                )
 
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
@@ -1105,47 +1167,18 @@ def _sync_update_assignments(
         # The sync always hits the DB (delete/insert/update), so count it.
         mutated = True
 
-    dirty_zones: list[int] = []
-    if diff_load_id is not None:
-        old_snapshot_table = f"old_assignments_{diff_load_id}"
-        dirty_rows = (
-            session.connection()
-            .execute(
-                text(
-                    f"""
-                SELECT DISTINCT z FROM (
-                    SELECT o.zone AS z
-                    FROM {old_snapshot_table} o
-                    LEFT JOIN {assignment_table} n
-                        ON n.document_id = :document_id AND n.geo_id = o.geo_id
-                    WHERE n.zone IS DISTINCT FROM o.zone
-                    UNION
-                    SELECT n.zone AS z
-                    FROM {assignment_table} n
-                    LEFT JOIN {old_snapshot_table} o ON o.geo_id = n.geo_id
-                    WHERE n.document_id = :document_id
-                      AND n.zone IS DISTINCT FROM o.zone
-                ) d
-                WHERE z IS NOT NULL
-                """
-                ),
-                {"document_id": document_id},
-            )
-            .all()
+    if dirty_zones:
+        # Always include zone IS NULL (the unassigned row): its demographic
+        # totals are derived from all assigned zones, so any zone change
+        # invalidates it.
+        session.connection().execute(
+            text(
+                "DELETE FROM document.district_unions "
+                "WHERE document_id = :document_id "
+                "AND (zone = ANY(:dirty) OR zone IS NULL)"
+            ),
+            {"document_id": document_id, "dirty": sorted(dirty_zones)},
         )
-        dirty_zones = [int(r[0]) for r in dirty_rows]
-        if dirty_zones:
-            # Always include zone IS NULL (the unassigned row): its demographic
-            # totals are derived from all assigned zones, so any zone change
-            # invalidates it.
-            session.connection().execute(
-                text(
-                    "DELETE FROM document.district_unions "
-                    "WHERE document_id = :document_id "
-                    "AND (zone = ANY(:dirty) OR zone IS NULL)"
-                ),
-                {"document_id": document_id, "dirty": dirty_zones},
-            )
 
     if mutated:
         updated_at = update_timestamp(session, document_id)
@@ -1167,13 +1200,23 @@ def _sync_update_assignments(
             ),
             {"document_id": document_id},
         )
+    response: dict[str, Any] = {"updated_at": updated_at}
+    if is_community_map:
+        response["assignments_inserted"] = inserted_count
+    else:
+        # The client compares the hash with its own to confirm the save without
+        # downloading the plan. Read before commit: the document row lock keeps
+        # another save from landing in between.
+        response["assignments_inserted"], response["assignments_hash"] = (
+            assignments_count_and_hash(session, document_id)
+        )
     session.commit()
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
-            f"assignments_inserted={inserted_count}, updated_at={updated_at}"
+            f"assignments_inserted={response['assignments_inserted']}, updated_at={updated_at}"
         )
-    return {"assignments_inserted": inserted_count, "updated_at": updated_at}
+    return response
 
 
 @app.put("/api/assignments", dependencies=[Depends(require_session)])
@@ -1224,14 +1267,21 @@ async def update_assignments(
 
     Returns:
         dict (JSON): Response containing:
-            - assignments_inserted: Number of assignments inserted
+            - assignments_inserted: Number of assignments stored after the save
             - updated_at: New timestamp after the update
+            - assignments_hash: District maps only. SHA-256 of the stored plan
+              (see ``assignments_count_and_hash``); the client compares it with
+              its own hash to confirm the save.
 
     Raises:
-        HTTPException: 400 if the body cannot be msgpack-decoded, or no changes provided
+        HTTPException: 400 if the body cannot be msgpack-decoded, no changes are
+            provided, or an assignment pair is invalid (repeated or non-string
+            geo_id, zone not an integer or out of range)
         HTTPException: 404 if the document does not exist
         HTTPException: 409 if document was updated by another client and overwrite=False
-        HTTPException: 422 if the decoded body fails AssignmentsCreate validation
+        HTTPException: 422 if the decoded body fails AssignmentsCreate validation, or
+            (district maps) the save breaks the shattered-parent contract in the
+            parents it touches or names a geo_id the map doesn't have
     """
     body_bytes = await request.body()
     try:
@@ -1306,7 +1356,17 @@ def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
-    for table in ("document.assignments", "document.community_assignments"):
+    # The document row first, as PUT /api/assignments locks it: the other order
+    # can deadlock with a save in flight.
+    session.connection().execute(
+        text(
+            "UPDATE document.document "
+            "SET color_scheme = NULL, assignments_updated_at = NOW() "
+            "WHERE document_id = :document_id"
+        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
+        {"document_id": document.document_id},
+    )
+    for table in ("document.document_assignments", "document.community_assignments"):
         session.connection().execute(
             text(f"DELETE FROM {table} WHERE document_id = :document_id").bindparams(
                 bindparam(key="document_id", type_=UUIDType)
@@ -1317,14 +1377,6 @@ def reset_map(
     session.connection().execute(
         text(
             "DELETE FROM document.district_unions WHERE document_id = :document_id"
-        ).bindparams(bindparam(key="document_id", type_=UUIDType)),
-        {"document_id": document.document_id},
-    )
-    session.connection().execute(
-        text(
-            "UPDATE document.document "
-            "SET color_scheme = NULL, assignments_updated_at = NOW() "
-            "WHERE document_id = :document_id"
         ).bindparams(bindparam(key="document_id", type_=UUIDType)),
         {"document_id": document.document_id},
     )

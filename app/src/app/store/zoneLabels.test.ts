@@ -97,6 +97,25 @@ describe('setNumDistricts', () => {
     expect(writeAssignments).toHaveBeenCalledTimes(1);
     expect(writeIdb).not.toHaveBeenCalled();
   });
+
+  test("lowering unassigns a broken-up unit's blocks; it doesn't drop them", () => {
+    // Block b4 of a broken-up unit is in district 4, its sibling b1 in district 1.
+    // Dropping b4's entry would leave the unit with only some of its blocks,
+    // which the server refuses to save.
+    useAssignmentsStore.setState({
+      zoneAssignments: new Map([
+        ['b1', 1],
+        ['b4', 4],
+        ['whole', 4],
+      ]),
+      shatterIds: {parents: new Set(['p']), children: new Set(['b1', 'b4'])},
+    });
+    useMapStore.getState().setNumDistricts(3);
+    expect([...useAssignmentsStore.getState().zoneAssignments]).toEqual([
+      ['b1', 1],
+      ['b4', null],
+    ]);
+  });
 });
 
 describe('setZoneOrder', () => {

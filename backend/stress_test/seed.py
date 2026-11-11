@@ -168,7 +168,7 @@ def delete_documents(session: Session, document_ids: list[str]) -> int:
             "document.district_unions",
             "document.map_document_user_session",
             "document.map_document_token",
-            "document.assignments",
+            "document.document_assignments",
             "document.community_assignments",
         ):
             conn.execute(text(f"DELETE FROM {table} WHERE {id_filter}"), params)

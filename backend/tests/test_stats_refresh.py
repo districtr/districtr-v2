@@ -12,7 +12,7 @@ from app import stats_refresh
 from app.core.config import settings
 from app.core.db import set_db_timeouts
 from app.main import app
-from app.models import Assignments, Document
+from app.models import Document, DocumentAssignments
 from tests.constants import GERRY_DB_FIXTURE_NAME
 
 GEO_ID = "202090441022004"
@@ -23,7 +23,9 @@ def set_plan(session, document_id, *, assigned=True, **ago):
     """Stamp the plan's timestamps as offsets before the DB's now(), which
     stale_idle_plans compares against (frozen for the test's transaction)."""
     if assigned:
-        session.add(Assignments(document_id=document_id, geo_id=GEO_ID, zone=1))
+        session.add(
+            DocumentAssignments(document_id=document_id, assignments={GEO_ID: 1})
+        )
     now = session.execute(text("SELECT now()")).scalar_one()
     ago = {
         "assignments_updated_at": timedelta(hours=2),
@@ -104,7 +106,7 @@ def test_picks_only_stale_plans_idle_for_an_hour(
     other = client.post(
         "/api/create_document", json={"districtr_map_slug": GERRY_DB_FIXTURE_NAME}
     ).json()["document_id"]
-    session.add(Assignments(document_id=other, geo_id=GEO_ID, zone=1))
+    session.add(DocumentAssignments(document_id=other, assignments={GEO_ID: 1}))
     set_plan(session, document_id, assigned=assigned, **ago)
     ids = [str(d) for d, _ in stats_refresh.stale_idle_plans(session)]
     assert (str(document_id) in ids) == picked, case

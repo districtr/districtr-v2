@@ -357,8 +357,6 @@ export const extendColorArray = (colorArray: string[], numDistricts: number) => 
   const lightness = clamp(mean(2, 0.5), 0.25, 0.85);
   const hues = chromatic.map(hsl => hsl[0]);
   const lightnessShifts = [0, -0.08, 0.08, -0.16, 0.16];
-  // ponytail: ~360 hue steps per lap at a few lightness levels; past ~2,000
-  // colors this falls back to counting up through hex values.
   for (let i = 0; result.length < numDistricts && i < 20_000; i++) {
     const lap = Math.floor(i / 360);
     const minGap = 24 / 2 ** lap;

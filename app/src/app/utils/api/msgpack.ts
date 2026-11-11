@@ -2,7 +2,7 @@ import {decode, encode} from '@msgpack/msgpack';
 import {API_URL} from './constants';
 import {fetchWithSession} from './session';
 
-type ApiResult<T> = {ok: true; response: T} | {ok: false; error: {detail: string}};
+type ApiResult<T> = {ok: true; response: T} | {ok: false; error: {detail: string; status?: number}};
 
 type QueryParams = Record<string, string | number | (string | number)[] | undefined>;
 
@@ -24,8 +24,9 @@ function buildUrl(path: string, queryParams?: QueryParams): string {
   return touched ? url.toString() : fullPath;
 }
 
-async function readError(response: Response): Promise<{detail: string}> {
-  return await response.json().catch(() => ({detail: response.statusText}));
+async function readError(response: Response): Promise<{detail: string; status: number}> {
+  const body = await response.json().catch(() => ({detail: response.statusText}));
+  return {...body, status: response.status};
 }
 
 // JSON.stringify(new Error(...)) is "{}" — surface the message instead.

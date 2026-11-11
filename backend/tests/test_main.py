@@ -1,3 +1,4 @@
+import hashlib
 import pytest
 from sqlmodel import Session, select
 from app.core.db import get_session
@@ -26,6 +27,8 @@ import app.evaluation.main as evaluation_main
 from unittest.mock import MagicMock
 from app.evaluation.models import Evaluation
 from app.models import Document
+from app.assignments import assignments_count_and_hash, diff_district_assignments
+from tests.conftest import seed_assignments
 from app.evaluation.registry import (
     Metric,
     CURRENT_PAYLOAD_VERSION,
@@ -405,6 +408,212 @@ def test_put_assignments(client, document_id):
     assert updated_at is not None
 
 
+def _plan_hash(plan: dict) -> str:
+    """The save-check hash, per its spec (assignments_count_and_hash)."""
+    lines = [f"{g}:{'' if z is None else z}" for g, z in sorted(plan.items())]
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def test_put_assignments_returns_plan_hash(client, document_id):
+    plan = {"202090441022004": 1, "202090428002008": 1, "200979691001108": 2}
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [[g, z] for g, z in plan.items()],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["assignments_hash"] == _plan_hash(plan)
+
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["202090441022004", 2],
+                ["202090428002008", 1],
+                ["200979691001109", None],
+            ],
+            "last_updated_at": response.json()["updated_at"],
+        },
+    )
+    assert response.status_code == 200
+    expected = {"202090441022004": 2, "202090428002008": 1, "200979691001109": None}
+    assert response.json()["assignments_inserted"] == 3
+    assert response.json()["assignments_hash"] == _plan_hash(expected)
+    rows = client.get(f"/api/get_assignments/{uuid.UUID(document_id)}").json()
+    assert {r["geo_id"]: r["zone"] for r in rows} == expected
+
+
+# The same plans and digests as hashAssignments' test in the frontend
+# (putUpdateAssignmentsAndVerify.test.ts): change both or neither. The second
+# plan's ids sort differently by byte and by locale.
+HASH_VECTORS = [
+    (
+        {"b": None, "vtd:01": 3, "a1": 2, "a": 1},
+        "5940bf54ee31f2308c3798c6f8914405e299cd0bb429762b62214b89835c6362",
+    ),
+    (
+        {"Z9": 1, "a-1": 2, "a1": None, "a_1": 5, "vtd:A1": 3, "vtd:a1": 4},
+        "c35bdbacd754d1521e7bce3a6eb2b21df9ac2e8f04e9888845f7d607e996e23f",
+    ),
+    ({}, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+]
+
+
+@pytest.mark.parametrize("plan, digest", HASH_VECTORS)
+def test_plan_hash_matches_frontend_vectors(session, document_id, plan, digest):
+    assert _plan_hash(plan) == digest
+    if not plan:
+        # No row hashes like an empty plan.
+        assert assignments_count_and_hash(session, document_id) == (0, digest)
+    seed_assignments(session, document_id, plan)
+    assert assignments_count_and_hash(session, document_id) == (len(plan), digest)
+
+
+def test_diff_district_assignments(session, document_id):
+    stored = {"a": 1, "b": 2, "c": None, "d": 3}
+    seed_assignments(session, document_id, stored)
+    assert diff_district_assignments(session, document_id, dict(stored)) == ([], set())
+    # a moves from 1 to 2, b is dropped, c gets a zone, e is new and unassigned;
+    # d keeps zone 3, so zone 3 stays clean.
+    changed, dirty_zones = diff_district_assignments(
+        session, document_id, {"a": 2, "c": 4, "d": 3, "e": None}
+    )
+    assert changed == ["a", "b", "c", "e"]
+    assert dirty_zones == {1, 2, 4}
+
+
+@pytest.mark.parametrize(
+    "body, detail",
+    [
+        (
+            {"assignments": [["202090441022004", 1], ["202090441022004", 2]]},
+            "Duplicate geo_id",
+        ),
+        ({"assignments": [["202090441022004", "north"]]}, "Invalid zone 'north'"),
+        # Outside a 32-bit integer: the view's cast would fail every later read.
+        ({"assignments": [["202090441022004", 2**31]]}, "Invalid zone 2147483648"),
+    ],
+)
+def test_put_assignments_rejects_bad_bodies(client, document_id, body, detail):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            **body,
+        },
+    )
+    assert response.status_code == 400
+    assert detail in response.json()["detail"]
+    assert client.get(f"/api/get_assignments/{document_id}").json() == []
+
+
+# simple_geos: vtd:…001 = {…001, …005}, vtd:…002 = {…002, …003, …004}, vtd:…003 = {…006}
+P1, P2, P3 = "vtd:000010000001", "vtd:000010000002", "vtd:000010000003"
+B = {i: f"00001000000000{i}" for i in range(1, 7)}
+VALID_SHATTERED = [[P1, 1], [B[2], 1], [B[3], None], [B[4], 2], [P3, 3]]
+
+
+def _new_simple_geos_plan(client):
+    response = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_geos"}
+    )
+    assert response.status_code == 201
+    return response.json()["document_id"]
+
+
+def _put(client, document_id, last_updated_at=None, **body):
+    return client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "last_updated_at": last_updated_at
+            or datetime.now().astimezone().isoformat(),
+            **body,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "assignments, problem",
+    [
+        ([[P1, 1], [B[1], 1], [B[5], 1]], f"{P1} is saved along with its blocks"),
+        ([[B[2], 1], [B[3], None]], f"{P2} is missing 1 of its 3 blocks"),
+        ([[P1, 1], ["vtd:999", 2]], "aren't in this map (e.g. vtd:999)"),
+    ],
+)
+def test_put_assignments_rejects_broken_shatters(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file, assignments, problem
+):
+    document_id = _new_simple_geos_plan(client)
+    response = _put(client, document_id, assignments=assignments)
+    assert response.status_code == 422
+    assert problem in response.json()["detail"]
+
+
+def test_put_assignments_shatter_check_on_edits(
+    client, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    document_id = _new_simple_geos_plan(client)
+    response = _put(client, document_id, assignments=VALID_SHATTERED)
+    assert response.status_code == 200, response.json()
+    saved_at = response.json()["updated_at"]
+
+    # Dropping one block of a shattered parent is refused, and rolls back.
+    response = _put(
+        client, document_id, saved_at, assignments=VALID_SHATTERED[:3] + [[P3, 3]]
+    )
+    assert response.status_code == 422
+    assert f"{P2} is missing 1 of its 3 blocks" in response.json()["detail"]
+    rows = client.get(f"/api/get_assignments/{document_id}").json()
+    assert B[4] in {r["geo_id"] for r in rows}
+
+    # Healing (the parent back, its blocks gone) is fine.
+    response = _put(
+        client,
+        document_id,
+        saved_at,
+        assignments=[[P1, 1], [P2, 2], [P3, 3]],
+    )
+    assert response.status_code == 200, response.json()
+
+    # So is shattering P1, if every block comes along.
+    response = _put(
+        client,
+        document_id,
+        response.json()["updated_at"],
+        assignments=[[B[1], 1], [B[5], None], [P2, 2], [P3, 3]],
+    )
+    assert response.status_code == 200, response.json()
+
+
+def test_put_assignments_broken_elsewhere_still_saves(
+    client, session, simple_shatterable_districtr_map, mock_grid_graph_file
+):
+    document_id = _new_simple_geos_plan(client)
+    # P2 was stored with one of its three blocks missing, before saves checked.
+    broken = [[P1, 1], [B[2], 1], [B[3], None]]
+    seed_assignments(session, document_id, broken)
+
+    # An edit that leaves P2 alone saves.
+    response = _put(client, document_id, assignments=broken + [[P3, 3]])
+    assert response.status_code == 200, response.json()
+
+    # An edit to one of P2's blocks is refused until P2 is whole.
+    response = _put(
+        client,
+        document_id,
+        response.json()["updated_at"],
+        assignments=[[P1, 1], [B[2], 2], [B[3], None], [P3, 3]],
+    )
+    assert response.status_code == 422
+    assert f"{P2} is missing 1 of its 3 blocks" in response.json()["detail"]
+
+
 def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
     response = client.put(
@@ -497,11 +706,11 @@ def test_put_assignments_twice(client, document_id):
     assert response.status_code == 200
     data = response.json()
     assert data is not None
-    assert len(data) == 2
-    assert data[0]["zone"] == 1
-    assert data[0]["geo_id"] == "202090441022004"
-    assert data[1]["zone"] == 1
-    assert data[1]["geo_id"] == "200979691001108"
+    # get_assignments has no ORDER BY, so compare as a mapping.
+    assert {r["geo_id"]: r["zone"] for r in data} == {
+        "202090441022004": 1,
+        "200979691001108": 1,
+    }
 
 
 def test_patch_reset_assignments(client, document_id):
@@ -511,6 +720,20 @@ def test_patch_reset_assignments(client, document_id):
     assignments = client.get(f"/api/get_assignments/{document_id}")
     assert assignments.status_code == 200
     assert len(assignments.json()) == 0
+
+
+def test_stress_cleanup_deletes_the_plan(client, session, document_id):
+    from stress_test.seed import delete_documents
+
+    test_put_assignments(client, document_id)
+    assert delete_documents(session, [document_id]) == 1
+    left = session.execute(
+        text(
+            "SELECT count(*) FROM document.document_assignments WHERE document_id = :doc"
+        ),
+        {"doc": document_id},
+    ).scalar()
+    assert left == 0
 
 
 def test_list_gerydb_views(client, districtr_maps):
@@ -1607,7 +1830,7 @@ def test_district_unions_lock_loser_gives_up_at_deadline(
     assert response.status_code == 504
 
 
-def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
+def test_district_unions_dirty_zone_eviction(client, session, document_id_total_vap):
     """Touching one zone leaves another zone's cached row in place.
 
     Validates the optimistic-eviction path in PUT /api/assignments: only the
@@ -1638,6 +1861,22 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
     }
     assert set(initial.keys()) == {1, 2}
 
+    # Cached rows by zone -> row id. NOW() is frozen for the test, so
+    # updated_at can't tell a surviving row from a rebuilt one; the id can.
+    def cached_rows():
+        return dict(
+            session.execute(
+                text(
+                    "SELECT zone, id FROM document.district_unions "
+                    "WHERE document_id = :doc"
+                ),
+                {"doc": document_id_total_vap},
+            ).all()
+        )
+
+    rows_before = cached_rows()
+    assert set(rows_before) == {1, 2, None}
+
     # Re-write the SAME mapping. No zone is dirty → no rows should be
     # rebuilt → both cached updated_at timestamps must survive.
     response = client.put(
@@ -1655,6 +1894,7 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
         },
     )
     assert response.status_code == 200
+    assert cached_rows() == rows_before, "no-op write must not evict any row"
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     same = {
         f["properties"]["zone"]: f["properties"]["updated_at"]
@@ -1678,6 +1918,9 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
         },
     )
     assert response.status_code == 200
+    # Zones 1 and 3 changed, and the unassigned row depends on every zone:
+    # only zone 2's row is left, and it is the same row.
+    assert cached_rows() == {2: rows_before[2]}
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     after = {
         f["properties"]["zone"]: f["properties"]["updated_at"]

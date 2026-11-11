@@ -38,6 +38,8 @@ export interface AssignmentsCreate {
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
   updated_at: string;
+  /** SHA-256 of the stored plan (district maps); see hashAssignments. */
+  assignments_hash?: string;
 }
 
 export interface AssignmentsReset {

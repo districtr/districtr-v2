@@ -98,3 +98,4 @@ What follows, including what a later change would have to undo.
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
 | [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047 |
+| [0068](0068-jsonb-assignments-hash-checked-saves.md) | District assignments stored as one jsonb row; saves are checked by hash | 2026-11-07 | Accepted. Amends 0025 and 0046 |
