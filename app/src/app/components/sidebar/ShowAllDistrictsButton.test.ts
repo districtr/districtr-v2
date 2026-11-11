@@ -41,10 +41,10 @@ describe('focused districts', () => {
     expect(useMapControlsStore.getState().focusedZones).toEqual([7]);
   });
 
-  test('focusFilterLabel lists the focused districts in order', () => {
-    expect(focusFilterLabel([7, 3], false)).toBe('Focused: 3, 7');
-    expect(focusFilterLabel([7, 3], true)).toBe('Showing focused districts 3, 7');
-    expect(focusFilterLabel([3], true)).toBe('Showing focused district 3');
+  test('focusFilterLabel lists the focused districts by label', () => {
+    expect(focusFilterLabel(['North', '7'], false)).toBe('Focused: North, 7');
+    expect(focusFilterLabel(['North', '7'], true)).toBe('Showing focused districts North, 7');
+    expect(focusFilterLabel(['North'], true)).toBe('Showing focused district North');
   });
 
   test('focusing leaves focused-only off; focused-only survives more focus and resets at none', () => {

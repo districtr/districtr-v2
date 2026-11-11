@@ -90,6 +90,38 @@ export const aliasesForCount = (aliases: ZoneAliases, prevCount: number, numDist
 };
 
 /**
+ * The renumbering a reorder makes: the district in row i becomes district i + 1.
+ * Old number -> new number, for the districts whose number changes.
+ */
+export const renumberingForOrder = (order: readonly number[]) =>
+  new Map(order.map((zone, i) => [zone, i + 1] as const).filter(([from, to]) => from !== to));
+
+/**
+ * Labels after a renumbering (old number -> new): each label moves with its
+ * district, and one equal to the new number is dropped as the default. A
+ * district whose new number another district has as its label takes the
+ * smallest free number instead, as in aliasesForCount.
+ */
+export const renumberedAliases = (
+  aliases: ZoneAliases,
+  renumber: ReadonlyMap<number, number>,
+  numDistricts: number
+) => {
+  const next: Record<string, string> = {};
+  Object.entries(aliases ?? {}).forEach(([zone, label]) => {
+    const to = renumber.get(Number(zone)) ?? Number(zone);
+    if (label !== String(to)) next[to] = label;
+  });
+  for (let zone = 1; zone <= numDistricts; zone++) {
+    if (zone in next || findLabelConflict(zone, '', next, numDistricts) === null) continue;
+    let candidate = 1;
+    while (findLabelConflict(zone, String(candidate), next, numDistricts) !== null) candidate++;
+    next[zone] = String(candidate);
+  }
+  return next;
+};
+
+/**
  * District numbers in panel order. The stored order is cleaned on read: numbers
  * outside 1..numDistricts and repeats are dropped, and missing districts are
  * appended in numeric order, so a changed district count just works.

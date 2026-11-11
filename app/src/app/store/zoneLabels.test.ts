@@ -151,6 +151,15 @@ describe('reorderZones', () => {
     expect(aliases()).toEqual({'1': '2', '2': '1', '3': 'B'});
   });
 
+  test('clears the undo history, which has the units but not the labels', () => {
+    // A paint stroke: new units and a new timestamp.
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 3]]), clientLastUpdated: 't1'});
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 2]]), clientLastUpdated: 't2'});
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBeGreaterThan(0);
+    useMapStore.getState().reorderZones([3, 1, 2, 4]);
+    expect(useAssignmentsStore.temporal.getState().pastStates).toEqual([]);
+  });
+
   test('an unchanged order is not an edit', () => {
     useMapStore.getState().reorderZones([1, 2, 3, 4]);
     expect(useMapStore.getState().updated.metadata).toBe(false);

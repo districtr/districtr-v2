@@ -132,6 +132,8 @@ export const ZoneRowLabel: React.FC<{
       <button
         type="button"
         aria-label={`Rename district ${label}`}
+        // DistrictMeters keeps the tool when the click lands here.
+        data-zone-rename
         className="min-w-0 cursor-text rounded-sm hover:bg-[var(--gray-a3)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
         style={{display: 'flex', justifyContent: 'flex-end', minWidth: 0, ...style}}
         onClick={() => setEditing(true)}

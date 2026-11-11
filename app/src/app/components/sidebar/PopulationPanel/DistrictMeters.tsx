@@ -159,35 +159,46 @@ export const DistrictMeters = () => {
   const popTuningView = useChartStore(state => state.chartOptions.popTuningView);
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
+  // The tuning view turns population numbers on while it's open, then puts
+  // back whatever the user had.
+  const numbersBeforeTuning = useRef<boolean | undefined>(undefined);
+  const setTuningView = (on: boolean) => {
+    const {mapOptions} = useMapControlsStore.getState();
+    if (on) numbersBeforeTuning.current = mapOptions.showPopulationNumbers;
+    setChartOptions({popTuningView: on});
+    setMapOptions({showPopulationNumbers: on || !!numbersBeforeTuning.current});
+  };
   // Plain Draw has no tuning view, so leaving Super Draw turns it off.
   useEffect(() => {
-    if (!superDraw) setChartOptions(DEFAULT_CHART_OPTIONS);
+    if (superDraw) return;
+    if (useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
+    setChartOptions(DEFAULT_CHART_OPTIONS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
   const startPainting = useMapControlsStore(state => state.startPainting);
   // Picking a row picks the district to paint, so it switches to the brush.
-  const selectRow = (zone: number) => {
+  // Clicking the label to rename it selects the row but keeps the tool.
+  const selectRow = (zone: number, e: React.MouseEvent) => {
     selectCommunity(zone);
-    startPainting();
+    if (!(e.target as Element).closest('[data-zone-rename]')) startPainting();
   };
   const getZoneLabel = useZoneLabelGetter();
   const zoneOrder = useZoneOrder();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
-  // default to all); null = no explicit choice yet. Focused districts, when
-  // there are any, replace started as the subset at every plan size, and the
-  // shared "Show focused districts" (in the line atop each table) replaces the
-  // choice — off until the user turns it on, so focusing alone shows all.
+  // default to all); null = no explicit choice yet. Focusing doesn't change
+  // that choice, and focused districts always get a row. Only the shared "Show
+  // focused districts" (in the line atop each table) narrows the rows to the
+  // focused ones and replaces the started/all toggle.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
   const focusFilter = useFocusFilter(populationData.length);
-  const focusing = focusedZones.length > 0;
-  const showAll = focusing
-    ? !focusFilter.filtering
-    : (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
+  const focusing = focusFilter.filtering;
+  const showAll = !focusing && (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
   const inSubset = (d: (typeof populationData)[number]) =>
-    focusing ? focusedZones.includes(d.zone) : (d.total_pop_20 ?? 0) > 0;
+    focusedZones.includes(d.zone) || (!focusing && (d.total_pop_20 ?? 0) > 0);
   // The selected district always gets a row, in the subset or not: picking an
   // empty district to draw into and having no bar appear reads as a broken
   // panel, and it's how an unfocused district shows up to be focused.
@@ -381,7 +392,8 @@ export const DistrictMeters = () => {
   const flatRows = useContext(FlatRowsContext);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD && !flatRows;
 
-  // While focusing, the focus line atop the rows replaces the started/all toggle.
+  // While showing focused districts only, the focus line atop the rows
+  // replaces the started/all toggle.
   const footer = (
     <Flex align="center" justify="between" mt="1">
       {!focusing && (
@@ -400,11 +412,7 @@ export const DistrictMeters = () => {
             variant={tuningView ? 'solid' : 'surface'}
             color="gray"
             highContrast={tuningView}
-            onClick={() => {
-              // Population numbers on the map go on and off with the view.
-              setChartOptions({popTuningView: !tuningView});
-              setMapOptions({showPopulationNumbers: !tuningView});
-            }}
+            onClick={() => setTuningView(!tuningView)}
             aria-pressed={tuningView}
           >
             <TableIcon />
@@ -511,7 +519,7 @@ export const DistrictMeters = () => {
                     // itself stays a plain div: a role="button" wrapping the
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
-                    onClick={() => selectRow(d.zone)}
+                    onClick={e => selectRow(d.zone, e)}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'

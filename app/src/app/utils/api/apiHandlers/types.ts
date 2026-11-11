@@ -73,7 +73,9 @@ export interface DocumentMetadata {
   /** District labels, keyed by district number; a district without one shows
    * its number. */
   zone_aliases?: Record<string, string> | null;
-  /** District numbers in population-panel order; absent means 1..N. */
+  /** District numbers in population-panel order; absent means 1..N. Legacy:
+   * nothing writes it since reordering renumbers districts (reorderZones clears
+   * it), but older plans still carry one and the panel reads it. */
   zone_order?: number[] | null;
 }
 

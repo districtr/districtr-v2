@@ -4,6 +4,7 @@ import {Button, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
 import type {Zone} from '@constants/map/zone';
+import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
 
 /** Toggle under district tables that default to started-districts-only.
  * Renders nothing when every district is already visible. */
@@ -40,12 +41,12 @@ export const useFocusedZones = () => {
 export const filterFocusedRows = <T extends {zone?: unknown}>(rows: T[], focusedZones: Zone[]) =>
   rows.filter(({zone}) => typeof zone !== 'number' || zone <= 0 || focusedZones.includes(zone));
 
-/** What the line atop a table with focused districts says, e.g. "Focused: 3, 7". */
-export const focusFilterLabel = (focusedZones: Zone[], focusedOnly: boolean) => {
-  const zones = [...focusedZones].sort((a, b) => a - b).join(', ');
-  if (focusedOnly)
-    return `Showing focused district${focusedZones.length === 1 ? '' : 's'} ${zones}`;
-  return `Focused: ${zones}`;
+/** What the line atop a table with focused districts says, e.g. "Focused:
+ * North, 7", given their labels in panel order. */
+export const focusFilterLabel = (labels: string[], focusedOnly: boolean) => {
+  const list = labels.join(', ');
+  if (focusedOnly) return `Showing focused district${labels.length === 1 ? '' : 's'} ${list}`;
+  return `Focused: ${list}`;
 };
 
 const FocusFilterLine: React.FC<{focusedZones: Zone[]; hiddenCount: number}> = ({
@@ -55,10 +56,14 @@ const FocusFilterLine: React.FC<{focusedZones: Zone[]; hiddenCount: number}> = (
   const focusedOnly = useMapControlsStore(state => state.showFocusedOnly);
   const setFocusedOnly = useMapControlsStore(state => state.setShowFocusedOnly);
   const clearFocusedZones = useMapControlsStore(state => state.clearFocusedZones);
+  const getZoneLabel = useZoneLabelGetter();
+  const labels = useZoneOrder()
+    .filter(zone => focusedZones.includes(zone))
+    .map(getZoneLabel);
   return (
     <Flex align="center" gap="2" wrap="wrap" px="1" pb="2">
       <Text size="1" color="gray">
-        {focusFilterLabel(focusedZones, focusedOnly)}
+        {focusFilterLabel(labels, focusedOnly)}
       </Text>
       {hiddenCount > 0 && (
         <>

@@ -2,10 +2,12 @@
 // 2026-11-09): display name -> hex. LaTeX renders the latexcolors package's
 // rgb definitions, and for 39 colors the site's hex column disagrees with them
 // (Neon fuchsia, Dartmouth green and Smokey topaz badly); those take the
-// package's values, as in GerryTools' gerrytools/colors/_latex_table.py. Lookups ignore case, spaces and
-// punctuation, so `Burnt orange`, `byzantium` and `latex:Tenné (Tawny)` all
-// resolve; where a name is also an xcolor base or dvipsnames spelling
-// (`BurntOrange`), xcolor's value wins (see latexColorToHex in utils/colors).
+// package's values, as in GerryTools' gerrytools/colors/_latex_table.py.
+// Lookups here ignore case, spaces and punctuation, so `Burnt orange`,
+// `byzantium` and `latex:Tenné (Tawny)` all resolve. Text that is exactly an
+// xcolor base or dvipsnames name, in any case (`BurntOrange`, `brickred`),
+// gets xcolor's value first, so only the spaced spelling (`Brick red`) reaches
+// this table (see latexColorToHex in utils/colors).
 export const LATEX_EXTENDED_COLORS: Record<string, string> = {
   'Air Force blue': '#5d8aa8',
   'Alice blue': '#f0f8ff',

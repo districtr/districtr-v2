@@ -364,7 +364,10 @@ export const ColorChangeModal: React.FC<{
                     setNameListOpen(true);
                     setActiveName(-1);
                   }}
+                  // The preview shows the highlighted name, so leaving the field
+                  // applies that, not the typed text.
                   onBlur={() => {
+                    if (activeMatch) return pickName(activeMatch);
                     setNameListOpen(false);
                     commitColorText();
                   }}
@@ -386,6 +389,7 @@ export const ColorChangeModal: React.FC<{
                     id={nameListId}
                     role="listbox"
                     aria-label="Color names"
+                    onMouseLeave={() => setActiveName(-1)}
                     className="absolute inset-x-0 top-full z-10 mt-1 rounded-md border border-gray-200 bg-white p-1 shadow-md"
                   >
                     {nameMatches.map((entry, i) => {

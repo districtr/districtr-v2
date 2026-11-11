@@ -3,6 +3,12 @@ import {useEffect, useState} from 'react';
 import {Box, Button, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
 import {ChevronDownIcon, ChevronUpIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
+import {
+  moveZoneInOrder,
+  renumberedAliases,
+  renumberingForOrder,
+  zoneLabel,
+} from '@utils/zoneLabels';
 import {useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
 import {useZoneRowDrag, ZoneDragHandle} from '../sidebar/PopulationPanel/ZoneRowControls';
@@ -10,7 +16,8 @@ import {useZoneRowDrag, ZoneDragHandle} from '../sidebar/PopulationPanel/ZoneRow
 /**
  * Reorder districts from the Map actions menu. Saving renumbers them: the
  * district in row N becomes district N and takes that row's color, keeping its
- * label, description and painted areas (see mapStore.reorderZones).
+ * label, description and painted areas (see mapStore.reorderZones). Each row
+ * reads "current label → label after Save" where the two differ.
  */
 export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void}> = ({
   open,
@@ -26,11 +33,10 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
     if (open) setDraft(order);
   }, [open]);
   const drag = useZoneRowDrag(draft, setDraft);
-  const move = (from: number, to: number) => {
-    const next = [...draft];
-    next.splice(to, 0, ...next.splice(from, 1));
-    setDraft(next);
-  };
+  const move = (from: number, to: number) =>
+    setDraft(moveZoneInOrder(draft, draft[from], draft[to]));
+  // The labels Save would give, by the store's own rule.
+  const savedAliases = renumberedAliases(aliases, renumberingForOrder(draft), draft.length);
 
   return (
     <Dialog.Root open={open} onOpenChange={isOpen => !isOpen && onClose()}>
@@ -38,11 +44,12 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
         <Dialog.Title size="4">Reorder districts</Dialog.Title>
         <Dialog.Description size="2" color="gray">
           Drag districts into a new order. Each district takes its row&apos;s number and color, and
-          keeps its label, description and painted areas.
+          keeps its label, description and painted areas. This can&apos;t be undone.
         </Dialog.Description>
         <Flex direction="column" mt="3" className="max-h-[60vh] overflow-y-auto">
           {draft.map((zone, i) => {
-            const alias = aliases?.[zone];
+            const label = zoneLabel(zone, aliases);
+            const savedLabel = zoneLabel(i + 1, savedAliases);
             return (
               <Flex
                 key={zone}
@@ -60,13 +67,6 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
                   onDragStart={drag.setDragZone}
                   onDragEnd={drag.endDrag}
                 />
-                <Text
-                  size="2"
-                  weight="bold"
-                  style={{width: '3ch', fontVariantNumeric: 'tabular-nums'}}
-                >
-                  {i + 1}
-                </Text>
                 {/* The color stays with the row. */}
                 <Box
                   aria-hidden
@@ -74,14 +74,22 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
                   style={{backgroundColor: colorScheme[order[i] - 1]}}
                 />
                 <Text size="2" className="flex-1 truncate">
-                  {alias}
+                  {label}
+                  {savedLabel !== label && (
+                    <Text color="gray">
+                      {' → '}
+                      <Text weight="bold" color="gray" highContrast>
+                        {savedLabel}
+                      </Text>
+                    </Text>
+                  )}
                 </Text>
                 <IconButton
                   size="1"
                   variant="ghost"
                   color="gray"
                   disabled={i === 0}
-                  aria-label={`Move ${alias ?? `district ${zone}`} up`}
+                  aria-label={`Move district ${label} up`}
                   onClick={() => move(i, i - 1)}
                 >
                   <ChevronUpIcon />
@@ -91,7 +99,7 @@ export const ReorderDistrictsModal: React.FC<{open: boolean; onClose: () => void
                   variant="ghost"
                   color="gray"
                   disabled={i === draft.length - 1}
-                  aria-label={`Move ${alias ?? `district ${zone}`} down`}
+                  aria-label={`Move district ${label} down`}
                   onClick={() => move(i, i + 1)}
                 >
                   <ChevronDownIcon />

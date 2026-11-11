@@ -23,9 +23,10 @@ import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {
   aliasesForCount,
   cleanZoneLabel,
-  findLabelConflict,
   uniqueZoneLabel,
   normalizeZoneOrder,
+  renumberedAliases,
+  renumberingForOrder,
   swapsToDropLastRows,
 } from '../utils/zoneLabels';
 import {MAP_TYPES} from '@constants/document/types';
@@ -812,9 +813,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       // renumbers them, which also clears it.
       const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
       const next = normalizeZoneOrder(order, numDistricts);
-      const renumber = new Map(
-        next.map((zone, i) => [zone, i + 1] as const).filter(([from, to]) => from !== to)
-      );
+      const renumber = renumberingForOrder(next);
       if (!renumber.size) return;
       const remap = (zone: number) => renumber.get(zone) ?? zone;
       // Row i keeps the color it showed.
@@ -823,24 +822,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         ...current.map(zone => scheme[zone - 1]),
         ...scheme.slice(numDistricts),
       ];
-      const zone_aliases: Record<string, string> = {};
-      Object.entries(mapDocument.map_metadata?.zone_aliases ?? {}).forEach(([zone, label]) => {
-        const to = remap(Number(zone));
-        if (label !== String(to)) zone_aliases[to] = label;
-      });
-      // A district that now shows a number another district has as its label
-      // takes the smallest free number instead, as in aliasesForCount.
-      for (let zone = 1; zone <= numDistricts; zone++) {
-        if (
-          zone in zone_aliases ||
-          findLabelConflict(zone, '', zone_aliases, numDistricts) === null
-        )
-          continue;
-        let candidate = 1;
-        while (findLabelConflict(zone, String(candidate), zone_aliases, numDistricts) !== null)
-          candidate++;
-        zone_aliases[zone] = String(candidate);
-      }
+      const zone_aliases = renumberedAliases(
+        mapDocument.map_metadata?.zone_aliases,
+        renumber,
+        numDistricts
+      );
       set({
         mapDocument: {
           ...mapDocument,
@@ -854,11 +840,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         updated: {...updated, metadata: true, comments: true},
       });
       const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
-      if (renumber.size) {
-        useMapControlsStore
-          .getState()
-          .setLockedZones(lockPaintedAreas.map(zone => (zone ? remap(zone) : zone)));
-      }
+      useMapControlsStore
+        .getState()
+        .setLockedZones(lockPaintedAreas.map(zone => (zone ? remap(zone) : zone)));
       useMapControlsStore.setState(state => ({
         focusedZones: state.focusedZones.map(remap),
         selectedZone: remap(state.selectedZone),
@@ -869,6 +853,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         .getState()
         .removeAssignmentsForZonesAbove(numDistricts, renumber, timestamp);
       useAssignmentsStore.getState().setClientLastUpdated(timestamp);
+      // Labels, colors, descriptions and locks aren't in the undo history, so
+      // undoing past the reorder would renumber the units back without them.
+      // The dialog says it can't be undone, like the district-count change.
+      temporalManager.clear(MAP_MODES.DISTRICTS);
     },
 
     editMapMetadata: patch => {

@@ -2,7 +2,8 @@ import React from 'react';
 
 /** Focus mark: corner brackets around a ring, sized and colored like a Radix
  * icon (15px, currentColor). `filled` fills the ring's center for a focused
- * district. Artwork: "Focus" by Noun Project (noun_focus_3549272). */
+ * district. Artwork: "Focus" from the Noun Project (noun_focus_3549272), used
+ * under the project's paid Noun Project license, which needs no attribution. */
 export const FocusIcon: React.FC<{filled?: boolean}> = ({filled}) => (
   <svg width="15" height="15" viewBox="200 200 800 800" fill="currentColor" aria-hidden>
     {filled ? (

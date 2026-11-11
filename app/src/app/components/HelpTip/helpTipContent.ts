@@ -134,7 +134,7 @@ export const helpTipContent = {
   },
   maxDeviation: {
     title: 'Maximum deviation',
-    text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
+    text: 'The maximum deviation is the largest deviation from the ideal population, shown as a number of people and as a percentage of the ideal population.',
   },
   // Stacked layout's Demographics accordion combines the Map Layers and Stats
   // tabs' content into one section, and keeps the original panel clip (which

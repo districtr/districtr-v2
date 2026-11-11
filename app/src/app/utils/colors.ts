@@ -210,8 +210,11 @@ function latexColorToHex(name: string): string | null {
  * - Otherwise CSS wins, so `Green` is CSS's #008000 however a phone
  *   capitalizes it, and a LaTeX name applies only when CSS doesn't know it
  *   (`BrickRed`, `brickred`).
- * - Names match however they're spaced or capitalized: `Forest green` is
- *   CSS's forestgreen, `olive green` is LaTeX's OliveGreen.
+ * - Capitalization never matters, and spacing mostly doesn't: `Forest green`
+ *   is CSS's forestgreen, `olive green` is LaTeX's OliveGreen. The exception
+ *   is 11 names that are both an xcolor name and a latexcolor.com name: the
+ *   run-together spelling gets xcolor's (`brickred` #b80000, `bluegreen`),
+ *   the spaced or hyphenated one latexcolor.com's (`brick red` #cb4154).
  */
 export function resolveColorInput(input: string): string | null {
   const color = input.trim();
