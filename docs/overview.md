@@ -30,7 +30,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   ├── requirements.txt
 │   └── app/
 │       ├── admin_ops/           # GeoPackage import + map-module compose over HTTP
-│       ├── alembic/             # Alembic DB migrations
+│       ├── alembic/             # Alembic DB migrations (sql/: old UDF definitions they replay)
 │       ├── assignments/         # Zone assignments management
 │       ├── cms/                 # Site settings (under-construction toggle)
 │       ├── contiguity/          # Geographic spatial contiguity
@@ -38,7 +38,6 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │       ├── district_notes/      # Per-district notes on a map
 │       ├── exports/             # Export data functions
 │       ├── save_share/          # Save/share and password-protected access
-│       ├── sql/                 # Legacy UDF SQL files (do not expand)
 │       ├── submissions/         # Portal form configs, submissions, moderation
 │       ├── thumbnails/          # Map thumbnail generation
 │       ├── models.py            # SQLModel/SQLAlchemy models

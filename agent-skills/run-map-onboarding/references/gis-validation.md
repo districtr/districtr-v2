@@ -42,7 +42,7 @@ ogrinfo -so my_layer.gpkg   # lists layer names; compare against the filename st
 
 ## Geometry topology for coverage operations
 
-District-union rendering (`backend/app/utils.py`) tries `ST_CoverageUnion` first — a linear-time dissolve that requires valid *coverage* topology (no overlaps, shared edges identical between adjacent polygons) — and falls back to the slower `ST_UnaryUnion` only if it errors. Source geometries with sliver overlaps or non-matching shared edges between adjacent units don't break ingestion; they just push every district-boundary render onto the slow fallback path, silently. Two checks worth running on a new source layer:
+District-union rendering (`backend/app/utils.py`) dissolves each district with `ST_UnaryUnion`. A faster `ST_CoverageUnion` dissolve would need valid *coverage* topology (no overlaps, shared edges identical between adjacent polygons), and it doesn't check that itself, so clean coverage is what would let the app switch to it. Source geometries with sliver overlaps or non-matching shared edges between adjacent units don't break ingestion today. Two checks worth running on a new source layer:
 
 ```sh
 # Self-intersections / invalid geometry (shapely, matches the app's own geometry stack)

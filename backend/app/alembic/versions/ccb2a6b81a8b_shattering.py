@@ -14,7 +14,7 @@ import app.models
 import sqlmodel.sql.sqltypes
 from pathlib import Path
 
-SQL_PATH = Path(__file__).parent.parent.parent / "sql"
+SQL_PATH = Path(__file__).parent.parent / "sql"
 
 
 # revision identifiers, used by Alembic.

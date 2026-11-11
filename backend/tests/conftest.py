@@ -902,6 +902,15 @@ def _vtd_geoid(pr: int, pc: int) -> str:
 
 
 @pytest.fixture(autouse=True)
+def _empty_layer_totals_cache():
+    """Start every test with no cached layer totals (app.utils.layer_totals),
+    so one test's totals can't hide another's bug."""
+    from app.utils import _LAYER_TOTALS
+
+    _LAYER_TOTALS.clear()
+
+
+@pytest.fixture(autouse=True)
 def _isolated_graph_disk_cache(tmp_path_factory):
     """Point the shared mmap graph cache at a fresh temp dir per test.
 

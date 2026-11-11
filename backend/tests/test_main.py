@@ -2,7 +2,7 @@ import pytest
 from sqlmodel import Session, select
 from app.core.db import get_session
 from app.constants import GERRY_DB_SCHEMA
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 import subprocess
 import threading
 import time
@@ -11,6 +11,7 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
+    TEARDOWN_TEST_DB,
 )
 from app.utils import create_districtr_map, create_map_group
 from app.evaluation.context import (
@@ -25,7 +26,7 @@ from fastapi import BackgroundTasks
 import app.evaluation.main as evaluation_main
 from unittest.mock import MagicMock
 from app.evaluation.models import Evaluation
-from app.models import Document
+from app.models import Document, UUIDType
 from app.evaluation.registry import (
     Metric,
     CURRENT_PAYLOAD_VERSION,
@@ -1738,6 +1739,129 @@ def test_district_unions_dirty_zone_eviction(client, document_id_total_vap):
     }
     assert set(after.keys()) == {2, 3}
     assert after[2] == initial[2], "zone 2 was not touched; its cache row must survive"
+
+
+def _trap_geometry_reads(session, layer, paths):
+    """Swap gerrydb `layer` for a same-named view whose geometry raises when
+    read for any of `paths`. Postgres computes the CASE only for rows that
+    reach it, so the view catches a query that fetches those units' geometry.
+    ST_GeomFromText is immutable, so the view stays inlinable; it raises
+    because a path isn't WKT. Undone by the test's rollback (rollback_session).
+    """
+    columns = session.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'gerrydb' AND table_name = :t "
+            "ORDER BY ordinal_position"
+        ),
+        {"t": layer},
+    ).scalars()
+    listed = ", ".join(f"'{p}'" for p in paths)
+    select_list = ", ".join(
+        f"CASE WHEN path IN ({listed}) THEN ST_GeomFromText(path) "
+        "ELSE geometry END AS geometry"
+        if c == "geometry"
+        else f'"{c}"'
+        for c in columns
+    )
+    session.execute(text(f'ALTER TABLE gerrydb."{layer}" RENAME TO "{layer}_real"'))
+    session.execute(
+        text(
+            f'CREATE VIEW gerrydb."{layer}" AS '
+            f'SELECT {select_list} FROM gerrydb."{layer}_real"'
+        )
+    )
+
+
+def _stats_by_zone(client, document_id):
+    response = client.get(f"/api/document/{document_id}/stats")
+    assert response.status_code == 200
+    return {
+        f["properties"]["zone"]: f["properties"]["demographic_data"]
+        for f in response.json()["features"]
+    }
+
+
+@pytest.mark.skipif(not TEARDOWN_TEST_DB, reason="swaps a layer for a view")
+def test_district_unions_rebuild_reads_only_changed_zones(
+    client, session, document_id_total_vap
+):
+    """A rebuild fetches only the units of the zones it redraws."""
+    zone_1_geo, zone_2_geo = "202090441022004", "200979691001108"
+
+    def put(assignments):
+        response = client.put(
+            "/api/assignments",
+            json={
+                "document_id": document_id_total_vap,
+                "assignments": assignments,
+                "last_updated_at": datetime.now().astimezone().isoformat(),
+                "overwrite": True,
+            },
+        )
+        assert response.status_code == 200
+
+    put([[zone_1_geo, 1], [zone_2_geo, 2]])
+    _stats_by_zone(client, document_id_total_vap)
+    put([[zone_1_geo, 3], [zone_2_geo, 2]])  # zone 2 stays cached
+
+    layer = session.execute(
+        text(
+            "SELECT m.parent_layer FROM document.document d "
+            "JOIN districtrmap m USING (districtr_map_slug) "
+            "WHERE d.document_id = :id"
+        ),
+        {"id": document_id_total_vap},
+    ).scalar_one()
+    _trap_geometry_reads(session, layer, [zone_2_geo])
+    session.commit()
+
+    assert set(_stats_by_zone(client, document_id_total_vap)) == {2, 3, None}
+
+
+@pytest.mark.skipif(not TEARDOWN_TEST_DB, reason="swaps layers for views")
+def test_district_unions_shatterable_rebuild_reads_only_changed_zones(
+    client, session, simple_shatterable_districtr_map
+):
+    """On a shattered map, a rebuild reads parent and child units of the
+    zones it redraws, and nothing of the others."""
+    response = client.post(
+        "/api/create_document", json={"districtr_map_slug": "simple_geos"}
+    )
+    assert response.status_code == 201
+    document_id = response.json()["document_id"]
+    # Zone 1 mixes a parent (A, 600) with a child of the shattered B (b, 200).
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": [
+                ["vtd:000010000001", 1],
+                ["000010000000002", 1],
+                ["000010000000003", 2],
+                ["000010000000004", 2],
+                ["vtd:000010000003", 3],
+            ],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    before = _stats_by_zone(client, document_id)
+    assert [before[z]["total_pop_20"] for z in (1, 2, 3)] == [800, 700, 600]
+
+    session.execute(
+        text(
+            "DELETE FROM document.district_unions "
+            "WHERE document_id = :d AND (zone = 1 OR zone IS NULL)"
+        ).bindparams(bindparam("d", type_=UUIDType)),
+        {"d": document_id},
+    )
+    _trap_geometry_reads(session, "simple_parent_geos", ["vtd:000010000003"])
+    _trap_geometry_reads(session, "simple_child_geos", ["000010000000003"])
+    session.commit()
+
+    after = _stats_by_zone(client, document_id)
+    assert after == before
 
 
 @pytest.fixture
