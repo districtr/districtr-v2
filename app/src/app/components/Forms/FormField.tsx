@@ -66,7 +66,7 @@ export function FormField({
   };
   return (
     <Tooltip
-      content={invalidMessage ?? `${required ? 'Required: ' : ''}${invalid ? 'Invalid Entry' : ''}`}
+      content={invalidMessage ?? 'Required: enter a valid value'}
       open={required && invalid && highlightErrors}
       alignOffset={0}
     >

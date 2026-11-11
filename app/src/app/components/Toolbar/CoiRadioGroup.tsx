@@ -113,7 +113,7 @@ const CoiRadioRow: React.FC<{
           </Tooltip>
         </Box>
         {!isReadOnly && (
-          <Tooltip content="Edit community name, description, and map color">
+          <Tooltip content="Edit name, description, and color">
             <IconButton
               size="1"
               variant="ghost"
@@ -129,7 +129,7 @@ const CoiRadioRow: React.FC<{
           </Tooltip>
         )}
         <IconButton size="1" variant="ghost" onClick={onToggleVisibility} disabled={isSelected}>
-          <Tooltip content={isVisible ? 'Show community' : 'Hide community'}>
+          <Tooltip content={isVisible ? 'Hide community' : 'Show community'}>
             {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
           </Tooltip>
         </IconButton>
