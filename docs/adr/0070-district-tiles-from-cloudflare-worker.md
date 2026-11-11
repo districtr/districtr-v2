@@ -16,7 +16,7 @@ CloudFront cost about $234 a month against a budget of $10–15. It charges by b
 
 District tilesets, the archives a map's `tiles_s3_path` names, are served by `tiles-worker/`: a Cloudflare Worker that reads the same PMTiles archives from an R2 bucket and answers one `z/x/y` URL per tile, behind Workers Cache. Cloudflare charges per request and nothing for bytes. The Worker's hostnames are under `districtr.org` (`1.tilesets.districtr.org` for production), reached through one CNAME each, with the shared `workers.dev` hostname off. The pipeline writes every district archive to S3 and to R2 under one key.
 
-Every map with a child layer has a second archive holding its parent layer alone, at the combined archive's key ending in `.parent.pmtiles`. `BlockSource` starts the map's source on it and changes the source's URL to the combined archive once the plan has a shattered parent. The source id, its layers and feature-state stay as they are.
+Every map with a child layer has a second archive holding its parent layer alone, at the combined archive's key ending in `.parent.pmtiles`. `BlockSource` starts the map's source on it and changes the source's URL to the combined archive once the Break tool is selected or the plan has a shattered parent. The source id, its layers and feature-state stay as they are.
 
 Each stack turns the two on separately, through the repo variables `TILES_WORKER_URL_*` and `TILES_SPLIT_*`, which the app build bakes in. With both empty, the app reads PMTiles from the CDN as in 0008. The basemap, the county layer, Parquet and every other object stay on S3 and CloudFront.
 
@@ -30,7 +30,7 @@ Each stack turns the two on separately, through the repo variables `TILES_WORKER
 
 The CDN bill falls to about $27 a month: roughly $6 for the Worker and $20 of CloudFront request charges for what stays there. In the benchmark's TX session on a home-connection profile, the Worker with the split took 58% less time and 62% fewer bytes than the CDN path (1.5 s and 4.2 MB against 3.7 s and 11.0 MB).
 
-A map whose archive is missing from R2, or whose parent-only archive is missing, draws blank once its stack is switched over, so onboarding writes both stores and both archives (`run-map-onboarding`, step 3). Cloudflare and browsers cache a tile for a day, so a rebuilt tileset gets a new key. The first shatter in a plan downloads the block tiles in view before its blocks appear.
+A map whose archive is missing from R2, or whose parent-only archive is missing, draws blank once its stack is switched over, so onboarding writes both stores and both archives (`run-map-onboarding`, step 3). Cloudflare and browsers cache a tile for a day, so a rebuilt tileset gets a new key. Selecting the Break tool downloads the block tiles in view, and a shatter keeps the map locked until they are there.
 
 The tile settings are part of the frontend image tag, since a change to them needs a new build of the same commit. Clearing the variables returns a stack to the CDN path; the S3 archives stay in place for that.
 

@@ -18,6 +18,7 @@ import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
+import {blockTilesReady, requestBlockTiles} from '@utils/map/blockTiles';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {
@@ -98,6 +99,8 @@ const deduplicateCommentsByZone = (
 };
 
 const MISSING_DESCRIPTION_COMMENT_INDEX = -1;
+// How long a shatter waits for the block tiles before it gives up and says so.
+const BLOCK_TILES_TIMEOUT_MS = 20_000;
 const trimCommentText = (text?: string | null) => (text ?? '').trim();
 
 const syncCommunityDescriptionComment = ({
@@ -1299,6 +1302,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
       temporalManager.pause(mapMode);
       setMapLock({isLocked: true, reason: 'Breaking districts'});
+      // The blocks come from the combined archive. The lock holds until its tiles are in
+      // view, since a unit shattered before that draws as an empty hole.
+      requestBlockTiles(mapDocument);
+      const blockTilesLoaded = Promise.race([
+        blockTilesReady().then(() => true),
+        new Promise<boolean>(resolve => setTimeout(() => resolve(false), BLOCK_TILES_TIMEOUT_MS)),
+      ]);
       // set BLOCK_LAYER_ID based on features[0] to focused true
 
       const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
@@ -1309,7 +1319,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         console.error(err);
         return undefined;
       });
-      if (!edgesResult?.length) {
+      const failure = !edgesResult?.length
+        ? 'no-children'
+        : !(await blockTilesLoaded)
+          ? 'no-block-tiles'
+          : null;
+      if (!edgesResult?.length || failure) {
         setMapLock(null);
         temporalManager.resume(mapMode);
         set({
@@ -1317,7 +1332,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
             importance: 2,
             type: 'error',
             message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-            id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
+            id: `break-patchShatter-${failure}-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
         });
         return;
