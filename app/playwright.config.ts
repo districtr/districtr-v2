@@ -67,14 +67,27 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // WebMCP (document.modelContext) is enabled so specs can call the map
+    // editor's tools via page.webmcp; see e2e/utils/webmcp.ts.
     {
       name: 'chromium',
-      use: {...devices['Desktop Chrome']},
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {args: ['--enable-features=WebMCP']},
+      },
     },
 
     {
       name: 'firefox',
-      use: {...devices['Desktop Firefox']},
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: {
+          firefoxUserPrefs: {
+            'dom.modelcontext.enabled': true,
+            'dom.modelcontext.testing.enabled': true,
+          },
+        },
+      },
     },
 
     // { // The webkit engine fails on basic tasks due to speed issues -- excluding for now.
