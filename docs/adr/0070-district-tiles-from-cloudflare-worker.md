@@ -28,7 +28,7 @@ Each stack turns the two on separately, through the repo variables `TILES_WORKER
 
 ## Consequences
 
-The CDN bill falls to about $27 a month: roughly $6 for the Worker and $20 of CloudFront request charges for what stays there. In the benchmark's TX session, the Worker with the split took 62% less time and 65% fewer bytes than the CDN path.
+The CDN bill falls to about $27 a month: roughly $6 for the Worker and $20 of CloudFront request charges for what stays there. In the benchmark's TX session on a home-connection profile, the Worker with the split took 58% less time and 62% fewer bytes than the CDN path (1.5 s and 4.2 MB against 3.7 s and 11.0 MB).
 
 A map whose archive is missing from R2, or whose parent-only archive is missing, draws blank once its stack is switched over, so onboarding writes both stores and both archives (`run-map-onboarding`, step 3). Cloudflare and browsers cache a tile for a day, so a rebuilt tileset gets a new key. The first shatter in a plan downloads the block tiles in view before its blocks appear.
 
