@@ -11,8 +11,9 @@
   // Serves repeat requests without running the Worker; billed per request either way.
   "cache": {"enabled": true},
   "r2_buckets": [{"binding": "BUCKET", "bucket_name": "districtr-tilesets"}],
-  // Cache misses per client address, per minute, in each Cloudflare location. A map view
-  // is a few dozen tiles, so 3,000 leaves room for a classroom behind one address.
+  // Cache misses per client (an IPv4 address or an IPv6 /64), per minute, in each
+  // Cloudflare location. A map view is a few dozen tiles, so 3,000 leaves room for a
+  // classroom behind one address.
   "ratelimits": [{"name": "MISS_LIMITER", "namespace_id": "1001", "simple": {"limit": 3000, "period": 60}}],
   // Logs and traces come from Worker runs only, which means cache misses.
   "observability": {"enabled": true, "traces": {"enabled": true, "head_sampling_rate": 0.05}},

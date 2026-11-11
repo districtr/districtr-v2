@@ -16,7 +16,7 @@ Anything else gets a 404, including query strings and non-GET requests, since Wo
 
 A combined tile is about 90% block geometry, and the map draws blocks only inside shattered parents. So every map with a child layer has a second archive beside the combined one, holding the parent layer alone, under the same key ending in `.parent.pmtiles` (`parentTilesPath` in the app).
 
-With `NEXT_PUBLIC_TILES_SPLIT=true`, the map's source starts on the parent-only archive. It switches to the combined archive at the first shatter, or when a plan opens with shattered parents, and stays there. The switch changes the source's URL in place, so the layers and feature-state carry over.
+With `NEXT_PUBLIC_TILES_SPLIT=true`, the map's source starts on the parent-only archive. It switches to the combined archive when the Break tool is selected, or when a plan opens with shattered parents, and stays there. The switch changes the source's URL in place, so the layers and feature-state carry over. A shatter keeps the map locked until the combined tiles are in view, so its blocks are there when the lock lifts (`utils/map/blockTiles.ts`).
 
 The child layers stay on the source the whole time. MapLibre reports an error for each style layer whose source-layer the TileJSON's `vector_layers` leaves out, so the Worker's TileJSON omits the list.
 
@@ -24,7 +24,7 @@ The child layers stay on the source the whole time. MapLibre reports an error fo
 
 Workers Cache (`cache` in `wrangler.jsonc`) answers repeat requests without running the Worker. Every request is billed, cached or not: $5/month covers 10M, then $0.30 per million. Tiles are cached for one day, by Cloudflare and by browsers. The cache key includes the Worker version, so a deploy purges Cloudflare's copy. Browsers can keep old tiles for up to a day after that, which is why a rebuilt tileset gets a new key.
 
-Only cache misses run the Worker, and each one reads R2. A rate limit (`MISS_LIMITER` in `wrangler.jsonc`) answers 429 past 3,000 misses a minute from one client address in one Cloudflare location. A Cloudflare billing notification on the account covers what the limit lets through.
+Only cache misses run the Worker, and each one reads R2. A rate limit (`MISS_LIMITER` in `wrangler.jsonc`) answers 429 past 3,000 misses a minute from one client, counted by IPv4 address or IPv6 /64, in one Cloudflare location. It slows a single client's misses. Cache hits are billed too and pass it uncounted, so the guard on the total bill is a Cloudflare billing notification on the account.
 
 ## Settings
 
@@ -69,12 +69,13 @@ Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in
 
 1. Use a Cloudflare account on Workers Paid. At about 14M requests a month, the free plan's daily cap is too small.
 2. Create the bucket: `bunx wrangler r2 bucket create districtr-tilesets`.
-3. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's about 10 GB, or under $1 of S3 egress.
-4. Deploy both Workers once by hand: `bun run deploy:dev` and `bun run deploy:prod`. A Worker has no address until its route exists. From the merge on, CI deploys both.
-5. Set up the hostnames (next section), which route to the two Workers.
-6. Check each hostname twice: `bun run check https://dev.tilesets.districtr.org`. The second run reports every tile as served from Cloudflare's cache.
-7. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
-8. Switch each stack over with its [settings](#settings): the Worker URL first, then the split.
+3. Build the [parent-only archive](#parent-only-archives) of every existing map with a child layer, and upload each to S3 beside its combined archive. The list is every distinct `tiles_s3_path` in `districtrmap` that has a `child_layer`, hidden maps included, since their plans still open. For each one: `tile-join --no-tile-size-limit -o <name>.parent.pmtiles -l <parent_layer> <name>.pmtiles`. Take the layer name from the record: a mistyped name writes an empty archive and still exits with success. Check that each output lists that one layer and holds tiles.
+4. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's about 10 GB, or under $1 of S3 egress.
+5. Deploy both Workers once by hand: `bun run deploy:dev` and `bun run deploy:prod`. A Worker has no address until its route exists. From the merge on, CI deploys both.
+6. Set up the hostnames (next section), which route to the two Workers.
+7. Check each hostname twice: `bun run check https://dev.tilesets.districtr.org`. The second run reports every tile as served from Cloudflare's cache.
+8. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
+9. Switch each stack over with its [settings](#settings): the Worker URL first, then the split. Before each switch, confirm that R2 holds the archive of every map in `districtrmap`, and before the split, the parent-only archive of every map with a child layer. A map whose archive is missing draws blank.
 
 ## Hostnames
 

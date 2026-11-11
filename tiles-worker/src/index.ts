@@ -69,6 +69,23 @@ function respond(body: BodyInit | null, headers: Record<string, string>, status 
 
 const notFound = () => respond('Not found', {'Cache-Control': 'no-store'}, 404);
 
+// The rate limit's key for a client. One network holds 2^64 IPv6 addresses, so an IPv6
+// client counts by its /64; an IPv4 client counts by its address.
+function clientKey(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  const [head, tail] = ip.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right];
+  return `${groups
+    .slice(0, 4)
+    .map(group => parseInt(group, 16).toString(16))
+    .join(':')}::/64`;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -82,10 +99,10 @@ export default {
     if (!match || !cacheable) return notFound();
     const [, key, z, x, y] = match;
     // Workers Cache answers repeat requests, so a request that gets here is a cache miss
-    // about to read R2. The limit (wrangler.jsonc) counts per client address in each
-    // Cloudflare location: far above a classroom sharing one address, and a ceiling on
-    // what a scripted client can cost.
-    const client = request.headers.get('CF-Connecting-IP') ?? '';
+    // about to read R2. The limit (wrangler.jsonc) counts those per client in each
+    // Cloudflare location, far above a classroom sharing one address. It slows one
+    // client's misses; the account's billing notification watches the total (README).
+    const client = clientKey(request.headers.get('CF-Connecting-IP') ?? '');
     if (!(await env.MISS_LIMITER.limit({key: client})).success) {
       return respond('Too many requests', {'Cache-Control': 'no-store', 'Retry-After': '60'}, 429);
     }
