@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy:dev": "wrangler deploy --env=dev",
+    "deploy:prod": "wrangler deploy --env=\"\"",
     "types": "wrangler types",
     "typecheck": "wrangler types && tsc --noEmit",
     "check": "bun check.ts"

@@ -70,10 +70,11 @@ Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in
 1. Use a Cloudflare account on Workers Paid. At about 14M requests a month, the free plan's daily cap is too small.
 2. Create the bucket: `bunx wrangler r2 bucket create districtr-tilesets`.
 3. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's about 10 GB, or under $1 of S3 egress.
-4. Set up the hostnames (next section).
-5. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
-6. Deploy the dev Worker once by hand, `bun run deploy:dev`, then check it twice. The second run is served from cache: `bun run check https://dev.tilesets.districtr.org`. From the merge on, CI deploys both Workers.
-7. Switch each stack over with its [settings](#settings): the Worker URL first, then the split.
+4. Deploy both Workers once by hand: `bun run deploy:dev` and `bun run deploy:prod`. A Worker has no address until its route exists. From the merge on, CI deploys both.
+5. Set up the hostnames (next section), which route to the two Workers.
+6. Check each hostname twice: `bun run check https://dev.tilesets.districtr.org`. The second run reports every tile as served from Cloudflare's cache.
+7. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
+8. Switch each stack over with its [settings](#settings): the Worker URL first, then the split.
 
 ## Hostnames
 
@@ -89,6 +90,6 @@ Production serves `1.tilesets.districtr.org` and dev serves `dev.tilesets.distri
    - Add two Workers routes on the zone: `1.tilesets.districtr.org/*` to `districtr-tiles`, and `dev.tilesets.districtr.org/*` to `districtr-tiles-dev`.
 3. **Add the custom hostnames** `1.tilesets.districtr.org` and `dev.tilesets.districtr.org` under SSL/TLS → Custom Hostnames.
 4. **In Netlify DNS, add one CNAME per name**: `1.tilesets` → `origin.<tiles zone>`, and the same for `dev.tilesets`. That's the only change to `districtr.org`. Cloudflare then checks each hostname and issues its certificate over HTTP, so the zone needs no TXT records. `districtr.org` has no CAA records, so any CA can issue the certificate.
-5. **Check it** with `bun run check https://dev.tilesets.districtr.org`. Its TileJSON check also confirms the Worker sees the custom hostname.
+5. **Check it** with `bun run check https://dev.tilesets.districtr.org`, and the same for `1.tilesets`. Its TileJSON check also confirms the Worker sees the custom hostname.
 
 Skipping the CNAMEs works too: attach each Worker as a custom domain on the tiles zone itself, such as `1.tiles.<tiles zone>`. That leaves `districtr.org` untouched, with the names outside it.

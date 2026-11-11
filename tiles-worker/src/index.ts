@@ -122,7 +122,10 @@ export default {
       });
     } catch (e) {
       if (e instanceof NotFound) return notFound();
-      throw e;
+      // Answered through respond(), so the browser shows the status. A thrown error
+      // reaches it as a response lacking the CORS header.
+      console.error(e);
+      return respond('Internal error', {'Cache-Control': 'no-store'}, 500);
     }
   },
 } satisfies ExportedHandler<Env>;

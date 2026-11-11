@@ -41,6 +41,7 @@ const tileAt = (z: number, lon: number, lat: number): [number, number] => {
 };
 
 let compared = 0;
+let cacheHits = 0;
 for (let z = header.minZoom; z <= header.maxZoom; z++) {
   const [cx, cy] = tileAt(z, header.centerLon, header.centerLat);
   for (const [x, y] of [
@@ -63,6 +64,7 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
       `${z}/${x}/${y}: bytes differ`
     );
     compared++;
+    if (resp.headers.get('cf-cache-status') === 'HIT') cacheHits++;
   }
 }
 assert(compared > 0, 'no tiles compared');
@@ -80,4 +82,8 @@ assert((await status(`${tile}?bust=1`)) === 404, 'query string should 404');
 assert((await status(tile, {method: 'POST'})) === 404, 'POST should 404');
 assert((await status(tile.replace(`/${cx}/`, `/0${cx}/`))) === 404, 'padded x should 404');
 assert((await status(`${key}/27/0/0.mvt`)) === 404, 'z > 26 should 404');
-console.log(`ok: ${compared} tiles match across z${header.minZoom}-${header.maxZoom} for ${key}`);
+// Against a deployed Worker, a second run should report every tile as a cache hit.
+console.log(
+  `ok: ${compared} tiles match across z${header.minZoom}-${header.maxZoom} for ${key}` +
+    ` (${cacheHits} served from Cloudflare's cache)`
+);
