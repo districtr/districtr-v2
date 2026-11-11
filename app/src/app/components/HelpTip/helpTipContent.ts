@@ -110,8 +110,8 @@ export const helpTipContent = {
     guideAnchor: 'population',
   },
   districtPin: {
-    title: 'Focusing on districts',
-    text: 'Focus on this district. The district tables show only focused districts until you remove focus or choose Show all.',
+    title: 'Pinning districts',
+    text: 'Pin: the district tables show only pinned districts until you unpin them or choose Show all.',
   },
   idealPopulation: {
     title: 'Ideal population',
@@ -128,7 +128,7 @@ export const helpTipContent = {
   },
   maxDeviation: {
     title: 'Maximum deviation',
-    text: 'Maximum deviation is the largest gap between any district and the ideal population, as a percentage of the ideal or a number of people.',
+    text: 'The maximum deviation is the largest deviation from the ideal population. You can use either a percentage of the ideal population, or a fixed number of people.',
   },
   // Stacked layout's Demographics accordion combines the Map Layers and Stats
   // tabs' content into one section, and keeps the original panel clip (which

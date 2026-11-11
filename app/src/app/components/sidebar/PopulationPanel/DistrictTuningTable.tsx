@@ -133,7 +133,7 @@ export const DistrictTuningTable: React.FC<{
               {showRowIcons && (
                 <>
                   <Table.ColumnHeaderCell>
-                    <span className="sr-only">Focus</span>
+                    <span className="sr-only">Pin</span>
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>
                     <span className="sr-only">Description</span>
@@ -225,7 +225,7 @@ export const DistrictTuningTable: React.FC<{
                           {stale && <span className="sr-only">, as of the last save</span>}
                         </Text>
                         {pieces > 1 && (
-                          <Tooltip content="Zoom to a stray piece">
+                          <Tooltip content="Zoom to a piece other than the largest">
                             <IconButton
                               variant="ghost"
                               size="1"
