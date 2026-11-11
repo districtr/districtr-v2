@@ -54,6 +54,31 @@ def test_create_all_adds_parent_only_archive_for_a_map_with_children(monkeypatch
     }
 
 
+@pytest.mark.parametrize("replace", [False, True])
+def test_create_all_passes_replace_to_the_merge(monkeypatch, replace):
+    """A rebuild merges the fresh parent and child tiles; a combined file left in
+    the scratch folder by an earlier run is reused only when replace is off."""
+    merges = []
+    monkeypatch.setattr(
+        GerryDBTileset, "generate_tiles", lambda self, replace: f"{self.layer_name}.pm"
+    )
+    monkeypatch.setattr(
+        GerryDBTileset, "generate_points", lambda self, replace: f"{self.layer_name}.pq"
+    )
+    monkeypatch.setattr(
+        "tilesets.models.merge_tilesets",
+        lambda **kwargs: merges.append(kwargs) or "merged.pm",
+    )
+    parent = GerryDBTileset(gpkg="x.gpkg", layer_name="wy_vtd", new_layer_name=None)
+    child = GerryDBTileset(gpkg="x.gpkg", layer_name="wy_block", new_layer_name=None)
+
+    TilesetBatch(name="test", tilesets={"wy_view": (parent, child)}).create_all(
+        replace=replace
+    )
+
+    assert [m["replace"] for m in merges] == [replace]
+
+
 @pytest.mark.parametrize("r2_bucket", [None, "r2-bucket"])
 def test_upload_results_copies_only_pmtiles_to_r2(monkeypatch, r2_bucket):
     """tiles-worker/ reads district tilesets from R2 under the S3 key; the
@@ -77,6 +102,22 @@ def test_upload_results_copies_only_pmtiles_to_r2(monkeypatch, r2_bucket):
         )
     else:
         r2.upload_file.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "missing", ["R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
+)
+def test_get_r2_client_refuses_one_missing_setting(missing):
+    """With R2_BUCKET set, each of the other three settings is required."""
+    config = {
+        "R2_BUCKET": "b",
+        "R2_ENDPOINT": "https://account.r2.cloudflarestorage.com",
+        "R2_ACCESS_KEY_ID": "k",
+        "R2_SECRET_ACCESS_KEY": "s",
+        missing: None,
+    }
+    with pytest.raises(ValueError):
+        Settings(**config).get_r2_client()
 
 
 def test_get_r2_client_refuses_partial_config():

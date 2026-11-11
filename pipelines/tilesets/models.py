@@ -219,6 +219,7 @@ class TilesetBatch(Config):
                 parent_layer=out_parent_tiles,
                 child_layer=out_child_tiles,
                 out_name=k,
+                replace=replace,
             )
             self.add_result(result, f"{S3_TILESETS_PREFIX}/{k}.pmtiles")
             # The app's source starts on the parent tiles alone and loads the
