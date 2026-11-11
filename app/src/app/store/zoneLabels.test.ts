@@ -166,3 +166,21 @@ describe('reorderZones', () => {
     expect(writeIdb).not.toHaveBeenCalled();
   });
 });
+
+describe('handleReset', () => {
+  test('clears district labels and the undo history', async () => {
+    useMapStore.setState({mapDocument: doc({zone_aliases: {'1': 'North'}, zone_order: [2, 1]})});
+    spyOn(globalThis, 'fetch').mockImplementation(
+      async () => new Response(JSON.stringify({message: 'ok', document_id: 'd1'}))
+    );
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 1]]), clientLastUpdated: 't1'});
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 2]]), clientLastUpdated: 't2'});
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBeGreaterThan(0);
+
+    await useMapStore.getState().handleReset();
+    expect(aliases()).toEqual({});
+    expect(order()).toBeNull();
+    expect(useMapStore.getState().updated.metadata).toBe(true);
+    expect(useAssignmentsStore.temporal.getState().pastStates).toEqual([]);
+  });
+});

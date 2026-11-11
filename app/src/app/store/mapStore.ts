@@ -1512,6 +1512,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
         resetZoneAssignments();
         resetShatterState();
+        // District labels go with the painting; they save like any label edit.
+        get().editMapMetadata({zone_aliases: {}, zone_order: null});
+        // Undo would bring back the painting the server just deleted.
+        temporalManager.clear(MAP_MODES.DISTRICTS);
 
         set({
           appLoadingState: APP_LOADING_STATES.LOADED,

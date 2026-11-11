@@ -250,8 +250,8 @@ export const MapActionsDropdown: React.FC<{
             </DropdownMenu.SubTrigger>
             <DropdownMenu.SubContent>
               <Text size="2" className="w-[50vw] max-w-60 p-3">
-                Are you sure? This will reset all zone assignments and broken geographies.{' '}
-                <b>Resetting your map cannot be undone.</b>
+                Are you sure? This will reset all zone assignments, broken geographies and district
+                labels. <b>Resetting your map cannot be undone.</b>
               </Text>
               <DropdownMenu.Item onClick={handleReset} color="red">
                 Reset map
