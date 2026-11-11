@@ -136,7 +136,7 @@ IndexedDB serves as offline cache and conflict resolution source. Debounced writ
 
 - Schema isolation: `public` for maps/references, `document` schema for document-specific tables, `comments` for submissions and district notes. The Wagtail CMS owns the `admin` schema through Django migrations.
 - `document.assignments` and `document.community_assignments` are **plain tables**; the schema has no partitioned tables.
-- `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
+- `document.district_unions` — per-zone cached geometry + demographic totals, rebuilt lazily on cache miss. Only zones whose membership changed on a save are evicted and rebuilt. The nightly pass also evicts every row of plans not built or read for two weeks (ADR 0069). `zone` and `geometry` are nullable to store an unassigned-totals row (zone = NULL).
 - `document.document` carries two staleness timestamps: `assignments_updated_at` (bumped when zone membership changes) and `stats_published_at` (stamped when the CDN object is published). `/stats` redirects public reads to S3 when `stats_published_at ≥ assignments_updated_at`.
 - `DistrictUnionsResponse.geometry` is `dict | None` — native JSON emitted by `ST_AsGeoJSON(…)::json`, not a serialized string.
 - PostGIS geometry columns for spatial queries

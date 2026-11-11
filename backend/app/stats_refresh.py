@@ -6,6 +6,10 @@ saving big plans at once doesn't stack spatial unions on the database.
 Viewing, exporting or evaluating a plan still rebuilds its missing districts
 on demand.
 
+The same pass then evicts district_unions rows of plans untouched for two
+weeks (ADR 0069), up to DISTRICT_UNIONS_EVICT_GB_PER_NIGHT, to keep the table
+small.
+
 To run a pass by hand (after a deploy lands in the window, say):
 `python cli.py refresh-stale-stats`.
 """
@@ -41,6 +45,8 @@ LOOKBACK = timedelta(days=2) + IDLE
 # evaluation locks hash document_id over the whole bigint range; a collision
 # there is ~2^-64 and would only delay one evaluation.
 LOCK_KEY = -734817263
+EVICT_AFTER = timedelta(days=14)
+EVICT_BATCH = 500  # plans per DELETE, to stay well under statement_timeout
 
 
 def stale_idle_plans(
@@ -70,6 +76,52 @@ def stale_idle_plans(
     else:
         query = query.where(Document.assignments_updated_at > now - LOOKBACK)
     return list(session.exec(query.order_by(Document.assignments_updated_at)).all())
+
+
+def evict_old_district_unions(max_bytes: float | None = None) -> tuple[int, int]:
+    """Delete the cached district_unions rows of plans whose cache and
+    assignments are both older than EVICT_AFTER, oldest first, until about
+    max_bytes of stored geometry is gone (default: the
+    DISTRICT_UNIONS_EVICT_GB_PER_NIGHT setting; 0 evicts nothing). Whole plans
+    only: thumbnails read the table as-is, so a partly evicted plan would draw
+    with districts missing. Returns (rows, geometry bytes) deleted."""
+    if max_bytes is None:
+        max_bytes = settings.DISTRICT_UNIONS_EVICT_GB_PER_NIGHT * 1e9
+    # The cost is deleting the stored geometry, not finding the plans: each
+    # deleted byte writes about a byte of WAL, which is what max_bytes bounds.
+    # pg_column_size reads the stored size without fetching the geometry.
+    evict = text(
+        """
+        WITH old AS (
+            SELECT du.document_id
+            FROM document.district_unions du
+            JOIN document.document d USING (document_id)
+            GROUP BY du.document_id, d.assignments_updated_at
+            HAVING greatest(max(du.updated_at), d.assignments_updated_at)
+                < now() - :age
+            ORDER BY greatest(max(du.updated_at), d.assignments_updated_at)
+            LIMIT :batch
+        ), gone AS (
+            DELETE FROM document.district_unions
+            WHERE document_id IN (SELECT document_id FROM old)
+            RETURNING pg_column_size(geometry) AS bytes
+        )
+        SELECT count(*), coalesce(sum(bytes), 0) FROM gone
+        """
+    )
+    rows = nbytes = 0
+    # Overshoots max_bytes by at most one batch.
+    while nbytes < max_bytes:
+        with Session(engine) as session:
+            n, b = session.execute(
+                evict, {"age": EVICT_AFTER, "batch": EVICT_BATCH}
+            ).one()
+            session.commit()
+        if not n:
+            break
+        rows += n
+        nbytes += b
+    return rows, nbytes
 
 
 def _safe_reason(e: Exception) -> str:
@@ -137,19 +189,36 @@ def refresh_stale_plans(spread_seconds: float = SPREAD_SECONDS) -> int:
                         public_id,
                         _safe_reason(e),
                     )
+            elapsed = monotonic() - start
+            # After the publishes: a plan just republished has fresh rows and
+            # is kept.
+            evict_failed = False
+            try:
+                evict_start = monotonic()
+                rows, nbytes = evict_old_district_unions()
+                logger.info(
+                    "District unions eviction: %s rows, %.0f MB in %.0f s",
+                    rows,
+                    nbytes / 1e6,
+                    monotonic() - evict_start,
+                )
+            except Exception as e:
+                evict_failed = True
+                logger.error("District unions eviction failed: %s", _safe_reason(e))
             left = len(plans) - published - skipped - failed
-            # ERROR (a Sentry event) when a plan failed or the run ran out of
-            # time, so a plan that fails every night or a backlog that never
-            # finishes gets noticed.
+            # ERROR (a Sentry event) when a plan failed, the run ran out of
+            # time or the eviction failed, so a plan that fails every night
+            # or a backlog that never finishes gets noticed.
             logger.log(
-                logging.ERROR if failed or left else logging.INFO,
+                logging.ERROR if failed or left or evict_failed else logging.INFO,
                 "Nightly stats refresh: published %s, skipped %s, failed %s, "
-                "left for tomorrow %s, in %.0f s",
+                "left for tomorrow %s, in %.0f s%s",
                 published,
                 skipped,
                 failed,
                 left,
-                monotonic() - start,
+                elapsed,
+                "; eviction failed" if evict_failed else "",
             )
             return published
         finally:
