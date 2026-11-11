@@ -40,8 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       WRANGLER_ENV: ${{ github.ref_name == 'dev' && 'dev' || '' }}
-      # The hostname the app reads tiles from; empty until that stack is switched over.
-      WORKER_URL: ${{ github.ref_name == 'dev' && vars.TILES_WORKER_URL_DEV || vars.TILES_WORKER_URL_PROD }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -54,7 +52,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler deploy --env="$WRANGLER_ENV"
       # A deploy empties Cloudflare's cache for the Worker, so this reads R2 through the
-      # new version and compares the tiles byte for byte with the CDN's.
+      # new version and compares the tiles byte for byte with the CDN's. The hostname is
+      # the one this stack's app reads tiles from, empty until the stack is switched over.
       - name: Check tiles against the CDN
-        if: env.WORKER_URL != ''
-        run: bun run check "$WORKER_URL"
+        env:
+          WORKER_URL_DEV: ${{ vars.TILES_WORKER_URL_DEV }}
+          WORKER_URL_PROD: ${{ vars.TILES_WORKER_URL_PROD }}
+        run: |
+          if [ "$WRANGLER_ENV" = "dev" ]; then WORKER_URL="$WORKER_URL_DEV"; else WORKER_URL="$WORKER_URL_PROD"; fi
+          WORKER_URL="$(printf '%s' "$WORKER_URL" | sed 's:/*$::')"
+          if [ -z "$WORKER_URL" ]; then
+            echo "This stack has no Worker URL set yet; nothing to check."
+            exit 0
+          fi
+          bun run check "$WORKER_URL"

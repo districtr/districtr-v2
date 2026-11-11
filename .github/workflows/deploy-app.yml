@@ -56,10 +56,29 @@ jobs:
           fi
           # District tiles (tiles-worker/README.md). An empty Worker URL keeps the
           # PMTiles archives on the CDN; TILES_SPLIT=true needs the Worker URL.
+          # Both are typed by hand into repo variables and baked into the bundle, so a
+          # malformed value stops the run here.
+          TILES_WORKER_URL="$(printf '%s' "$TILES_WORKER_URL" | sed 's:/*$::')"
+          TILES_SPLIT="$(printf '%s' "$TILES_SPLIT" | tr '[:upper:]' '[:lower:]')"
+          if [ -n "$TILES_WORKER_URL" ] && ! printf '%s' "$TILES_WORKER_URL" | grep -Eq '^https://[A-Za-z0-9.-]+$'; then
+            echo "::error::TILES_WORKER_URL must be https://<host> with no path; got '$TILES_WORKER_URL'"
+            exit 1
+          fi
+          case "$TILES_SPLIT" in
+            true) ;;
+            false | "") TILES_SPLIT="" ;;
+            *)
+              echo "::error::TILES_SPLIT must be true, false or empty; got '$TILES_SPLIT'"
+              exit 1
+              ;;
+          esac
+          if [ -n "$TILES_SPLIT" ] && [ -z "$TILES_WORKER_URL" ]; then
+            echo "::warning::TILES_SPLIT is true with no TILES_WORKER_URL, so the split stays off"
+          fi
           echo "tiles_worker_url=$TILES_WORKER_URL" >> "$GITHUB_OUTPUT"
           echo "tiles_split=$TILES_SPLIT" >> "$GITHUB_OUTPUT"
-          # Both are baked into the bundle, so they are part of the immutable image
-          # tag: after a variable changes, a re-run builds a new image for the same sha.
+          # They are part of the immutable image tag: after a variable changes, a new
+          # run of this workflow builds a new image for the same sha.
           IMAGE_TAG="${{ github.sha }}"
           if [ -n "$TILES_WORKER_URL$TILES_SPLIT" ]; then
             IMAGE_TAG="$IMAGE_TAG-tiles-$(printf '%s|%s' "$TILES_WORKER_URL" "$TILES_SPLIT" | sha256sum | cut -c1-8)"

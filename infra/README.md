@@ -212,7 +212,9 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
 ```
 
 - **Rollback**: set `backendImageTag` / `frontendImageTag` / `cmsImageTag` to a known-good SHA
-  and `pulumi up` (or re-run the deploy workflow for that SHA). ECR keeps the
+  and `pulumi up` (or re-run the deploy workflow for that SHA). A frontend image
+  built while the tile settings were set is tagged `{sha}-tiles-{hash}`: pin that
+  full tag, as listed in ECR. ECR keeps the
   last 20 images. An image rollback can't cross a migration that dropped
   something the old code reads; the Wagtail cutover's legacy-comment drop is
   one, and rolling it back means restoring the pre-deploy RDS snapshot
