@@ -273,7 +273,7 @@ export const DistrictMeters = () => {
         openDelay={HELP_TIP_FAST_DELAY}
         text={
           pinned
-            ? 'Unpin this district. When nothing is pinned, the district tables show every district again.'
+            ? 'Stop focusing on this district. When no district is focused, the district tables show every district again.'
             : undefined
         }
       >
@@ -282,7 +282,7 @@ export const DistrictMeters = () => {
           variant="ghost"
           size="1"
           aria-pressed={pinned}
-          aria-label={`Pin district ${getZoneLabel(zone)}`}
+          aria-label={`Focus on district ${getZoneLabel(zone)}`}
           className={
             pinned
               ? undefined

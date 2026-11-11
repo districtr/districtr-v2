@@ -40,11 +40,11 @@ export const usePinnedZones = () => {
 export const filterPinnedRows = <T extends {zone?: unknown}>(rows: T[], pinnedZones: Zone[]) =>
   rows.filter(({zone}) => typeof zone !== 'number' || zone <= 0 || pinnedZones.includes(zone));
 
-/** What the line atop a pinned table says, e.g. "Showing pinned districts 3, 7". */
+/** What the line atop a pinned table says, e.g. "Showing focused districts 3, 7". */
 export const pinnedFilterLabel = (pinnedZones: Zone[], showAll: boolean) => {
   const zones = [...pinnedZones].sort((a, b) => a - b).join(', ');
-  if (showAll) return `Showing all districts (pinned: ${zones})`;
-  return `Showing pinned district${pinnedZones.length === 1 ? '' : 's'} ${zones}`;
+  if (showAll) return `Showing all districts (focused: ${zones})`;
+  return `Showing focused district${pinnedZones.length === 1 ? '' : 's'} ${zones}`;
 };
 
 const PinnedFilterLine: React.FC<{pinnedZones: Zone[]; hiddenCount: number}> = ({
@@ -70,7 +70,7 @@ const PinnedFilterLine: React.FC<{pinnedZones: Zone[]; hiddenCount: number}> = (
             onClick={() => setShowAll(!showAll)}
             style={{fontWeight: 600}}
           >
-            {showAll ? 'Show pinned only' : 'Show all'}
+            {showAll ? 'Show focused only' : 'Show all'}
           </Button>
         </>
       )}
@@ -78,7 +78,7 @@ const PinnedFilterLine: React.FC<{pinnedZones: Zone[]; hiddenCount: number}> = (
         ·
       </Text>
       <Button variant="ghost" size="1" onClick={clearPinnedZones} style={{fontWeight: 600}}>
-        Clear pins
+        Clear focus
       </Button>
     </Flex>
   );

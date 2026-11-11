@@ -133,7 +133,7 @@ export const DistrictTuningTable: React.FC<{
               {showRowIcons && (
                 <>
                   <Table.ColumnHeaderCell>
-                    <span className="sr-only">Pin</span>
+                    <span className="sr-only">Focus</span>
                   </Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>
                     <span className="sr-only">Description</span>

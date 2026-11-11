@@ -26,9 +26,9 @@ describe('pinned districts', () => {
   });
 
   test('pinnedFilterLabel lists the pins in order', () => {
-    expect(pinnedFilterLabel([7, 3], false)).toBe('Showing pinned districts 3, 7');
-    expect(pinnedFilterLabel([3], false)).toBe('Showing pinned district 3');
-    expect(pinnedFilterLabel([7, 3], true)).toBe('Showing all districts (pinned: 3, 7)');
+    expect(pinnedFilterLabel([7, 3], false)).toBe('Showing focused districts 3, 7');
+    expect(pinnedFilterLabel([3], false)).toBe('Showing focused district 3');
+    expect(pinnedFilterLabel([7, 3], true)).toBe('Showing all districts (focused: 3, 7)');
   });
 
   test('show all survives more pins and resets when pinning stops or starts', () => {

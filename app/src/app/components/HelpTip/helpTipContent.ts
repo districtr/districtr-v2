@@ -31,7 +31,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Paint by county for a rough outline, then use a smaller brush or eraser to clean up the edges:',
+    text: 'Paint by county to roughly balance district populations, then use a smaller brush for more detailed refinement:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
@@ -40,7 +40,7 @@ export const helpTipContent = {
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'Once a district is roughly drawn, break units along its edge into smaller units to fine-tune its population:',
+    text: 'Once a district is roughly drawn, break units along its border into smaller units to fine-tune its population:',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',
@@ -65,7 +65,7 @@ export const helpTipContent = {
   },
   countyBrush: {
     title: 'Painting by county',
-    text: 'Turn on to paint whole counties at once instead of single units.',
+    text: 'Turn on to paint whole counties at once.',
     videoFile: 'county_brush.webm',
     guideAnchor: 'drawing-the-districts',
   },
@@ -110,8 +110,8 @@ export const helpTipContent = {
     guideAnchor: 'population',
   },
   districtPin: {
-    title: 'Pinning districts',
-    text: 'Pin this district. The district tables show only pinned districts until you unpin them or choose Show all.',
+    title: 'Focusing on districts',
+    text: 'Focus on this district. The district tables show only focused districts until you remove focus or choose Show all.',
   },
   idealPopulation: {
     title: 'Ideal population',
