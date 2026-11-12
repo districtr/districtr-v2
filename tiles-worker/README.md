@@ -83,14 +83,14 @@ Production serves `1.tilesets.districtr.org` and dev serves `dev.tilesets.distri
 
 `districtr.org` stays on Netlify DNS. Each tile hostname gets one CNAME there, pointing at a Cloudflare zone that runs [Cloudflare for SaaS with a Worker as its origin](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/). The Free plan includes 100 such hostnames. Delegating `tilesets.districtr.org` to Cloudflare as its own zone would need an Enterprise plan ([subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/)).
 
-1. **Get a Cloudflare zone.** Any domain whose DNS is on Cloudflare works. If there isn't one, register one through Cloudflare Registrar, for about $10 a year. It's called `<tiles zone>` below.
+1. **The Cloudflare zone is `districtr-ddri.org`**, registered through Cloudflare Registrar on the Districtr and DDRI account. It exists to carry these hostnames: any domain whose DNS is on Cloudflare works, and users see `districtr.org` names alone.
 2. **Set up the zone for SaaS.**
    - Enable Cloudflare for SaaS.
-   - Add a proxied `AAAA` record, `origin.<tiles zone>` → `100::`. It stands in for an origin server; the Workers answer every request.
+   - Add a proxied `AAAA` record, `origin.districtr-ddri.org` → `100::`. It stands in for an origin server; the Workers answer every request.
    - Set that record as the fallback origin.
    - Add two Workers routes on the zone: `1.tilesets.districtr.org/*` to `districtr-tiles`, and `dev.tilesets.districtr.org/*` to `districtr-tiles-dev`.
 3. **Add the custom hostnames** `1.tilesets.districtr.org` and `dev.tilesets.districtr.org` under SSL/TLS → Custom Hostnames.
-4. **In Netlify DNS, add one CNAME per name**: `1.tilesets` → `origin.<tiles zone>`, and the same for `dev.tilesets`. That's the only change to `districtr.org`. Cloudflare then checks each hostname and issues its certificate over HTTP, so the zone needs no TXT records. `districtr.org` has no CAA records, so any CA can issue the certificate.
+4. **In Netlify DNS, add one CNAME per name**: `1.tilesets` → `origin.districtr-ddri.org`, and the same for `dev.tilesets`. That's the only change to `districtr.org`. Cloudflare then checks each hostname and issues its certificate over HTTP, so the zone needs no TXT records. `districtr.org` has no CAA records, so any CA can issue the certificate.
 5. **Check it** with `bun run check https://dev.tilesets.districtr.org`, and the same for `1.tilesets`. Its TileJSON check also confirms the Worker sees the custom hostname.
 
-Skipping the CNAMEs works too: attach each Worker as a custom domain on the tiles zone itself, such as `1.tiles.<tiles zone>`. That leaves `districtr.org` untouched, with the names outside it.
+Skipping the CNAMEs works too: attach each Worker as a custom domain on the tiles zone itself, such as `1.tiles.districtr-ddri.org`. That leaves `districtr.org` untouched, with the names outside it.
