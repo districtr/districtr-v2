@@ -47,9 +47,10 @@ const TILEJSON_RETRY_MS = [1000, 3000, 9000, 15000];
  * from that archive. Returns a function that stops following.
  * - A failed TileJSON request is sent again, since MapLibre leaves the source on the
  *   previous archive's tiles after one failure.
- * - A tile that was loading when the TileJSON arrived keeps the previous archive's data:
- *   MapLibre re-parses it where it should fetch it again. Once the source has settled,
- *   one refresh fetches the tiles in view from the current url.
+ * - When the TileJSON arrives, MapLibre fetches every loaded tile again from the current
+ *   url. A tile that was still loading at that moment is re-parsed where it should be
+ *   fetched, so it keeps the previous archive's data. Only then, once the source has
+ *   settled, one refresh fetches the tiles in view again.
  */
 export const followBlockTiles = (map: MapLibreMap, url: string) => {
   const done = markReady;
@@ -57,17 +58,19 @@ export const followBlockTiles = (map: MapLibreMap, url: string) => {
   const tilesPath = `${new URL(url).pathname}/`;
   const source = () => map.getSource(BLOCK_SOURCE_ID) as VectorTileSource | undefined;
   let stage: 'tilejson' | 'settling' | 'refreshed' = 'tilejson';
+  // Whether a tile in view may hold the previous archive's data.
+  let stale = true;
   let retries = 0;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const stop = () => {
     map.off('sourcedata', advance);
-    map.off('idle', advance);
+    map.off('idle', onIdle);
     map.off('error', retryTileJson);
     clearTimeout(retryTimer);
   };
 
-  function advance() {
+  function advance(e?: {sourceId?: string; sourceDataType?: string}) {
     const current = source();
     if (stage === 'tilejson') {
       const loaded =
@@ -75,15 +78,24 @@ export const followBlockTiles = (map: MapLibreMap, url: string) => {
         current.tiles?.some(tile => new URL(tile).pathname.startsWith(tilesPath));
       if (!loaded) return;
       stage = 'settling';
+      // This is the TileJSON's own event when it is the source's metadata event, and
+      // MapLibre's reload follows it. With every tile loaded now, that reload is enough.
+      const atArrival = e?.sourceId === BLOCK_SOURCE_ID && e.sourceDataType === 'metadata';
+      stale = !(atArrival && map.isSourceLoaded(BLOCK_SOURCE_ID));
+      return;
     }
     if (!current || !map.isSourceLoaded(BLOCK_SOURCE_ID)) return;
-    if (stage === 'settling') {
+    if (stage === 'settling' && stale) {
       stage = 'refreshed';
       map.refreshTiles(BLOCK_SOURCE_ID);
       return;
     }
     stop();
     done?.();
+  }
+
+  function onIdle() {
+    advance();
   }
 
   function retryTileJson(e: ErrorEvent & {sourceId?: string; tile?: unknown}) {
@@ -97,7 +109,7 @@ export const followBlockTiles = (map: MapLibreMap, url: string) => {
   }
 
   map.on('sourcedata', advance);
-  map.on('idle', advance);
+  map.on('idle', onIdle);
   map.on('error', retryTileJson);
   advance();
   return stop;
