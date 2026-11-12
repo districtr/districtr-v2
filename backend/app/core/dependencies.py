@@ -22,8 +22,7 @@ from app.district_notes.models import (
     DistrictNote,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound
+from sqlalchemy.exc import NoResultFound
 from app.core.db import get_session
 import logging
 
@@ -260,40 +259,23 @@ def get_districtr_map(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ) -> DistrictrMap:
+    # Slug is unique and document_id is the PK, so this is at most one row.
     stmt = (
         select(DistrictrMap)
         .join(
             Document,
             onclause=col(Document.districtr_map_slug)
             == col(DistrictrMap.districtr_map_slug),
-            isouter=True,
         )
-        .join(
-            MapDocumentToken,
-            onclause=col(MapDocumentToken.document_id) == col(Document.document_id),
-            isouter=True,
-        )
-        .filter(
-            or_(
-                col(Document.document_id) == document_id.value,
-                col(MapDocumentToken.document_id) == document_id.value,
-            )
-        )
+        .where(col(Document.document_id) == document_id.value)
     )
 
     try:
-        districtr_map = session.exec(
-            stmt,
-        ).one()
+        districtr_map = session.exec(stmt).one()
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document with ID {document_id} not found",
-        )
-    except MultipleResultsFound:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
         )
 
     return districtr_map

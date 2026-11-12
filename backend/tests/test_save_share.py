@@ -6,6 +6,8 @@ import jwt
 from app.core.config import settings
 from pytest import fixture
 from datetime import datetime
+from sqlalchemy import text
+from app.core.dependencies import get_districtr_map, parse_document_id
 
 
 @fixture(name="public_document")
@@ -142,3 +144,52 @@ def test_copy_document(client, private_document):
     assert response.status_code == 200
     assignments = response.json()
     assert len(assignments) == 2
+
+
+def test_get_districtr_map_ignores_duplicate_tokens(session, document_id):
+    """Docs that got 2+ token rows before unique_document was restored used to
+    raise MultipleResultsFound (500) here."""
+    try:
+        session.execute(
+            text(
+                "ALTER TABLE document.map_document_token DROP CONSTRAINT unique_document"
+            )
+        )
+        for _ in range(2):
+            session.execute(
+                text(
+                    "INSERT INTO document.map_document_token (token_id, document_id) "
+                    "VALUES (gen_random_uuid(), :document_id)"
+                ),
+                {"document_id": document_id},
+            )
+        districtr_map = get_districtr_map(parse_document_id(document_id), session)
+        assert districtr_map.districtr_map_slug == GERRY_DB_FIXTURE_NAME
+    finally:
+        session.rollback()  # restores the constraint
+
+
+def test_share_twice_reuses_token(client, session, private_document):
+    document_id = private_document["document_id"]
+    tokens = []
+    for _ in range(2):
+        response = client.post(
+            f"/api/document/{document_id}/share",
+            json={"password": "", "access_type": "read"},
+        )
+        assert response.status_code == 200, response.json()
+        decoded = jwt.decode(
+            response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
+        )
+        assert not decoded["password_required"]  # "" is not a password
+        tokens.append(decoded["token"])
+
+    assert tokens[0] == tokens[1]
+    count = session.execute(
+        text(
+            "SELECT count(*) FROM document.map_document_token "
+            "WHERE document_id = :document_id"
+        ),
+        {"document_id": document_id},
+    ).scalar_one()
+    assert count == 1
