@@ -12,6 +12,7 @@ const ROWS_PER_COLUMN = 10;
 const MAX_COLUMNS = 3;
 // Room kept free for the table's border and the scrollbar gutter.
 const WIDTH_RESERVE = 20;
+const SEPARATOR = '1px solid var(--gray-a5)';
 
 interface CompactnessScoreTableProps {
   polsbyPopper: Record<string, number>;
@@ -87,72 +88,77 @@ export const CompactnessScoreTable: React.FC<CompactnessScoreTableProps> = ({
           }`}
           style={scrolls && scrollWindowHeight ? {maxHeight: scrollWindowHeight} : undefined}
         >
-          <div className="flex items-start">
+          <div className="flex">
             {columns.map((columnZones, columnIndex) => {
               const isLastColumn = columnIndex === columnCount - 1;
               const lastCellPadding = isLastColumn
                 ? {paddingRight: 'calc(var(--table-cell-padding) + 8px)'}
                 : undefined;
               return (
-                <table
+                // The wrapper stretches to the tallest column, so the line between two
+                // columns runs the full height; a shorter column closes with a bottom line.
+                <div
                   key={columnZones[0]}
-                  className="rt-TableRootTable"
-                  style={{
-                    overflow: 'visible',
-                    width: 'auto',
-                    flex: 'none',
-                    borderLeft: columnIndex > 0 ? '1px solid var(--gray-a5)' : undefined,
-                  }}
+                  style={{flex: 'none', borderLeft: columnIndex > 0 ? SEPARATOR : undefined}}
                 >
-                  <Table.Header
+                  <table
+                    className="rt-TableRootTable"
                     style={{
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1,
-                      backgroundColor: 'var(--color-panel-solid)',
+                      overflow: 'visible',
+                      width: 'auto',
+                      borderBottom: columnZones.length < rowsPerColumn ? SEPARATOR : undefined,
                     }}
                   >
-                    <Table.Row>
-                      <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        Polsby-
-                        <br />
-                        Popper
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={lastCellPadding}>
-                        Reock
-                      </Table.ColumnHeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {columnZones.map(zone => (
-                      <Table.Row
-                        key={zone}
-                        tabIndex={0}
-                        {...hoverHandlers(() => onDistrictEnter([zone]), onDistrictLeave)}
-                        onClick={() => zoomToDistrict(Number(zone))}
-                        style={{cursor: 'pointer'}}
-                      >
-                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                          <DistrictLabel zone={Number(zone)} />
-                        </Table.Cell>
-                        <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                          <Text size="2">
-                            {formatNumber(polsbyPopper[zone], NUMBER_FORMATS.DECIMAL_3)}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{verticalAlign: 'middle', ...lastCellPadding}}
-                        >
-                          <Text size="2">
-                            {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
-                          </Text>
-                        </Table.Cell>
+                    <Table.Header
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1,
+                        backgroundColor: 'var(--color-panel-solid)',
+                      }}
+                    >
+                      <Table.Row>
+                        <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell justify="center">
+                          Polsby-
+                          <br />
+                          Popper
+                        </Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell justify="center" style={lastCellPadding}>
+                          Reock
+                        </Table.ColumnHeaderCell>
                       </Table.Row>
-                    ))}
-                  </Table.Body>
-                </table>
+                    </Table.Header>
+                    <Table.Body>
+                      {columnZones.map(zone => (
+                        <Table.Row
+                          key={zone}
+                          tabIndex={0}
+                          {...hoverHandlers(() => onDistrictEnter([zone]), onDistrictLeave)}
+                          onClick={() => zoomToDistrict(Number(zone))}
+                          style={{cursor: 'pointer'}}
+                        >
+                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
+                            <DistrictLabel zone={Number(zone)} />
+                          </Table.Cell>
+                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
+                            <Text size="2">
+                              {formatNumber(polsbyPopper[zone], NUMBER_FORMATS.DECIMAL_3)}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell
+                            justify="center"
+                            style={{verticalAlign: 'middle', ...lastCellPadding}}
+                          >
+                            <Text size="2">
+                              {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
+                            </Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      ))}
+                    </Table.Body>
+                  </table>
+                </div>
               );
             })}
           </div>
