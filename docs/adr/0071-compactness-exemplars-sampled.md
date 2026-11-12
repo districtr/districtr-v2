@@ -1,6 +1,6 @@
 # 71. Compactness exemplars are a seeded sample of the 118th Congress districts
 
-Date: 2026-11-12 (PR #TBD)
+Date: 2026-11-12 (PR #843)
 
 ## Status
 
