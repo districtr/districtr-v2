@@ -44,6 +44,7 @@ const SCORE_NAME: Record<CompactnessScoreKey, string> = {
 const OUTLINE_SIZE = 96;
 const OUTLINE_FILL = 'steelblue';
 const SLIDER_WIDTH = 140;
+const EDGE_FADE = 48;
 
 const loadExemplars = async (): Promise<CompactnessExemplarData> =>
   (await import('@constants/compactnessExemplars.json')).default as CompactnessExemplarData;
@@ -55,7 +56,7 @@ const ordinal = (n: number): string => {
 };
 
 const districtName = ({statefp, district}: ExemplarDistrict): string =>
-  `${FIPS_TO_NAME[statefp] ?? `FIPS ${statefp}`}'s ${ordinal(district)} Congressional District`;
+  `${FIPS_TO_NAME[statefp] ?? `FIPS ${statefp}`}'s ${ordinal(district)} District`;
 
 const rangeLabel = ({min, max}: ExemplarBucket): string => `${min.toFixed(2)}–${max.toFixed(2)}`;
 
@@ -112,6 +113,79 @@ const BucketSlider: React.FC<BucketSliderProps> = ({buckets, index, onChange, la
       className="print:hidden"
       style={{width: SLIDER_WIDTH, flex: 'none'}}
     />
+  );
+};
+
+interface ExemplarStripProps {
+  /** Ids of the districts to show, in order. */
+  geoids: string[];
+  districtsById: Record<string, ExemplarDistrict>;
+  label: string;
+}
+
+/**
+ * The districts of one score range in a row that scrolls sideways. An edge fades
+ * out while more districts lie beyond it.
+ */
+const ExemplarStrip: React.FC<ExemplarStripProps> = ({geoids, districtsById, label}) => {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState({left: false, right: false});
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const update = () => {
+      const left = strip.scrollLeft > 1;
+      const right = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
+      setHidden(was => (was.left === left && was.right === right ? was : {left, right}));
+    };
+    // A new range starts from its first district.
+    strip.scrollLeft = 0;
+    update();
+    strip.addEventListener('scroll', update, {passive: true});
+    const observer = new ResizeObserver(update);
+    observer.observe(strip);
+    return () => {
+      strip.removeEventListener('scroll', update);
+      observer.disconnect();
+    };
+  }, [geoids]);
+
+  const fade = `linear-gradient(to right, ${hidden.left ? 'transparent' : 'black'}, black ${EDGE_FADE}px, black calc(100% - ${EDGE_FADE}px), ${hidden.right ? 'transparent' : 'black'})`;
+
+  return (
+    <div
+      ref={stripRef}
+      role="group"
+      aria-label={label}
+      tabIndex={0}
+      className="flex gap-3 overflow-x-auto pb-2 [scroll-snap-type:x_proximity] print:flex-wrap print:overflow-visible print:![mask-image:none]"
+      style={{maskImage: fade, WebkitMaskImage: fade}}
+    >
+      {geoids.map(geoid => {
+        const district = districtsById[geoid];
+        const name = districtName(district);
+        return (
+          <figure
+            key={geoid}
+            className="m-0 flex w-[132px] flex-none flex-col items-center gap-1 [scroll-snap-align:start]"
+          >
+            <svg
+              role="img"
+              aria-label={name}
+              width={OUTLINE_SIZE}
+              height={OUTLINE_SIZE}
+              viewBox={`0 0 ${district.width} ${district.height}`}
+            >
+              <path d={district.path} fillRule="evenodd" fill={OUTLINE_FILL} />
+            </svg>
+            <figcaption className="text-center">
+              <Text size="1">{name}</Text>
+            </figcaption>
+          </figure>
+        );
+      })}
+    </div>
   );
 };
 
@@ -173,39 +247,14 @@ export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({score
         />
         <Text size="2">is exemplified by:</Text>
       </Flex>
-      <div
-        role="group"
-        aria-label={`Districts with a ${scoreName} score of ${rangeLabel(bucket)}`}
-        tabIndex={0}
-        className="flex gap-3 overflow-x-auto pb-2 [scroll-snap-type:x_proximity] print:flex-wrap print:overflow-visible"
-      >
-        {bucket.districts.map(geoid => {
-          const district = data.districts[geoid];
-          const name = districtName(district);
-          return (
-            <figure
-              key={geoid}
-              className="m-0 flex w-[132px] flex-none flex-col items-center gap-1 [scroll-snap-align:start]"
-            >
-              <svg
-                role="img"
-                aria-label={name}
-                width={OUTLINE_SIZE}
-                height={OUTLINE_SIZE}
-                viewBox={`0 0 ${district.width} ${district.height}`}
-              >
-                <path d={district.path} fillRule="evenodd" fill={OUTLINE_FILL} />
-              </svg>
-              <figcaption className="text-center">
-                <Text size="1">{name}</Text>
-              </figcaption>
-            </figure>
-          );
-        })}
-      </div>
+      <ExemplarStrip
+        geoids={bucket.districts}
+        districtsById={data.districts}
+        label={`Districts with a ${scoreName} score of ${rangeLabel(bucket)}`}
+      />
       <Text size="1" color="gray" as="p">
-        Districts of the {ordinal(data.congress)} Congress, used in the {data.electionYear} election
-        ({data.source}). {samplingNote(bucket)}
+        Congressional districts of the {ordinal(data.congress)} Congress, used in the{' '}
+        {data.electionYear} election ({data.source}). {samplingNote(bucket)}
       </Text>
     </Flex>
   );
