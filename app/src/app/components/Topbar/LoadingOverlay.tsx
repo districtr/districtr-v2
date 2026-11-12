@@ -10,7 +10,7 @@ import {useViewTransition} from './useViewTransition';
 const BUSY_SHOW_DELAY_MS = 150;
 
 /** Full-screen busy card: a spinner with a short message. */
-const OverlayCard: React.FC<{
+export const OverlayCard: React.FC<{
   message: string;
   icon?: React.ComponentType<{className?: string}>;
 }> = ({message, icon: Icon}) => (
