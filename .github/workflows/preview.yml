@@ -355,6 +355,9 @@ jobs:
           RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
           RECAPTCHA_V3_SITE_KEY: ${{ secrets.RECAPTCHA_V3_SITE_KEY }}
           NEXT_PUBLIC_MAPTILER_API_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_API_KEY }}
+          # A preview serves district tiles the way dev does, as of its build.
+          TILES_WORKER_URL: ${{ vars.TILES_WORKER_URL_DEV }}
+          TILES_SPLIT: ${{ vars.TILES_SPLIT_DEV }}
         run: |
           set -euo pipefail
 
@@ -376,6 +379,8 @@ jobs:
           NEXT_PUBLIC_API_URL=${API_URL}
           NEXT_PUBLIC_CMS_URL=${CMS_URL}
           NEXT_PUBLIC_BUILD_TAG=${GITHUB_SHA}
+          NEXT_PUBLIC_TILES_WORKER_URL=${TILES_WORKER_URL}
+          NEXT_PUBLIC_TILES_SPLIT=${TILES_SPLIT}
           EOF
             docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN -t "$IMAGE" app
             docker push "$IMAGE"

@@ -151,6 +151,9 @@ Mechanics:
   writes the SHA to `/districtr/{stack}/meta/{backend,frontend,cms}-image-tag`,
   then `pulumi up` reads it. Set `backendImageTag` / `frontendImageTag` /
   `cmsImageTag` in stack config to pin or roll back (config overrides SSM).
+  A frontend tag gains a `-tiles-{hash}` suffix while the tile settings
+  (`TILES_WORKER_URL_*`, `TILES_SPLIT_*`) are set, since they are baked into
+  the build.
 - **Gating**: `infra.yml`/`deploy-*.yml` run only on `dev` / `main`. On push
   they require the repo variable `AWS_DEPLOY_DEV` / `AWS_DEPLOY_PROD` =
   `true`. The CMS prod deploy reads `AWS_DEPLOY_CMS_PROD` instead.
@@ -209,7 +212,9 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
 ```
 
 - **Rollback**: set `backendImageTag` / `frontendImageTag` / `cmsImageTag` to a known-good SHA
-  and `pulumi up` (or re-run the deploy workflow for that SHA). ECR keeps the
+  and `pulumi up` (or re-run the deploy workflow for that SHA). A frontend image
+  built while the tile settings were set is tagged `{sha}-tiles-{hash}`: pin that
+  full tag, as listed in ECR. ECR keeps the
   last 20 images. An image rollback can't cross a migration that dropped
   something the old code reads; the Wagtail cutover's legacy-comment drop is
   one, and rolling it back means restoring the pre-deploy RDS snapshot

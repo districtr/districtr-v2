@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The top level is the prod Worker, deployed from main. env.dev is the dev Worker,
+  // districtr-tiles-dev, deployed from dev. `wrangler dev` runs the top level locally.
+  "name": "districtr-tiles",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  // Each Worker is reached through its route on a districtr.org hostname (README, Hostnames).
+  "workers_dev": false,
+  "preview_urls": false,
+  // Serves repeat requests without running the Worker; billed per request either way.
+  "cache": {"enabled": true},
+  "r2_buckets": [{"binding": "BUCKET", "bucket_name": "districtr-tilesets"}],
+  // Cache misses per client (an IPv4 address or an IPv6 /64), per minute, in each
+  // Cloudflare location. A map view is a few dozen tiles, so 3,000 leaves room for a
+  // classroom behind one address.
+  "ratelimits": [{"name": "MISS_LIMITER", "namespace_id": "1001", "simple": {"limit": 3000, "period": 60}}],
+  // Logs and traces come from Worker runs only, which means cache misses.
+  "observability": {"enabled": true, "traces": {"enabled": true, "head_sampling_rate": 0.05}},
+  "env": {
+    "dev": {
+      // An environment declares its own bindings. Dev reads the same bucket as prod, as
+      // both stacks read one S3 bucket today, and counts its misses separately.
+      "r2_buckets": [{"binding": "BUCKET", "bucket_name": "districtr-tilesets"}],
+      "ratelimits": [{"name": "MISS_LIMITER", "namespace_id": "1002", "simple": {"limit": 3000, "period": 60}}]
+    }
+  }
+}

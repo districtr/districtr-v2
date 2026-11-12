@@ -52,6 +52,10 @@ docker-compose exec pipelines python cli.py tileset merge-gerrydb-tilesets \
 
 This writes tiles locally only — it does not upload. Upload separately (see the pipeline's S3 CLI) and note the resulting `s3://` path; it becomes `--tiles-s3-path` in step 5.
 
+Give a rebuilt tileset a new key (`_v3`, or a date suffix) rather than overwriting the old one: CDNs and browsers keep tiles for up to a day. Once `R2_BUCKET` is configured (see `tiles-worker/README.md`), also copy the `.pmtiles` to the R2 bucket under the same key, or the map 404s when the tile Worker serves it: `aws s3 cp <file> s3://<r2-bucket>/<key> --endpoint-url=https://<account>.r2.cloudflarestorage.com --profile=cloudflare`. `tileset batch-create --upload` writes to both.
+
+A shatterable map needs a second archive: upload the parent tileset from this step beside the merged one, to S3 and R2, as `<name>.parent.pmtiles` (for `tilesets/ks_districtr_view_v2.pmtiles`, `tilesets/ks_districtr_view_v2.parent.pmtiles`). With the tile split on, the map loads it until something is shattered, so a missing one shows a blank map. `tileset batch-create --upload` writes it too.
+
 **Verify**: the tileset file exists and opens (e.g. with `tippecanoe-decode` or a local MapLibre preview) before spending time on later steps against a broken tileset.
 
 ### 4. Build the contiguity graph

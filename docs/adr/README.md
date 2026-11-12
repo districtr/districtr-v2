@@ -41,7 +41,7 @@ What follows, including what a later change would have to undo.
 | [0005](0005-docker-compose-dev-env.md) | Docker Compose as the standard development environment | 2024-09-23 | Accepted |
 | [0006](0006-shatter-parent-child-model.md) | Two-level parent/child model for shattering | 2024-10-16 | Accepted. Amended by 0052 |
 | [0007](0007-plain-object-store-state.md) | Map instance behind a getter; `Set`/`Map` stay in store state | 2024-10-17 | Accepted |
-| [0008](0008-tiles-from-object-storage.md) | Tiles served from object storage via HTTP range requests | 2024-10-21 | Accepted |
+| [0008](0008-tiles-from-object-storage.md) | Tiles served from object storage via HTTP range requests | 2024-10-21 | Accepted. Amended by 0070 |
 | [0009](0009-format-lint-stance.md) | Format/lint stance: Prettier gated, ESLint available but not gating | 2024-10-28 | Accepted |
 | [0010](0010-districtrmap-soft-delete.md) | Soft delete for DistrictrMap | 2024-11-18 | Accepted. Amended by 0056 |
 | [0011](0011-web-workers-comlink.md) | Heavy geometry/tabular work in Web Workers via Comlink | 2024-12-23 | Accepted |
@@ -99,3 +99,4 @@ What follows, including what a later change would have to undo.
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
 | [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
 | [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
+| [0070](0070-district-tiles-from-cloudflare-worker.md) | District tiles served by a Cloudflare Worker, blocks loaded after the first shatter | 2026-11-11 | Accepted. Amends 0008 |

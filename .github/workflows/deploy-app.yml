@@ -44,12 +44,46 @@ jobs:
             echo "api_url=${{ vars.API_URL_DEV }}" >> "$GITHUB_OUTPUT"
             echo "cms_url=${{ vars.CMS_URL_DEV }}" >> "$GITHUB_OUTPUT"
             echo "environment=development" >> "$GITHUB_OUTPUT"
+            TILES_WORKER_URL="${{ vars.TILES_WORKER_URL_DEV }}"
+            TILES_SPLIT="${{ vars.TILES_SPLIT_DEV }}"
           else
             echo "stack=prod" >> "$GITHUB_OUTPUT"
             echo "api_url=${{ vars.API_URL_PROD }}" >> "$GITHUB_OUTPUT"
             echo "cms_url=${{ vars.CMS_URL_PROD }}" >> "$GITHUB_OUTPUT"
             echo "environment=production" >> "$GITHUB_OUTPUT"
+            TILES_WORKER_URL="${{ vars.TILES_WORKER_URL_PROD }}"
+            TILES_SPLIT="${{ vars.TILES_SPLIT_PROD }}"
           fi
+          # District tiles (tiles-worker/README.md). An empty Worker URL keeps the
+          # PMTiles archives on the CDN; TILES_SPLIT=true needs the Worker URL.
+          # Both are typed by hand into repo variables and baked into the bundle, so a
+          # malformed value stops the run here.
+          TILES_WORKER_URL="$(printf '%s' "$TILES_WORKER_URL" | sed 's:/*$::')"
+          TILES_SPLIT="$(printf '%s' "$TILES_SPLIT" | tr '[:upper:]' '[:lower:]')"
+          if [ -n "$TILES_WORKER_URL" ] && ! printf '%s' "$TILES_WORKER_URL" | grep -Eq '^https://[A-Za-z0-9.-]+$'; then
+            echo "::error::TILES_WORKER_URL must be https://<host> with no path; got '$TILES_WORKER_URL'"
+            exit 1
+          fi
+          case "$TILES_SPLIT" in
+            true) ;;
+            false | "") TILES_SPLIT="" ;;
+            *)
+              echo "::error::TILES_SPLIT must be true, false or empty; got '$TILES_SPLIT'"
+              exit 1
+              ;;
+          esac
+          if [ -n "$TILES_SPLIT" ] && [ -z "$TILES_WORKER_URL" ]; then
+            echo "::warning::TILES_SPLIT is true with no TILES_WORKER_URL, so the split stays off"
+          fi
+          echo "tiles_worker_url=$TILES_WORKER_URL" >> "$GITHUB_OUTPUT"
+          echo "tiles_split=$TILES_SPLIT" >> "$GITHUB_OUTPUT"
+          # They are part of the immutable image tag: after a variable changes, a new
+          # run of this workflow builds a new image for the same sha.
+          IMAGE_TAG="${{ github.sha }}"
+          if [ -n "$TILES_WORKER_URL$TILES_SPLIT" ]; then
+            IMAGE_TAG="$IMAGE_TAG-tiles-$(printf '%s|%s' "$TILES_WORKER_URL" "$TILES_SPLIT" | sha256sum | cut -c1-8)"
+          fi
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
       # NEXT_PUBLIC_* values are baked into the bundle at build time; this
       # mirrors the Fly deploy workflow (the CI-written file wins over the
       # Dockerfile ARG-derived one). Quoted delimiter: secret values must not
@@ -68,6 +102,8 @@ jobs:
           NEXT_PUBLIC_CMS_URL=${{ steps.cfg.outputs.cms_url }}
           NEXT_PUBLIC_ENVIRONMENT=${{ steps.cfg.outputs.environment }}
           NEXT_PUBLIC_BUILD_TAG=${{ github.sha }}
+          NEXT_PUBLIC_TILES_WORKER_URL=${{ steps.cfg.outputs.tiles_worker_url }}
+          NEXT_PUBLIC_TILES_SPLIT=${{ steps.cfg.outputs.tiles_split }}
           EOF
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -85,10 +121,10 @@ jobs:
         run: |
           set -euo pipefail
           REPO="districtr-${{ steps.cfg.outputs.stack }}-frontend"
-          IMAGE="${{ steps.ecr.outputs.registry }}/${REPO}:${{ github.sha }}"
+          IMAGE="${{ steps.ecr.outputs.registry }}/${REPO}:${{ steps.cfg.outputs.image_tag }}"
           if aws ecr describe-images --repository-name "$REPO" \
-              --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
-            echo "Image already pushed for this sha; skipping build"
+              --image-ids imageTag="${{ steps.cfg.outputs.image_tag }}" >/dev/null 2>&1; then
+            echo "Image already pushed for this tag; skipping build"
           else
             docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN -t "$IMAGE" app
             docker push "$IMAGE"
@@ -107,7 +143,7 @@ jobs:
           STACK="${{ steps.cfg.outputs.stack }}"
           aws ssm put-parameter \
             --name "/districtr/${STACK}/meta/frontend-image-tag" \
-            --type String --value "${{ github.sha }}" --overwrite
+            --type String --value "${{ steps.cfg.outputs.image_tag }}" --overwrite
           npm ci
           pulumi stack select "$STACK"
           # Retry: another workflow's `pulumi up` may hold the state lock.
