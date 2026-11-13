@@ -1,9 +1,8 @@
 'use client';
-import {useState} from 'react';
-import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Heading, Select} from '@radix-ui/themes';
+import {EvalSection, EvalSubheading} from './EvalSection';
+import {type EvalOptions, useEvalOption, useIsReport} from './evalMode';
+import {Flex, Text, Select} from '@radix-ui/themes';
 import {DistrictLabel} from './DistrictLabel';
-import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
@@ -11,7 +10,7 @@ import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 import {HoverTrigger, hoverHandlers} from './HoverTrigger';
 import {districtHeading} from '@/app/utils/zoneLabels';
 
-type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
+type DeviationView = EvalOptions['deviationView'];
 
 function formatDeviation(value: number): string {
   if (value > 1) return 'over 100%';
@@ -30,7 +29,8 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const zoomToDistrict = useZoomToDistrict();
 
-  const [deviationView, setDeviationView] = useState<DeviationView>('top_to_bottom');
+  const isReport = useIsReport();
+  const [deviationView, setDeviationView] = useEvalOption('deviationView');
 
   const doc = mapDocument
     ? {
@@ -59,167 +59,158 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     : [];
 
   return (
-    <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="basics">
-        <Accordion.Trigger asChild>
-          <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon
-              width={16}
-              height={16}
-              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
-            />
-            <Heading size="5">Basics</Heading>
-          </Flex>
-        </Accordion.Trigger>
-        <Accordion.Content className="pl-8">
-          {/* Data Source and Plan Type */}
-          {doc && (
-            <Text size="2" as="p" mb="2">
-              {doc.dataSource && (
-                <>
-                  Uses <strong>{doc.dataSource}</strong> data.{' '}
-                </>
-              )}
-              {doc.planName ? (
-                <>
-                  The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).
-                </>
-              ) : (
-                <>
-                  This plan has <strong>{doc.numDistricts}</strong> districts.
-                </>
-              )}
-            </Text>
-          )}
-
-          {/* Completeness */}
-          {assigned_units && (
-            <Text size="2" as="p" mb="2">
-              {unassigned_population && (
-                <>
-                  <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
-                  <strong>{unassigned_population.total_population.toLocaleString()}</strong> people
-                  are not yet assigned to a district.{' '}
-                </>
-              )}
-              {assigned_units.total_child_count !== null &&
-                assigned_units.assigned_child_count !== null &&
-                (() => {
-                  const unassignedBlocks =
-                    assigned_units.total_child_count - assigned_units.assigned_child_count;
-                  return (
-                    <>
-                      <strong>{unassignedBlocks.toLocaleString()}</strong> of{' '}
-                      <strong>{assigned_units.total_child_count.toLocaleString()}</strong>{' '}
-                      {unassignedBlocks === 1 ? 'block is' : 'blocks are'} not yet assigned to a
-                      district.{' '}
-                    </>
-                  );
-                })()}
-              This plan is <strong>{isComplete ? 'complete' : 'incomplete'}</strong>.
-            </Text>
-          )}
-
-          {/* Contiguity */}
-          <Heading size="3" align="center" mb="2" mt="4">
-            Contiguity
-          </Heading>
-          <Text size="2" as="p" mb="2">
-            A plan is called contiguous if every district is internally connected. This plan appears
-            to be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that
-            contiguity can be subtle because of bodies of water and because of disconnected units.
-          </Text>
-          {nonContiguousDistricts.length > 0 && (
+    <EvalSection value="basics" title="Basics">
+      {/* Data Source and Plan Type */}
+      {doc && (
+        <Text size="2" as="p" mb="2">
+          {doc.dataSource && (
             <>
-              <Text size="2" as="p" mb="1">
-                The following districts are not contiguous:
-              </Text>
-              <Flex gap="2" wrap="wrap" mb="2">
-                {nonContiguousDistricts.map(d => (
-                  <DistrictLabel
-                    key={d}
-                    zone={Number(d)}
-                    onClick={() => zoomToDistrict(Number(d))}
-                    {...hoverHandlers(() => onDistrictEnter([d]), onDistrictLeave)}
-                  />
-                ))}
-              </Flex>
+              Uses <strong>{doc.dataSource}</strong> data.{' '}
             </>
           )}
-
-          {/* Population Deviation */}
-          <Heading size="3" align="center" mb="2" mt="4">
-            Population Deviation
-          </Heading>
-          <Text size="2" as="p" mb="2">
-            The ideal size of a district is arrived at by dividing the total population of the state
-            equally into the specified number of districts. Population deviation of a plan is
-            measured as the largest amount that any district differs from ideal size. Legislative
-            plans should typically have individual deviations under ±5%, which ensures a
-            top-to-bottom deviation of under 10%. Congressional plans are typically more tightly
-            balanced.
-          </Text>
-          {population_deviation ? (
+          {doc.planName ? (
             <>
-              <Flex align="center" gap="2" mb="2" justify="end">
-                <Text size="1" color="gray">
-                  Show
-                </Text>
-                <Select.Root
-                  value={deviationView}
-                  onValueChange={v => setDeviationView(v as DeviationView)}
-                  size="1"
-                >
-                  <Select.Trigger />
-                  <Select.Content>
-                    <Select.Item value="both">Both</Select.Item>
-                    <Select.Item value="top_to_bottom">Top-to-bottom</Select.Item>
-                    <Select.Item value="max_absolute">Max absolute</Select.Item>
-                  </Select.Content>
-                </Select.Root>
-              </Flex>
-              <Text size="2" as="p">
-                Your plan&apos;s most populous district is{' '}
-                <HoverTrigger
-                  bold
-                  onEnter={() => onDistrictEnter([population_deviation.most_populous_district])}
-                  onLeave={onDistrictLeave}
-                >
-                  {districtHeading(population_deviation.most_populous_district, zoneAliases)}
-                </HoverTrigger>{' '}
-                and least populous district is{' '}
-                <HoverTrigger
-                  bold
-                  onEnter={() => onDistrictEnter([population_deviation.least_populous_district])}
-                  onLeave={onDistrictLeave}
-                >
-                  {districtHeading(population_deviation.least_populous_district, zoneAliases)}
-                </HoverTrigger>
-                {deviationView !== 'max_absolute' && (
-                  <>
-                    , for a top-to-bottom deviation of{' '}
-                    <strong>{formatDeviation(population_deviation.top_to_bottom_deviation)}</strong>
-                  </>
-                )}
-                {deviationView === 'both' && <> and</>}
-                {deviationView !== 'top_to_bottom' && (
-                  <>
-                    {deviationView === 'max_absolute' ? ', with' : ''} a maximal absolute deviation
-                    of{' '}
-                    <strong>
-                      {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
-                    </strong>{' '}
-                    {population_deviation.maximal_absolute_deviation === 1 ? 'person' : 'people'}
-                  </>
-                )}
-                .
-              </Text>
+              The plan type is <strong>{doc.planName}</strong> ({doc.numDistricts} districts).
             </>
           ) : (
-            <Text size="2">Not available for this plan.</Text>
+            <>
+              This plan has <strong>{doc.numDistricts}</strong> districts.
+            </>
           )}
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
+        </Text>
+      )}
+
+      {/* Completeness */}
+      {assigned_units && (
+        <Text size="2" as="p" mb="2">
+          {unassigned_population && (
+            <>
+              <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
+              <strong>{unassigned_population.total_population.toLocaleString()}</strong> people are
+              not yet assigned to a district.{' '}
+            </>
+          )}
+          {assigned_units.total_child_count !== null &&
+            assigned_units.assigned_child_count !== null &&
+            (() => {
+              const unassignedBlocks =
+                assigned_units.total_child_count - assigned_units.assigned_child_count;
+              return (
+                <>
+                  <strong>{unassignedBlocks.toLocaleString()}</strong> of{' '}
+                  <strong>{assigned_units.total_child_count.toLocaleString()}</strong>{' '}
+                  {unassignedBlocks === 1 ? 'block is' : 'blocks are'} not yet assigned to a
+                  district.{' '}
+                </>
+              );
+            })()}
+          This plan is <strong>{isComplete ? 'complete' : 'incomplete'}</strong>.
+        </Text>
+      )}
+
+      {/* Contiguity */}
+      <EvalSubheading>Contiguity</EvalSubheading>
+      <Text size="2" as="p" mb="2">
+        A plan is called contiguous if every district is internally connected. This plan appears to
+        be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that contiguity
+        can be subtle because of bodies of water and because of disconnected units.
+      </Text>
+      {nonContiguousDistricts.length > 0 &&
+        (() => {
+          const intro = 'The following districts are not contiguous:';
+          const districts = nonContiguousDistricts.map(d => (
+            <DistrictLabel
+              key={d}
+              zone={Number(d)}
+              onClick={() => zoomToDistrict(Number(d))}
+              {...hoverHandlers(() => onDistrictEnter([d]), onDistrictLeave)}
+            />
+          ));
+          // The report names the districts within the sentence; the screen shows
+          // their badges on a line of their own.
+          return isReport ? (
+            <Text size="2" as="p" mb="2" className="eval-district-list">
+              {intro} {districts}.
+            </Text>
+          ) : (
+            <>
+              <Text size="2" as="p" mb="1">
+                {intro}
+              </Text>
+              <Flex gap="2" wrap="wrap" mb="2">
+                {districts}
+              </Flex>
+            </>
+          );
+        })()}
+
+      {/* Population Deviation */}
+      <EvalSubheading>Population Deviation</EvalSubheading>
+      <Text size="2" as="p" mb="2">
+        The ideal size of a district is arrived at by dividing the total population of the state
+        equally into the specified number of districts. Population deviation of a plan is measured
+        as the largest amount that any district differs from ideal size. Legislative plans should
+        typically have individual deviations under ±5%, which ensures a top-to-bottom deviation of
+        under 10%. Congressional plans are typically more tightly balanced.
+      </Text>
+      {population_deviation ? (
+        <>
+          <Flex align="center" gap="2" mb="2" justify="end" display={isReport ? 'none' : 'flex'}>
+            <Text size="1" color="gray">
+              Show
+            </Text>
+            <Select.Root
+              value={deviationView}
+              onValueChange={v => setDeviationView(v as DeviationView)}
+              size="1"
+            >
+              <Select.Trigger />
+              <Select.Content>
+                <Select.Item value="both">Both</Select.Item>
+                <Select.Item value="top_to_bottom">Top-to-bottom</Select.Item>
+                <Select.Item value="max_absolute">Max absolute</Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </Flex>
+          <Text size="2" as="p">
+            Your plan&apos;s most populous district is{' '}
+            <HoverTrigger
+              bold
+              onEnter={() => onDistrictEnter([population_deviation.most_populous_district])}
+              onLeave={onDistrictLeave}
+            >
+              {districtHeading(population_deviation.most_populous_district, zoneAliases)}
+            </HoverTrigger>{' '}
+            and least populous district is{' '}
+            <HoverTrigger
+              bold
+              onEnter={() => onDistrictEnter([population_deviation.least_populous_district])}
+              onLeave={onDistrictLeave}
+            >
+              {districtHeading(population_deviation.least_populous_district, zoneAliases)}
+            </HoverTrigger>
+            {deviationView !== 'max_absolute' && (
+              <>
+                , for a top-to-bottom deviation of{' '}
+                <strong>{formatDeviation(population_deviation.top_to_bottom_deviation)}</strong>
+              </>
+            )}
+            {deviationView === 'both' && <> and</>}
+            {deviationView !== 'top_to_bottom' && (
+              <>
+                {deviationView === 'max_absolute' ? ', with' : ''} a maximal absolute deviation of{' '}
+                <strong>
+                  {population_deviation.maximal_absolute_deviation?.toLocaleString() ?? '—'}
+                </strong>{' '}
+                {population_deviation.maximal_absolute_deviation === 1 ? 'person' : 'people'}
+              </>
+            )}
+            .
+          </Text>
+        </>
+      ) : (
+        <Text size="2">Not available for this plan.</Text>
+      )}
+    </EvalSection>
   );
 };

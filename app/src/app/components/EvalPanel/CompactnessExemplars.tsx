@@ -1,8 +1,11 @@
 'use client';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
-import {Flex, Slider, Spinner, Text} from '@radix-ui/themes';
+import {Flex, Slider, Spinner, Table, Text} from '@radix-ui/themes';
 import {FIPS_TO_NAME} from '@constants/meta/usStates';
+import {EvalTableTitle} from './EvalSection';
+import {useIsReport} from './evalMode';
+import {useReportPart} from './reportStatus';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
 
@@ -189,22 +192,128 @@ const ExemplarStrip: React.FC<ExemplarStripProps> = ({geoids, districtsById, lab
   );
 };
 
+export interface PlanScoreStats {
+  min: number;
+  mean: number;
+  max: number;
+}
+
+const PLAN_POINTS: (keyof PlanScoreStats)[] = ['min', 'mean', 'max'];
+
+interface ExemplarTableProps {
+  scoreKey: CompactnessScoreKey;
+  data: CompactnessExemplarData;
+  planStats: PlanScoreStats;
+}
+
+/**
+ * The report's static stand-in for the slider: one example district for each of the
+ * score ranges holding the plan's lowest, mean and highest score. Values that share
+ * a range share a column, so the table has one to three columns. The example is the
+ * sampled district whose score is closest to the plan's value (to their average,
+ * for a shared column); a tie goes to the district listed first.
+ */
+const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, data, planStats}) => {
+  const buckets = data.buckets[scoreKey];
+  const scoreName = SCORE_NAME[scoreKey];
+
+  const columns: {bucket: ExemplarBucket; values: number[]}[] = [];
+  for (const key of PLAN_POINTS) {
+    const value = planStats[key];
+    const bucket = buckets[initialBucketIndex(buckets, value)];
+    const last = columns[columns.length - 1];
+    if (last && last.bucket === bucket) last.values.push(value);
+    else columns.push({bucket, values: [value]});
+  }
+
+  const examples = columns.map(({bucket, values}) => {
+    const target = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const distance = (geoid: string) => Math.abs(data.districts[geoid][scoreKey] - target);
+    const geoid = bucket.districts.reduce((best, g) => (distance(g) < distance(best) ? g : best));
+    return data.districts[geoid];
+  });
+
+  return (
+    <div className="eval-report-exemplars">
+      <EvalTableTitle reportOnly>{scoreName} score exemplars</EvalTableTitle>
+      <div style={{width: 'fit-content'}}>
+        <Table.Root size="1" mb="2" variant="surface">
+          <Table.Body>
+            <Table.Row>
+              <Table.Cell justify="center">
+                <Text size="1">A {scoreName} score of</Text>
+              </Table.Cell>
+              {columns.map(({bucket}) => (
+                <Table.Cell key={bucket.min} justify="center">
+                  <Text size="2" className="tabular-nums">
+                    {rangeLabel(bucket)}
+                  </Text>
+                </Table.Cell>
+              ))}
+            </Table.Row>
+            <Table.Row>
+              <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
+                <Text size="1">…is exemplified by…</Text>
+              </Table.Cell>
+              {examples.map((district, i) => (
+                <Table.Cell key={columns[i].bucket.min} justify="center">
+                  <svg
+                    role="img"
+                    aria-label={districtName(district)}
+                    width={OUTLINE_SIZE}
+                    height={OUTLINE_SIZE}
+                    viewBox={`0 0 ${district.width} ${district.height}`}
+                    style={{display: 'block', margin: '0 auto'}}
+                  >
+                    <path d={district.path} fillRule="evenodd" fill={OUTLINE_FILL} />
+                  </svg>
+                </Table.Cell>
+              ))}
+            </Table.Row>
+            <Table.Row>
+              <Table.Cell justify="center">
+                <Text size="1">Source</Text>
+              </Table.Cell>
+              {examples.map((district, i) => (
+                <Table.Cell key={columns[i].bucket.min} justify="center">
+                  <Text size="1">{districtName(district)}</Text>
+                </Table.Cell>
+              ))}
+            </Table.Row>
+          </Table.Body>
+        </Table.Root>
+      </div>
+      <Text size="1" color="gray" as="p" mb="3">
+        Congressional districts of the {ordinal(data.congress)} Congress, used in the{' '}
+        {data.electionYear} election ({data.source}).
+      </Text>
+    </div>
+  );
+};
+
 interface CompactnessExemplarsProps {
   scoreKey: CompactnessScoreKey;
-  /** Mean of the plan's own scores; decides which range is shown first. */
-  planMean: number | null;
+  /** The plan's own scores: the mean decides which range the slider starts on, and
+   * the report shows the ranges of the lowest, mean and highest. */
+  planStats: PlanScoreStats | null;
 }
 
 /**
  * Shows what a compactness score looks like: districts of a past Congress, grouped
  * into score ranges, a fixed random sample of each range.
  */
-export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({scoreKey, planMean}) => {
+export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({
+  scoreKey,
+  planStats,
+}) => {
+  const isReport = useIsReport();
+  const planMean = planStats?.mean ?? null;
   const {data, isError} = useQuery({
     queryKey: ['compactness-exemplars'],
     queryFn: loadExemplars,
     staleTime: Infinity,
   });
+  useReportPart(`examples-${scoreKey}`, isError ? 'failed' : data ? 'ready' : 'loading');
   const [chosenIndex, setChosenIndex] = useState<number | null>(null);
 
   const buckets = data?.buckets[scoreKey];
@@ -226,6 +335,12 @@ export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({score
         <Spinner />
       </Flex>
     );
+  }
+
+  if (isReport) {
+    return planStats ? (
+      <ExemplarTable scoreKey={scoreKey} data={data} planStats={planStats} />
+    ) : null;
   }
 
   const selectedIndex = chosenIndex ?? defaultIndex;

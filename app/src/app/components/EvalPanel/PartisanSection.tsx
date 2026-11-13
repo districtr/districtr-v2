@@ -1,8 +1,9 @@
 'use client';
 import {Fragment, useState} from 'react';
-import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
-import {TriangleRightIcon} from '@radix-ui/react-icons';
+import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
+import {type EvalOptions, useEvalOption, useIsReport} from './evalMode';
+import {ReportNoteRef} from './ReportNotes';
+import {Flex, Text, Table, Select} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
@@ -74,13 +75,25 @@ function dispLabel(disp: number, numDistricts: number): string {
   return seatLean > 0 ? `Skews Democratic by ${abs} seats` : `Skews Republican by ${abs} seats`;
 }
 
-const ftvHelpTipTrigger = (
-  <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
-    <button type="button" style={HOVER_BTN_STYLE}>
-      Freedom-To-Vote Test
-    </button>
-  </HelpTip>
-);
+/** The test's name: a help tip on screen, a numbered note in the report. */
+const FtvTestName: React.FC = () => {
+  const isReport = useIsReport();
+  if (isReport) {
+    return (
+      <>
+        Freedom-To-Vote Test
+        <ReportNoteRef tip="freedomToVoteTest" />
+      </>
+    );
+  }
+  return (
+    <HelpTip tip="freedomToVoteTest" openDelay={HELP_TIP_FAST_DELAY}>
+      <button type="button" style={HOVER_BTN_STYLE}>
+        Freedom-To-Vote Test
+      </button>
+    </HelpTip>
+  );
+};
 
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
@@ -96,11 +109,13 @@ function sortElections(keys: string[]): string[] {
 }
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
-  const [pov, setPov] = useState<Pov>('dem');
+  const isReport = useIsReport();
+  const [pov, setPov] = useEvalOption('pov');
+  const povName = pov === 'dem' ? 'Democratic' : 'Republican';
   const [ftvHover, setFtvHover] = useState(false);
   const [ftvPassHover, setFtvPassHover] = useState(false);
   const [hoveredFtvKey, setHoveredFtvKey] = useState<string | null>(null);
-  const [competitiveBand, setCompetitiveBand] = useState('3');
+  const [competitiveBand, setCompetitiveBand] = useEvalOption('competitiveBand');
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
@@ -196,569 +211,546 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   ).length;
 
   return (
-    <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="partisan">
-        <Accordion.Trigger asChild>
-          <Flex align="center" gap="1" className="cursor-pointer w-full group" py="2">
-            <TriangleRightIcon
-              width={16}
-              height={16}
-              className="transition-transform duration-200 group-data-[state=open]:rotate-90"
-            />
-            <Heading size="5">Election Results and Partisanship</Heading>
+    <EvalSection value="partisan" title="Election Results and Partisanship">
+      {n > 0 && (
+        <Text size="2" mb="3" as="p">
+          Our current dataset contains{' '}
+          <strong>
+            {n} recent statewide election{n !== 1 ? 's' : ''}
+          </strong>
+          .{' '}
+        </Text>
+      )}
+
+      {/* Proportionality */}
+      {n > 0 && (
+        <>
+          <EvalSubheading>Proportionality</EvalSubheading>
+          <Text size="2" mb="3" as="p">
+            Relative to proportionality, your plan has an average skew of{' '}
+            {avgSeatSkew !== null ? (
+              <>
+                <strong>{Math.abs(avgSeatSkew).toFixed(1)} seats</strong> towards{' '}
+                {avgSeatSkew >= 0 ? 'Democrats' : 'Republicans'}
+              </>
+            ) : (
+              '—'
+            )}{' '}
+            over these elections.
+          </Text>
+          <EvalTableTitle>
+            Votes vs. Seats by Election (among the two major parties)
+            {isReport && `, ${povName} point of view`}
+          </EvalTableTitle>
+          <Flex mb="2" display={isReport ? 'none' : 'flex'}>
+            <PovSwitcher pov={pov} setPov={setPov} />
           </Flex>
-        </Accordion.Trigger>
-        <Accordion.Content className="pl-8">
-          {n > 0 && (
+          <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+            <Table.Root size="1" mb="3" variant="surface">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center">
+                    Total (D+R)
+                    <br />
+                    Votes
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{color: povColor, width: '8ch'}}>
+                    {pov === 'dem' ? 'Dem' : 'Repub'} Vote
+                    <br />
+                    Share
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{color: povColor, width: '8ch'}}>
+                    {pov === 'dem' ? 'Dem' : 'Repub'}
+                    <br />
+                    Districts
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{color: povColor, width: '8ch'}}>
+                    {pov === 'dem' ? 'Dem' : 'Repub'} Seat
+                    <br />
+                    Share
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{minWidth: '22ch'}}>
+                    Disproportionality
+                  </Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {elections.map(key => {
+                  const seats = evaluation.seats?.[key];
+                  const seatTotal = seats?.total ?? null;
+                  const partySeatCount = seats?.[pov] ?? null;
+                  const seatPct =
+                    seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
+                  const votes = evaluation.votes?.[key];
+                  const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
+                  const rawDisp = evaluation.disproportionality?.[key] ?? null;
+                  const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
+                  return (
+                    <Table.Row key={key}>
+                      <Table.Cell justify="center">
+                        <Text size="2" weight="bold">
+                          {formatElectionKey(key)}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell justify="center">
+                        <Text size="2">{votes != null ? votes.total.toLocaleString() : '—'}</Text>
+                      </Table.Cell>
+                      <Table.Cell
+                        justify="center"
+                        style={{
+                          backgroundColor:
+                            voteShare != null
+                              ? voteShare > 0.5
+                                ? povBg((voteShare - 0.5) * 1.5)
+                                : NEUTRAL
+                              : undefined,
+                          ...ftvCellHighlight(isFtvHighlighted(key)),
+                        }}
+                      >
+                        <Text size="2">
+                          {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell justify="center">
+                        <Text size="2">
+                          {partySeatCount != null && seatTotal
+                            ? `${partySeatCount}/${seatTotal}`
+                            : '—'}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell
+                        justify="center"
+                        style={{
+                          ...(seatPct !== null
+                            ? {
+                                backgroundColor:
+                                  seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
+                              }
+                            : {}),
+                          ...ftvCellHighlight(isFtvHighlighted(key)),
+                        }}
+                      >
+                        <Text size="2">
+                          {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell
+                        justify="center"
+                        style={{
+                          backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
+                          color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
+                          ...ftvCellHighlight(isFtvHighlighted(key)),
+                        }}
+                      >
+                        <Text size="2">
+                          {disp !== null && numDistricts !== null
+                            ? dispLabel(rawDisp!, numDistricts)
+                            : '—'}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  );
+                })}
+              </Table.Body>
+            </Table.Root>
+          </div>
+        </>
+      )}
+
+      {n > 0 && (
+        <>
+          <EvalSubheading>Freedom-To-Vote Test</EvalSubheading>
+          {ftvPassCount === null && (
             <Text size="2" mb="3" as="p">
-              Our current dataset contains{' '}
-              <strong>
-                {n} recent statewide election{n !== 1 ? 's' : ''}
-              </strong>
-              .{' '}
+              Not enough recent Presidential and Senate election data is available to score this
+              plan against the <FtvTestName />.
             </Text>
           )}
-
-          {/* Proportionality */}
-          {n > 0 && (
+          {ftvPassCount !== null && (
             <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Proportionality
-              </Heading>
-              <Text size="2" mb="3" as="p">
-                Relative to proportionality, your plan has an average skew of{' '}
-                {avgSeatSkew !== null ? (
-                  <>
-                    <strong>{Math.abs(avgSeatSkew).toFixed(1)} seats</strong> towards{' '}
-                    {avgSeatSkew >= 0 ? 'Democrats' : 'Republicans'}
-                  </>
-                ) : (
-                  '—'
-                )}{' '}
-                over these elections.
-              </Text>
-              <Text size="2" weight="bold" mb="2" as="p">
-                Votes vs. Seats by Election (among the two major parties)
-              </Text>
-              <Flex mb="2">
-                <PovSwitcher pov={pov} setPov={setPov} />
-              </Flex>
-              <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
-                <Table.Root size="1" mb="3" variant="surface">
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.ColumnHeaderCell justify="center">Election</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center">
-                        Total (D+R)
-                        <br />
-                        Votes
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell
-                        justify="center"
-                        style={{color: povColor, width: '8ch'}}
-                      >
-                        {pov === 'dem' ? 'Dem' : 'Repub'} Vote
-                        <br />
-                        Share
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell
-                        justify="center"
-                        style={{color: povColor, width: '8ch'}}
-                      >
-                        {pov === 'dem' ? 'Dem' : 'Repub'}
-                        <br />
-                        Districts
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell
-                        justify="center"
-                        style={{color: povColor, width: '8ch'}}
-                      >
-                        {pov === 'dem' ? 'Dem' : 'Repub'} Seat
-                        <br />
-                        Share
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{minWidth: '22ch'}}>
-                        Disproportionality
-                      </Table.ColumnHeaderCell>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {elections.map(key => {
-                      const seats = evaluation.seats?.[key];
-                      const seatTotal = seats?.total ?? null;
-                      const partySeatCount = seats?.[pov] ?? null;
-                      const seatPct =
-                        seatTotal && partySeatCount != null ? partySeatCount / seatTotal : null;
-                      const votes = evaluation.votes?.[key];
-                      const voteShare = evaluation.vote_shares?.[key]?.[pov] ?? null;
-                      const rawDisp = evaluation.disproportionality?.[key] ?? null;
-                      const disp = rawDisp !== null ? (pov === 'rep' ? -rawDisp : rawDisp) : null;
-                      return (
-                        <Table.Row key={key}>
-                          <Table.Cell justify="center">
-                            <Text size="2" weight="bold">
-                              {formatElectionKey(key)}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">
-                              {votes != null ? votes.total.toLocaleString() : '—'}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell
-                            justify="center"
-                            style={{
-                              backgroundColor:
-                                voteShare != null
-                                  ? voteShare > 0.5
-                                    ? povBg((voteShare - 0.5) * 1.5)
-                                    : NEUTRAL
-                                  : undefined,
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
-                            }}
-                          >
-                            <Text size="2">
-                              {voteShare != null ? `${(voteShare * 100).toFixed(1)}%` : '—'}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center">
-                            <Text size="2">
-                              {partySeatCount != null && seatTotal
-                                ? `${partySeatCount}/${seatTotal}`
-                                : '—'}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell
-                            justify="center"
-                            style={{
-                              ...(seatPct !== null
-                                ? {
-                                    backgroundColor:
-                                      seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
-                                  }
-                                : {}),
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
-                            }}
-                          >
-                            <Text size="2">
-                              {seatPct !== null ? `${(seatPct * 100).toFixed(1)}%` : '—'}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell
-                            justify="center"
-                            style={{
-                              backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
-                              color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
-                            }}
-                          >
-                            <Text size="2">
-                              {disp !== null && numDistricts !== null
-                                ? dispLabel(rawDisp!, numDistricts)
-                                : '—'}
-                            </Text>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  </Table.Body>
-                </Table.Root>
-              </div>
-            </>
-          )}
-
-          {n > 0 && (
-            <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Freedom-To-Vote Test
-              </Heading>
-              {ftvPassCount === null && (
-                <Text size="2" mb="3" as="p">
-                  Not enough recent Presidential and Senate election data is available to score this
-                  plan against the {ftvHelpTipTrigger}.
-                </Text>
-              )}
-              {ftvPassCount !== null && (
-                <>
-                  <Text size="2" mb="2" as="p">
-                    This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
-                    {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
+              <Text size="2" mb="2" as="p">
+                This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
+                <FtvTestName /> for partisan balance. To see why, we use{' '}
+                <HoverTrigger onEnter={() => setFtvHover(true)} onLeave={() => setFtvHover(false)}>
+                  the last two Senate races and the last two Presidential races
+                </HoverTrigger>{' '}
+                as our test contests (
+                {ftvElections.map((key, i) => (
+                  <Fragment key={key}>
+                    {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
                     <HoverTrigger
-                      onEnter={() => setFtvHover(true)}
-                      onLeave={() => setFtvHover(false)}
+                      onEnter={() => setHoveredFtvKey(key)}
+                      onLeave={() => setHoveredFtvKey(null)}
                     >
-                      the last two Senate races and the last two Presidential races
-                    </HoverTrigger>{' '}
-                    as our test contests (
-                    {ftvElections.map((key, i) => (
-                      <Fragment key={key}>
-                        {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
-                        <HoverTrigger
-                          onEnter={() => setHoveredFtvKey(key)}
-                          onLeave={() => setHoveredFtvKey(null)}
-                        >
-                          {formatElectionKey(key)}
-                        </HoverTrigger>
-                      </Fragment>
-                    ))}
-                    ). We check if the seat share would have been proportional to the vote share in
-                    those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
-                  </Text>
-                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
-                    <Table.Root size="1" mb="2" variant="surface">
-                      <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell justify="center" />
-                          {ftvElections.map(key => (
-                            <Table.ColumnHeaderCell key={key} justify="center">
-                              <HoverTrigger
-                                onEnter={() => setHoveredFtvKey(key)}
-                                onLeave={() => setHoveredFtvKey(null)}
-                              >
-                                {formatElectionKey(key)}
-                              </HoverTrigger>
-                            </Table.ColumnHeaderCell>
-                          ))}
-                        </Table.Row>
-                      </Table.Header>
-                      <Table.Body>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              {pov === 'dem' ? 'D' : 'R'} vote share
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => (
-                            <Table.Cell key={key} justify="center">
-                              <Text size="2">
-                                {povVoteShare(key) !== null
-                                  ? `${(povVoteShare(key)! * 100).toFixed(1)}%`
-                                  : '—'}
-                              </Text>
-                            </Table.Cell>
-                          ))}
-                        </Table.Row>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              {pov === 'dem' ? 'D' : 'R'} seat share
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => (
-                            <Table.Cell key={key} justify="center">
-                              <Text size="2">
-                                {povSeatShare(key) !== null
-                                  ? `${(povSeatShare(key)! * 100).toFixed(1)}%`
-                                  : '—'}
-                              </Text>
-                            </Table.Cell>
-                          ))}
-                        </Table.Row>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              Close enough?
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => {
-                            const verdict = ftvVerdict(key);
-                            return (
-                              <Table.Cell key={key} justify="center">
-                                <Text
-                                  size="2"
-                                  style={{
-                                    color:
-                                      verdict === 'dem'
-                                        ? DEM
-                                        : verdict === 'rep'
-                                          ? REP
-                                          : 'var(--green-9)',
-                                  }}
-                                >
-                                  {verdict === 'pass'
-                                    ? '✓'
-                                    : verdict === 'dem'
-                                      ? 'Dem tilt'
-                                      : verdict === 'rep'
-                                        ? 'Repub tilt'
-                                        : '—'}
-                                </Text>
-                              </Table.Cell>
-                            );
-                          })}
-                        </Table.Row>
-                      </Table.Body>
-                    </Table.Root>
-                  </div>
-                  <Text size="2" mb="3" as="p">
-                    This is close enough{' '}
-                    <HoverTrigger
-                      bold
-                      onEnter={() => setFtvPassHover(true)}
-                      onLeave={() => setFtvPassHover(false)}
-                    >
-                      {ftvPassCount} out of 4 times
+                      {formatElectionKey(key)}
                     </HoverTrigger>
-                    , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
-                    needed to pass.)
-                  </Text>
-                </>
-              )}
-
-              {/* Other Partisanship Metrics */}
-              <Heading size="3" align="center" mb="2" mt="4">
-                Other Partisanship Metrics
-              </Heading>
-              <Flex mb="2">
-                <PovSwitcher pov={pov} setPov={setPov} />
-              </Flex>
-              <div style={{overflowX: 'auto', maxWidth: '100%', width: 'fit-content'}}>
-                <Table.Root
-                  size="1"
-                  mb="3"
-                  variant="surface"
-                  style={{tableLayout: 'fixed', width: '58ch'}}
-                >
+                  </Fragment>
+                ))}
+                ). We check if the seat share would have been proportional to the vote share in
+                those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
+              </Text>
+              <EvalTableTitle reportOnly>
+                Freedom-To-Vote Test by contest, {povName} point of view
+              </EvalTableTitle>
+              <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+                <Table.Root size="1" mb="2" variant="surface">
                   <Table.Header>
                     <Table.Row>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
-                        Election
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Dispropor-
-                        <br />
-                        tionality
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Efficiency
-                        <br />
-                        Gap
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Mean
-                        <br />
-                        Median
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Partisan
-                        <br />
-                        Bias
-                      </Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
-                        Eguia&apos;s
-                        <br />
-                        Metric
-                      </Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell justify="center" />
+                      {ftvElections.map(key => (
+                        <Table.ColumnHeaderCell key={key} justify="center">
+                          <HoverTrigger
+                            onEnter={() => setHoveredFtvKey(key)}
+                            onLeave={() => setHoveredFtvKey(null)}
+                          >
+                            {formatElectionKey(key)}
+                          </HoverTrigger>
+                        </Table.ColumnHeaderCell>
+                      ))}
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    {elections.map(key => (
-                      <Table.Row key={key}>
-                        <Table.Cell justify="center">
-                          <Text size="2" weight="bold">
-                            {formatElectionKey(key)}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(
-                              evaluation.disproportionality?.[key],
-                              METRIC_CUTOFF.disp
-                            ),
-                            color: scaledTextColor(
-                              evaluation.disproportionality?.[key],
-                              METRIC_CUTOFF.disp
-                            ),
-                            ...ftvCellHighlight(isFtvHighlighted(key)),
-                          }}
-                        >
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2" weight="bold">
+                          {pov === 'dem' ? 'D' : 'R'} vote share
+                        </Text>
+                      </Table.Cell>
+                      {ftvElections.map(key => (
+                        <Table.Cell key={key} justify="center">
                           <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.disproportionality?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
+                            {povVoteShare(key) !== null
+                              ? `${(povVoteShare(key)! * 100).toFixed(1)}%`
+                              : '—'}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(
-                              evaluation.efficiency_gap?.[key],
-                              METRIC_CUTOFF.efficiency_gap
-                            ),
-                            color: scaledTextColor(
-                              evaluation.efficiency_gap?.[key],
-                              METRIC_CUTOFF.efficiency_gap
-                            ),
-                          }}
-                        >
+                      ))}
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2" weight="bold">
+                          {pov === 'dem' ? 'D' : 'R'} seat share
+                        </Text>
+                      </Table.Cell>
+                      {ftvElections.map(key => (
+                        <Table.Cell key={key} justify="center">
                           <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.efficiency_gap?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
+                            {povSeatShare(key) !== null
+                              ? `${(povSeatShare(key)! * 100).toFixed(1)}%`
+                              : '—'}
                           </Text>
                         </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(
-                              evaluation.mean_median?.[key],
-                              METRIC_CUTOFF.mean_median
-                            ),
-                            color: scaledTextColor(
-                              evaluation.mean_median?.[key],
-                              METRIC_CUTOFF.mean_median
-                            ),
-                          }}
-                        >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.mean_median?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(
-                              evaluation.partisan_bias?.[key],
-                              METRIC_CUTOFF.partisan_bias
-                            ),
-                            color: scaledTextColor(
-                              evaluation.partisan_bias?.[key],
-                              METRIC_CUTOFF.partisan_bias
-                            ),
-                          }}
-                        >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.partisan_bias?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell
-                          justify="center"
-                          style={{
-                            backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
-                            color: scaledTextColor(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
-                          }}
-                        >
-                          <Text size="2">
-                            {formatNumber(
-                              povSign(evaluation.eguia?.[key]),
-                              NUMBER_FORMATS.SIGNED_PCT
-                            )}
-                          </Text>
-                        </Table.Cell>
-                      </Table.Row>
-                    ))}
+                      ))}
+                    </Table.Row>
+                    <Table.Row>
+                      <Table.Cell>
+                        <Text size="2" weight="bold">
+                          Close enough?
+                        </Text>
+                      </Table.Cell>
+                      {ftvElections.map(key => {
+                        const verdict = ftvVerdict(key);
+                        return (
+                          <Table.Cell key={key} justify="center">
+                            <Text
+                              size="2"
+                              style={{
+                                color:
+                                  verdict === 'dem'
+                                    ? DEM
+                                    : verdict === 'rep'
+                                      ? REP
+                                      : 'var(--green-9)',
+                              }}
+                            >
+                              {verdict === 'pass'
+                                ? '✓'
+                                : verdict === 'dem'
+                                  ? 'Dem tilt'
+                                  : verdict === 'rep'
+                                    ? 'Repub tilt'
+                                    : '—'}
+                            </Text>
+                          </Table.Cell>
+                        );
+                      })}
+                    </Table.Row>
                   </Table.Body>
                 </Table.Root>
               </div>
+              <Text size="2" mb="3" as="p">
+                This is close enough{' '}
+                <HoverTrigger
+                  bold
+                  onEnter={() => setFtvPassHover(true)}
+                  onLeave={() => setFtvPassHover(false)}
+                >
+                  {ftvPassCount} out of 4 times
+                </HoverTrigger>
+                , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
+                needed to pass.)
+              </Text>
             </>
           )}
 
-          {/* Competitiveness Metrics */}
-          {competitiveness && (
-            <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Competitiveness
-              </Heading>
-              <Text size="2" mb="3" as="p">
-                A district is considered <strong>competitive</strong> in a particular vote pattern
-                if it&apos;s close to 50-50 within the major parties — more specifically, if its
-                vote shares deviate from even by an amount within{' '}
-                <Select.Root value={competitiveBand} onValueChange={setCompetitiveBand} size="1">
-                  <Select.Trigger />
-                  <Select.Content>
-                    <Select.Item value="2">±2 points</Select.Item>
-                    <Select.Item value="3">±3 points</Select.Item>
-                    <Select.Item value="5">±5 points</Select.Item>
-                    <Select.Item value="7">±7 points</Select.Item>
-                    <Select.Item value="10">±10 points</Select.Item>
-                  </Select.Content>
-                </Select.Root>
-                . We call a district a <strong>swing</strong> district if each major party won it at
-                least once over the elections in our dataset. If it was always won by the same party
-                across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
-                <strong>Repub Sweep</strong>.
-              </Text>
-              <div style={{width: 'fit-content'}}>
-                <Table.Root size="1" variant="surface">
-                  <Table.Body>
-                    <Table.Row>
-                      <Table.Cell justify="center">
-                        <Text size="2">Elections analyzed</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {nElectionsAnalyzed}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                    <Table.Row>
-                      <Table.Cell justify="center">
-                        <Text size="2">Competitive contests</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
-                          {nCompetitiveContests} / {contestDemVoteShares.length}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                    <Table.Row
-                      tabIndex={0}
-                      style={{cursor: 'default'}}
-                      {...hoverHandlers(() => onDistrictEnter(swingDistricts), onDistrictLeave)}
+          {/* Other Partisanship Metrics */}
+          <EvalSubheading>Other Partisanship Metrics</EvalSubheading>
+          <EvalTableTitle reportOnly>
+            Partisanship metrics by election, {povName} point of view
+          </EvalTableTitle>
+          <Flex mb="2" display={isReport ? 'none' : 'flex'}>
+            <PovSwitcher pov={pov} setPov={setPov} />
+          </Flex>
+          <div style={{overflowX: 'auto', maxWidth: '100%', width: 'fit-content'}}>
+            <Table.Root
+              size="1"
+              mb="3"
+              variant="surface"
+              style={{tableLayout: 'fixed', width: '58ch'}}
+            >
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '10ch'}}>
+                    Election
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                    Dispropor-
+                    <br />
+                    tionality
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                    Efficiency
+                    <br />
+                    Gap
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                    Mean
+                    <br />
+                    Median
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                    Partisan
+                    <br />
+                    Bias
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell justify="center" style={{width: '9ch'}}>
+                    Eguia&apos;s
+                    <br />
+                    Metric
+                  </Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {elections.map(key => (
+                  <Table.Row key={key}>
+                    <Table.Cell justify="center">
+                      <Text size="2" weight="bold">
+                        {formatElectionKey(key)}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="center"
+                      style={{
+                        backgroundColor: scaledBg(
+                          evaluation.disproportionality?.[key],
+                          METRIC_CUTOFF.disp
+                        ),
+                        color: scaledTextColor(
+                          evaluation.disproportionality?.[key],
+                          METRIC_CUTOFF.disp
+                        ),
+                        ...ftvCellHighlight(isFtvHighlighted(key)),
+                      }}
                     >
-                      <Table.Cell justify="center">
-                        <Text size="2">Swing districts</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {swingDistricts.length} / {nDistrictsTotal}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                    <Table.Row
-                      tabIndex={0}
-                      style={{cursor: 'default'}}
-                      {...hoverHandlers(() => onDistrictEnter(demSweepDistricts), onDistrictLeave)}
+                      <Text size="2">
+                        {formatNumber(
+                          povSign(evaluation.disproportionality?.[key]),
+                          NUMBER_FORMATS.SIGNED_PCT
+                        )}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="center"
+                      style={{
+                        backgroundColor: scaledBg(
+                          evaluation.efficiency_gap?.[key],
+                          METRIC_CUTOFF.efficiency_gap
+                        ),
+                        color: scaledTextColor(
+                          evaluation.efficiency_gap?.[key],
+                          METRIC_CUTOFF.efficiency_gap
+                        ),
+                      }}
                     >
-                      <Table.Cell justify="center">
-                        <Text size="2">Dem Sweep districts</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {demSweepDistricts.length} / {nDistrictsTotal}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                    <Table.Row
-                      tabIndex={0}
-                      style={{cursor: 'default'}}
-                      {...hoverHandlers(() => onDistrictEnter(repSweepDistricts), onDistrictLeave)}
+                      <Text size="2">
+                        {formatNumber(
+                          povSign(evaluation.efficiency_gap?.[key]),
+                          NUMBER_FORMATS.SIGNED_PCT
+                        )}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="center"
+                      style={{
+                        backgroundColor: scaledBg(
+                          evaluation.mean_median?.[key],
+                          METRIC_CUTOFF.mean_median
+                        ),
+                        color: scaledTextColor(
+                          evaluation.mean_median?.[key],
+                          METRIC_CUTOFF.mean_median
+                        ),
+                      }}
                     >
-                      <Table.Cell justify="center">
-                        <Text size="2">Repub sweep districts</Text>
-                      </Table.Cell>
-                      <Table.Cell justify="center">
-                        <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
-                          {repSweepDistricts.length} / {nDistrictsTotal}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                  </Table.Body>
-                </Table.Root>
-              </div>
-            </>
-          )}
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
+                      <Text size="2">
+                        {formatNumber(
+                          povSign(evaluation.mean_median?.[key]),
+                          NUMBER_FORMATS.SIGNED_PCT
+                        )}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="center"
+                      style={{
+                        backgroundColor: scaledBg(
+                          evaluation.partisan_bias?.[key],
+                          METRIC_CUTOFF.partisan_bias
+                        ),
+                        color: scaledTextColor(
+                          evaluation.partisan_bias?.[key],
+                          METRIC_CUTOFF.partisan_bias
+                        ),
+                      }}
+                    >
+                      <Text size="2">
+                        {formatNumber(
+                          povSign(evaluation.partisan_bias?.[key]),
+                          NUMBER_FORMATS.SIGNED_PCT
+                        )}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell
+                      justify="center"
+                      style={{
+                        backgroundColor: scaledBg(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
+                        color: scaledTextColor(evaluation.eguia?.[key], METRIC_CUTOFF.eguia),
+                      }}
+                    >
+                      <Text size="2">
+                        {formatNumber(povSign(evaluation.eguia?.[key]), NUMBER_FORMATS.SIGNED_PCT)}
+                      </Text>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </div>
+        </>
+      )}
+
+      {/* Competitiveness Metrics */}
+      {competitiveness && (
+        <>
+          <EvalSubheading>Competitiveness</EvalSubheading>
+          <Text size="2" mb="3" as="p">
+            A district is considered <strong>competitive</strong> in a particular vote pattern if
+            it&apos;s close to 50-50 within the major parties — more specifically, if its vote
+            shares deviate from even by an amount within{' '}
+            {isReport && <strong>±{competitiveBand} points</strong>}
+            <Select.Root
+              value={competitiveBand}
+              onValueChange={v => setCompetitiveBand(v as EvalOptions['competitiveBand'])}
+              size="1"
+            >
+              <Select.Trigger style={isReport ? {display: 'none'} : undefined} />
+              <Select.Content>
+                <Select.Item value="2">±2 points</Select.Item>
+                <Select.Item value="3">±3 points</Select.Item>
+                <Select.Item value="5">±5 points</Select.Item>
+                <Select.Item value="7">±7 points</Select.Item>
+                <Select.Item value="10">±10 points</Select.Item>
+              </Select.Content>
+            </Select.Root>
+            . We call a district a <strong>swing</strong> district if each major party won it at
+            least once over the elections in our dataset. If it was always won by the same party
+            across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
+            <strong>Repub Sweep</strong>.
+          </Text>
+          <EvalTableTitle reportOnly>
+            Competitive contests (within ±{competitiveBand} points), swing districts and sweep
+            districts
+          </EvalTableTitle>
+          <div style={{width: 'fit-content'}}>
+            <Table.Root size="1" variant="surface">
+              <Table.Body>
+                <Table.Row>
+                  <Table.Cell justify="center">
+                    <Text size="2">Elections analyzed</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="center">
+                    <Text size="2" weight="bold">
+                      {nElectionsAnalyzed}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+                <Table.Row>
+                  <Table.Cell justify="center">
+                    <Text size="2">Competitive contests</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="center">
+                    <Text size="2" weight="bold">
+                      {nCompetitiveContests} / {contestDemVoteShares.length}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+                <Table.Row
+                  tabIndex={isReport ? undefined : 0}
+                  style={{cursor: 'default'}}
+                  {...hoverHandlers(() => onDistrictEnter(swingDistricts), onDistrictLeave)}
+                >
+                  <Table.Cell justify="center">
+                    <Text size="2">Swing districts</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="center">
+                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                      {swingDistricts.length} / {nDistrictsTotal}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+                <Table.Row
+                  tabIndex={isReport ? undefined : 0}
+                  style={{cursor: 'default'}}
+                  {...hoverHandlers(() => onDistrictEnter(demSweepDistricts), onDistrictLeave)}
+                >
+                  <Table.Cell justify="center">
+                    <Text size="2">Dem Sweep districts</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="center">
+                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                      {demSweepDistricts.length} / {nDistrictsTotal}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+                <Table.Row
+                  tabIndex={isReport ? undefined : 0}
+                  style={{cursor: 'default'}}
+                  {...hoverHandlers(() => onDistrictEnter(repSweepDistricts), onDistrictLeave)}
+                >
+                  <Table.Cell justify="center">
+                    <Text size="2">Repub sweep districts</Text>
+                  </Table.Cell>
+                  <Table.Cell justify="center">
+                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                      {repSweepDistricts.length} / {nDistrictsTotal}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+              </Table.Body>
+            </Table.Root>
+          </div>
+        </>
+      )}
+    </EvalSection>
   );
 };

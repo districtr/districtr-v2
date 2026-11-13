@@ -67,6 +67,11 @@ export const PublicSource: React.FC<{children: React.ReactNode}> = ({children}) 
     setViewTransition,
   ]);
 
+  const requestFailed = isPublicView && publicDistrictsQuery.isError;
+  useEffect(() => {
+    setLoadingState('publicSourceFailed', requestFailed);
+  }, [requestFailed, setLoadingState]);
+
   const featureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
     return {
       type: 'FeatureCollection',
