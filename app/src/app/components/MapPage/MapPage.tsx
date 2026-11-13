@@ -7,13 +7,14 @@ import {PublicDemographicMap} from '@components/Map/PublicDemographicMap';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {DraftStatusHelper} from '@components/sidebar/DraftStatusHelper';
 import {EvalPanel} from '@components/EvalPanel/EvalPanel';
+import {ReportMapFigure} from '@components/EvalPanel/ReportMapFigure';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {AppNotification} from '@components/AppNotification';
 import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {MobileToolbar} from '@/app/components/Toolbar/MobileToolbar';
-import {Flex} from '@radix-ui/themes';
+import {Button, Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -34,10 +35,12 @@ import {BASEMAP_IDS} from '@constants/map/layerStyle';
 interface MapPageProps {
   isEditing: boolean;
   isEval?: boolean; // Should be set when isEditing is false
+  /** The evaluation laid out as a document for paper (with isEval). */
+  isReport?: boolean;
   mapId: string;
 }
 
-function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
+function ChildMapPage({isEditing, isEval, isReport, mapId}: MapPageProps) {
   const router = useRouter();
   const isMapModeReady = useInitializeMapMode(MAP_MODES.DISTRICTS);
   const showDemographicMap = useMapControlsStore(
@@ -126,6 +129,21 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
     return null;
   }
 
+  if (isReport && isPublicPage) {
+    return (
+      <div className="eval-report-root h-screen h-dvh w-screen overflow-y-auto">
+        <Flex justify="center" gap="3" py="3" className="eval-report-toolbar print:hidden">
+          <Button onClick={() => window.print()}>Print / Save as PDF</Button>
+          <Button asChild variant="soft">
+            <a href={`/${MAP_ROUTES.DISTRICTS}/${mapId}/eval`}>Back to evaluation</a>
+          </Button>
+        </Flex>
+        <EvalPanel mode="report" mapFigure={<ReportMapFigure />} />
+        <AppNotification />
+      </div>
+    );
+  }
+
   // TODO: refactor into a cleaner wrapper component and simplify child template logic
   return (
     <div
@@ -164,12 +182,12 @@ function ChildMapPage({isEditing, isEval, mapId}: MapPageProps) {
   );
 }
 
-export default function MapPage({isEditing, isEval, mapId}: MapPageProps) {
+export default function MapPage({isEditing, isEval, isReport, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
         <Suspense fallback={null}>
-          <ChildMapPage isEditing={isEditing} isEval={isEval} mapId={mapId} />
+          <ChildMapPage isEditing={isEditing} isEval={isEval} isReport={isReport} mapId={mapId} />
         </Suspense>
       </QueryClientProvider>
     );

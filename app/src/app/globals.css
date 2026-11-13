@@ -259,3 +259,230 @@ body {
 .rt-RadioCardsItem:focus-visible::after {
   outline: 2px solid var(--focus-8);
 }
+
+/* Evaluation report (/map/<id>/report): the evaluation laid out as a document.
+   On screen it is a sheet the size of the paper it prints on, so what the reader
+   sees is what the PDF holds. */
+.eval-report-root {
+  background: var(--gray-4);
+  /* The app's own font, kept for tables once the sheet switches to serif. */
+  --report-sans: var(--default-font-family);
+}
+.eval-report {
+  box-sizing: border-box;
+  width: 8.5in;
+  max-width: 100%;
+  margin: 0 auto 2rem;
+  padding: 2cm;
+  background: white;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.2);
+  page: eval-report;
+  counter-reset: report-section report-figure report-table;
+  --default-font-family: Georgia, 'Times New Roman', Times, serif;
+  --heading-font-family: var(--default-font-family);
+  --strong-font-family: var(--default-font-family);
+  font-family: var(--default-font-family);
+}
+.eval-report p {
+  orphans: 3;
+  widows: 3;
+}
+.eval-report a {
+  color: inherit;
+  text-decoration: underline;
+}
+.eval-report-title {
+  padding-bottom: 1rem;
+  border-bottom: 2px solid black;
+}
+
+/* Sections and subsections number themselves. */
+.eval-report-section {
+  counter-increment: report-section;
+  counter-reset: report-subsection;
+  margin-top: 2rem;
+}
+.eval-report-notes {
+  margin-top: 2rem;
+  break-inside: avoid;
+}
+.eval-report-heading,
+.eval-report-heading-plain {
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gray-8);
+  break-after: avoid;
+}
+.eval-report-heading::before {
+  content: counter(report-section) '. ';
+}
+.eval-report-subheading {
+  counter-increment: report-subsection;
+  break-after: avoid;
+}
+.eval-report-subheading::before {
+  content: counter(report-section) '.' counter(report-subsection) ' ';
+}
+.eval-report-notes ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Figures and tables number themselves and are kept whole where they fit. */
+.eval-report-figure {
+  margin: 1.25rem 0;
+  counter-increment: report-figure;
+  break-inside: avoid;
+}
+.eval-report-figure figcaption,
+.eval-report-table-title {
+  font-size: 0.875rem;
+}
+.eval-report-figure figcaption {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+.eval-report-figure figcaption::before {
+  content: 'Figure ' counter(report-figure) '. ';
+  font-weight: bold;
+}
+.eval-report-table-title {
+  counter-increment: report-table;
+  break-after: avoid;
+}
+.eval-report-table-title::before {
+  content: 'Table ' counter(report-table) '. ';
+  font-weight: bold;
+}
+.eval-report-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--gray-6);
+  background: var(--gray-2);
+  overflow: hidden;
+  /* A document's figure is looked at, never operated. */
+  pointer-events: none;
+}
+/* The live map is never seen; it only feeds the still. Its size is fixed, close
+   to the figure's size on the sheet, so no change of window or paper width
+   resizes it. */
+.eval-report-map-live {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 672px;
+  height: 420px;
+  display: flex;
+  visibility: hidden;
+}
+.eval-report-map-live .maplibregl-control-container {
+  display: none;
+}
+.eval-report-map-still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Tables are ruled top and bottom with open sides, so one that continues on the
+   next page breaks cleanly between two rows. They run at full length; their
+   header repeats on every page they reach. */
+.eval-report .rt-TableRoot {
+  border: none;
+  border-top: 1.5px solid black;
+  border-bottom: 1.5px solid black;
+  border-radius: 0;
+  background: none;
+  --table-border-radius: 0;
+}
+/* Districts named in a row read as a list: "5, 9, 12". */
+.eval-district-list .eval-report-district + .eval-report-district::before {
+  content: ', ';
+}
+
+.eval-report table {
+  --default-font-family: var(--report-sans);
+  font-family: var(--report-sans);
+}
+.eval-report thead {
+  position: static !important;
+  display: table-header-group;
+}
+.eval-report tr {
+  break-inside: avoid;
+}
+.eval-report .rt-TableRoot,
+.eval-report .rt-ScrollAreaRoot,
+.eval-report .rt-ScrollAreaViewport,
+.eval-report .overflow-y-auto {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Text that highlights the map on hover is plain text in a document. */
+.eval-report button[style] {
+  text-decoration: none !important;
+  cursor: inherit !important;
+}
+
+@page eval-report {
+  size: letter;
+  margin: 2cm;
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: 10pt;
+  }
+}
+
+@media print {
+  /* Width follows the paper: WebKit measures `100vw` against the window. */
+  .eval-report-root {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white;
+  }
+  .eval-report {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Report: a table is kept whole where it fits on a page, and marks that only mean
+   "hover me" on screen are dropped. */
+.eval-report .rt-TableRoot,
+.eval-report-exemplars {
+  break-inside: avoid;
+}
+/* A table that can outgrow a page starts where it stands and continues on the next. */
+.eval-report .rt-TableRoot.eval-long-table {
+  break-inside: auto;
+}
+.eval-report [style*='underline dotted'] {
+  text-decoration: none !important;
+}
+
+@media print {
+  /* The site's gray page background and full-height shell would print as gray
+     bands around the report's last page. */
+  body:has(.eval-report-root) {
+    background: white;
+  }
+  .radix-themes:has(.eval-report-root) {
+    min-height: 0 !important;
+  }
+}
+
+/* The report's sections take no pointer: hovering or clicking a row would
+   highlight or move the map under Figure 1 and change its still image. */
+.eval-report-section {
+  pointer-events: none;
+}
