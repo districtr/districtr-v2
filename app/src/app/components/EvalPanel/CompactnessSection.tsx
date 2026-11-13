@@ -85,7 +85,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
       {/* Per-district detail */}
       {polsby_popper && (
         <>
-          <EvalTableTitle spaced>Per-district scores</EvalTableTitle>
+          <EvalTableTitle spaced>Compactness scores by district</EvalTableTitle>
           <CompactnessScoreTable polsbyPopper={polsby_popper} reock={reock ?? undefined} />
         </>
       )}

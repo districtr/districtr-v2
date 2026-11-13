@@ -1,8 +1,9 @@
 'use client';
 import {useEffect, useState} from 'react';
-import {Flex, Spinner} from '@radix-ui/themes';
+import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {PublicMap} from '@components/Map/PublicMap';
 import {useMapStore} from '@store/mapStore';
+import {useReportPart} from './reportStatus';
 
 /** District labels are drawn smaller in the figure than on the interactive map. */
 const ZONE_LABEL_SCALE = 0.7;
@@ -16,7 +17,9 @@ const ZONE_LABEL_SCALE = 0.7;
 export const ReportMapFigure: React.FC = () => {
   const getMapRef = useMapStore(state => state.getMapRef);
   const districtsLoaded = useMapStore(state => state.loadingStates.publicSourceLoaded);
+  const districtsFailed = useMapStore(state => state.loadingStates.publicSourceFailed);
   const [still, setStill] = useState<string | null>(null);
+  useReportPart('map', still ? 'ready' : districtsFailed ? 'failed' : 'loading');
 
   useEffect(() => {
     const map = getMapRef();
@@ -60,9 +63,15 @@ export const ReportMapFigure: React.FC = () => {
             justify="center"
             className="absolute inset-0"
             role="status"
-            aria-label="Loading the map"
+            aria-label={districtsFailed ? undefined : 'Loading the map'}
           >
-            <Spinner size="3" />
+            {districtsFailed ? (
+              <Text size="2" color="red">
+                The map could not be loaded.
+              </Text>
+            ) : (
+              <Spinner size="3" />
+            )}
           </Flex>
         )}
       </div>

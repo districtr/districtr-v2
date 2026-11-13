@@ -115,23 +115,34 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
         be <strong>{isContiguous ? 'contiguous' : 'not contiguous'}</strong>. Note that contiguity
         can be subtle because of bodies of water and because of disconnected units.
       </Text>
-      {nonContiguousDistricts.length > 0 && (
-        <>
-          <Text size="2" as="p" mb="1">
-            The following districts are not contiguous:
-          </Text>
-          <Flex gap={isReport ? '0' : '2'} wrap="wrap" mb="2" className="eval-district-list">
-            {nonContiguousDistricts.map(d => (
-              <DistrictLabel
-                key={d}
-                zone={Number(d)}
-                onClick={() => zoomToDistrict(Number(d))}
-                {...hoverHandlers(() => onDistrictEnter([d]), onDistrictLeave)}
-              />
-            ))}
-          </Flex>
-        </>
-      )}
+      {nonContiguousDistricts.length > 0 &&
+        (() => {
+          const intro = 'The following districts are not contiguous:';
+          const districts = nonContiguousDistricts.map(d => (
+            <DistrictLabel
+              key={d}
+              zone={Number(d)}
+              onClick={() => zoomToDistrict(Number(d))}
+              {...hoverHandlers(() => onDistrictEnter([d]), onDistrictLeave)}
+            />
+          ));
+          // The report names the districts within the sentence; the screen shows
+          // their badges on a line of their own.
+          return isReport ? (
+            <Text size="2" as="p" mb="2" className="eval-district-list">
+              {intro} {districts}.
+            </Text>
+          ) : (
+            <>
+              <Text size="2" as="p" mb="1">
+                {intro}
+              </Text>
+              <Flex gap="2" wrap="wrap" mb="2">
+                {districts}
+              </Flex>
+            </>
+          );
+        })()}
 
       {/* Population Deviation */}
       <EvalSubheading>Population Deviation</EvalSubheading>

@@ -21,6 +21,7 @@ import {
   type EvalOptions,
 } from './evalMode';
 import {ReportNotes} from './ReportNotes';
+import {useReportPart} from './reportStatus';
 
 interface EvalPanelProps {
   /** `report` lays the same content out as a document for paper. */
@@ -55,6 +56,7 @@ export const EvalPanel: React.FC<EvalPanelProps> = ({mode = 'screen', mapFigure}
     data: envelope,
     isLoading,
     isError,
+    isSuccess,
   } = useQuery({
     queryKey: evaluationQueryKey(publicId),
     queryFn: async () => {
@@ -76,6 +78,8 @@ export const EvalPanel: React.FC<EvalPanelProps> = ({mode = 'screen', mapFigure}
   useEffect(() => {
     if (!isLoading) setLoadingState('metricsLoaded', true);
   }, [isLoading, setLoadingState]);
+
+  useReportPart('evaluation', isError ? 'failed' : isSuccess ? 'ready' : 'loading');
 
   const evaluation = envelope?.metrics;
 

@@ -5,6 +5,7 @@ import {Flex, Slider, Spinner, Table, Text} from '@radix-ui/themes';
 import {FIPS_TO_NAME} from '@constants/meta/usStates';
 import {EvalTableTitle} from './EvalSection';
 import {useIsReport} from './evalMode';
+import {useReportPart} from './reportStatus';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
 
@@ -234,9 +235,7 @@ const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, data, planStats}
 
   return (
     <div className="eval-report-exemplars">
-      <EvalTableTitle reportOnly>
-        Example districts for the lowest, mean and highest {scoreName} score in the plan
-      </EvalTableTitle>
+      <EvalTableTitle reportOnly>{scoreName} score exemplars</EvalTableTitle>
       <div style={{width: 'fit-content'}}>
         <Table.Root size="1" mb="2" variant="surface">
           <Table.Body>
@@ -314,6 +313,7 @@ export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({
     queryFn: loadExemplars,
     staleTime: Infinity,
   });
+  useReportPart(`examples-${scoreKey}`, isError ? 'failed' : data ? 'ready' : 'loading');
   const [chosenIndex, setChosenIndex] = useState<number | null>(null);
 
   const buckets = data?.buckets[scoreKey];

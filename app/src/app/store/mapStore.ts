@@ -174,17 +174,20 @@ const syncCommunityDescriptionComment = ({
  * transitions. Each is owned by the component that produces it:
  *  - documentLoading: a document fetch is in flight (useDocumentWithSync).
  *  - publicSourceLoaded: the public district source has loaded its data (PublicSource).
+ *  - publicSourceFailed: the public district source's request has failed (PublicSource).
  *  - metricsLoaded: the evaluation metrics have loaded (EvalPanel).
  */
 export interface LoadingStates {
   documentLoading: boolean;
   publicSourceLoaded: boolean;
+  publicSourceFailed: boolean;
   metricsLoaded: boolean;
 }
 
 export const DEFAULT_LOADING_STATES: LoadingStates = {
   documentLoading: false,
   publicSourceLoaded: false,
+  publicSourceFailed: false,
   metricsLoaded: false,
 };
 

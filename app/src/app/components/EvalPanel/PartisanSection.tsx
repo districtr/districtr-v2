@@ -497,7 +497,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {/* Other Partisanship Metrics */}
           <EvalSubheading>Other Partisanship Metrics</EvalSubheading>
           <EvalTableTitle reportOnly>
-            Other partisanship metrics by election, {povName} point of view
+            Partisanship metrics by election, {povName} point of view
           </EvalTableTitle>
           <Flex mb="2" display={isReport ? 'none' : 'flex'}>
             <PovSwitcher pov={pov} setPov={setPov} />
@@ -678,7 +678,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             <strong>Repub Sweep</strong>.
           </Text>
           <EvalTableTitle reportOnly>
-            Competitiveness summary, within ±{competitiveBand} points
+            Competitive contests (within ±{competitiveBand} points), swing districts and sweep
+            districts
           </EvalTableTitle>
           <div style={{width: 'fit-content'}}>
             <Table.Root size="1" variant="surface">

@@ -155,7 +155,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
         </Flex>
       )}
 
-      <EvalTableTitle spaced>Summary</EvalTableTitle>
+      <EvalTableTitle spaced>Counts of split counties</EvalTableTitle>
       <div style={{width: 'fit-content'}}>
         <Table.Root size="1" mb="3" variant="surface">
           <Table.Body>
@@ -207,38 +207,39 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
         </Table.Root>
       </div>
 
-      <Flex align="center" gap="2" mb="2" mt="4" justify={isReport ? 'start' : 'end'}>
-        <EvalTableTitle inline>
-          Counties
-          {isReport && (showMode === 'all' ? ' (all counties)' : ' (excessively split counties)')}
-        </EvalTableTitle>
-        <Flex
-          align="center"
-          gap="1"
-          style={{marginLeft: 'auto'}}
-          display={isReport ? 'none' : 'flex'}
-        >
-          <Text size="1" color="gray">
-            Show
-          </Text>
-          <Select.Root
-            size="1"
-            value={showMode}
-            onValueChange={v => setShowMode(v as 'overly-split-only' | 'all')}
-          >
-            <Select.Trigger />
-            <Select.Content>
-              <Select.Item value="overly-split-only">excessively split counties</Select.Item>
-              <Select.Item value="all">all counties</Select.Item>
-            </Select.Content>
-          </Select.Root>
+      {/* On screen the title sits beside the selector. The report has no selector,
+          and its caption names the selection and stands only above a table. */}
+      {!isReport && (
+        <Flex align="center" gap="2" mb="2" mt="4" justify="end">
+          <EvalTableTitle inline>Counties</EvalTableTitle>
+          <Flex align="center" gap="1" style={{marginLeft: 'auto'}}>
+            <Text size="1" color="gray">
+              Show
+            </Text>
+            <Select.Root
+              size="1"
+              value={showMode}
+              onValueChange={v => setShowMode(v as 'overly-split-only' | 'all')}
+            >
+              <Select.Trigger />
+              <Select.Content>
+                <Select.Item value="overly-split-only">excessively split counties</Select.Item>
+                <Select.Item value="all">all counties</Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </Flex>
         </Flex>
-      </Flex>
+      )}
       {idealPop !== null && (
         <Text size="2" mb="2" as="p">
           The ideal district population for this plan is{' '}
           <strong>{idealPop.toLocaleString()}</strong>.
         </Text>
+      )}
+      {idealPop !== null && displayedEntries.length > 0 && (
+        <EvalTableTitle reportOnly spaced>
+          {showMode === 'all' ? 'Splits of all counties' : 'Excessively split counties'}
+        </EvalTableTitle>
       )}
       {idealPop === null ? (
         <Text size="2" color="gray" mb="3" as="p">
