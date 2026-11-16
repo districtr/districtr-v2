@@ -10,11 +10,13 @@ import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
 const ROWS_PER_COLUMN = 10;
-const MAX_COLUMNS = 3;
+const MAX_COLUMNS = 4;
 // Room kept free for the table's border and the scrollbar gutter.
 const WIDTH_RESERVE = 20;
 const SEPARATOR = '1px solid var(--gray-a5)';
-// Report: districts per block of columns, so a block fits on a page and stays whole.
+// Report: columns that fit the page, and districts per block of columns, so a block
+// fits on a page and stays whole.
+const REPORT_COLUMNS = 3;
 const REPORT_ROWS_PER_COLUMN = 20;
 
 interface CompactnessScoreTableProps {
@@ -23,7 +25,7 @@ interface CompactnessScoreTableProps {
 }
 
 /**
- * Per-district compactness scores. Districts fill up to three side-by-side columns
+ * Per-district compactness scores. Districts fill up to four side-by-side columns
  * of ROWS_PER_COLUMN rows, read down each column; beyond that the columns grow and
  * scroll together in a window ROWS_PER_COLUMN rows tall. A panel too narrow for the
  * columns gets as many as fit.
@@ -155,10 +157,10 @@ export const CompactnessScoreTable: React.FC<CompactnessScoreTableProps> = ({
 
   if (isReport) {
     const blocks: string[][][] = [];
-    const perBlock = MAX_COLUMNS * REPORT_ROWS_PER_COLUMN;
+    const perBlock = REPORT_COLUMNS * REPORT_ROWS_PER_COLUMN;
     for (let start = 0; start < zones.length; start += perBlock) {
       const blockZones = zones.slice(start, start + perBlock);
-      const count = Math.min(MAX_COLUMNS, Math.ceil(blockZones.length / ROWS_PER_COLUMN));
+      const count = Math.min(REPORT_COLUMNS, Math.ceil(blockZones.length / ROWS_PER_COLUMN));
       const rows = Math.ceil(blockZones.length / count);
       blocks.push(
         Array.from({length: count}, (_, i) => blockZones.slice(i * rows, (i + 1) * rows))

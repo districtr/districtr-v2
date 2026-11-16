@@ -403,7 +403,8 @@ body {
   content: ', ';
 }
 
-.eval-report table {
+.eval-report table,
+.eval-report-exemplar-rows {
   --default-font-family: var(--report-sans);
   font-family: var(--report-sans);
 }
