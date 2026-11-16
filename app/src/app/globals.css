@@ -265,8 +265,6 @@ body {
    sees is what the PDF holds. */
 .eval-report-root {
   background: var(--gray-4);
-  /* The app's own font, kept for tables once the sheet switches to serif. */
-  --report-sans: var(--default-font-family);
 }
 .eval-report {
   box-sizing: border-box;
@@ -403,11 +401,6 @@ body {
   content: ', ';
 }
 
-.eval-report table,
-.eval-report-exemplar-rows {
-  --default-font-family: var(--report-sans);
-  font-family: var(--report-sans);
-}
 .eval-report thead {
   position: static !important;
   display: table-header-group;

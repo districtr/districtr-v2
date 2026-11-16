@@ -433,36 +433,34 @@ const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets
   return (
     <div className="eval-report-exemplars">
       <EvalTableTitle reportOnly>{scoreName} score exemplars</EvalTableTitle>
-      <div className="eval-report-exemplar-rows">
-        <div style={rowStyle}>
-          <Text size="1" style={ROW_LABEL_STYLE}>
-            A {scoreName} score of
-          </Text>
-          {buckets.map(bucket => (
-            <div key={bucket.min} style={CELL_STYLE}>
-              <Text size="2" className="tabular-nums">
-                {rangeLabel(bucket)}
-              </Text>
-            </div>
-          ))}
-        </div>
-        <div style={rowStyle}>
-          <Text size="1" style={ROW_LABEL_STYLE}>
-            …is exemplified by…
-          </Text>
-          {buckets.map((bucket, i) => (
-            <figure
-              key={bucket.min}
-              className="m-0 flex flex-col items-center gap-1"
-              style={{padding: 'var(--space-2) 0'}}
-            >
-              <Outline district={data.districts[examples[i]]} size={REPORT_OUTLINE_SIZE} />
-              <figcaption style={SHORT_NAME_STYLE}>
-                {districtShortName(data.districts[examples[i]])}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+      <div style={rowStyle}>
+        <Text size="1" style={ROW_LABEL_STYLE}>
+          A {scoreName} score of
+        </Text>
+        {buckets.map(bucket => (
+          <div key={bucket.min} style={CELL_STYLE}>
+            <Text size="2" className="tabular-nums">
+              {rangeLabel(bucket)}
+            </Text>
+          </div>
+        ))}
+      </div>
+      <div style={rowStyle}>
+        <Text size="1" style={ROW_LABEL_STYLE}>
+          …is exemplified by…
+        </Text>
+        {buckets.map((bucket, i) => (
+          <figure
+            key={bucket.min}
+            className="m-0 flex flex-col items-center gap-1"
+            style={{padding: 'var(--space-2) 0'}}
+          >
+            <Outline district={data.districts[examples[i]]} size={REPORT_OUTLINE_SIZE} />
+            <figcaption style={SHORT_NAME_STYLE}>
+              {districtShortName(data.districts[examples[i]])}
+            </figcaption>
+          </figure>
+        ))}
       </div>
       <Text size="1" color="gray" as="p" mt="2" mb="3">
         Congressional districts of the {ordinal(data.congress)} Congress, used in the{' '}
