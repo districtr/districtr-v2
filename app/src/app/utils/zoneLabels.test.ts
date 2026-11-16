@@ -5,6 +5,7 @@ import {
   cleanZoneLabel,
   colorsInZoneOrder,
   findLabelConflict,
+  uniqueZoneLabel,
   isDigitLabel,
   moveZoneInOrder,
   normalizeZoneOrder,
@@ -35,6 +36,18 @@ describe('zone labels', () => {
     expect(cleanZoneLabel('a'.repeat(39) + ' b')).toBe('a'.repeat(39));
     // 39 letters then emoji: a UTF-16 slice at 40 would leave half an emoji.
     expect(cleanZoneLabel('a'.repeat(39) + '😀😀')).toBe('a'.repeat(39) + '😀');
+  });
+
+  test('uniqueZoneLabel suffixes a taken label and keeps it under the cap', () => {
+    expect(uniqueZoneLabel(1, 'North', {}, 4)).toBe('North');
+    expect(uniqueZoneLabel(1, '2', {}, 4)).toBe('2_2');
+    expect(uniqueZoneLabel(1, 'north', {'2': 'North', '3': 'North_2'}, 4)).toBe('north_3');
+    // Resetting district 3 to its number while district 1 is labeled "3".
+    expect(uniqueZoneLabel(3, '', {'1': '3'}, 4)).toBe('3_2');
+    const long = 'a'.repeat(40);
+    const taken = uniqueZoneLabel(1, long, {'2': long}, 4);
+    expect(taken).toBe('a'.repeat(38) + '_2');
+    expect(cleanZoneLabel(taken)).toBe(taken);
   });
 
   test('labels must be unique, case-insensitively, defaults included', () => {

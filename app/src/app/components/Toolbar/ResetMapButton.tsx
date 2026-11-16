@@ -26,8 +26,8 @@ export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) =
       <AlertDialog.Content maxWidth="450px">
         <AlertDialog.Title>Reset Map</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          Are you sure? This will reset all zone assignments and broken geographies. Resetting your
-          map cannot be undone.
+          Are you sure? This will reset all zone assignments, broken geographies and district
+          labels. Resetting your map cannot be undone.
         </AlertDialog.Description>
 
         <Flex gap="3" mt="4" justify="end">
