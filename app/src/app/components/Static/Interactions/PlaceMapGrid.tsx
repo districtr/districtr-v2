@@ -15,7 +15,7 @@ export const MapStartCard: React.FC<{
   portalId?: string | null;
   collectionMode?: string | null;
 }> = ({view, isCommunity, showOutcome = true, portalId, collectionMode}) => {
-  const {createPlan, isCreating} = useCreateMapDocument(
+  const {createPlan, isCreating, creatingOverlay} = useCreateMapDocument(
     view,
     isCommunity,
     portalId,
@@ -36,40 +36,43 @@ export const MapStartCard: React.FC<{
     : 'bg-indigo-50 hover:bg-indigo-100';
 
   return (
-    <Card asChild>
-      <button
-        onClick={createPlan}
-        disabled={isCreating}
-        aria-label={`Start a new ${isCommunity ? 'community map' : 'district plan'}: ${view.name}`}
-        className={`cursor-pointer text-left transition-shadow hover:shadow-md disabled:cursor-wait ${surfaceClasses}`}
-      >
-        <Flex align="center" gap="3">
-          <Flex
-            align="center"
-            justify="center"
-            flexShrink="0"
-            className={`size-9 rounded-full ${badgeClasses}`}
-          >
-            <Icon />
-          </Flex>
-          <Flex direction="column" className="min-w-0 grow">
-            <Text weight="medium" className="capitalize" truncate>
-              {view.name}
-            </Text>
-            {showOutcome && (
-              <Text size="1" color="gray">
-                {outcome}
+    <>
+      <Card asChild>
+        <button
+          onClick={createPlan}
+          disabled={isCreating}
+          aria-label={`Start a new ${isCommunity ? 'community map' : 'district plan'}: ${view.name}`}
+          className={`cursor-pointer text-left transition-shadow hover:shadow-md disabled:cursor-wait ${surfaceClasses}`}
+        >
+          <Flex align="center" gap="3">
+            <Flex
+              align="center"
+              justify="center"
+              flexShrink="0"
+              className={`size-9 rounded-full ${badgeClasses}`}
+            >
+              <Icon />
+            </Flex>
+            <Flex direction="column" className="min-w-0 grow">
+              <Text weight="medium" className="capitalize" truncate>
+                {view.name}
               </Text>
+              {showOutcome && (
+                <Text size="1" color="gray">
+                  {outcome}
+                </Text>
+              )}
+            </Flex>
+            {isCreating ? (
+              <Spinner size="1" className="shrink-0" />
+            ) : (
+              <ArrowRightIcon className={`shrink-0 ${arrowClasses}`} aria-hidden />
             )}
           </Flex>
-          {isCreating ? (
-            <Spinner size="1" className="shrink-0" />
-          ) : (
-            <ArrowRightIcon className={`shrink-0 ${arrowClasses}`} aria-hidden />
-          )}
-        </Flex>
-      </button>
-    </Card>
+        </button>
+      </Card>
+      {creatingOverlay}
+    </>
   );
 };
 

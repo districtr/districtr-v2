@@ -688,6 +688,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         updated: {metadata: false, comments: false},
         loadingStates: {...DEFAULT_LOADING_STATES},
         mapLock: null,
+        // Static pages mount AppNotification too; don't replay an editor message there.
+        notification: {},
       });
       const mapControls = useMapControlsStore.getState();
       mapControls.setEditableDocId(null);
