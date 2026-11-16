@@ -5,7 +5,7 @@
 ## Use
 
 - **Reference for the compactness code.** The scores use the backend's formulas and projection, on outlines that carry the same 2020 Census shapes as Districtr's map units. A 118th Congress plan loaded into Districtr should score within 0.0001 of its rows here; this was checked for Colorado, Massachusetts and Oklahoma. A larger difference after a change to `backend/app/evaluation/compactness.py` or to the projection points at that change.
-- **Record behind the sample.** `app/src/app/constants/compactnessExemplars.json` holds only the sampled districts. Its score ranges and its sample come from this file: each score is rounded to 3 decimals and placed in a range 0.05 wide, and at most 10 districts per range are drawn with seed 118.
+- **Record behind the sample.** `app/src/app/constants/compactnessExemplars.json` holds only the sampled districts. Its score ranges and its sample come from this file: each score is rounded to 3 decimals and placed in one of six ranges 0.1 wide (0.05 to 0.65), and at most 18 districts per range are drawn with seed 118.
 
 The app does not read this file.
 

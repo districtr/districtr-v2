@@ -9,7 +9,7 @@ import {formatNumber} from '@/app/utils/numbers';
 import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 
 const ROWS_PER_COLUMN = 10;
-const MAX_COLUMNS = 3;
+const MAX_COLUMNS = 4;
 // Room kept free for the table's border and the scrollbar gutter.
 const WIDTH_RESERVE = 20;
 const SEPARATOR = '1px solid var(--gray-a5)';
@@ -20,7 +20,7 @@ interface CompactnessScoreTableProps {
 }
 
 /**
- * Per-district compactness scores. Districts fill up to three side-by-side columns
+ * Per-district compactness scores. Districts fill up to four side-by-side columns
  * of ROWS_PER_COLUMN rows, read down each column; beyond that the columns grow and
  * scroll together in a window ROWS_PER_COLUMN rows tall. A panel too narrow for the
  * columns gets as many as fit.

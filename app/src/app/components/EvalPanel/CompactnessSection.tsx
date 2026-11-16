@@ -73,6 +73,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             Unlike cut edges, this measure depends on map projection and boundary resolution rather
             than the choice of geographic units.
           </Text>
+          <CompactnessExemplars scoreKey="polsby_popper" />
           {ppStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
@@ -80,7 +81,6 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <strong>{ppStats.mean.toFixed(3)}</strong>.
             </Text>
           )}
-          <CompactnessExemplars scoreKey="polsby_popper" planMean={ppStats?.mean ?? null} />
 
           {/* Reock */}
           <Heading size="3" align="center" mb="2" mt="4">
@@ -92,6 +92,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             higher scores indicate more compact, circular districts. Reock is sensitive to map
             projection and is computed on-demand when the evaluation view is opened.
           </Text>
+          <CompactnessExemplars scoreKey="reock" />
           {reockStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
@@ -99,7 +100,6 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <strong>{reockStats.mean.toFixed(3)}</strong>.
             </Text>
           )}
-          <CompactnessExemplars scoreKey="reock" planMean={reockStats?.mean ?? null} />
 
           {/* Per-district detail */}
           {polsby_popper && (
