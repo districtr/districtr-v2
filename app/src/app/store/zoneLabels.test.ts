@@ -23,7 +23,7 @@ afterEach(() => mock.restore());
 
 describe('setZoneAlias', () => {
   test('stores a label as a local edit; the number itself is the default', () => {
-    expect(useMapStore.getState().setZoneAlias(1, ' North <b>Shore</b> ')).toBeNull();
+    useMapStore.getState().setZoneAlias(1, ' North <b>Shore</b> ');
     expect(aliases()).toEqual({'1': 'North Shore'});
     expect(useMapStore.getState().updated.metadata).toBe(true);
     expect(writeIdb).toHaveBeenCalledTimes(1);
@@ -36,20 +36,20 @@ describe('setZoneAlias', () => {
 
   test('a name that cleans up to the stored one is not an edit', () => {
     useMapStore.setState({mapDocument: doc({zone_aliases: {'1': 'North Shore'}})});
-    expect(useMapStore.getState().setZoneAlias(1, 'North  Shore ')).toBeNull();
+    useMapStore.getState().setZoneAlias(1, 'North  Shore ');
     // Nor is resetting a district that already shows its number.
-    expect(useMapStore.getState().setZoneAlias(2, '2')).toBeNull();
+    useMapStore.getState().setZoneAlias(2, '2');
     expect(useMapStore.getState().updated.metadata).toBe(false);
     expect(writeIdb).not.toHaveBeenCalled();
     expect(useAssignmentsStore.getState().clientLastUpdated).toBe('T0');
   });
 
-  test('refuses a label another district shows, without changing anything', () => {
-    const refusal = useMapStore.getState().setZoneAlias(1, '3');
-    expect(refusal).toContain('3');
-    expect(aliases()).toBeUndefined();
-    expect(useMapStore.getState().updated.metadata).toBe(false);
-    expect(writeIdb).not.toHaveBeenCalled();
+  test('a label another district shows gets the next free suffix', () => {
+    useMapStore.getState().setZoneAlias(1, '3');
+    expect(aliases()).toEqual({'1': '3_2'});
+    useMapStore.getState().setZoneAlias(2, '3');
+    expect(aliases()).toEqual({'1': '3_2', '2': '3_3'});
+    expect(useMapStore.getState().updated.metadata).toBe(true);
   });
 });
 
@@ -79,7 +79,7 @@ describe('setNumDistricts', () => {
         ['o', 1],
       ]),
     });
-    useMapControlsStore.setState({selectedZone: 4, pinnedZones: [4]});
+    useMapControlsStore.setState({selectedZone: 4, focusedZones: [4]});
 
     useMapStore.getState().setNumDistricts(3);
     const {mapDocument} = useMapStore.getState();
@@ -92,42 +92,95 @@ describe('setNumDistricts', () => {
       ['o', 1],
     ]);
     expect(useMapControlsStore.getState().selectedZone).toBe(3);
-    expect(useMapControlsStore.getState().pinnedZones).toEqual([3]);
+    expect(useMapControlsStore.getState().focusedZones).toEqual([3]);
     // One IndexedDB write, carrying the new document and assignments.
     expect(writeAssignments).toHaveBeenCalledTimes(1);
     expect(writeIdb).not.toHaveBeenCalled();
   });
 });
 
-describe('setZoneOrder', () => {
-  test('stores the panel order as a local edit and leaves labels alone', () => {
-    useMapStore.setState({mapDocument: doc({zone_aliases: {'2': 'B'}})});
-    useMapStore.getState().setZoneOrder([4, 1, 2, 3]);
-    expect(order()).toEqual([4, 1, 2, 3]);
-    expect(aliases()).toEqual({'2': 'B'});
-    expect(useMapStore.getState().updated.metadata).toBe(true);
-    expect(writeIdb).toHaveBeenCalledTimes(1);
+describe('reorderZones', () => {
+  test('renumbers districts to their rows; colors stay, labels and the rest move', () => {
+    useMapStore.setState({
+      mapDocument: {
+        ...doc({zone_aliases: {'4': 'North'}}),
+        color_scheme: ['#a', '#b', '#c', '#d'],
+        document_comments: [{zone: 4, text: 'north'}],
+      },
+    });
+    useAssignmentsStore.setState({
+      zoneAssignments: new Map([
+        ['n', 4],
+        ['o', 1],
+      ]),
+    });
+    useMapControlsStore.setState({selectedZone: 4, focusedZones: [4]});
+
+    // District 4 moves to the top row.
+    useMapStore.getState().reorderZones([4, 1, 2, 3]);
+    const {mapDocument, updated} = useMapStore.getState();
+    expect(aliases()).toEqual({'1': 'North'});
+    expect(order()).toBeNull();
+    expect(mapDocument?.color_scheme).toEqual(['#a', '#b', '#c', '#d']);
+    expect(mapDocument?.document_comments).toEqual([{zone: 1, text: 'north'}]);
+    expect([...useAssignmentsStore.getState().zoneAssignments]).toEqual([
+      ['n', 1],
+      ['o', 2],
+    ]);
+    expect(useMapControlsStore.getState().selectedZone).toBe(1);
+    expect(useMapControlsStore.getState().focusedZones).toEqual([1]);
+    expect(updated).toEqual({metadata: true, comments: true});
+    expect(writeAssignments).toHaveBeenCalledTimes(1);
   });
 
-  test('colors follow the district, or stay on the rows', () => {
-    const colors = ['#a', '#b', '#c', '#d'];
-    useMapStore.setState({mapDocument: {...doc(), color_scheme: colors}});
-    useMapStore.getState().setZoneOrder([4, 1, 2, 3]);
-    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(colors);
+  test('a saved panel order keeps its row colors when renumbered', () => {
+    useMapStore.setState({
+      mapDocument: {...doc({zone_order: [3, 1, 2, 4]}), color_scheme: ['#a', '#b', '#c', '#d']},
+    });
+    // Unchanged rows: district 3 (row 1, showing #c) becomes district 1.
+    useMapStore.getState().reorderZones([3, 1, 2, 4]);
+    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(['#c', '#a', '#b', '#d']);
+    expect(order()).toBeNull();
+  });
 
-    useMapStore.setState({mapDocument: {...doc(), color_scheme: colors}});
-    useMapStore.getState().setZoneOrder([4, 1, 2, 3], {colorsFollow: false});
-    // Row 1 (now district 4) keeps the first color, and so on down the rows.
-    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(['#b', '#c', '#d', '#a']);
-    expect(order()).toEqual([4, 1, 2, 3]);
-    // From a custom order, too: dragging back restores the original colors.
-    useMapStore.getState().setZoneOrder([1, 2, 3, 4], {colorsFollow: false});
-    expect(useMapStore.getState().mapDocument?.color_scheme).toEqual(colors);
+  test('a district left showing a number another uses as its label gets a free one', () => {
+    // District 1 is labeled "2"; district 2 is labeled "B".
+    useMapStore.setState({mapDocument: doc({zone_aliases: {'1': '2', '2': 'B'}})});
+    // Unlabeled district 3 moves to row 2 and would show "2" as well.
+    useMapStore.getState().reorderZones([1, 3, 2, 4]);
+    expect(aliases()).toEqual({'1': '2', '2': '1', '3': 'B'});
+  });
+
+  test('clears the undo history, which has the units but not the labels', () => {
+    // A paint stroke: new units and a new timestamp.
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 3]]), clientLastUpdated: 't1'});
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 2]]), clientLastUpdated: 't2'});
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBeGreaterThan(0);
+    useMapStore.getState().reorderZones([3, 1, 2, 4]);
+    expect(useAssignmentsStore.temporal.getState().pastStates).toEqual([]);
   });
 
   test('an unchanged order is not an edit', () => {
-    useMapStore.getState().setZoneOrder([1, 2, 3, 4]);
+    useMapStore.getState().reorderZones([1, 2, 3, 4]);
     expect(useMapStore.getState().updated.metadata).toBe(false);
     expect(writeIdb).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleReset', () => {
+  test('clears district labels and the undo history', async () => {
+    useMapStore.setState({mapDocument: doc({zone_aliases: {'1': 'North'}, zone_order: [2, 1]})});
+    spyOn(globalThis, 'fetch').mockImplementation(
+      async () => new Response(JSON.stringify({message: 'ok', document_id: 'd1'}))
+    );
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 1]]), clientLastUpdated: 't1'});
+    useAssignmentsStore.setState({zoneAssignments: new Map([['n', 2]]), clientLastUpdated: 't2'});
+    expect(useAssignmentsStore.temporal.getState().pastStates.length).toBeGreaterThan(0);
+
+    await useMapStore.getState().handleReset();
+    expect(aliases()).toEqual({});
+    expect(order()).toBeNull();
+    expect(useMapStore.getState().updated.metadata).toBe(true);
+    expect(useAssignmentsStore.temporal.getState().pastStates).toEqual([]);
   });
 });

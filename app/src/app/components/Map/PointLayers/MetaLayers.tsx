@@ -72,12 +72,8 @@ export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographi
   const showPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showPopulationNumbers
   );
-  const showBlockPopulationNumbers = useMapControlsStore(
-    state => state.mapOptions.showBlockPopulationNumbers
-  );
-  const hasCaptiveBlocks = useMapStore(state => state.captiveIds.size > 0);
   // Same condition under which PopulationTextLayer renders any numbers.
-  useHidePlaceLabels(!!(showPopulationNumbers || (showBlockPopulationNumbers && hasCaptiveBlocks)));
+  useHidePlaceLabels(!!showPopulationNumbers);
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
@@ -88,55 +84,22 @@ export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographi
 };
 
 const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
-  const captiveIds = useMapStore(state => state.captiveIds);
   const shatterIds = useAssignmentsStore(state => state.shatterIds);
-  const showBlockPopulationNumbers = useMapControlsStore(
-    state => state.mapOptions.showBlockPopulationNumbers
-  );
   const showPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showPopulationNumbers
   );
 
-  // Create filter based on which population numbers to show
+  // Blocks label wherever they're shown; whole units skip broken precincts,
+  // whose blocks carry the labels instead.
   const populationFilter = useMemo<FilterSpecification>(() => {
-    if (child) {
-      if (showPopulationNumbers) {
-        return ['literal', true] as FilterSpecification;
-      } else if (captiveIds.size) {
-        // match captiveIds
-        return [
-          'match',
-          ['get', 'path'],
-          Array.from(captiveIds),
-          true,
-          false,
-        ] as FilterSpecification;
-      } else {
-        // An empty label list would fail match-expression validation
-        // ("Expected at least one branch label"), leaving the previous
-        // filter stuck in place after exiting block view.
-        return ['literal', false] as FilterSpecification;
-      }
-    } else {
-      if (shatterIds.parents.size) {
-        return [
-          '!',
-          ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
-        ] as FilterSpecification;
-      } else {
-        // No broken precincts: show labels on all whole units.
-        return ['literal', true] as FilterSpecification;
-      }
-    }
-  }, [child, showPopulationNumbers, !child && shatterIds, child && captiveIds]);
+    if (child || !shatterIds.parents.size) return ['literal', true] as FilterSpecification;
+    return [
+      '!',
+      ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false],
+    ] as FilterSpecification;
+  }, [child, !child && shatterIds]);
 
-  // Use the shared source from PointSelectionLayer (parent layer)
-  if (!child && !showPopulationNumbers) {
-    return null;
-  }
-  if (child && !showPopulationNumbers && !showBlockPopulationNumbers) {
-    return null;
-  }
+  if (!showPopulationNumbers) return null;
 
   return (
     <Layer
@@ -147,19 +110,21 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       filter={populationFilter}
       layout={{
         'text-field': ['get', 'total_pop_20'],
-        'text-font': ['Barlow Bold'],
+        // Lighter than the Barlow Bold district badges, so the numbers read as
+        // secondary detail. Every basemap style already loads Barlow Medium glyphs.
+        'text-font': ['Barlow Medium'],
         'text-size': [
           'interpolate',
           ['linear'],
           ['zoom'],
           0,
           0,
-          10, // readable as soon as the labels appear
-          14,
+          10,
+          10,
           13,
-          20,
-          16, // keeps growing at block-level zooms
-          28,
+          13,
+          16, // grows modestly at block-level zooms
+          17,
         ],
         'text-anchor': 'center',
         'text-offset': [0, 0],
@@ -172,9 +137,13 @@ const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
       }}
       paint={{
         'text-color': '#000',
-        'text-halo-color': '#fff',
-        // Scales with the larger text so the numbers stay legible over color.
-        'text-halo-width': 2.5,
+        // Fade a little when zoomed out, where the numbers crowd together.
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.75, 13, 0.9],
+        // A thin, soft, translucent halo: legible over district color without a
+        // heavy white outline.
+        'text-halo-color': 'rgba(255, 255, 255, 0.8)',
+        'text-halo-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 16, 1.5],
+        'text-halo-blur': 0.5,
       }}
     />
   );
@@ -203,11 +172,6 @@ const ZoneNumbersLayer = () => {
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
-  const focusFeaturesLength = useMapStore(state => state.focusFeatures.length);
-  const showBlockPopulationNumbers = useMapControlsStore(
-    state => state.mapOptions.showBlockPopulationNumbers
-  );
-  const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
   const demogHash = useDemographyStore(state => state.dataHash);
   const zoneDescriptions = useMapStore(state => state.mapDocument?.document_comments);
   const zoneAliases = useMapStore(state => state.mapDocument?.map_metadata?.zone_aliases);
@@ -338,7 +302,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
@@ -355,7 +319,7 @@ const ZoneNumbersLayer = () => {
         type="circle"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
         }}
         // A short label sits in the badge; a long one prints without it, except
         // that a locked district keeps the badge for its lock.
@@ -374,7 +338,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
@@ -394,7 +358,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
           'icon-image': 'lock',
           'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 1.0, 15, 1.2],
           'icon-allow-overlap': true,
@@ -407,7 +371,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source={ZONE_LABEL_SOURCE_ID}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 14, 15, 16],
@@ -469,7 +433,7 @@ const ZoneNumbersLayer = () => {
           ],
         }}
         layout={{
-          visibility: shouldHide ? 'none' : 'visible',
+          visibility: 'visible',
         }}
         filter={['==', ['get', 'hasComments'], true]}
       />
