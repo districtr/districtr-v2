@@ -416,12 +416,6 @@ body {
   overflow: visible !important;
 }
 
-/* Text that highlights the map on hover is plain text in a document. */
-.eval-report button[style] {
-  text-decoration: none !important;
-  cursor: inherit !important;
-}
-
 @page eval-report {
   size: letter;
   margin: 2cm;
