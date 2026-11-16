@@ -1,169 +1,31 @@
 'use client';
 import * as Accordion from '@radix-ui/react-accordion';
 import {useMemo} from 'react';
-import {Flex, Text, Table, Heading} from '@radix-ui/themes';
-import {DistrictLabel} from './DistrictLabel';
+import {Flex, Text, Heading} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
-import {useDistrictHover} from '@/app/hooks/useDistrictHover';
-import {hoverHandlers} from './HoverTrigger';
-import {formatNumber} from '@/app/utils/numbers';
-import {NUMBER_FORMATS} from '@/app/constants/demography/format';
-
-import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
-
-// Scores computed on EPSG:5070 (NAD83 / Conus Albers) via gerrytools.
-// All three districts are from the 2020 redistricting cycle: Alabama's and
-// Oklahoma's maps enacted November 2021, Colorado's approved by its Supreme
-// Court November 1, 2021. Alabama's map shown here (used for the 2022
-// election) was later redrawn under court order for a VRA violation,
-// effective for the 2024 election — the year below reflects this exemplar's
-// original enactment, not the state's current map.
-const AL1 = {
-  name: "Alabama's 1st Congressional District (2021)",
-  polsby_popper: 0.1536,
-  image: '/al_district1.png',
-};
-const OK5 = {
-  name: "Oklahoma's 5th Congressional District (2021)",
-  polsby_popper: 0.3419,
-  image: '/ok_district5.png',
-};
-const CO5 = {
-  name: "Colorado's 5th Congressional District (2021)",
-  polsby_popper: 0.5589,
-  image: '/co_district5.png',
-};
-
-const AL2 = {
-  name: "Alabama's 2nd Congressional District (2021)",
-  reock: 0.2238,
-  image: '/al_district2.png',
-};
-const OK2 = {
-  name: "Oklahoma's 2nd Congressional District (2021)",
-  reock: 0.4371,
-  image: '/ok_district2.png',
-};
-const CO2 = {
-  name: "Colorado's 2nd Congressional District (2021)",
-  reock: 0.6577,
-  image: '/co_district2.png',
-};
+import {CompactnessExemplars} from './CompactnessExemplars';
+import {CompactnessScoreTable} from './CompactnessScoreTable';
 
 interface CompactnessSectionProps {
   evaluation: DocumentEvaluation;
 }
 
-interface Exemplar {
-  name: string;
-  image: string;
-  polsby_popper?: number;
-  reock?: number;
-}
-
-const PP_exemplars: Exemplar[] = [AL1, OK5, CO5];
-const REOCK_exemplars: Exemplar[] = [AL2, OK2, CO2];
-
-const ROWS_PER_TABLE = 10;
-/** `items` in the fewest chunks of at most `size`, as even as possible. */
-const chunkEvenly = <T,>(items: T[], size: number) => {
-  const per = Math.ceil(items.length / Math.max(1, Math.ceil(items.length / size)));
-  return Array.from({length: Math.ceil(items.length / per)}, (_, i) =>
-    items.slice(i * per, (i + 1) * per)
-  );
-};
-
-const SCORE_LABEL: Record<'polsby_popper' | 'reock', string> = {
-  polsby_popper: 'A Polsby-Popper score of',
-  reock: 'A Reock score of',
-};
-
-interface ExemplarTableProps {
-  scoreKey: 'polsby_popper' | 'reock';
-  exemplars: Exemplar[];
-}
-
-const ExemplarTable: React.FC<ExemplarTableProps> = ({scoreKey, exemplars}) => {
-  return (
-    <Table.Root size="1" mb="3">
-      <Table.Body>
-        <Table.Row>
-          <Table.Cell justify="center">
-            <Text size="1">{SCORE_LABEL[scoreKey]}</Text>
-          </Table.Cell>
-          {exemplars.map(e => (
-            <Table.Cell key={e.name} justify="center">
-              <Text size="2">{e[scoreKey]?.toFixed(3) ?? '—'}</Text>
-            </Table.Cell>
-          ))}
-        </Table.Row>
-        <Table.Row>
-          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-            <Text size="1">...is exemplified by...</Text>
-          </Table.Cell>
-          {exemplars.map(e => (
-            <Table.Cell key={e.name} justify="center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={e.image}
-                alt={e.name}
-                style={{
-                  width: 100,
-                  height: 100,
-                  objectFit: 'contain',
-                  display: 'block',
-                  margin: '0 auto',
-                }}
-              />
-            </Table.Cell>
-          ))}
-        </Table.Row>
-        <Table.Row>
-          <Table.Cell justify="center">
-            <Text size="1">Source</Text>
-          </Table.Cell>
-          {exemplars.map(e => (
-            <Table.Cell key={e.name} justify="center">
-              <Text size="1">{e.name}</Text>
-            </Table.Cell>
-          ))}
-        </Table.Row>
-      </Table.Body>
-    </Table.Root>
-  );
+const scoreStats = (scores: Record<string, number> | null | undefined) => {
+  if (!scores) return null;
+  const vals = Object.values(scores).filter(v => !isNaN(v));
+  if (!vals.length) return null;
+  return {
+    min: Math.min(...vals),
+    max: Math.max(...vals),
+    mean: vals.reduce((a, b) => a + b, 0) / vals.length,
+  };
 };
 
 export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluation}) => {
   const {cut_edges, polsby_popper, reock} = evaluation;
-  const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
-  const zoomToDistrict = useZoomToDistrict();
-  const zones = useMemo(
-    () => (polsby_popper ? Object.keys(polsby_popper).sort((a, b) => Number(a) - Number(b)) : []),
-    [polsby_popper]
-  );
-
-  const ppStats = useMemo(() => {
-    if (!polsby_popper) return null;
-    const vals = Object.values(polsby_popper).filter(v => !isNaN(v));
-    if (!vals.length) return null;
-    return {
-      min: Math.min(...vals),
-      max: Math.max(...vals),
-      mean: vals.reduce((a, b) => a + b, 0) / vals.length,
-    };
-  }, [polsby_popper]);
-
-  const reockStats = useMemo(() => {
-    if (!reock) return null;
-    const vals = Object.values(reock).filter(v => !isNaN(v));
-    if (!vals.length) return null;
-    return {
-      min: Math.min(...vals),
-      max: Math.max(...vals),
-      mean: vals.reduce((a, b) => a + b, 0) / vals.length,
-    };
-  }, [reock]);
+  const ppStats = useMemo(() => scoreStats(polsby_popper), [polsby_popper]);
+  const reockStats = useMemo(() => scoreStats(reock), [reock]);
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -211,7 +73,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             Unlike cut edges, this measure depends on map projection and boundary resolution rather
             than the choice of geographic units.
           </Text>
-          <ExemplarTable scoreKey="polsby_popper" exemplars={PP_exemplars} />
+          <CompactnessExemplars scoreKey="polsby_popper" />
           {ppStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
@@ -230,7 +92,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             higher scores indicate more compact, circular districts. Reock is sensitive to map
             projection and is computed on-demand when the evaluation view is opened.
           </Text>
-          <ExemplarTable scoreKey="reock" exemplars={REOCK_exemplars} />
+          <CompactnessExemplars scoreKey="reock" />
           {reockStats && (
             <Text size="2" as="p" mb="3">
               In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
@@ -245,50 +107,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
               <Text size="2" weight="bold" mb="2" mt="4" as="p">
                 Per-district scores
               </Text>
-              {/* Side-by-side tables of up to ROWS_PER_TABLE rows each, so
-                  long plans fill the width instead of scrolling. */}
-              <Flex gap="3" wrap="wrap" align="start">
-                {chunkEvenly(zones, ROWS_PER_TABLE).map(chunk => (
-                  <Table.Root key={chunk[0]} size="1" variant="surface">
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.ColumnHeaderCell justify="center">District</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell justify="center">
-                          Polsby-
-                          <br />
-                          Popper
-                        </Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell justify="center">Reock</Table.ColumnHeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {chunk.map(zone => (
-                        <Table.Row
-                          key={zone}
-                          tabIndex={0}
-                          {...hoverHandlers(() => onDistrictEnter([zone]), onDistrictLeave)}
-                          onClick={() => zoomToDistrict(Number(zone))}
-                          style={{cursor: 'pointer'}}
-                        >
-                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                            <DistrictLabel zone={Number(zone)} />
-                          </Table.Cell>
-                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                            <Text size="2">
-                              {formatNumber(polsby_popper[zone], NUMBER_FORMATS.DECIMAL_3)}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
-                            <Text size="2">
-                              {formatNumber((reock ?? {})[zone], NUMBER_FORMATS.DECIMAL_3)}
-                            </Text>
-                          </Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Root>
-                ))}
-              </Flex>
+              <CompactnessScoreTable polsbyPopper={polsby_popper} reock={reock ?? undefined} />
             </>
           )}
         </Accordion.Content>
