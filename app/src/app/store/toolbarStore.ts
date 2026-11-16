@@ -47,7 +47,6 @@ export const useToolbarStore = create(
         controls.setMapOptions({
           basemap: MAP_MODE_DEFAULT_OPTIONS[controls.mapMode].basemap,
           showPopulationNumbers: DEFAULT_MAP_OPTIONS.showPopulationNumbers,
-          showBlockPopulationNumbers: DEFAULT_MAP_OPTIONS.showBlockPopulationNumbers,
           highlightBrokenDistricts: DEFAULT_MAP_OPTIONS.highlightBrokenDistricts,
           zonesOpacity: DEFAULT_MAP_OPTIONS.zonesOpacity,
           demographicDisplayMode:
