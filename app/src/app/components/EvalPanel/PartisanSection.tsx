@@ -1,8 +1,9 @@
 'use client';
 import {Fragment, useState} from 'react';
 import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
-import {type EvalOptions, useEvalOption, useIsReport} from './evalMode';
-import {ReportNoteRef} from './ReportNotes';
+import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
+import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
+import {helpTipContent} from '@components/HelpTip/helpTipContent';
 import {Flex, Text, Table, Select} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
@@ -11,7 +12,7 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
-import {HOVER_BTN_STYLE, HoverTrigger, hoverHandlers} from './HoverTrigger';
+import {HOVER_BTN_STYLE, HoverTrigger, useHoverHandlers} from './HoverTrigger';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 
 interface PartisanSectionProps {
@@ -82,7 +83,11 @@ const FtvTestName: React.FC = () => {
     return (
       <>
         Freedom-To-Vote Test
-        <ReportNoteRef tip="freedomToVoteTest" />
+        <ReportNoteRef
+          note="freedomToVoteTest"
+          title={helpTipContent.freedomToVoteTest.title}
+          text={helpTipContent.freedomToVoteTest.text}
+        />
       </>
     );
   }
@@ -110,6 +115,11 @@ function sortElections(keys: string[]): string[] {
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const isReport = useIsReport();
+  const hoverHandlers = useHoverHandlers();
+  // A count that highlights its districts on hover; plain bold text in the report.
+  const districtCountStyle: React.CSSProperties = isReport
+    ? {fontWeight: 'bold'}
+    : {...HOVER_BTN_STYLE, fontWeight: 'bold'};
   const [pov, setPov] = useEvalOption('pov');
   const povName = pov === 'dem' ? 'Democratic' : 'Republican';
   const [ftvHover, setFtvHover] = useState(false);
@@ -218,7 +228,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           <strong>
             {n} recent statewide election{n !== 1 ? 's' : ''}
           </strong>
-          .{' '}
+          <ReportNoteRef {...DATA_SOURCE_NOTES.electionResults} />.{' '}
         </Text>
       )}
 
@@ -665,11 +675,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             >
               <Select.Trigger style={isReport ? {display: 'none'} : undefined} />
               <Select.Content>
-                <Select.Item value="2">±2 points</Select.Item>
-                <Select.Item value="3">±3 points</Select.Item>
-                <Select.Item value="5">±5 points</Select.Item>
-                <Select.Item value="7">±7 points</Select.Item>
-                <Select.Item value="10">±10 points</Select.Item>
+                {EVAL_OPTION_VALUES.competitiveBand.map(band => (
+                  <Select.Item key={band} value={band}>
+                    ±{band} points
+                  </Select.Item>
+                ))}
               </Select.Content>
             </Select.Root>
             . We call a district a <strong>swing</strong> district if each major party won it at
@@ -713,7 +723,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Text size="2">Swing districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                    <Text size="2" style={districtCountStyle}>
                       {swingDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>
@@ -727,7 +737,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Text size="2">Dem Sweep districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                    <Text size="2" style={districtCountStyle}>
                       {demSweepDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>
@@ -741,7 +751,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     <Text size="2">Repub sweep districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                    <Text size="2" style={districtCountStyle}>
                       {repSweepDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>

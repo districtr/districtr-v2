@@ -15,17 +15,25 @@ export const EvalModeProvider = EvalModeContext.Provider;
 export const useIsReport = (): boolean => useContext(EvalModeContext) === 'report';
 
 /**
+ * The evaluation's selectors and the choices each offers, in the order a selector
+ * lists them. The option type, the check on a report link and the selectors' items
+ * all come from these lists. `competitiveBand` is in points either side of 50-50.
+ */
+export const EVAL_OPTION_VALUES = {
+  deviationView: ['both', 'top_to_bottom', 'max_absolute'],
+  countyShowMode: ['overly-split-only', 'all'],
+  pov: ['dem', 'rep'],
+  competitiveBand: ['2', '3', '5', '7', '10'],
+} as const;
+
+/**
  * The reader's choices in the evaluation's selectors. They live above the sections
  * so that exporting a report can carry them along: the report has no selectors and
  * shows what was selected at the moment of export.
  */
-export interface EvalOptions {
-  deviationView: 'top_to_bottom' | 'max_absolute' | 'both';
-  countyShowMode: 'overly-split-only' | 'all';
-  pov: 'dem' | 'rep';
-  /** Competitive band, in points either side of 50-50. */
-  competitiveBand: '2' | '3' | '5' | '7' | '10';
-}
+export type EvalOptions = {
+  [K in keyof typeof EVAL_OPTION_VALUES]: (typeof EVAL_OPTION_VALUES)[K][number];
+};
 
 export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
   deviationView: 'top_to_bottom',
@@ -34,21 +42,14 @@ export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
   competitiveBand: '3',
 };
 
-const ALLOWED_VALUES: {[K in keyof EvalOptions]: readonly EvalOptions[K][]} = {
-  deviationView: ['top_to_bottom', 'max_absolute', 'both'],
-  countyShowMode: ['overly-split-only', 'all'],
-  pov: ['dem', 'rep'],
-  competitiveBand: ['2', '3', '5', '7', '10'],
-};
-
 /** Options from a report link's query string; anything missing or unknown falls back to the default. */
 export const evalOptionsFromParams = (params: {
   get: (key: string) => string | null;
 }): EvalOptions => {
   const options: Record<string, string> = {...DEFAULT_EVAL_OPTIONS};
-  for (const key of Object.keys(ALLOWED_VALUES) as (keyof EvalOptions)[]) {
+  for (const key of Object.keys(EVAL_OPTION_VALUES) as (keyof EvalOptions)[]) {
     const value = params.get(key);
-    if (value !== null && (ALLOWED_VALUES[key] as readonly string[]).includes(value)) {
+    if (value !== null && (EVAL_OPTION_VALUES[key] as readonly string[]).includes(value)) {
       options[key] = value;
     }
   }

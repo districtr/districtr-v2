@@ -22,6 +22,18 @@ export const hoverHandlers = (onEnter: () => void, onLeave: () => void) => ({
   onBlur: onLeave,
 });
 
+type HoverHandlers = ReturnType<typeof hoverHandlers>;
+const noHandlers = (): Partial<HoverHandlers> => ({});
+
+/**
+ * `hoverHandlers` for the view the caller renders in. The report gets none: its
+ * map figure is a still image, and nothing on the page may change the map behind it.
+ */
+export const useHoverHandlers = (): ((
+  onEnter: () => void,
+  onLeave: () => void
+) => Partial<HoverHandlers>) => (useIsReport() ? noHandlers : hoverHandlers);
+
 interface HoverTriggerProps {
   onEnter: () => void;
   onLeave: () => void;

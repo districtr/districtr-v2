@@ -6,6 +6,7 @@ import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
 import {EvalTableTitle} from './EvalSection';
 import {HOVER_BTN_STYLE} from './HoverTrigger';
 import {useIsReport} from './evalMode';
+import {ReportNoteRef} from './ReportNotes';
 import {useReportPart} from './reportStatus';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
@@ -122,6 +123,20 @@ const CELL_STYLE: React.CSSProperties = {
   minWidth: 0,
 };
 const ROW_LABEL_STYLE: React.CSSProperties = {...CELL_STYLE, textAlign: 'center'};
+
+/** Label of the row of score ranges, on screen and in the report. */
+const RangesLabel: React.FC<{scoreName: string}> = ({scoreName}) => (
+  <Text size="1" style={ROW_LABEL_STYLE}>
+    A {scoreName} score of
+  </Text>
+);
+
+/** Label of the row of example districts, on screen and in the report. */
+const ExamplesLabel: React.FC = () => (
+  <Text size="1" style={ROW_LABEL_STYLE}>
+    …is exemplified by…
+  </Text>
+);
 // The number of the range whose sample is open becomes a tab on the sample's frame.
 // Every number cell keeps the tab's border width, so opening moves no text.
 const RANGE_CELL_STYLE: React.CSSProperties = {
@@ -358,9 +373,7 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
         return (
           <div key={start}>
             <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-              <Text size="1" style={ROW_LABEL_STYLE}>
-                A {scoreName} score of
-              </Text>
+              <RangesLabel scoreName={scoreName} />
               {row.map(({bucket, index}) => (
                 <div
                   key={bucket.min}
@@ -381,9 +394,7 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
             </div>
             <div style={{position: 'relative'}}>
               <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-                <Text size="1" style={ROW_LABEL_STYLE}>
-                  …is exemplified by…
-                </Text>
+                <ExamplesLabel />
                 {row.map(({bucket, index}) => (
                   <div key={bucket.min} style={CELL_STYLE}>
                     <button {...triggerProps(index)}>
@@ -420,7 +431,8 @@ interface ReportExemplarRowProps {
 /**
  * The report's row of examples: the ranges side by side, one district under each
  * with its short name, drawn from the range's whole sample when the report opens.
- * Paper has no hover, so the sample itself is not shown and a note names the source.
+ * Paper has no hover, so the sample itself is not shown; the caption points at a
+ * note, shared by both scores' rows, that names the source and the draw.
  */
 const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets, data}) => {
   const [examples] = useState(() => drawExamples(buckets, data.sampleSize));
@@ -430,13 +442,19 @@ const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets
     gridTemplateColumns: columns,
     borderBottom: ROW_LINE,
   };
+  const sourceNote =
+    `Congressional districts of the ${ordinal(data.congress)} Congress, used in the ` +
+    `${data.electionYear} election (${data.source}). Each example is drawn at random from a ` +
+    `sample of up to ${data.sampleSize} districts in its range when the report is opened, so ` +
+    `two reports of the same plan can show different examples.`;
   return (
     <div className="eval-report-exemplars">
-      <EvalTableTitle reportOnly>{scoreName} score exemplars</EvalTableTitle>
+      <EvalTableTitle reportOnly>
+        {scoreName} score exemplars
+        <ReportNoteRef note="exampleDistricts" title="Example districts" text={sourceNote} />
+      </EvalTableTitle>
       <div style={rowStyle}>
-        <Text size="1" style={ROW_LABEL_STYLE}>
-          A {scoreName} score of
-        </Text>
+        <RangesLabel scoreName={scoreName} />
         {buckets.map(bucket => (
           <div key={bucket.min} style={CELL_STYLE}>
             <Text size="2" className="tabular-nums">
@@ -445,10 +463,8 @@ const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets
           </div>
         ))}
       </div>
-      <div style={rowStyle}>
-        <Text size="1" style={ROW_LABEL_STYLE}>
-          …is exemplified by…
-        </Text>
+      <div style={{...rowStyle, marginBottom: 'var(--space-3)'}}>
+        <ExamplesLabel />
         {buckets.map((bucket, i) => (
           <figure
             key={bucket.min}
@@ -462,12 +478,6 @@ const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets
           </figure>
         ))}
       </div>
-      <Text size="1" color="gray" as="p" mt="2" mb="3">
-        Congressional districts of the {ordinal(data.congress)} Congress, used in the{' '}
-        {data.electionYear} election ({data.source}). Each example is drawn at random from a sample
-        of up to {data.sampleSize} districts in its range when the report is opened, so two reports
-        of the same plan can show different examples.
-      </Text>
     </div>
   );
 };

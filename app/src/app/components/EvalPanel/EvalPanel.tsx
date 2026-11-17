@@ -7,6 +7,7 @@ import {FileTextIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {evaluationQueryKey, getEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {MAP_ROUTES} from '@constants/document/routes';
+import {readPath, reportPath} from '@utils/map/editUrl';
 import {BasicsSection} from './BasicsSection';
 import {PartisanSection} from './PartisanSection';
 import {CountySplitsSection} from './CountySplitsSection';
@@ -20,7 +21,7 @@ import {
   type EvalMode,
   type EvalOptions,
 } from './evalMode';
-import {ReportNotes} from './ReportNotes';
+import {ReportNotes, ReportNotesProvider} from './ReportNotes';
 import {useReportPart} from './reportStatus';
 
 interface EvalPanelProps {
@@ -134,47 +135,59 @@ export const EvalPanel: React.FC<EvalPanelProps> = ({mode = 'screen', mapFigure}
     </>
   );
 
+  // Two lines of the title block, the same in both views.
+  const kicker = (
+    <Text size="1" className="uppercase tracking-widest">
+      Districtr · Evaluation Report
+    </Text>
+  );
+  const snapshotLine = (
+    <>
+      {snapshotDate && <>Snapshot of {snapshotDate} · </>}Plan id {publicId}
+    </>
+  );
+
   if (isReport) {
     const planUrl =
       publicId && typeof window !== 'undefined'
-        ? `${window.location.origin}/${MAP_ROUTES.DISTRICTS}/${publicId}`
+        ? `${window.location.origin}${readPath(MAP_ROUTES.DISTRICTS, publicId)}`
         : null;
     return (
       <EvalModeProvider value="report">
         <EvalOptionsProvider value={optionsContext}>
           <article className="eval-report">
-            <header className="eval-report-title">
-              <Text size="1" className="uppercase tracking-widest">
-                Districtr · Evaluation Report
-              </Text>
-              <Heading as="h1" size="7" mt="2">
-                Districting Plan Evaluation Report
-              </Heading>
-              <Text size="4" as="p" mt="2">
-                {planName}
-              </Text>
-              <Text size="2" as="p" mt="2">
-                {[
-                  mapDocument?.map_module,
-                  mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Text>
-              <Text size="2" as="p">
-                {snapshotDate && <>Snapshot of {snapshotDate} · </>}Plan id {publicId}
-                {planUrl && (
-                  <>
-                    {' '}
-                    · <a href={planUrl}>{planUrl}</a>
-                  </>
-                )}
-              </Text>
-            </header>
-            {mapFigure}
-            {status}
-            {sections}
-            {sections && <ReportNotes />}
+            <ReportNotesProvider>
+              <header className="eval-report-title">
+                {kicker}
+                <Heading as="h1" size="7" mt="2">
+                  Districting Plan Evaluation Report
+                </Heading>
+                <Text size="4" as="p" mt="2">
+                  {planName}
+                </Text>
+                <Text size="2" as="p" mt="2">
+                  {[
+                    mapDocument?.map_module,
+                    mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+                <Text size="2" as="p">
+                  {snapshotLine}
+                  {planUrl && (
+                    <>
+                      {' '}
+                      · <a href={planUrl}>{planUrl}</a>
+                    </>
+                  )}
+                </Text>
+              </header>
+              {mapFigure}
+              {status}
+              {sections}
+              <ReportNotes />
+            </ReportNotesProvider>
           </article>
         </EvalOptionsProvider>
       </EvalModeProvider>
@@ -187,13 +200,11 @@ export const EvalPanel: React.FC<EvalPanelProps> = ({mode = 'screen', mapFigure}
         <div className="eval-panel h-full overflow-y-auto flex-shrink-0 border-l border-gray-200 bg-white w-1/2">
           <Flex direction="column" p="5" gap="1">
             <Flex align="center" justify="between" gap="3">
-              <Text size="1" className="uppercase tracking-widest">
-                Districtr · Evaluation Report
-              </Text>
+              {kicker}
               {publicId && (
                 <Button asChild size="1" variant="soft" className="print:hidden">
                   <a
-                    href={`/${MAP_ROUTES.DISTRICTS}/${publicId}/report?${evalOptionsToQuery(options)}`}
+                    href={reportPath(MAP_ROUTES.DISTRICTS, publicId, evalOptionsToQuery(options))}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -207,11 +218,7 @@ export const EvalPanel: React.FC<EvalPanelProps> = ({mode = 'screen', mapFigure}
               Districting Plan Metrics
             </Heading>
             <Text size="2">{planName}</Text>
-            {snapshotDate && (
-              <Text size="1">
-                Snapshot of {snapshotDate} · Plan id {publicId}
-              </Text>
-            )}
+            {snapshotDate && <Text size="1">{snapshotLine}</Text>}
           </Flex>
 
           {status}

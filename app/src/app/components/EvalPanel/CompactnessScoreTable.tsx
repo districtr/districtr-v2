@@ -2,7 +2,7 @@
 import {useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Table, Text} from '@radix-ui/themes';
 import {DistrictLabel} from './DistrictLabel';
-import {hoverHandlers} from './HoverTrigger';
+import {useHoverHandlers} from './HoverTrigger';
 import {useIsReport} from './evalMode';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
@@ -38,6 +38,7 @@ export const CompactnessScoreTable: React.FC<CompactnessScoreTableProps> = ({
   reock,
 }) => {
   const isReport = useIsReport();
+  const hoverHandlers = useHoverHandlers();
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const zoomToDistrict = useZoomToDistrict();
   const zones = useMemo(
@@ -126,8 +127,8 @@ export const CompactnessScoreTable: React.FC<CompactnessScoreTableProps> = ({
                     key={zone}
                     tabIndex={isReport ? undefined : 0}
                     {...hoverHandlers(() => onDistrictEnter([zone]), onDistrictLeave)}
-                    onClick={() => zoomToDistrict(Number(zone))}
-                    style={{cursor: 'pointer'}}
+                    onClick={isReport ? undefined : () => zoomToDistrict(Number(zone))}
+                    style={isReport ? undefined : {cursor: 'pointer'}}
                   >
                     <Table.Cell justify="center" style={{verticalAlign: 'middle'}}>
                       <DistrictLabel zone={Number(zone)} />

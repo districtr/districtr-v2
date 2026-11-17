@@ -262,14 +262,14 @@ body {
 
 /* Evaluation report (/map/<id>/report): the evaluation laid out as a document.
    On screen it is a sheet the size of the paper it prints on, so what the reader
-   sees is what the PDF holds. */
+   sees is what the PDF holds. The sheet keeps its width in a narrower window,
+   and the page scrolls sideways. */
 .eval-report-root {
   background: var(--gray-4);
 }
 .eval-report {
   box-sizing: border-box;
   width: 8.5in;
-  max-width: 100%;
   margin: 0 auto 2rem;
   padding: 2cm;
   background: white;
@@ -444,8 +444,7 @@ body {
   }
 }
 
-/* Report: a table is kept whole where it fits on a page, and marks that only mean
-   "hover me" on screen are dropped. */
+/* Report: a table is kept whole where it fits on a page. */
 .eval-report .rt-TableRoot,
 .eval-report-exemplars {
   break-inside: avoid;
@@ -453,9 +452,6 @@ body {
 /* A table that can outgrow a page starts where it stands and continues on the next. */
 .eval-report .rt-TableRoot.eval-long-table {
   break-inside: auto;
-}
-.eval-report [style*='underline dotted'] {
-  text-decoration: none !important;
 }
 
 @media print {
@@ -467,10 +463,4 @@ body {
   .radix-themes:has(.eval-report-root) {
     min-height: 0 !important;
   }
-}
-
-/* The report's sections take no pointer: hovering or clicking a row would
-   highlight or move the map under Figure 1 and change its still image. */
-.eval-report-section {
-  pointer-events: none;
 }

@@ -3,10 +3,17 @@ import {useEffect, useState} from 'react';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {PublicMap} from '@components/Map/PublicMap';
 import {useMapStore} from '@store/mapStore';
+import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
 import {useReportPart} from './reportStatus';
 
 /** District labels are drawn smaller in the figure than on the interactive map. */
 const ZONE_LABEL_SCALE = 0.7;
+/**
+ * Canvas pixels per CSS pixel of the map the still is taken from. Fixed, so the
+ * figure prints equally sharp from any screen: about 290 pixels per inch across
+ * the sheet's text width.
+ */
+const STILL_PIXEL_RATIO = 3;
 
 /**
  * Figure 1 of the report: the plan map as a still image. A live map draws the
@@ -52,7 +59,7 @@ export const ReportMapFigure: React.FC = () => {
     <figure className="eval-report-figure">
       <div className="eval-report-map">
         <div className="eval-report-map-live" aria-hidden="true">
-          <PublicMap zoneLabelScale={ZONE_LABEL_SCALE} />
+          <PublicMap zoneLabelScale={ZONE_LABEL_SCALE} pixelRatio={STILL_PIXEL_RATIO} />
         </div>
         {still ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -75,7 +82,10 @@ export const ReportMapFigure: React.FC = () => {
           </Flex>
         )}
       </div>
-      <figcaption>The plan&apos;s districts.</figcaption>
+      <figcaption>
+        The plan&apos;s districts.
+        <ReportNoteRef {...DATA_SOURCE_NOTES.geography} />
+      </figcaption>
     </figure>
   );
 };

@@ -23,7 +23,7 @@ export const ReportView: React.FC<ReportViewProps> = ({planError}) => {
   });
 
   return (
-    <div className="eval-report-root h-screen h-dvh w-screen overflow-y-auto">
+    <div className="eval-report-root h-screen h-dvh w-screen overflow-auto">
       <Flex justify="center" py="3" className="print:hidden">
         <Button disabled={status !== 'ready'} onClick={() => window.print()}>
           {status === 'loading' ? 'Preparing the report…' : 'Print / Save as PDF'}

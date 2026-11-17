@@ -1,13 +1,13 @@
 'use client';
 import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
-import {useEvalOption, useIsReport} from './evalMode';
+import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
 import {Flex, Text, Table, Switch, Select} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {type GeoUnit, GEO_UNITS, GEO_UNIT_LABELS} from '@constants/document/geoUnits';
 import {useIsSingleCounty} from '@/app/hooks/useIsSingleCounty';
-import {hoverHandlers} from './HoverTrigger';
+import {useHoverHandlers} from './HoverTrigger';
 
 const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
   [GEO_UNITS.VTD]:
@@ -16,6 +16,12 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
     'Block groups are Census geographic units that nest within counties and tracts, typically containing 600–3,000 people.',
   [GEO_UNITS.BLOCK]:
     'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
+};
+
+type CountyShowMode = EvalOptions['countyShowMode'];
+const COUNTY_SHOW_MODE_LABEL: Record<CountyShowMode, string> = {
+  'overly-split-only': 'excessively split counties',
+  all: 'all counties',
 };
 
 interface CountySplitsSectionProps {
@@ -29,6 +35,7 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const setHoveredCountyGeoid = useMapControlsStore(state => state.setHoveredCountyGeoid);
   const isSingleCounty = useIsSingleCounty();
   const isReport = useIsReport();
+  const hoverHandlers = useHoverHandlers();
   const [showMode, setShowMode] = useEvalOption('countyShowMode');
 
   const countyPieces = evaluation.county_pieces;
@@ -219,12 +226,15 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
             <Select.Root
               size="1"
               value={showMode}
-              onValueChange={v => setShowMode(v as 'overly-split-only' | 'all')}
+              onValueChange={v => setShowMode(v as CountyShowMode)}
             >
               <Select.Trigger />
               <Select.Content>
-                <Select.Item value="overly-split-only">excessively split counties</Select.Item>
-                <Select.Item value="all">all counties</Select.Item>
+                {EVAL_OPTION_VALUES.countyShowMode.map(mode => (
+                  <Select.Item key={mode} value={mode}>
+                    {COUNTY_SHOW_MODE_LABEL[mode]}
+                  </Select.Item>
+                ))}
               </Select.Content>
             </Select.Root>
           </Flex>

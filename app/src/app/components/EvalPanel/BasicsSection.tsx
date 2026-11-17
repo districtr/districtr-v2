@@ -1,16 +1,22 @@
 'use client';
 import {EvalSection, EvalSubheading} from './EvalSection';
-import {type EvalOptions, useEvalOption, useIsReport} from './evalMode';
+import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
 import {Flex, Text, Select} from '@radix-ui/themes';
 import {DistrictLabel} from './DistrictLabel';
 import {useMapStore} from '@store/mapStore';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
-import {HoverTrigger, hoverHandlers} from './HoverTrigger';
+import {HoverTrigger, useHoverHandlers} from './HoverTrigger';
+import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
 import {districtHeading} from '@/app/utils/zoneLabels';
 
 type DeviationView = EvalOptions['deviationView'];
+const DEVIATION_VIEW_LABEL: Record<DeviationView, string> = {
+  both: 'Both',
+  top_to_bottom: 'Top-to-bottom',
+  max_absolute: 'Max absolute',
+};
 
 function formatDeviation(value: number): string {
   if (value > 1) return 'over 100%';
@@ -30,6 +36,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
   const zoomToDistrict = useZoomToDistrict();
 
   const isReport = useIsReport();
+  const hoverHandlers = useHoverHandlers();
   const [deviationView, setDeviationView] = useEvalOption('deviationView');
 
   const doc = mapDocument
@@ -86,8 +93,9 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
           {unassigned_population && (
             <>
               <strong>{unassigned_population.unassigned_population.toLocaleString()}</strong> of{' '}
-              <strong>{unassigned_population.total_population.toLocaleString()}</strong> people are
-              not yet assigned to a district.{' '}
+              <strong>{unassigned_population.total_population.toLocaleString()}</strong> people
+              <ReportNoteRef {...DATA_SOURCE_NOTES.population} /> are not yet assigned to a
+              district.{' '}
             </>
           )}
           {assigned_units.total_child_count !== null &&
@@ -166,9 +174,11 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
             >
               <Select.Trigger />
               <Select.Content>
-                <Select.Item value="both">Both</Select.Item>
-                <Select.Item value="top_to_bottom">Top-to-bottom</Select.Item>
-                <Select.Item value="max_absolute">Max absolute</Select.Item>
+                {EVAL_OPTION_VALUES.deviationView.map(view => (
+                  <Select.Item key={view} value={view}>
+                    {DEVIATION_VIEW_LABEL[view]}
+                  </Select.Item>
+                ))}
               </Select.Content>
             </Select.Root>
           </Flex>
