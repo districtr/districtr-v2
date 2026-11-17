@@ -3,7 +3,11 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
+import {EvalTableTitle} from './EvalSection';
 import {HOVER_BTN_STYLE} from './HoverTrigger';
+import {useIsReport} from './evalMode';
+import {ReportNoteRef} from './ReportNotes';
+import {useReportPart} from './reportStatus';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
 
@@ -69,6 +73,8 @@ const UNFOLD_MS = 150;
 // Room around the sample for its shadow, in the unfolding clip.
 const SHADOW_ROOM = 24;
 const SAMPLE_LINE_COLOR = 'var(--gray-a6)';
+// The report's sheet has one width, so its outlines have one size.
+const REPORT_OUTLINE_SIZE = 64;
 
 const loadExemplars = async (): Promise<CompactnessExemplarData> =>
   (await import('@constants/compactnessExemplars.json')).default as CompactnessExemplarData;
@@ -117,6 +123,20 @@ const CELL_STYLE: React.CSSProperties = {
   minWidth: 0,
 };
 const ROW_LABEL_STYLE: React.CSSProperties = {...CELL_STYLE, textAlign: 'center'};
+
+/** Label of the row of score ranges, on screen and in the report. */
+const RangesLabel: React.FC<{scoreName: string}> = ({scoreName}) => (
+  <Text size="1" style={ROW_LABEL_STYLE}>
+    A {scoreName} score of
+  </Text>
+);
+
+/** Label of the row of example districts, on screen and in the report. */
+const ExamplesLabel: React.FC = () => (
+  <Text size="1" style={ROW_LABEL_STYLE}>
+    …is exemplified by…
+  </Text>
+);
 // The number of the range whose sample is open becomes a tab on the sample's frame.
 // Every number cell keeps the tab's border width, so opening moves no text.
 const RANGE_CELL_STYLE: React.CSSProperties = {
@@ -140,6 +160,12 @@ const SHORT_NAME_STYLE: React.CSSProperties = {
   lineHeight: '12px',
   color: 'var(--gray-9)',
 };
+
+/** One district of each range, drawn at random from the first `poolSize` of its sample. */
+const drawExamples = (buckets: ExemplarBucket[], poolSize: number): string[] =>
+  buckets.map(
+    ({districts}) => districts[Math.floor(Math.random() * Math.min(districts.length, poolSize))]
+  );
 
 interface SampleProps {
   label: string;
@@ -246,12 +272,7 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
-  const [shownByDefault] = useState(() =>
-    buckets.map(
-      ({districts}) =>
-        districts[Math.floor(Math.random() * Math.min(districts.length, ALWAYS_SHOWN))]
-    )
-  );
+  const [shownByDefault] = useState(() => drawExamples(buckets, ALWAYS_SHOWN));
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current;
@@ -352,9 +373,7 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
         return (
           <div key={start}>
             <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-              <Text size="1" style={ROW_LABEL_STYLE}>
-                A {scoreName} score of
-              </Text>
+              <RangesLabel scoreName={scoreName} />
               {row.map(({bucket, index}) => (
                 <div
                   key={bucket.min}
@@ -375,9 +394,7 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
             </div>
             <div style={{position: 'relative'}}>
               <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-                <Text size="1" style={ROW_LABEL_STYLE}>
-                  …is exemplified by…
-                </Text>
+                <ExamplesLabel />
                 {row.map(({bucket, index}) => (
                   <div key={bucket.min} style={CELL_STYLE}>
                     <button {...triggerProps(index)}>
@@ -405,6 +422,66 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
   );
 };
 
+interface ReportExemplarRowProps {
+  scoreName: string;
+  buckets: ExemplarBucket[];
+  data: CompactnessExemplarData;
+}
+
+/**
+ * The report's row of examples: the ranges side by side, one district under each
+ * with its short name, drawn from the range's whole sample when the report opens.
+ * Paper has no hover, so the sample itself is not shown; the caption points at a
+ * note, shared by both scores' rows, that names the source and the draw.
+ */
+const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets, data}) => {
+  const [examples] = useState(() => drawExamples(buckets, data.sampleSize));
+  const columns = `${ROW_LABEL_WIDTH}px repeat(${buckets.length}, minmax(0, 1fr))`;
+  const rowStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: columns,
+    borderBottom: ROW_LINE,
+  };
+  const sourceNote =
+    `Congressional districts of the ${ordinal(data.congress)} Congress, used in the ` +
+    `${data.electionYear} election (${data.source}). Each example is drawn at random from a ` +
+    `sample of up to ${data.sampleSize} districts in its range when the report is opened, so ` +
+    `two reports of the same plan can show different examples.`;
+  return (
+    <div className="eval-report-exemplars">
+      <EvalTableTitle reportOnly>
+        {scoreName} score exemplars
+        <ReportNoteRef note="exampleDistricts" title="Example districts" text={sourceNote} />
+      </EvalTableTitle>
+      <div style={rowStyle}>
+        <RangesLabel scoreName={scoreName} />
+        {buckets.map(bucket => (
+          <div key={bucket.min} style={CELL_STYLE}>
+            <Text size="2" className="tabular-nums">
+              {rangeLabel(bucket)}
+            </Text>
+          </div>
+        ))}
+      </div>
+      <div style={{...rowStyle, marginBottom: 'var(--space-3)'}}>
+        <ExamplesLabel />
+        {buckets.map((bucket, i) => (
+          <figure
+            key={bucket.min}
+            className="m-0 flex flex-col items-center gap-1"
+            style={{padding: 'var(--space-2) 0'}}
+          >
+            <Outline district={data.districts[examples[i]]} size={REPORT_OUTLINE_SIZE} />
+            <figcaption style={SHORT_NAME_STYLE}>
+              {districtShortName(data.districts[examples[i]])}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface CompactnessExemplarsProps {
   scoreKey: CompactnessScoreKey;
 }
@@ -414,11 +491,13 @@ interface CompactnessExemplarsProps {
  * into score ranges, a fixed random sample of each range.
  */
 export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({scoreKey}) => {
+  const isReport = useIsReport();
   const {data, isError} = useQuery({
     queryKey: ['compactness-exemplars'],
     queryFn: loadExemplars,
     staleTime: Infinity,
   });
+  useReportPart(`examples-${scoreKey}`, isError ? 'failed' : data ? 'ready' : 'loading');
 
   if (isError) {
     return (
@@ -432,6 +511,16 @@ export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({score
       <Flex justify="center" align="center" mb="3" style={{minHeight: 120}}>
         <Spinner />
       </Flex>
+    );
+  }
+
+  if (isReport) {
+    return (
+      <ReportExemplarRow
+        scoreName={SCORE_NAME[scoreKey]}
+        buckets={data.buckets[scoreKey]}
+        data={data}
+      />
     );
   }
 

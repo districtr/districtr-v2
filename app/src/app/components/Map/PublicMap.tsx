@@ -23,7 +23,14 @@ import {BlockSource} from './GeoSources/BlockSource';
 import type {FilterSpecification} from 'maplibre-gl';
 import {RENDERER_TYPES} from '@constants/map/rendererType';
 
-export const PublicMap: React.FC = () => {
+interface PublicMapProps {
+  /** Size of the district labels relative to the interactive map's. */
+  zoneLabelScale?: number;
+  /** Canvas pixels per CSS pixel; the screen's own ratio when left out. */
+  pixelRatio?: number;
+}
+
+export const PublicMap: React.FC<PublicMapProps> = ({zoneLabelScale, pixelRatio}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -62,6 +69,7 @@ export const PublicMap: React.FC = () => {
     <MapContainer
       mapRef={mapRef}
       initialViewState={initialViewState}
+      pixelRatio={pixelRatio}
       onMapLoad={e => {
         onLoad(e);
         setMapRef(mapRef);
@@ -87,7 +95,7 @@ export const PublicMap: React.FC = () => {
         </BlockSource>
       )}
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
-      <MetaLayers isDemographicMap={false} />
+      <MetaLayers isDemographicMap={false} zoneLabelScale={zoneLabelScale} />
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
     </MapContainer>
   );
