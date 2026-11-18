@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import {Flex, Heading, Text} from '@radix-ui/themes';
+import {SiteBanner} from '@components/SiteBanner';
 
 export const metadata: Metadata = {
   title: 'Under Construction',
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function UnderConstructionPage() {
   return (
     <Flex direction="column" align="center" justify="center" gap="4" className="min-h-screen p-8">
+      <SiteBanner overlay />
       <Heading as="h1" size="8">
         🚧 Under Construction
       </Heading>
