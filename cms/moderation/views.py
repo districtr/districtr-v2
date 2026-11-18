@@ -7,8 +7,11 @@ takedown surface (hide/blur + visitor reports) lives on the Portals hub
 """
 
 import logging
+from datetime import timedelta
 
 from django.shortcuts import redirect, render
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from requests import RequestException
 from wagtail.admin import messages
 
@@ -21,6 +24,8 @@ logger = logging.getLogger(__name__)
 SITE_SETTINGS_GROUPS = frozenset({"admin"})
 # Matches the backend's BANNER_MESSAGE_MAX_LENGTH (backend/app/cms/models.py).
 BANNER_MESSAGE_MAX_LENGTH = 500
+# A day: anything longer is an announcement for the banner text, not a countdown.
+MAX_COUNTDOWN_MINUTES = 24 * 60
 
 
 def _normalized(message: str) -> str:
@@ -38,13 +43,28 @@ def _changes(post) -> dict:
     banner = _normalized(post.get("banner_message", ""))
     if banner != _normalized(post.get("original_banner_message", "")):
         changes["banner_message"] = banner
+    # Relative, not a clock time: no timezone for the admin to get wrong.
+    minutes = post.get("downtime_minutes", "").strip()
+    if minutes:
+        if not minutes.isdigit() or not 0 < int(minutes) <= MAX_COUNTDOWN_MINUTES:
+            raise ValueError(
+                f"Downtime must be 1 to {MAX_COUNTDOWN_MINUTES} minutes away."
+            )
+        at = timezone.now() + timedelta(minutes=int(minutes))
+        changes["downtime_at"] = at.isoformat()
+    elif "cancel_countdown" in post:
+        changes["downtime_at"] = None
     return changes
 
 
 @group_required(SITE_SETTINGS_GROUPS)
 def site_settings(request):
     if request.method == "POST":
-        changes = _changes(request.POST)
+        try:
+            changes = _changes(request.POST)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("moderation_site_settings")
         if not changes:
             messages.info(request, "Nothing changed.")
             return redirect("moderation_site_settings")
@@ -57,8 +77,7 @@ def site_settings(request):
             messages.success(
                 request,
                 "Site settings saved. The API picks the change up within 15 "
-                "seconds, the public site within a minute, and open tabs "
-                "within about five minutes.",
+                "seconds, the public site and open tabs within about a minute.",
             )
         return redirect("moderation_site_settings")
 
@@ -75,6 +94,8 @@ def site_settings(request):
             "under_construction": current.get("under_construction"),
             "banner_message": current.get("banner_message") or "",
             "banner_max_length": BANNER_MESSAGE_MAX_LENGTH,
+            "downtime_at": parse_datetime(current.get("downtime_at") or ""),
+            "max_countdown_minutes": MAX_COUNTDOWN_MINUTES,
             # Without the current values, saving would overwrite them blind.
             "error": error,
         },

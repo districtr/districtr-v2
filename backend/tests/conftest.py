@@ -90,6 +90,7 @@ def maintenance_isolated(monkeypatch):
     monkeypatch.setattr("app.main.start_maintenance_poller", lambda: None)
     monkeypatch.setattr(maintenance, "enabled", False)
     monkeypatch.setattr(maintenance, "banner_message", None)
+    monkeypatch.setattr(maintenance, "downtime_at", None)
     monkeypatch.setattr(maintenance, "loaded", False)
 
 

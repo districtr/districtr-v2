@@ -1,10 +1,17 @@
 import {useSyncExternalStore} from 'react';
 import {API_URL} from './constants';
 
-export type SiteSettings = {under_construction: boolean; banner_message: string | null};
+export type SiteSettings = {
+  under_construction: boolean;
+  banner_message: string | null;
+  /** ISO timestamp the downtime countdown runs to; null when none is set. */
+  downtime_at: string | null;
+};
 
-// Quoted in the CMS Frontend settings help text ("about five minutes").
-export const POLL_MS = 5 * 60 * 1000;
+// Quoted in the CMS Frontend settings help text ("about a minute"). Short
+// enough for a 10-minute downtime countdown to reach open tabs in time; the
+// endpoint serves a per-worker snapshot, so a poll costs no DB work.
+export const POLL_MS = 60 * 1000;
 // Tab returns, window focus and remounts refetch at most this often, so a
 // user flipping between windows doesn't hammer the API.
 export const MIN_GAP_MS = 60 * 1000;
@@ -71,7 +78,7 @@ function subscribe(listener: () => void) {
 
 /**
  * Site settings (banner text, maintenance flag), shared by every caller: one
- * poller per tab, on load, tab return, window focus and every five minutes
+ * poller per tab, on load, tab return, window focus and every minute
  * while visible. null until the first fetch succeeds.
  */
 export function useSiteSettings(): SiteSettings | null {

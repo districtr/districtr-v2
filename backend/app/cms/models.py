@@ -5,7 +5,10 @@ Content models (tags/places) moved to the Wagtail CMS; the legacy
 after cutover (migrate_tiptap reads them) but are no longer mapped here.
 """
 
-from pydantic import BaseModel, Field as PydanticField, field_validator
+from datetime import datetime
+
+from pydantic import AwareDatetime, BaseModel, Field as PydanticField, field_validator
+from sqlalchemy import TIMESTAMP
 from sqlmodel import Field, MetaData
 from app.core.models import SQLModel
 from app.constants import CMS_SCHEMA
@@ -22,6 +25,9 @@ class SiteSettings(SQLModel, table=True):
     under_construction: bool = Field(default=False, nullable=False)
     # Shown site-wide by the frontend's SiteBanner; null hides it.
     banner_message: str | None = Field(default=None)
+    # Scheduled downtime start; SiteBanner counts down to it. Cleared when
+    # maintenance mode turns on.
+    downtime_at: datetime | None = Field(default=None, sa_type=TIMESTAMP(timezone=True))
 
 
 class SiteSettingsUpdate(BaseModel):
@@ -31,6 +37,7 @@ class SiteSettingsUpdate(BaseModel):
     banner_message: str | None = PydanticField(
         default=None, max_length=BANNER_MESSAGE_MAX_LENGTH
     )
+    downtime_at: AwareDatetime | None = None
 
     # Before the length check, so a CRLF from the textarea counts as one
     # character (as the browser's maxlength does) and padding doesn't count.

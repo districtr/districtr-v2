@@ -1,4 +1,4 @@
-"""site banner message
+"""site banner message and downtime countdown
 
 Revision ID: a7c3e91d2b45
 Revises: 55d7b369ed57
@@ -25,7 +25,13 @@ def upgrade() -> None:
         sa.Column("banner_message", sa.Text(), nullable=True),
         schema=CMS_SCHEMA,
     )
+    op.add_column(
+        "site_settings",
+        sa.Column("downtime_at", sa.TIMESTAMP(timezone=True), nullable=True),
+        schema=CMS_SCHEMA,
+    )
 
 
 def downgrade() -> None:
+    op.drop_column("site_settings", "downtime_at", schema=CMS_SCHEMA)
     op.drop_column("site_settings", "banner_message", schema=CMS_SCHEMA)

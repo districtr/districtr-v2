@@ -1,4 +1,5 @@
 from contextlib import nullcontext
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -17,14 +18,18 @@ def test_get_site_settings_default(client):
     """Site settings default to not under construction, no banner"""
     response = client.get(SETTINGS)
     assert response.status_code == 200
-    assert response.json() == {"under_construction": False, "banner_message": None}
+    assert response.json() == {
+        "under_construction": False,
+        "banner_message": None,
+        "downtime_at": None,
+    }
 
 
 def test_update_site_settings(client):
     """Toggling under_construction persists and is returned by GET"""
     response = client.patch(SETTINGS, json={"under_construction": True})
     assert response.status_code == 200
-    expected = {"under_construction": True, "banner_message": None}
+    expected = {"under_construction": True, "banner_message": None, "downtime_at": None}
     assert response.json() == expected
     assert client.get(SETTINGS).json() == expected
     assert client.get(f"{SETTINGS}?fresh=true").json() == expected
@@ -52,10 +57,12 @@ def test_patch_leaves_fields_it_does_not_send(client):
     assert client.patch(SETTINGS, json={"banner_message": "Bye"}).json() == {
         "under_construction": True,
         "banner_message": "Bye",
+        "downtime_at": None,
     }
     assert client.patch(SETTINGS, json={"under_construction": False}).json() == {
         "under_construction": False,
         "banner_message": "Bye",
+        "downtime_at": None,
     }
 
 
@@ -64,11 +71,34 @@ def test_get_serves_the_worker_snapshot_unless_fresh(client):
     assert client.get(SETTINGS).json() == {
         "under_construction": True,
         "banner_message": "from the poller",
+        "downtime_at": None,
     }
     assert client.get(f"{SETTINGS}?fresh=true").json() == {
         "under_construction": False,
         "banner_message": None,
+        "downtime_at": None,
     }
+
+
+def test_downtime_countdown_round_trips_and_ends_with_maintenance(client):
+    at = "2026-11-18T21:10:00Z"
+    saved = client.patch(SETTINGS, json={"downtime_at": at}).json()
+    assert datetime.fromisoformat(saved["downtime_at"]) == datetime.fromisoformat(at)
+    fresh = client.get(f"{SETTINGS}?fresh=true").json()
+    assert datetime.fromisoformat(fresh["downtime_at"]) == datetime.fromisoformat(at)
+    # A naive time would be read in the server's zone; refuse it.
+    assert (
+        client.patch(SETTINGS, json={"downtime_at": "2026-11-18T21:10:00"}).status_code
+        == 422
+    )
+    # Clearing it explicitly, then: turning maintenance on clears it too.
+    assert (
+        client.patch(SETTINGS, json={"downtime_at": None}).json()["downtime_at"] is None
+    )
+    client.patch(SETTINGS, json={"downtime_at": at})
+    on = client.patch(SETTINGS, json={"under_construction": True}).json()
+    assert on["downtime_at"] is None
+    assert client.get(SETTINGS).json()["downtime_at"] is None
 
 
 def test_maintenance_mode_blocks_api_except_health_and_settings(client):
@@ -101,12 +131,14 @@ def test_poll_once_reads_the_row(session, poll_engine):
     session.execute(
         text(
             "UPDATE cms.site_settings SET under_construction = true, "
-            "banner_message = 'Back at 10' WHERE id = 1"
+            "banner_message = 'Back at 10', "
+            "downtime_at = '2026-11-18T21:10:00Z' WHERE id = 1"
         )
     )
     maintenance.poll_once()
     assert maintenance.enabled is True
     assert maintenance.banner_message == "Back at 10"
+    assert maintenance.downtime_at == datetime.fromisoformat("2026-11-18T21:10:00Z")
     assert maintenance.loaded is True
 
 
@@ -123,7 +155,9 @@ def test_poll_once_keeps_the_last_value_when_the_db_is_down(monkeypatch):
 
 
 def test_poll_once_does_not_undo_a_patch_that_landed_mid_poll(monkeypatch):
-    stale_row = SimpleNamespace(under_construction=True, banner_message="old")
+    stale_row = SimpleNamespace(
+        under_construction=True, banner_message="old", downtime_at=None
+    )
 
     class Conn:
         def execute(self, _query):

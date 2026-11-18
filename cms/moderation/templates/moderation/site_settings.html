@@ -21,7 +21,33 @@
                     Shown at the top of every page, including the map editor —
                     use it for downtime notices. Leave blank to hide it. Visitors
                     can dismiss a message; changing the text shows it again. Open
-                    tabs pick up a change within about five minutes.
+                    tabs pick up a change within about a minute.
+                </p>
+
+                <h2><label for="downtime_minutes">Downtime countdown</label></h2>
+                {% if downtime_at %}
+                    <p>
+                        <strong>Counting down:</strong> downtime at
+                        {{ downtime_at|date:"H:i" }} UTC
+                        (in {{ downtime_at|timeuntil }}).
+                    </p>
+                    <label>
+                        <input type="checkbox" name="cancel_countdown">
+                        Cancel the countdown
+                    </label>
+                {% endif %}
+                <p>
+                    Downtime starts in
+                    <input type="number" id="downtime_minutes" name="downtime_minutes" min="1" max="{{ max_countdown_minutes }}" style="width: 6rem; display: inline-block;">
+                    minutes{% if downtime_at %} (replaces the current countdown){% endif %}
+                </p>
+                <p class="help">
+                    Adds a live "Districtr will be down for scheduled maintenance
+                    in N minutes — please save and wrap up" line to the banner,
+                    above any banner text. Visitors can dismiss it; a new
+                    countdown shows again. The countdown does not start
+                    maintenance: switch maintenance mode on below when you're
+                    ready, which also ends the countdown.
                 </p>
 
                 <h2 id="maintenance">Maintenance mode</h2>
@@ -34,16 +60,17 @@
                     under-construction page and the backend API answers 503 to
                     everything except site settings, so in-flight edits stop
                     saving. Tabs already open show a blocking maintenance notice
-                    (with the banner text) within about five minutes, and drop it
+                    (with the banner text) within about a minute, and drop it
                     once maintenance ends. The frontend caches this flag for up to
                     a minute, the API for up to 15 seconds. This admin stays
                     reachable, but its tools that call the API (submission
                     moderation, imports, overlays, thumbnails) are paused too.
                 </p>
                 <p class="help">
-                    Workflow: post a banner first to warn people mid-edit. Then
-                    switch maintenance on and wait 5–10 minutes before starting
-                    database work, so open tabs and in-flight requests settle.
+                    Workflow: start a countdown (say 10 minutes) to warn people
+                    mid-edit. When it runs out, switch maintenance on and wait a
+                    few minutes before starting database work, so open tabs and
+                    in-flight requests settle.
                 </p>
                 <button type="submit" class="button">Save</button>
             </fieldset>

@@ -6,7 +6,7 @@ import {useSiteSettings} from '../utils/api/siteSettings';
 /**
  * Blocks the page while maintenance mode is on: the API is answering 503, so
  * edits can't save. Runs on the shared site-settings poll (load, tab return,
- * window focus, every five minutes) and closes on the first check after
+ * window focus, every minute) and closes on the first check after
  * maintenance ends. Like VersionCheck's dialog it has no dismiss affordance.
  * Skipped on /under-construction, which already says the same thing.
  */

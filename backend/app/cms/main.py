@@ -11,8 +11,12 @@ from app.cms.models import SiteSettings, SiteSettingsUpdate
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 
 
-def _public(under_construction: bool, banner_message: str | None) -> dict:
-    return {"under_construction": under_construction, "banner_message": banner_message}
+def _public(under_construction, banner_message, downtime_at) -> dict:
+    return {
+        "under_construction": under_construction,
+        "banner_message": banner_message,
+        "downtime_at": downtime_at,
+    }
 
 
 @router.get("/site_settings")
@@ -25,11 +29,15 @@ def get_site_settings(fresh: bool = False, session: Session = Depends(get_sessio
     right after a save that may have landed on another worker.
     """
     if maintenance.loaded and not fresh:
-        return _public(maintenance.enabled, maintenance.banner_message)
+        return _public(
+            maintenance.enabled, maintenance.banner_message, maintenance.downtime_at
+        )
     settings = session.get(SiteSettings, 1)
     if settings is None:
-        return _public(False, None)
-    return _public(settings.under_construction, settings.banner_message)
+        return _public(False, None, None)
+    return _public(
+        settings.under_construction, settings.banner_message, settings.downtime_at
+    )
 
 
 @router.patch("/site_settings")
@@ -45,8 +53,11 @@ def update_site_settings(
         if field == "under_construction" and value is None:
             continue  # NOT NULL column: null means "leave as is"
         setattr(settings, field, value)
+    if settings.under_construction:
+        settings.downtime_at = None  # the countdown is over
     session.add(settings)
     session.commit()
     # This worker flips now; the others on their next poll.
-    maintenance.set_state(settings.under_construction, settings.banner_message)
-    return _public(settings.under_construction, settings.banner_message)
+    state = (settings.under_construction, settings.banner_message, settings.downtime_at)
+    maintenance.set_state(*state)
+    return _public(*state)

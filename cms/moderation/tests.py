@@ -9,11 +9,13 @@ user — including the teams claim contract the submission endpoints enforce
 against form_configs.admin_teams.
 """
 
+from datetime import datetime
 from unittest import mock
 
 import jwt as pyjwt
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from core.testing import PASSWORD, make_admin_user, make_team
 from authapi.serializers import mint_user_access_token
@@ -154,6 +156,38 @@ class SiteSettingsViewTests(TestCase):
         )
         self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
         self.assertContains(response, "Nothing changed.")
+
+    def test_get_shows_a_running_countdown(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                json_body={
+                    "under_construction": False,
+                    "banner_message": None,
+                    "downtime_at": "2099-01-01T21:10:00+00:00",
+                }
+            )
+            response = self.client.get(self.url)
+        self.assertContains(response, "21:10 UTC")
+        self.assertContains(response, 'name="cancel_countdown"')
+
+    def test_post_minutes_sends_an_absolute_downtime(self):
+        before = timezone.now()
+        _, request = self.post({"downtime_minutes": "10"})
+        _, kwargs = request.call_args
+        at = datetime.fromisoformat(kwargs["json"]["downtime_at"])
+        self.assertAlmostEqual((at - before).total_seconds(), 600, delta=5)
+        self.assertEqual(set(kwargs["json"]), {"downtime_at"})
+
+    def test_post_cancel_clears_the_countdown(self):
+        _, request = self.post({"cancel_countdown": "on"})
+        _, kwargs = request.call_args
+        self.assertEqual(kwargs["json"], {"downtime_at": None})
+
+    def test_post_bad_minutes_is_refused(self):
+        for bad in ("0", "-5", "abc", "1441"):
+            response, request = self.post({"downtime_minutes": bad}, follow=True)
+            self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
+            self.assertContains(response, "1 to 1440 minutes")
 
     def test_post_failure_reports_the_backend_error(self):
         with mock.patch("moderation.services.requests.request") as request:

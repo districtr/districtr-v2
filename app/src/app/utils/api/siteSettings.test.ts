@@ -2,7 +2,11 @@
 import {afterEach, describe, expect, spyOn, test} from 'bun:test';
 import {MIN_GAP_MS, getSiteSettings, refreshSiteSettings} from './siteSettings';
 
-const settings = (message: string) => ({under_construction: true, banner_message: message});
+const settings = (message: string) => ({
+  under_construction: true,
+  banner_message: message,
+  downtime_at: null,
+});
 const ok = (body: unknown) => new Response(JSON.stringify(body), {status: 200});
 
 // Module state carries across tests, so each step moves the clock past the gap.

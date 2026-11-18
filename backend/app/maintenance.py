@@ -18,6 +18,7 @@ See docs/adr/0072-maintenance-mode-gates-the-api.md.
 """
 
 import logging
+from datetime import datetime
 import threading
 import time
 
@@ -36,12 +37,13 @@ logger = logging.getLogger(__name__)
 POLL_SECONDS = 15
 EXEMPT_PATHS = frozenset({"/", "/api/cms/site_settings"})
 QUERY = text(
-    f"SELECT under_construction, banner_message FROM {CMS_SCHEMA}.site_settings "
+    f"SELECT under_construction, banner_message, downtime_at FROM {CMS_SCHEMA}.site_settings "
     "WHERE id = 1"
 )
 
 enabled = False
 banner_message: str | None = None
+downtime_at: datetime | None = None
 # False until the first successful poll or PATCH in this worker; the settings
 # GET reads the DB until then rather than serve a default.
 loaded = False
@@ -52,15 +54,20 @@ _generation = 0
 _lock = threading.Lock()
 
 
-def _apply(under_construction: bool, message: str | None) -> None:
-    global enabled, banner_message, loaded, _generation
-    enabled, banner_message, loaded = under_construction, message, True
+def _apply(
+    under_construction: bool, message: str | None, downtime: datetime | None
+) -> None:
+    global enabled, banner_message, downtime_at, loaded, _generation
+    enabled, banner_message, downtime_at = under_construction, message, downtime
+    loaded = True
     _generation += 1
 
 
-def set_state(under_construction: bool, message: str | None) -> None:
+def set_state(
+    under_construction: bool, message: str | None, downtime: datetime | None = None
+) -> None:
     with _lock:
-        _apply(under_construction, message)
+        _apply(under_construction, message, downtime)
 
 
 def poll_once() -> None:
@@ -79,7 +86,7 @@ def poll_once() -> None:
         return
     with _lock:
         if seen == _generation:
-            _apply(bool(row.under_construction), row.banner_message)
+            _apply(bool(row.under_construction), row.banner_message, row.downtime_at)
 
 
 def _poll() -> None:
