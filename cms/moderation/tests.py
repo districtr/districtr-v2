@@ -235,6 +235,42 @@ class SiteSettingsViewTests(TestCase):
             self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
             self.assertContains(response, "Untick Maintenance mode")
 
+    def test_feature_flags_round_trip_as_json(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                json_body={
+                    "under_construction": False,
+                    "feature_flags": {"tuningView": False},
+                }
+            )
+            response = self.client.get(self.url)
+        self.assertContains(response, "&quot;tuningView&quot;: false")
+        _, request = self.post(
+            {
+                "feature_flags": '{"tuningView": true}',
+                "original_feature_flags": '{\n  "tuningView": false\n}',
+            }
+        )
+        _, kwargs = request.call_args
+        self.assertEqual(kwargs["json"], {"feature_flags": {"tuningView": True}})
+        # Reformatting isn't a change; blank means no flags.
+        response, request = self.post(
+            {"feature_flags": '{"a":true}', "original_feature_flags": '{"a": true}'},
+            follow=True,
+        )
+        self.assertContains(response, "Nothing changed.")
+        _, request = self.post(
+            {"feature_flags": " ", "original_feature_flags": '{"a": true}'}
+        )
+        self.assertEqual(request.call_args.kwargs["json"], {"feature_flags": {}})
+
+    def test_invalid_feature_flags_json_skips_the_backend(self):
+        response, request = self.post(
+            {"feature_flags": "{tuningView: false}"}, follow=True
+        )
+        self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
+        self.assertContains(response, "aren&#x27;t valid JSON")
+
     def test_post_failure_reports_the_backend_error(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.side_effect = [

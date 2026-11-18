@@ -11,11 +11,12 @@ from app.cms.models import SiteSettings, SiteSettingsUpdate
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 
 
-def _public(under_construction, banner_message, downtime_at) -> dict:
+def _public(under_construction, banner_message, downtime_at, feature_flags) -> dict:
     return {
         "under_construction": under_construction,
         "banner_message": banner_message,
         "downtime_at": downtime_at,
+        "feature_flags": feature_flags or {},
     }
 
 
@@ -30,13 +31,19 @@ def get_site_settings(fresh: bool = False, session: Session = Depends(get_sessio
     """
     if maintenance.loaded and not fresh:
         return _public(
-            maintenance.enabled, maintenance.banner_message, maintenance.downtime_at
+            maintenance.enabled,
+            maintenance.banner_message,
+            maintenance.downtime_at,
+            maintenance.feature_flags,
         )
     settings = session.get(SiteSettings, 1)
     if settings is None:
         return _public(False, None, None)
     return _public(
-        settings.under_construction, settings.banner_message, settings.downtime_at
+        settings.under_construction,
+        settings.banner_message,
+        settings.downtime_at,
+        settings.feature_flags,
     )
 
 
@@ -50,7 +57,7 @@ def update_site_settings(
     settings = session.get(SiteSettings, 1) or SiteSettings(id=1)
     for field in data.model_fields_set:
         value = getattr(data, field)
-        if field == "under_construction" and value is None:
+        if field in ("under_construction", "feature_flags") and value is None:
             continue  # NOT NULL column: null means "leave as is"
         setattr(settings, field, value)
     if settings.under_construction:
@@ -58,6 +65,11 @@ def update_site_settings(
     session.add(settings)
     session.commit()
     # This worker flips now; the others on their next poll.
-    state = (settings.under_construction, settings.banner_message, settings.downtime_at)
+    state = (
+        settings.under_construction,
+        settings.banner_message,
+        settings.downtime_at,
+        settings.feature_flags,
+    )
     maintenance.set_state(*state)
     return _public(*state)

@@ -3,6 +3,7 @@ import React from 'react';
 import {Button, Flex, Text} from '@radix-ui/themes';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@store/toolbarStore';
+import {useFeatureFlag} from '@store/featureFlagStore';
 import type {Zone} from '@constants/map/zone';
 import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
 
@@ -29,11 +30,13 @@ export const ShowAllDistrictsButton: React.FC<{
 
 /** Focused districts, active only in Super Draw: focus is set from its meters,
  * so outside it a focused-only table would have no way to clear it. Kept in the
- * store either way, so it comes back on returning to Super Draw. */
+ * store either way, so it comes back on returning to Super Draw. None while the
+ * districtFocus flag is off. */
 export const useFocusedZones = () => {
   const focusedZones = useMapControlsStore(state => state.focusedZones);
   const superDraw = useToolbarStore(state => state.superDraw);
-  return superDraw ? focusedZones : [];
+  const focusOn = useFeatureFlag('districtFocus');
+  return superDraw && focusOn ? focusedZones : [];
 };
 
 /** Rows of the focused districts. Rows without a district number (universe or

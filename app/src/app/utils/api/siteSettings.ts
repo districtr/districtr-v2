@@ -6,6 +6,8 @@ export type SiteSettings = {
   banner_message: string | null;
   /** ISO timestamp the downtime countdown runs to; null when none is set. */
   downtime_at: string | null;
+  /** CMS-set feature flags; see store/featureFlagStore.ts. */
+  feature_flags?: Record<string, boolean>;
 };
 
 // Quoted in the CMS Frontend settings help text ("about a minute"). Short

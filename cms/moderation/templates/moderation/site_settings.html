@@ -14,6 +14,7 @@
             {# What the form loaded, so the view sends only the fields that changed. #}
             <input type="hidden" name="original_banner_message" value="{{ banner_message }}">
             <input type="hidden" name="original_under_construction" value="{% if under_construction %}on{% endif %}">
+            <input type="hidden" name="original_feature_flags" value="{{ feature_flags }}">
             <fieldset {% if error %}disabled{% endif %} style="border: 0; padding: 0; margin: 0;">
                 <h2><label for="banner_message">Notification banner</label></h2>
                 <textarea id="banner_message" name="banner_message" rows="3" maxlength="{{ banner_max_length }}" style="max-width: 48rem;">{{ banner_message }}</textarea>
@@ -78,6 +79,18 @@
                     both). The switch lives in the database, so restoring a
                     snapshot turns it off: switch it back on first.
                 </p>
+                <h2><label for="feature_flags">Feature flags</label></h2>
+                <textarea id="feature_flags" name="feature_flags" rows="6" spellcheck="false" style="max-width: 48rem; font-family: monospace;">{{ feature_flags }}</textarea>
+                <p class="help">
+                    JSON object of feature names to true (on) or false (off), e.g.
+                    <code>{"tuningView": false}</code>. A feature left out keeps its
+                    default (on). Features: <code>activeMapPills</code> (the
+                    dismissible pills for active map layers),
+                    <code>districtFocus</code> (focusing districts in Super Draw),
+                    <code>tuningView</code> (Super Draw's Tuning view button). Open
+                    tabs pick up a change within about a minute.
+                </p>
+
                 <button type="submit" class="button">Save</button>
             </fieldset>
         </form>

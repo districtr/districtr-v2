@@ -28,6 +28,7 @@ import {
 } from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAllDistrictsButton';
 import {FocusIcon} from '../FocusIcon';
+import {useFeatureFlag} from '@store/featureFlagStore';
 import {ContiguityCell, ContiguityNotes, useDistrictContiguity} from './DistrictContiguity';
 import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -157,6 +158,8 @@ export const DistrictMeters = () => {
   // can't open empty.
   const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
   const popTuningView = useChartStore(state => state.chartOptions.popTuningView);
+  const tuningFlag = useFeatureFlag('tuningView');
+  const focusFlag = useFeatureFlag('districtFocus');
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
   // The tuning view turns population numbers on while it's open, then puts
@@ -212,7 +215,7 @@ export const DistrictMeters = () => {
     : populationData.length - visibleData.length;
   const nothingStarted = startedData.length === 0;
 
-  const tuningView = superDraw && popTuningView;
+  const tuningView = superDraw && tuningFlag && popTuningView;
   const contiguity = useDistrictContiguity(tuningView);
 
   const isReadOnly = access === ACCESS_STATES.READ;
@@ -270,6 +273,20 @@ export const DistrictMeters = () => {
   // `group` class.
   const focusButton = (zone: number) => {
     const focused = focusedZones.includes(zone);
+    // Flag off: an invisible twin, as in iconHeader, so the icons stay aligned.
+    if (!focusFlag) {
+      return (
+        <IconButton
+          variant="ghost"
+          size="1"
+          aria-hidden
+          tabIndex={-1}
+          style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
+        >
+          <FocusIcon />
+        </IconButton>
+      );
+    }
     return (
       <HelpTip tip="districtFocus" text={focused ? 'Remove this district from focus.' : undefined}>
         <IconButton
@@ -404,7 +421,7 @@ export const DistrictMeters = () => {
           hiddenCount={hiddenCount}
         />
       )}
-      {superDraw && (
+      {superDraw && tuningFlag && (
         <Flex align="center" gap="1" style={{marginLeft: 'auto'}}>
           {/* Same toggle-button treatment as Show on map. */}
           <Button

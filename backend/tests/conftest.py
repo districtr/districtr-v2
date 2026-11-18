@@ -91,6 +91,7 @@ def maintenance_isolated(monkeypatch):
     monkeypatch.setattr(maintenance, "enabled", False)
     monkeypatch.setattr(maintenance, "banner_message", None)
     monkeypatch.setattr(maintenance, "downtime_at", None)
+    monkeypatch.setattr(maintenance, "feature_flags", {})
     monkeypatch.setattr(maintenance, "loaded", False)
 
 
