@@ -172,6 +172,11 @@ export const DistrictMeters = () => {
     setChartOptions({popTuningView: on});
     setMapOptions({showPopulationNumbers: on || !!numbersBeforeTuning.current});
   };
+  // Turning the flag off mid-session closes the view, putting the numbers back.
+  useEffect(() => {
+    if (!tuningFlag && useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tuningFlag]);
   // Plain Draw has no tuning view, so leaving Super Draw turns it off.
   useEffect(() => {
     if (superDraw) return;
@@ -272,22 +277,22 @@ export const DistrictMeters = () => {
   // Unfocused districts' focus buttons stay hidden until the row is hovered or
   // focused (opacity, not visibility, so they remain focusable); rows carry the
   // `group` class.
+  // Holds the focus button's place, so the icons stay aligned: in iconHeader,
+  // and in the rows while the districtFocus flag is off.
+  const focusTwin = (
+    <IconButton
+      variant="ghost"
+      size="1"
+      aria-hidden
+      tabIndex={-1}
+      style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
+    >
+      <FocusIcon />
+    </IconButton>
+  );
   const focusButton = (zone: number) => {
     const focused = focusedZones.includes(zone);
-    // Flag off: an invisible twin, as in iconHeader, so the icons stay aligned.
-    if (!focusFlag) {
-      return (
-        <IconButton
-          variant="ghost"
-          size="1"
-          aria-hidden
-          tabIndex={-1}
-          style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
-        >
-          <FocusIcon />
-        </IconButton>
-      );
-    }
+    if (!focusFlag) return focusTwin;
     return (
       <HelpTip tip="districtFocus" text={focused ? 'Remove this district from focus.' : undefined}>
         <IconButton
@@ -351,15 +356,7 @@ export const DistrictMeters = () => {
   // quirks included).
   const iconHeader = (
     <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
-      <IconButton
-        variant="ghost"
-        size="1"
-        aria-hidden
-        tabIndex={-1}
-        style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
-      >
-        <FocusIcon />
-      </IconButton>
+      {focusTwin}
       <IconButton
         variant="ghost"
         size="1"

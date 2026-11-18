@@ -8,6 +8,8 @@ import {getSiteSettings, useSiteSettings} from '@utils/api/siteSettings';
  * on, so a flag the CMS leaves out, or a site-settings fetch that hasn't landed
  * yet, leaves the feature as it shipped. Off hides the feature's entry point
  * and leaves its state at the default. */
+// Adding one? Also list it in the CMS help text
+// (cms/moderation/templates/moderation/site_settings.html).
 export const DEFAULT_FEATURE_FLAGS = {
   /** Dismissible pills for active map layers under the palette. */
   activeMapPills: true,
@@ -67,9 +69,28 @@ export const useFeatureFlagStore = create<FeatureFlagStore>()(
       overrides: {},
       setOverrides: overrides => set({overrides}),
     })),
-    {name: 'districtr-feature-flags', partialize: state => ({overrides: state.overrides})}
+    {
+      name: 'districtr-feature-flags',
+      partialize: state => ({overrides: state.overrides}),
+      // The default merge would copy any stored key over the store (formUrl
+      // included); take only the overrides, and only well-formed ones.
+      merge: (persisted, current) => ({
+        ...current,
+        overrides: cleanOverrides((persisted as {overrides?: unknown} | undefined)?.overrides),
+      }),
+    }
   )
 );
+
+/** Known flags with boolean values only; anything else is dropped. */
+export function cleanOverrides(value: unknown): FlagOverrides {
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      ([flag, on]) => flag in DEFAULT_FEATURE_FLAGS && typeof on === 'boolean'
+    )
+  );
+}
 
 /** Override, else the CMS's value, else the default. */
 export const resolveFlag = (
@@ -79,7 +100,9 @@ export const resolveFlag = (
 ) => override ?? cms?.[flag] ?? DEFAULT_FEATURE_FLAGS[flag];
 
 /** Whether a CMS-toggled feature is on. The CMS values ride the shared
- * site-settings poll, so open tabs follow a change within about a minute. */
+ * site-settings poll, so open tabs follow a change within about a minute.
+ * Not to be confused with hooks/useFeatureFlags, which returns the /api/env
+ * settings. */
 export const useFeatureFlag = (flag: FeatureFlag) =>
   resolveFlag(
     flag,
@@ -91,19 +114,27 @@ export const useFeatureFlag = (flag: FeatureFlag) =>
 // undefined}) drops one, .reset() drops all, .current shows what's in effect.
 if (typeof window !== 'undefined') {
   const {getState} = useFeatureFlagStore;
-  Object.assign(window, {
-    featureFlags: {
-      set: (flags: FlagOverrides) => getState().setOverrides({...getState().overrides, ...flags}),
-      reset: () => getState().setOverrides({}),
-      get current() {
-        const cms = getSiteSettings()?.feature_flags;
-        return Object.fromEntries(
-          (Object.keys(DEFAULT_FEATURE_FLAGS) as FeatureFlag[]).map(flag => [
-            flag,
-            resolveFlag(flag, getState().overrides[flag], cms),
-          ])
-        );
-      },
+  window.featureFlags = {
+    set: flags => getState().setOverrides({...getState().overrides, ...flags}),
+    reset: () => getState().setOverrides({}),
+    get current() {
+      const cms = getSiteSettings()?.feature_flags;
+      return Object.fromEntries(
+        (Object.keys(DEFAULT_FEATURE_FLAGS) as FeatureFlag[]).map(flag => [
+          flag,
+          resolveFlag(flag, getState().overrides[flag], cms),
+        ])
+      ) as Record<FeatureFlag, boolean>;
     },
-  });
+  };
+}
+
+declare global {
+  interface Window {
+    featureFlags?: {
+      set: (flags: FlagOverrides) => void;
+      reset: () => void;
+      readonly current: Record<FeatureFlag, boolean>;
+    };
+  }
 }

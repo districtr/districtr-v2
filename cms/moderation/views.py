@@ -38,9 +38,15 @@ def _flags(text: str) -> dict:
     # Blank means no flags, i.e. every feature at its frontend default. The
     # backend checks the shape (an object of true/false).
     try:
-        return json.loads(text) if text.strip() else {}
+        flags = json.loads(text) if text.strip() else {}
     except json.JSONDecodeError as exc:
         raise ValueError(f"Feature flags aren't valid JSON: {exc}") from exc
+    # `null` would read as "leave as is" to the backend, yet report saved.
+    if not isinstance(flags, dict):
+        raise ValueError(
+            'Feature flags must be a JSON object, e.g. {"tuningView": false}.'
+        )
+    return flags
 
 
 def _changes(post) -> dict:

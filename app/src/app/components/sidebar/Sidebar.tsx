@@ -22,7 +22,7 @@ const StyledScrollArea = styled(ScrollArea, {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const showPills = useFeatureFlag('activeMapPills');
+  const pillsFlag = useFeatureFlag('activeMapPills');
   const [width, setWidth] = React.useState(350);
   const [hovered, setHovered] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
@@ -108,7 +108,7 @@ export default function SidebarComponent() {
       <Flex direction="column" gap="3" className="size-full">
         <div className="flex flex-col gap-3 pr-3">
           <ToolbarInSidebar />
-          {showPills && <ActiveMapFeaturePills />}
+          {pillsFlag && <ActiveMapFeaturePills />}
           <RepairAssignmentsCallout />
           <CoiCommunityViewer />
           <MapContextComment />

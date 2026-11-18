@@ -35,8 +35,8 @@ export const ShowAllDistrictsButton: React.FC<{
 export const useFocusedZones = () => {
   const focusedZones = useMapControlsStore(state => state.focusedZones);
   const superDraw = useToolbarStore(state => state.superDraw);
-  const focusOn = useFeatureFlag('districtFocus');
-  return superDraw && focusOn ? focusedZones : [];
+  const focusFlag = useFeatureFlag('districtFocus');
+  return superDraw && focusFlag ? focusedZones : [];
 };
 
 /** Rows of the focused districts. Rows without a district number (universe or

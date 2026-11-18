@@ -79,7 +79,7 @@ export function subscribe(listener: () => void) {
 }
 
 /**
- * Site settings (banner text, maintenance flag), shared by every caller: one
+ * Site settings (banner text, maintenance flag, feature flags), shared by every caller: one
  * poller per tab, on load, tab return, window focus and every minute
  * while visible. null until the first fetch succeeds.
  */

@@ -140,10 +140,9 @@ def test_feature_flags_replace_whole_and_take_only_booleans(client):
         return client.patch(SETTINGS, json={"feature_flags": flags})
 
     assert save({"tuningView": False, "districtFocus": True}).status_code == 200
-    assert client.get(SETTINGS).json()["feature_flags"] == {
-        "tuningView": False,
-        "districtFocus": True,
-    }
+    saved = {"tuningView": False, "districtFocus": True}
+    assert client.get(SETTINGS).json()["feature_flags"] == saved
+    assert client.get(f"{SETTINGS}?fresh=true").json()["feature_flags"] == saved
     assert save({"districtFocus": False}).json()["feature_flags"] == {
         "districtFocus": False
     }
@@ -154,6 +153,16 @@ def test_feature_flags_replace_whole_and_take_only_booleans(client):
     assert client.patch(SETTINGS, json={"banner_message": "Hi"}).json()[
         "feature_flags"
     ] == {"districtFocus": False}
+
+
+def test_get_without_a_settings_row_serves_defaults(client, session):
+    session.execute(text("DELETE FROM cms.site_settings"))
+    assert client.get(f"{SETTINGS}?fresh=true").json() == {
+        "under_construction": False,
+        "banner_message": None,
+        "downtime_at": None,
+        "feature_flags": {},
+    }
 
 
 def test_maintenance_mode_blocks_api_except_health_and_settings(client):

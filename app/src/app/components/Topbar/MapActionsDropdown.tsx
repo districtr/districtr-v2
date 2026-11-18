@@ -29,7 +29,7 @@ export const MapActionsDropdown: React.FC<{
 }> = ({handleMetadataChange}) => {
   const [modal, setModal] = useState<'share' | 'colors' | 'reorder' | null>(null);
   const isCommunityMode = useMapControlsStore(state => state.mapMode) === MAP_MODES.COI;
-  const reorderOn = useFeatureFlag('reorderDistricts');
+  const reorderFlag = useFeatureFlag('reorderDistricts');
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
@@ -225,7 +225,7 @@ export const MapActionsDropdown: React.FC<{
               Customize district colors
             </DropdownMenu.Item>
           )}
-          {!isCommunityMode && reorderOn && (
+          {!isCommunityMode && reorderFlag && (
             <DropdownMenu.Item
               className="cursor-pointer"
               disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}

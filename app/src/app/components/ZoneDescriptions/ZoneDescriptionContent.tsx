@@ -133,14 +133,14 @@ const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone,
   const heading = useMapStore(state =>
     districtHeading(zone, state.mapDocument?.map_metadata?.zone_aliases)
   );
-  const labelsOn = useFeatureFlag('districtLabels');
+  const labelsFlag = useFeatureFlag('districtLabels');
   const {setZoneDescription, clearZoneDescription} = useMapStore.getState();
   const body = useCommittedDraft(description, draft =>
     draft.trim() ? setZoneDescription(zone, draft) : clearZoneDescription(zone)
   );
   return (
     <Flex direction="column" gap="2">
-      {labelsOn && <ZoneLabelField zone={zone} />}
+      {labelsFlag && <ZoneLabelField zone={zone} />}
       <Box className="relative">
         <TextArea
           size="1"

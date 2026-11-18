@@ -38,7 +38,7 @@ def get_site_settings(fresh: bool = False, session: Session = Depends(get_sessio
         )
     settings = session.get(SiteSettings, 1)
     if settings is None:
-        return _public(False, None, None)
+        return _public(False, None, None, None)
     return _public(
         settings.under_construction,
         settings.banner_message,

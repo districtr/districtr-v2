@@ -245,6 +245,12 @@ class SiteSettingsViewTests(TestCase):
             )
             response = self.client.get(self.url)
         self.assertContains(response, "&quot;tuningView&quot;: false")
+        # The hidden original carries the loaded flags, so a save sends
+        # them only if the admin changed them.
+        self.assertContains(
+            response,
+            'name="original_feature_flags" value="{\n  &quot;tuningView&quot;: false\n}"',
+        )
         _, request = self.post(
             {
                 "feature_flags": '{"tuningView": true}',
@@ -270,6 +276,10 @@ class SiteSettingsViewTests(TestCase):
         )
         self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
         self.assertContains(response, "aren&#x27;t valid JSON")
+        for not_an_object in ("null", "[true]", '"x"'):
+            response, request = self.post({"feature_flags": not_an_object}, follow=True)
+            self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
+            self.assertContains(response, "must be a JSON object")
 
     def test_post_failure_reports_the_backend_error(self):
         with mock.patch("moderation.services.requests.request") as request:
