@@ -26,7 +26,9 @@ def site_settings(request):
     if request.method == "POST":
         try:
             services.update_site_settings(
-                request.user, "under_construction" in request.POST
+                request.user,
+                "under_construction" in request.POST,
+                request.POST.get("banner_message", ""),
             )
         except (BackendAPIError, RequestException) as exc:
             logger.exception("Site settings update failed")
@@ -39,14 +41,18 @@ def site_settings(request):
             )
         return redirect("moderation_site_settings")
 
-    under_construction, error = False, None
+    current, error = {}, None
     try:
-        under_construction = services.get_site_settings().get("under_construction")
+        current = services.get_site_settings()
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Site settings fetch failed")
         error = str(exc)
     return render(
         request,
         "moderation/site_settings.html",
-        {"under_construction": under_construction, "error": error},
+        {
+            "under_construction": current.get("under_construction"),
+            "banner_message": current.get("banner_message") or "",
+            "error": error,
+        },
     )

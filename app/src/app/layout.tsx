@@ -3,6 +3,7 @@ import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
 import {FeedbackForm} from './components/FeedbackForm';
 import {VersionCheck} from './components/VersionCheck';
+import {SiteBanner} from './components/SiteBanner';
 import {LoadingOverlay} from './components/Topbar/LoadingOverlay';
 import {SessionChallenge} from './components/SessionChallenge';
 import '@radix-ui/themes/styles.css';
@@ -49,6 +50,7 @@ export default function RootLayout({
       </head>
       <body className={nunito.className}>
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
+          <SiteBanner />
           <main>{children}</main>
           <FeedbackForm />
           <VersionCheck />

@@ -176,12 +176,17 @@ def get_site_settings() -> dict:
     return _call(None, "GET", "/api/cms/site_settings", what="site settings fetch")
 
 
-def update_site_settings(user, under_construction: bool) -> dict:
+def update_site_settings(
+    user, under_construction: bool, banner_message: str | None
+) -> dict:
     """PATCH /api/cms/site_settings (scope update:update-all — admin only)."""
     return _call(
         user,
         "PATCH",
         "/api/cms/site_settings",
-        json={"under_construction": under_construction},
+        json={
+            "under_construction": under_construction,
+            "banner_message": banner_message,
+        },
         what="site settings update",
     )

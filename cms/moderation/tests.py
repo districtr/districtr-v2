@@ -84,9 +84,12 @@ class SiteSettingsViewTests(TestCase):
 
     def test_get_renders_current_value(self):
         with mock.patch("moderation.services.requests.request") as request:
-            request.return_value = mock_response(json_body={"under_construction": True})
+            request.return_value = mock_response(
+                json_body={"under_construction": True, "banner_message": "Down at 9"}
+            )
             response = self.client.get(self.url)
         self.assertContains(response, "checked")
+        self.assertContains(response, "Down at 9</textarea>")
         # The public GET goes out unauthenticated.
         _, kwargs = request.call_args
         self.assertEqual(kwargs["headers"], {})
@@ -94,11 +97,15 @@ class SiteSettingsViewTests(TestCase):
     def test_post_patches_with_admin_token(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.return_value = mock_response(json_body={"under_construction": True})
-            response = self.client.post(self.url, {"under_construction": "on"})
+            response = self.client.post(
+                self.url, {"under_construction": "on", "banner_message": "Down at 9"}
+            )
         self.assertRedirects(response, self.url, fetch_redirect_response=False)
         args, kwargs = request.call_args
         self.assertEqual(args[0], "PATCH")
-        self.assertEqual(kwargs["json"], {"under_construction": True})
+        self.assertEqual(
+            kwargs["json"], {"under_construction": True, "banner_message": "Down at 9"}
+        )
         token = kwargs["headers"]["Authorization"].removeprefix("Bearer ")
         self.assertEqual(fastapi_style_verify(token)["sub"], str(self.admin.pk))
 
@@ -109,7 +116,9 @@ class SiteSettingsViewTests(TestCase):
             )
             self.client.post(self.url, {})
         _, kwargs = request.call_args
-        self.assertEqual(kwargs["json"], {"under_construction": False})
+        self.assertEqual(
+            kwargs["json"], {"under_construction": False, "banner_message": ""}
+        )
 
 
 # ---------------------------------------------------------------------------

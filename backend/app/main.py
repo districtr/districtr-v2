@@ -82,6 +82,7 @@ from app.submissions.models import (
 )
 import app.thumbnails.main as thumbnails
 from app.stats_refresh import start_nightly_stats_refresh
+from app.maintenance import MaintenanceMiddleware, start_maintenance_poller
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -154,6 +155,7 @@ async def lifespan(app: FastAPI):
     # Publishes stale district stats overnight for plans nobody is editing
     # (app/stats_refresh.py); a no-op without S3.
     start_nightly_stats_refresh()
+    start_maintenance_poller()
     yield
 
 
@@ -169,6 +171,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
+
+# Added before CORS so CORS wraps it and browsers can read the 503.
+app.add_middleware(MaintenanceMiddleware)
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:

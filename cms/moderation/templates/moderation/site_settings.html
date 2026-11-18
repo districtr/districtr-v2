@@ -11,15 +11,27 @@
 
         <form method="post" novalidate>
             {% csrf_token %}
+            <h2><label for="banner_message">Notification banner</label></h2>
+            <textarea id="banner_message" name="banner_message" rows="3" maxlength="500" style="max-width: 48rem;">{{ banner_message }}</textarea>
+            <p class="help">
+                Shown at the top of every page, including the map editor —
+                use it for downtime notices. Leave blank to hide it. Visitors
+                can dismiss a message; changing the text shows it again. Open
+                tabs pick up a change within about five minutes.
+            </p>
+
+            <h2>Maintenance mode</h2>
             <label>
                 <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
-                Under-construction mode
+                Maintenance mode
             </label>
             <p class="help">
                 When enabled, the public site redirects visitors to the
-                under-construction page. The frontend caches this flag, so a
-                change takes up to a minute to apply. The Wagtail admin and
-                the map editor stay reachable.
+                under-construction page and the backend API answers 503 to
+                everything except site settings, so in-flight edits stop
+                saving. The frontend caches this flag for up to a minute, the
+                API for up to 15 seconds. The Wagtail admin stays reachable.
+                Post a banner first to warn people mid-edit.
             </p>
             <button type="submit" class="button">Save</button>
         </form>
