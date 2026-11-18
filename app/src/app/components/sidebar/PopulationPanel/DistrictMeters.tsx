@@ -160,6 +160,7 @@ export const DistrictMeters = () => {
   const popTuningView = useChartStore(state => state.chartOptions.popTuningView);
   const tuningFlag = useFeatureFlag('tuningView');
   const focusFlag = useFeatureFlag('districtFocus');
+  const labelsFlag = useFeatureFlag('districtLabels');
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
   // The tuning view turns population numbers on while it's open, then puts
@@ -403,7 +404,7 @@ export const DistrictMeters = () => {
   const labelWidth = labelPx ? `min(${labelPx}px, ${labelCh}ch)` : `${labelCh}ch`;
   const labelColWidth = `calc(${labelWidth} + 1ch)`;
   const showRowIcons = superDraw && isEditing;
-  const canRename = isEditing && !isReadOnly;
+  const canRename = isEditing && !isReadOnly && labelsFlag;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);

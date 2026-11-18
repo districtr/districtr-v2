@@ -8,6 +8,7 @@ import {useCommittedDraft} from '@/app/hooks/useCommittedDraft';
 import {useState} from 'react';
 import {districtHeading} from '@/app/utils/zoneLabels';
 import {ZoneLabelField} from './ZoneLabelField';
+import {useFeatureFlag} from '@store/featureFlagStore';
 import {getCommunityDisplayNumber} from '@/app/utils/communities';
 import {MAP_MODES} from '@constants/map/mode';
 
@@ -132,13 +133,14 @@ const DistrictDetailsForm: React.FC<{zone: number; maxLength: number}> = ({zone,
   const heading = useMapStore(state =>
     districtHeading(zone, state.mapDocument?.map_metadata?.zone_aliases)
   );
+  const labelsOn = useFeatureFlag('districtLabels');
   const {setZoneDescription, clearZoneDescription} = useMapStore.getState();
   const body = useCommittedDraft(description, draft =>
     draft.trim() ? setZoneDescription(zone, draft) : clearZoneDescription(zone)
   );
   return (
     <Flex direction="column" gap="2">
-      <ZoneLabelField zone={zone} />
+      {labelsOn && <ZoneLabelField zone={zone} />}
       <Box className="relative">
         <TextArea
           size="1"

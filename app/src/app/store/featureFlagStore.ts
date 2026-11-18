@@ -15,6 +15,11 @@ export const DEFAULT_FEATURE_FLAGS = {
   districtFocus: true,
   /** Super Draw's "Tuning view" button. */
   tuningView: true,
+  /** "Reorder districts" in Map actions, which renumbers the plan's districts. */
+  reorderDistricts: true,
+  /** Renaming districts: the meters' click-to-rename and the description
+   * popover's label field. Off, saved labels still show. */
+  districtLabels: true,
 };
 export type FeatureFlag = keyof typeof DEFAULT_FEATURE_FLAGS;
 type FlagOverrides = Partial<Record<FeatureFlag, boolean>>;

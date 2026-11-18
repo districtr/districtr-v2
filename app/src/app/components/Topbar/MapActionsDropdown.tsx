@@ -19,6 +19,7 @@ import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {canSubmitDraft, getDraftSubmission} from '@/app/utils/draftSubmissions';
 import {useDraftSubmissionStore} from '@store/draftSubmissionStore';
+import {useFeatureFlag} from '@store/featureFlagStore';
 
 /** Consolidated "Map actions" menu for the editor topbar: share, export,
  * district colors, and reset in one dropdown. Saving lives in the topbar SaveButton;
@@ -28,6 +29,7 @@ export const MapActionsDropdown: React.FC<{
 }> = ({handleMetadataChange}) => {
   const [modal, setModal] = useState<'share' | 'colors' | 'reorder' | null>(null);
   const isCommunityMode = useMapControlsStore(state => state.mapMode) === MAP_MODES.COI;
+  const reorderOn = useFeatureFlag('reorderDistricts');
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
@@ -223,7 +225,7 @@ export const MapActionsDropdown: React.FC<{
               Customize district colors
             </DropdownMenu.Item>
           )}
-          {!isCommunityMode && (
+          {!isCommunityMode && reorderOn && (
             <DropdownMenu.Item
               className="cursor-pointer"
               disabled={!mapDocument?.document_id || access === ACCESS_STATES.READ}
