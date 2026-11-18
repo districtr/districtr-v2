@@ -2,7 +2,7 @@
 {% block titletag %}Frontend settings{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="Frontend settings" subtitle="Site-wide switches on the public frontend" icon="cog" %}
+    {% include "wagtailadmin/shared/header.html" with title="Frontend settings" subtitle="Site-wide banner, downtime countdown and maintenance mode" icon="cog" %}
 
     <div class="nice-padding">
         {% if error %}
@@ -27,9 +27,10 @@
                 <h2><label for="downtime_minutes">Downtime countdown</label></h2>
                 {% if downtime_at %}
                     <p>
+                        {# Wagtail renders times in each admin's own zone, hence T. #}
                         <strong>Counting down:</strong> downtime at
-                        {{ downtime_at|date:"H:i" }} UTC
-                        (in {{ downtime_at|timeuntil }}).
+                        {{ downtime_at|date:"H:i T" }}
+                        ({% if countdown_overdue %}time's up — switch maintenance mode on below, or cancel{% else %}in {{ downtime_at|timeuntil }}{% endif %}).
                     </p>
                     <label>
                         <input type="checkbox" name="cancel_countdown">
@@ -42,12 +43,13 @@
                     minutes{% if downtime_at %} (replaces the current countdown){% endif %}
                 </p>
                 <p class="help">
-                    Adds a live "Districtr will be down for scheduled maintenance
-                    in N minutes — please save and wrap up" line to the banner,
-                    above any banner text. Visitors can dismiss it; a new
+                    Adds a live line to the banner, above any banner text:
+                    "Districtr will be down for scheduled maintenance in 10
+                    minutes. Please finish up what you're doing." Visitors can dismiss it; a new
                     countdown shows again. The countdown does not start
                     maintenance: switch maintenance mode on below when you're
-                    ready, which also ends the countdown.
+                    ready, which also ends the countdown. If you don't, the line
+                    drops off the banner 30 minutes after the deadline.
                 </p>
 
                 <h2 id="maintenance">Maintenance mode</h2>
@@ -70,7 +72,8 @@
                     Workflow: start a countdown (say 10 minutes) to warn people
                     mid-edit. When it runs out, switch maintenance on and wait a
                     few minutes before starting database work, so open tabs and
-                    in-flight requests settle.
+                    in-flight requests settle. Afterwards, switch maintenance off
+                    and clear the banner text (one Save does both).
                 </p>
                 <button type="submit" class="button">Save</button>
             </fieldset>

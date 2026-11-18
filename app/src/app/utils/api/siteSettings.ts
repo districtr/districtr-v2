@@ -64,7 +64,7 @@ function startPolling() {
 
 let stopPolling: (() => void) | null = null;
 
-function subscribe(listener: () => void) {
+export function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!stopPolling) stopPolling = startPolling();
   return () => {

@@ -16,6 +16,7 @@ import jwt as pyjwt
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from wagtail.users.models import UserProfile
 
 from core.testing import PASSWORD, make_admin_user, make_team
 from authapi.serializers import mint_user_access_token
@@ -99,6 +100,11 @@ class SiteSettingsViewTests(TestCase):
         self.assertContains(response, "checked")
         self.assertContains(response, "Down at 9</textarea>")
         self.assertContains(response, 'maxlength="500"')
+        # The originals the view diffs against, so saves send only changes.
+        self.assertContains(
+            response, 'name="original_banner_message" value="Down at 9"'
+        )
+        self.assertContains(response, 'name="original_under_construction" value="on"')
         self.assertNotContains(response, "<fieldset disabled")
         # The public GET goes out unauthenticated, and fresh: the default is
         # a per-worker snapshot that can lag a save another worker handled.
@@ -169,6 +175,26 @@ class SiteSettingsViewTests(TestCase):
             response = self.client.get(self.url)
         self.assertContains(response, "21:10 UTC")
         self.assertContains(response, 'name="cancel_countdown"')
+        self.assertNotContains(response, "time's up")
+
+    def test_countdown_shows_in_the_admins_time_zone(self):
+        profile = UserProfile.get_for_user(self.admin)
+        profile.current_time_zone = "America/New_York"
+        profile.save()
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                json_body={"downtime_at": "2099-01-01T21:10:00+00:00"}
+            )
+            response = self.client.get(self.url)
+        self.assertContains(response, "16:10 EST")
+
+    def test_get_flags_an_overdue_countdown(self):
+        with mock.patch("moderation.services.requests.request") as request:
+            request.return_value = mock_response(
+                json_body={"downtime_at": "2000-01-01T00:00:00+00:00"}
+            )
+            response = self.client.get(self.url)
+        self.assertContains(response, "time's up")
 
     def test_post_minutes_sends_an_absolute_downtime(self):
         before = timezone.now()
@@ -177,6 +203,12 @@ class SiteSettingsViewTests(TestCase):
         at = datetime.fromisoformat(kwargs["json"]["downtime_at"])
         self.assertAlmostEqual((at - before).total_seconds(), 600, delta=5)
         self.assertEqual(set(kwargs["json"]), {"downtime_at"})
+
+    def test_post_accepts_the_countdown_bounds(self):
+        for ok in ("1", "1440"):
+            _, request = self.post({"downtime_minutes": ok})
+            _, kwargs = request.call_args
+            self.assertIn("downtime_at", kwargs["json"])
 
     def test_post_cancel_clears_the_countdown(self):
         _, request = self.post({"cancel_countdown": "on"})

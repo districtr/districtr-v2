@@ -1,13 +1,31 @@
 'use client';
 import {useEffect, useReducer, useState} from 'react';
+import {usePathname} from 'next/navigation';
 import {Flex, IconButton, Text} from '@radix-ui/themes';
 import {Cross2Icon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useSiteSettings} from '../utils/api/siteSettings';
 
 const DISMISS_KEY = 'districtr-site-banner-dismissed';
 
-/** "in 10 minutes" for a downtime `ms` away; rounds up, so it never undersells. */
-export function downtimeIn(ms: number): string {
+// localStorage throws when the browser blocks site storage.
+function readDismissed(): string | null {
+  try {
+    return localStorage.getItem(DISMISS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// A countdown nobody acted on (no maintenance, no cancel) drops off this long
+// after its deadline. Quoted in the CMS countdown help text.
+export const COUNTDOWN_GRACE_MS = 30 * 60_000;
+
+/**
+ * "in 10 minutes" for a downtime `ms` away; rounds up, so it never undersells.
+ * null once the deadline is more than COUNTDOWN_GRACE_MS past.
+ */
+export function downtimeIn(ms: number): string | null {
+  if (ms < -COUNTDOWN_GRACE_MS) return null;
   const minutes = Math.ceil(ms / 60_000);
   if (minutes <= 0) return 'any moment now';
   if (minutes === 1) return 'in about a minute';
@@ -25,6 +43,8 @@ export function downtimeIn(ms: number): string {
  * In the page flow by default, pushing content down. `overlay` pins it over
  * the top instead, for full-viewport pages (the map editor) where an extra
  * row would make the page scroll.
+ *
+ * Steps aside while MaintenanceDialog is up, which shows the same text.
  */
 export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
   const settings = useSiteSettings();
@@ -34,8 +54,9 @@ export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
   // message is already there on first render, so an effect would flash it.
   // Safe for hydration: the store reports null until hydration finishes.
   const [dismissed, setDismissed] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : localStorage.getItem(DISMISS_KEY)
+    typeof window === 'undefined' ? null : readDismissed()
   );
+  const pathname = usePathname();
   // Re-render while counting down; the render reads the clock.
   // ponytail: trusts the visitor's clock; a few minutes' skew shifts the count.
   const [, tick] = useReducer((n: number) => n + 1, 0);
@@ -45,13 +66,17 @@ export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
     return () => clearInterval(interval);
   }, [downtimeAt]);
 
+  const countdown = downtimeAt ? downtimeIn(Date.parse(downtimeAt) - Date.now()) : null;
   const key = `${downtimeAt ?? ''}|${message ?? ''}`;
-  if ((!message && !downtimeAt) || key === dismissed) return null;
+  if ((!message && !countdown) || key === dismissed) return null;
+  if (settings?.under_construction && pathname !== '/under-construction') return null;
 
   return (
     <div
       // Polite: announced without interrupting, unlike role="alert".
       role="status"
+      // Each minute's update reads the whole sentence, not just the number.
+      aria-atomic="true"
       className={`border-b-2 border-amber-600 bg-amber-400 text-black ${
         // Above the editor's z-10000 layers (mobile data panel, save pill),
         // below the full-screen loading overlays (z-100000).
@@ -61,15 +86,14 @@ export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
       <Flex align="center" justify="center" gap="3" className="mx-auto max-w-screen-xl px-4 py-3">
         <ExclamationTriangleIcon className="size-6 shrink-0" aria-hidden />
         <Flex direction="column" gap="1">
-          {downtimeAt && (
+          {countdown && (
             <Text size="4" weight="bold">
-              Districtr will be down for scheduled maintenance{' '}
-              {downtimeIn(Date.parse(downtimeAt) - Date.now())}. Please finish up what you&apos;re
-              doing.
+              Districtr will be down for scheduled maintenance {countdown}. Please finish up what
+              you&apos;re doing.
             </Text>
           )}
           {message && (
-            <Text size="4" weight={downtimeAt ? 'regular' : 'bold'} className="whitespace-pre-line">
+            <Text size="4" weight={countdown ? 'regular' : 'bold'} className="whitespace-pre-line">
               {message}
             </Text>
           )}
@@ -80,7 +104,11 @@ export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
           highContrast
           aria-label="Dismiss notice"
           onClick={() => {
-            localStorage.setItem(DISMISS_KEY, key);
+            try {
+              localStorage.setItem(DISMISS_KEY, key);
+            } catch {
+              // Storage blocked: dismissed for this page view only.
+            }
             setDismissed(key);
           }}
         >

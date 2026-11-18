@@ -87,6 +87,7 @@ def site_settings(request):
     except (BackendAPIError, RequestException) as exc:
         logger.exception("Site settings fetch failed")
         error = str(exc)
+    downtime_at = parse_datetime(current.get("downtime_at") or "")
     return render(
         request,
         "moderation/site_settings.html",
@@ -94,7 +95,8 @@ def site_settings(request):
             "under_construction": current.get("under_construction"),
             "banner_message": current.get("banner_message") or "",
             "banner_max_length": BANNER_MESSAGE_MAX_LENGTH,
-            "downtime_at": parse_datetime(current.get("downtime_at") or ""),
+            "downtime_at": downtime_at,
+            "countdown_overdue": bool(downtime_at and downtime_at <= timezone.now()),
             "max_countdown_minutes": MAX_COUNTDOWN_MINUTES,
             # Without the current values, saving would overwrite them blind.
             "error": error,

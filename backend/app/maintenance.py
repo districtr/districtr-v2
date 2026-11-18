@@ -64,7 +64,7 @@ def _apply(
 
 
 def set_state(
-    under_construction: bool, message: str | None, downtime: datetime | None = None
+    under_construction: bool, message: str | None, downtime: datetime | None
 ) -> None:
     with _lock:
         _apply(under_construction, message, downtime)

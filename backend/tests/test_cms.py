@@ -67,7 +67,7 @@ def test_patch_leaves_fields_it_does_not_send(client):
 
 
 def test_get_serves_the_worker_snapshot_unless_fresh(client):
-    maintenance.set_state(True, "from the poller")
+    maintenance.set_state(True, "from the poller", None)
     assert client.get(SETTINGS).json() == {
         "under_construction": True,
         "banner_message": "from the poller",
@@ -78,6 +78,30 @@ def test_get_serves_the_worker_snapshot_unless_fresh(client):
         "banner_message": None,
         "downtime_at": None,
     }
+
+
+def test_get_reads_the_row_until_this_worker_has_polled(client, session):
+    # A worker that just started must not report the defaults (maintenance
+    # off) while the row says otherwise.
+    session.execute(
+        text(
+            "UPDATE cms.site_settings SET under_construction = true, "
+            "banner_message = 'x' WHERE id = 1"
+        )
+    )
+    assert maintenance.loaded is False
+    body = client.get(SETTINGS).json()
+    assert body["under_construction"] is True
+    assert body["banner_message"] == "x"
+
+
+def test_null_under_construction_leaves_it_alone(client):
+    client.patch(SETTINGS, json={"under_construction": True})
+    response = client.patch(
+        SETTINGS, json={"under_construction": None, "banner_message": "Hi"}
+    )
+    assert response.status_code == 200
+    assert response.json()["under_construction"] is True
 
 
 def test_downtime_countdown_round_trips_and_ends_with_maintenance(client):
@@ -143,7 +167,7 @@ def test_poll_once_reads_the_row(session, poll_engine):
 
 
 def test_poll_once_keeps_the_last_value_when_the_db_is_down(monkeypatch):
-    maintenance.set_state(True, "Down")
+    maintenance.set_state(True, "Down", None)
 
     def unreachable():
         raise OperationalError("SELECT 1", {}, Exception("connection refused"))
@@ -162,7 +186,7 @@ def test_poll_once_does_not_undo_a_patch_that_landed_mid_poll(monkeypatch):
     class Conn:
         def execute(self, _query):
             # A PATCH in this worker commits while the poll's read is in flight.
-            maintenance.set_state(False, "patched")
+            maintenance.set_state(False, "patched", None)
             return SimpleNamespace(one_or_none=lambda: stale_row)
 
     monkeypatch.setattr(
