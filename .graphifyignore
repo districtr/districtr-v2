@@ -1,0 +1,22 @@
+# Per-dataset data configs and package manifests: data, not architecture.
+pipelines/*/configs/
+backend/management/configs/
+package.json
+tsconfig*.json
+
+# Package markers and one-off tooling config.
+__init__.py
+*.config.js
+*.config.mjs
+*.config.cjs
+*.config.ts
+.prettierrc*
+.eslintrc*
+pyproject.toml
+pyrightconfig.json
+pnpm-workspace.yaml
+.pre-commit-config.yaml
+.devcontainer/
+.zed/
+.beads/
+backend/stress_test/fixtures/local_config.json
