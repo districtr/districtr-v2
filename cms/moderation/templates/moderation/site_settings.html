@@ -20,7 +20,7 @@
                 tabs pick up a change within about five minutes.
             </p>
 
-            <h2>Maintenance mode</h2>
+            <h2 id="maintenance">Maintenance mode</h2>
             <label>
                 <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
                 Maintenance mode
@@ -29,9 +29,11 @@
                 When enabled, the public site redirects visitors to the
                 under-construction page and the backend API answers 503 to
                 everything except site settings, so in-flight edits stop
-                saving. The frontend caches this flag for up to a minute, the
-                API for up to 15 seconds. The Wagtail admin stays reachable.
-                Post a banner first to warn people mid-edit.
+                saving. Tabs already open show a blocking maintenance notice
+                (with the banner text) within about five minutes, and drop it
+                once maintenance ends. The frontend caches this flag for up to
+                a minute, the API for up to 15 seconds. The Wagtail admin stays
+                reachable. Post a banner first to warn people mid-edit.
             </p>
             <button type="submit" class="button">Save</button>
         </form>

@@ -2,7 +2,7 @@
 import {useEffect, useState} from 'react';
 import {Flex, IconButton, Text} from '@radix-ui/themes';
 import {Cross2Icon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
-import {API_URL} from '../utils/api/constants';
+import {fetchSiteSettings} from '../utils/api/siteSettings';
 import {useVisibilityState} from '../hooks/useVisibilityState';
 
 const DISMISS_KEY = 'districtr-site-banner-dismissed';
@@ -29,13 +29,9 @@ export const SiteBanner = ({overlay = false}: {overlay?: boolean}) => {
     if (!isVisible) return;
     let cancelled = false;
     const check = () =>
-      fetch(`${API_URL}/api/cms/site_settings`, {cache: 'no-store'})
-        .then(response => (response.ok ? response.json() : null))
-        .then(settings => {
-          if (!cancelled && settings) setMessage(settings.banner_message ?? null);
-        })
-        // Keep the last message through network blips.
-        .catch(() => {});
+      fetchSiteSettings().then(settings => {
+        if (!cancelled && settings) setMessage(settings.banner_message);
+      });
     check();
     const interval = setInterval(check, CHECK_INTERVAL_MS);
     return () => {

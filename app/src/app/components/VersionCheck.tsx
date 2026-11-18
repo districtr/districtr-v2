@@ -1,7 +1,9 @@
 'use client';
 import React, {useEffect, useState} from 'react';
+import {usePathname} from 'next/navigation';
 import {Dialog, Button, Text, Flex} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
+import {fetchSiteSettings, type SiteSettings} from '../utils/api/siteSettings';
 
 // Inlined into the client bundle at build time from .env.production (the git
 // SHA stamped by the deploy workflow). The /api/version route reports the
@@ -35,20 +37,30 @@ async function fetchServerVersion(): Promise<string | null> {
  * The dialog intentionally has no dismiss affordance — onOpenChange is not
  * wired, so ESC and backdrop clicks are no-ops and reloading is the only way
  * forward.
+ *
+ * The same checks watch maintenance mode (site settings' under_construction):
+ * while it's on, a blocking dialog covers the page — the API is answering 503,
+ * so edits can't save — and it closes on the first check after it's off.
  */
 export const VersionCheck: React.FC = () => {
   const [stale, setStale] = useState(false);
+  const [maintenance, setMaintenance] = useState<SiteSettings | null>(null);
   const {isVisible} = useVisibilityState();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!CLIENT_VERSION || !isVisible) return;
+    if (!isVisible) return;
     let cancelled = false;
 
     const check = async () => {
-      const serverVersion = await fetchServerVersion();
-      if (!cancelled && serverVersion && serverVersion !== CLIENT_VERSION) {
-        setStale(true);
-      }
+      const [serverVersion, settings] = await Promise.all([
+        CLIENT_VERSION ? fetchServerVersion() : null,
+        fetchSiteSettings(),
+      ]);
+      if (cancelled) return;
+      if (serverVersion && serverVersion !== CLIENT_VERSION) setStale(true);
+      // null is a failed fetch: keep the last state.
+      if (settings) setMaintenance(settings.under_construction ? settings : null);
     };
 
     // Effect re-runs each time the tab becomes visible, so this covers both
@@ -62,6 +74,25 @@ export const VersionCheck: React.FC = () => {
       window.removeEventListener('focus', check);
     };
   }, [isVisible]);
+
+  if (maintenance && pathname !== '/under-construction') {
+    return (
+      <Dialog.Root open>
+        <Dialog.Content>
+          <Dialog.Title>Districtr is down for maintenance</Dialog.Title>
+          <Text size="3" className="block mb-4">
+            Changes can&apos;t be saved right now. This message closes on its own once Districtr is
+            back.
+          </Text>
+          {maintenance.banner_message && (
+            <Text size="3" weight="bold" className="block whitespace-pre-line">
+              {maintenance.banner_message}
+            </Text>
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
+    );
+  }
 
   if (!stale) return null;
 

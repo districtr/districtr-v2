@@ -133,6 +133,13 @@ class DistrictrShortcutsPanel(Component):
                     "icon": "cog",
                 }
             )
+            cards.append(
+                {
+                    "label": "Maintenance mode",
+                    "url": reverse("moderation_site_settings") + "#maintenance",
+                    "icon": "warning",
+                }
+            )
 
         return {"cards": cards}
 
