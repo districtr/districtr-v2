@@ -1,14 +1,14 @@
 'use client';
 import React, {useEffect, useState} from 'react';
-import {usePathname} from 'next/navigation';
-import {Dialog, Button, Text, Flex} from '@radix-ui/themes';
+import {Dialog, Button, Flex} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
-import {fetchSiteSettings, type SiteSettings} from '../utils/api/siteSettings';
+import {useSiteSettings} from '../utils/api/siteSettings';
 
 // Inlined into the client bundle at build time from .env.production (the git
 // SHA stamped by the deploy workflow). The /api/version route reports the
 // running server's value, so a mismatch means this tab loaded its bundle
-// before the latest deploy. Undefined in local dev, which disables the check.
+// before the latest deploy. Undefined in local dev, which disables the version
+// comparison.
 const CLIENT_VERSION = process.env.NEXT_PUBLIC_BUILD_TAG;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -38,29 +38,23 @@ async function fetchServerVersion(): Promise<string | null> {
  * wired, so ESC and backdrop clicks are no-ops and reloading is the only way
  * forward.
  *
- * The same checks watch maintenance mode (site settings' under_construction):
- * while it's on, a blocking dialog covers the page — the API is answering 503,
- * so edits can't save — and it closes on the first check after it's off.
+ * Stands aside while MaintenanceDialog is up; reloading then would only land
+ * on /under-construction.
  */
 export const VersionCheck: React.FC = () => {
   const [stale, setStale] = useState(false);
-  const [maintenance, setMaintenance] = useState<SiteSettings | null>(null);
   const {isVisible} = useVisibilityState();
-  const pathname = usePathname();
+  const maintenance = useSiteSettings()?.under_construction;
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!CLIENT_VERSION || !isVisible) return;
     let cancelled = false;
 
     const check = async () => {
-      const [serverVersion, settings] = await Promise.all([
-        CLIENT_VERSION ? fetchServerVersion() : null,
-        fetchSiteSettings(),
-      ]);
-      if (cancelled) return;
-      if (serverVersion && serverVersion !== CLIENT_VERSION) setStale(true);
-      // null is a failed fetch: keep the last state.
-      if (settings) setMaintenance(settings.under_construction ? settings : null);
+      const serverVersion = await fetchServerVersion();
+      if (!cancelled && serverVersion && serverVersion !== CLIENT_VERSION) {
+        setStale(true);
+      }
     };
 
     // Effect re-runs each time the tab becomes visible, so this covers both
@@ -75,35 +69,16 @@ export const VersionCheck: React.FC = () => {
     };
   }, [isVisible]);
 
-  if (maintenance && pathname !== '/under-construction') {
-    return (
-      <Dialog.Root open>
-        <Dialog.Content>
-          <Dialog.Title>Districtr is down for maintenance</Dialog.Title>
-          <Text size="3" className="block mb-4">
-            Changes can&apos;t be saved right now. This message closes on its own once Districtr is
-            back.
-          </Text>
-          {maintenance.banner_message && (
-            <Text size="3" weight="bold" className="block whitespace-pre-line">
-              {maintenance.banner_message}
-            </Text>
-          )}
-        </Dialog.Content>
-      </Dialog.Root>
-    );
-  }
-
-  if (!stale) return null;
+  if (!stale || maintenance) return null;
 
   return (
     <Dialog.Root open>
       <Dialog.Content>
         <Dialog.Title>Districtr has been updated</Dialog.Title>
-        <Text size="3" className="block mb-4">
+        <Dialog.Description size="3" className="block mb-4">
           A new version of Districtr was released after this page loaded. Please reload the page to
           keep working — your saved work will be right where you left it.
-        </Text>
+        </Dialog.Description>
         <Flex justify="end">
           <Button size="3" onClick={() => window.location.reload()}>
             Reload now

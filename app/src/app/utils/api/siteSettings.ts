@@ -1,24 +1,79 @@
+import {useSyncExternalStore} from 'react';
 import {API_URL} from './constants';
 
 export type SiteSettings = {under_construction: boolean; banner_message: string | null};
 
-const SHARE_MS = 5_000;
-let last: {at: number; settings: Promise<SiteSettings | null>} | null = null;
+// Quoted in the CMS Frontend settings help text ("about five minutes").
+export const POLL_MS = 5 * 60 * 1000;
+// Tab returns, window focus and remounts refetch at most this often, so a
+// user flipping between windows doesn't hammer the API.
+export const MIN_GAP_MS = 60 * 1000;
+
+let current: SiteSettings | null = null;
+let lastFetchAt = -Infinity;
+const listeners = new Set<() => void>();
 
 /**
- * GET /api/cms/site_settings, or null on any failure (callers keep their last
- * value through network blips). SiteBanner and VersionCheck poll on the same
- * mount/visibility/interval beats, so calls within a few seconds share one
- * request.
+ * GET /api/cms/site_settings into the shared snapshot, unless the last fetch
+ * was under `minGapMs` ago. Any failure keeps the last good value.
+ *
+ * Plain fetch, not the API factory: the factory's fetchWithSession mints a
+ * Turnstile session, which a public poll on every page must not do.
  */
-export function fetchSiteSettings(): Promise<SiteSettings | null> {
-  if (!last || Date.now() - last.at > SHARE_MS) {
-    last = {
-      at: Date.now(),
-      settings: fetch(`${API_URL}/api/cms/site_settings`, {cache: 'no-store'})
-        .then(response => (response.ok ? response.json() : null))
-        .catch(() => null),
-    };
+export async function refreshSiteSettings(minGapMs = MIN_GAP_MS): Promise<void> {
+  const now = Date.now();
+  if (now - lastFetchAt < minGapMs) return;
+  lastFetchAt = now;
+  try {
+    const response = await fetch(`${API_URL || ''}/api/cms/site_settings`, {cache: 'no-store'});
+    if (!response.ok) return;
+    current = await response.json();
+    listeners.forEach(listener => listener());
+  } catch {
+    // Network blip: keep the last value.
   }
-  return last.settings;
+}
+
+export const getSiteSettings = () => current;
+
+function startPolling() {
+  const checkIfVisible = () => {
+    if (document.visibilityState === 'visible') refreshSiteSettings();
+  };
+  const interval = setInterval(() => {
+    if (document.visibilityState === 'visible') refreshSiteSettings(0);
+  }, POLL_MS);
+  document.addEventListener('visibilitychange', checkIfVisible);
+  // Catches clicks between side-by-side windows, which never fire
+  // visibilitychange.
+  window.addEventListener('focus', checkIfVisible);
+  checkIfVisible();
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener('visibilitychange', checkIfVisible);
+    window.removeEventListener('focus', checkIfVisible);
+  };
+}
+
+let stopPolling: (() => void) | null = null;
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  if (!stopPolling) stopPolling = startPolling();
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && stopPolling) {
+      stopPolling();
+      stopPolling = null;
+    }
+  };
+}
+
+/**
+ * Site settings (banner text, maintenance flag), shared by every caller: one
+ * poller per tab, on load, tab return, window focus and every five minutes
+ * while visible. null until the first fetch succeeds.
+ */
+export function useSiteSettings(): SiteSettings | null {
+  return useSyncExternalStore(subscribe, getSiteSettings, () => null);
 }

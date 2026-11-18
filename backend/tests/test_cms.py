@@ -1,50 +1,139 @@
+from contextlib import nullcontext
+from types import SimpleNamespace
+
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 import app.maintenance as maintenance
 
+# conftest's autouse maintenance_isolated resets the process-wide flag and
+# keeps the real poller off for every test.
 
-@pytest.fixture(autouse=True)
-def maintenance_off(monkeypatch):
-    # The PATCH flips a process-wide global; restore it so a failure here
-    # can't 503 the rest of the suite.
-    monkeypatch.setattr(maintenance, "enabled", False)
+SETTINGS = "/api/cms/site_settings"
 
 
 def test_get_site_settings_default(client):
     """Site settings default to not under construction, no banner"""
-    response = client.get("/api/cms/site_settings")
+    response = client.get(SETTINGS)
     assert response.status_code == 200
     assert response.json() == {"under_construction": False, "banner_message": None}
 
 
 def test_update_site_settings(client):
     """Toggling under_construction persists and is returned by GET"""
-    response = client.patch("/api/cms/site_settings", json={"under_construction": True})
+    response = client.patch(SETTINGS, json={"under_construction": True})
     assert response.status_code == 200
     expected = {"under_construction": True, "banner_message": None}
     assert response.json() == expected
-    assert client.get("/api/cms/site_settings").json() == expected
+    assert client.get(SETTINGS).json() == expected
+    assert client.get(f"{SETTINGS}?fresh=true").json() == expected
 
 
-def test_banner_message_round_trips_and_blank_clears(client):
+def test_banner_message_normalizes_and_bounds(client):
     def save(message):
-        return client.patch(
-            "/api/cms/site_settings",
-            json={"under_construction": False, "banner_message": message},
-        )
+        return client.patch(SETTINGS, json={"banner_message": message})
 
     assert save("  Down Sat 9pm ET  ").json()["banner_message"] == "Down Sat 9pm ET"
+    assert client.get(f"{SETTINGS}?fresh=true").json()["banner_message"] == (
+        "Down Sat 9pm ET"
+    )
     assert save("   ").json()["banner_message"] is None
+    assert save("x" * 500).status_code == 200
     assert save("x" * 501).status_code == 422
+    # The textarea submits CRLF; a line break counts once, as in maxlength.
+    crlf = save("x" * 490 + "\r\n" * 10)
+    assert crlf.status_code == 200
+    assert crlf.json()["banner_message"] == "x" * 490
+
+
+def test_patch_leaves_fields_it_does_not_send(client):
+    client.patch(SETTINGS, json={"under_construction": True, "banner_message": "Hi"})
+    assert client.patch(SETTINGS, json={"banner_message": "Bye"}).json() == {
+        "under_construction": True,
+        "banner_message": "Bye",
+    }
+    assert client.patch(SETTINGS, json={"under_construction": False}).json() == {
+        "under_construction": False,
+        "banner_message": "Bye",
+    }
+
+
+def test_get_serves_the_worker_snapshot_unless_fresh(client):
+    maintenance.set_state(True, "from the poller")
+    assert client.get(SETTINGS).json() == {
+        "under_construction": True,
+        "banner_message": "from the poller",
+    }
+    assert client.get(f"{SETTINGS}?fresh=true").json() == {
+        "under_construction": False,
+        "banner_message": None,
+    }
 
 
 def test_maintenance_mode_blocks_api_except_health_and_settings(client):
-    client.patch("/api/cms/site_settings", json={"under_construction": True})
+    client.patch(SETTINGS, json={"under_construction": True})
     blocked = client.get("/db_is_alive")
     assert blocked.status_code == 503
     assert blocked.headers["retry-after"] == "300"
+    # Inside CORS, so browsers can read it.
+    assert blocked.headers["access-control-allow-origin"] == "http://localhost:5173"
+    # Exact paths, not the /api/cms/ prefix.
+    assert client.get("/api/cms/anything-else").status_code == 503
     assert client.get("/").status_code == 200
-    assert client.get("/api/cms/site_settings").status_code == 200
+    assert client.get(SETTINGS).status_code == 200
 
-    client.patch("/api/cms/site_settings", json={"under_construction": False})
+    client.patch(SETTINGS, json={"under_construction": False})
     assert client.get("/db_is_alive").status_code == 200
+
+
+@pytest.fixture
+def poll_engine(session, monkeypatch):
+    """Point the poller at the test session's connection."""
+    monkeypatch.setattr(
+        maintenance,
+        "engine",
+        SimpleNamespace(connect=lambda: nullcontext(session.connection())),
+    )
+
+
+def test_poll_once_reads_the_row(session, poll_engine):
+    session.execute(
+        text(
+            "UPDATE cms.site_settings SET under_construction = true, "
+            "banner_message = 'Back at 10' WHERE id = 1"
+        )
+    )
+    maintenance.poll_once()
+    assert maintenance.enabled is True
+    assert maintenance.banner_message == "Back at 10"
+    assert maintenance.loaded is True
+
+
+def test_poll_once_keeps_the_last_value_when_the_db_is_down(monkeypatch):
+    maintenance.set_state(True, "Down")
+
+    def unreachable():
+        raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+    monkeypatch.setattr(maintenance, "engine", SimpleNamespace(connect=unreachable))
+    maintenance.poll_once()
+    assert maintenance.enabled is True
+    assert maintenance.banner_message == "Down"
+
+
+def test_poll_once_does_not_undo_a_patch_that_landed_mid_poll(monkeypatch):
+    stale_row = SimpleNamespace(under_construction=True, banner_message="old")
+
+    class Conn:
+        def execute(self, _query):
+            # A PATCH in this worker commits while the poll's read is in flight.
+            maintenance.set_state(False, "patched")
+            return SimpleNamespace(one_or_none=lambda: stale_row)
+
+    monkeypatch.setattr(
+        maintenance, "engine", SimpleNamespace(connect=lambda: nullcontext(Conn()))
+    )
+    maintenance.poll_once()
+    assert maintenance.enabled is False
+    assert maintenance.banner_message == "patched"

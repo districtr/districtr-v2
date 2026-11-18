@@ -2,14 +2,21 @@ import type {Metadata} from 'next';
 import Image from 'next/image';
 import {Button, Flex, Heading, Text} from '@radix-ui/themes';
 import {SiteBanner} from '@components/SiteBanner';
+import {safeNextPath} from '@/app/utils/safeNextPath';
 
 export const metadata: Metadata = {
-  title: 'Under Construction',
+  title: 'Down for maintenance',
   description: 'Districtr is temporarily unavailable while we make improvements.',
   robots: {index: false},
 };
 
-export default function UnderConstructionPage() {
+export default async function UnderConstructionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{next?: string | string[]}>;
+}) {
+  // proxy.ts passes the page the visitor asked for.
+  const next = safeNextPath((await searchParams).next);
   return (
     <Flex align="center" justify="center" className="min-h-screen bg-districtrLightBlue p-6">
       <SiteBanner overlay />
@@ -24,12 +31,11 @@ export default function UnderConstructionPage() {
           We&apos;ll be right back
         </Heading>
         <Text size="4" color="gray">
-          Districtr is down for maintenance while we make improvements. Your saved maps will be here
-          when we&apos;re back.
+          Districtr is down for maintenance while we make improvements. Please check back soon.
         </Text>
         {/* A full page load, so the proxy decides whether maintenance is over. */}
         <Button size="3" asChild>
-          <a href="/">Try again</a>
+          <a href={next}>Try again</a>
         </Button>
       </Flex>
     </Flex>

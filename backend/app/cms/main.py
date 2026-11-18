@@ -6,20 +6,30 @@ from app.core.db import get_session
 from app.core.security import TokenScope, auth
 from app.cms.models import SiteSettings, SiteSettingsUpdate
 
+# Every route here is reachable during maintenance only if it's listed in
+# app/maintenance.py EXEMPT_PATHS.
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 
 
-def _public(settings: SiteSettings | None) -> dict:
-    return {
-        "under_construction": bool(settings and settings.under_construction),
-        "banner_message": settings.banner_message if settings else None,
-    }
+def _public(under_construction: bool, banner_message: str | None) -> dict:
+    return {"under_construction": under_construction, "banner_message": banner_message}
 
 
 @router.get("/site_settings")
-def get_site_settings(session: Session = Depends(get_session)):
-    """Get site-wide settings (public)"""
-    return _public(session.get(SiteSettings, 1))
+def get_site_settings(fresh: bool = False, session: Session = Depends(get_session)):
+    """Get site-wide settings (public).
+
+    Served from this worker's poller snapshot (app/maintenance.py), so open
+    tabs polling it cost no DB work and it keeps answering while the DB is
+    down. `fresh=true` reads the row instead, for the CMS form, which reads
+    right after a save that may have landed on another worker.
+    """
+    if maintenance.loaded and not fresh:
+        return _public(maintenance.enabled, maintenance.banner_message)
+    settings = session.get(SiteSettings, 1)
+    if settings is None:
+        return _public(False, None)
+    return _public(settings.under_construction, settings.banner_message)
 
 
 @router.patch("/site_settings")
@@ -28,12 +38,15 @@ def update_site_settings(
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.update_all_content]),
 ):
-    """Update site-wide settings (admin only)"""
+    """Update site-wide settings (admin only). Only the fields sent change."""
     settings = session.get(SiteSettings, 1) or SiteSettings(id=1)
-    settings.under_construction = data.under_construction
-    settings.banner_message = data.banner_message
+    for field in data.model_fields_set:
+        value = getattr(data, field)
+        if field == "under_construction" and value is None:
+            continue  # NOT NULL column: null means "leave as is"
+        setattr(settings, field, value)
     session.add(settings)
     session.commit()
-    # This process flips now; the others on their next poll.
-    maintenance.enabled = settings.under_construction
-    return _public(settings)
+    # This worker flips now; the others on their next poll.
+    maintenance.set_state(settings.under_construction, settings.banner_message)
+    return _public(settings.under_construction, settings.banner_message)

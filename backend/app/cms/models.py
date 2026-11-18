@@ -25,12 +25,18 @@ class SiteSettings(SQLModel, table=True):
 
 
 class SiteSettingsUpdate(BaseModel):
-    under_construction: bool
+    """Partial update: fields left out of the request stay as they are."""
+
+    under_construction: bool | None = None
     banner_message: str | None = PydanticField(
         default=None, max_length=BANNER_MESSAGE_MAX_LENGTH
     )
 
-    @field_validator("banner_message")
+    # Before the length check, so a CRLF from the textarea counts as one
+    # character (as the browser's maxlength does) and padding doesn't count.
+    @field_validator("banner_message", mode="before")
     @classmethod
-    def blank_is_none(cls, value: str | None) -> str | None:
-        return (value or "").strip() or None
+    def normalize_banner(cls, value):
+        if isinstance(value, str):
+            return value.replace("\r\n", "\n").strip() or None
+        return value

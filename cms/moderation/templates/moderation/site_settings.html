@@ -6,36 +6,47 @@
 
     <div class="nice-padding">
         {% if error %}
-            <div class="help-block help-critical"><p>{{ error }}</p></div>
+            <div class="help-block help-critical"><p>Couldn't load the current settings, so saving is disabled: {{ error }}</p></div>
         {% endif %}
 
         <form method="post" novalidate>
             {% csrf_token %}
-            <h2><label for="banner_message">Notification banner</label></h2>
-            <textarea id="banner_message" name="banner_message" rows="3" maxlength="500" style="max-width: 48rem;">{{ banner_message }}</textarea>
-            <p class="help">
-                Shown at the top of every page, including the map editor —
-                use it for downtime notices. Leave blank to hide it. Visitors
-                can dismiss a message; changing the text shows it again. Open
-                tabs pick up a change within about five minutes.
-            </p>
+            {# What the form loaded, so the view sends only the fields that changed. #}
+            <input type="hidden" name="original_banner_message" value="{{ banner_message }}">
+            <input type="hidden" name="original_under_construction" value="{% if under_construction %}on{% endif %}">
+            <fieldset {% if error %}disabled{% endif %} style="border: 0; padding: 0; margin: 0;">
+                <h2><label for="banner_message">Notification banner</label></h2>
+                <textarea id="banner_message" name="banner_message" rows="3" maxlength="{{ banner_max_length }}" style="max-width: 48rem;">{{ banner_message }}</textarea>
+                <p class="help">
+                    Shown at the top of every page, including the map editor —
+                    use it for downtime notices. Leave blank to hide it. Visitors
+                    can dismiss a message; changing the text shows it again. Open
+                    tabs pick up a change within about five minutes.
+                </p>
 
-            <h2 id="maintenance">Maintenance mode</h2>
-            <label>
-                <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
-                Maintenance mode
-            </label>
-            <p class="help">
-                When enabled, the public site redirects visitors to the
-                under-construction page and the backend API answers 503 to
-                everything except site settings, so in-flight edits stop
-                saving. Tabs already open show a blocking maintenance notice
-                (with the banner text) within about five minutes, and drop it
-                once maintenance ends. The frontend caches this flag for up to
-                a minute, the API for up to 15 seconds. The Wagtail admin stays
-                reachable. Post a banner first to warn people mid-edit.
-            </p>
-            <button type="submit" class="button">Save</button>
+                <h2 id="maintenance">Maintenance mode</h2>
+                <label>
+                    <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
+                    Maintenance mode
+                </label>
+                <p class="help">
+                    When enabled, the public site redirects visitors to the
+                    under-construction page and the backend API answers 503 to
+                    everything except site settings, so in-flight edits stop
+                    saving. Tabs already open show a blocking maintenance notice
+                    (with the banner text) within about five minutes, and drop it
+                    once maintenance ends. The frontend caches this flag for up to
+                    a minute, the API for up to 15 seconds. This admin stays
+                    reachable, but its tools that call the API (submission
+                    moderation, imports, overlays, thumbnails) are paused too.
+                </p>
+                <p class="help">
+                    Workflow: post a banner first to warn people mid-edit. Then
+                    switch maintenance on and wait 5–10 minutes before starting
+                    database work, so open tabs and in-flight requests settle.
+                </p>
+                <button type="submit" class="button">Save</button>
+            </fieldset>
         </form>
     </div>
 {% endblock %}

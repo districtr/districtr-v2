@@ -172,21 +172,25 @@ def get_document_evaluation(public_id: int, session_token: str | None) -> dict:
 
 
 def get_site_settings() -> dict:
-    """GET /api/cms/site_settings (public)."""
-    return _call(None, "GET", "/api/cms/site_settings", what="site settings fetch")
+    """GET /api/cms/site_settings?fresh=true (public). Fresh: the default
+    answer is the serving worker's poller snapshot, which can lag a save that
+    another worker handled by up to 15s."""
+    return _call(
+        None,
+        "GET",
+        "/api/cms/site_settings",
+        params={"fresh": "true"},
+        what="site settings fetch",
+    )
 
 
-def update_site_settings(
-    user, under_construction: bool, banner_message: str | None
-) -> dict:
-    """PATCH /api/cms/site_settings (scope update:update-all — admin only)."""
+def update_site_settings(user, changes: dict) -> dict:
+    """PATCH /api/cms/site_settings (scope update:update-all — admin only).
+    The backend changes only the fields in `changes`."""
     return _call(
         user,
         "PATCH",
         "/api/cms/site_settings",
-        json={
-            "under_construction": under_construction,
-            "banner_message": banner_message,
-        },
+        json=changes,
         what="site settings update",
     )

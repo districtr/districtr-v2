@@ -274,12 +274,14 @@ def test_starts_only_when_s3_is_configured(monkeypatch, bucket, starts):
     assert threading.Thread.called == starts
 
 
-def test_lifespan_starts_the_nightly_refresh(monkeypatch):
-    start = Mock()
+def test_lifespan_starts_the_nightly_refresh_and_maintenance_poller(monkeypatch):
+    start, poller = Mock(), Mock()
     monkeypatch.setattr("app.main.start_nightly_stats_refresh", start)
+    monkeypatch.setattr("app.main.start_maintenance_poller", poller)
     with TestClient(app):
         pass
     start.assert_called_once()
+    poller.assert_called_once()
 
 
 @pytest.fixture

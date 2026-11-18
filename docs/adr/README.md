@@ -73,7 +73,7 @@ What follows, including what a later change would have to undo.
 | [0039](0039-pipeline-built-hybrid-graph.md) | Single hybrid dual-level graph, built by the pipeline | 2026-06-10 | Accepted |
 | [0040](0040-msgpack-wire-format.md) | msgpack wire format for assignment-heavy endpoints | 2026-06-10 | Accepted |
 | [0041](0041-computation-placement.md) | Computation placement: graph in process over SQL on the request path | 2026-06-10 | Accepted |
-| [0042](0042-version-skew-detection.md) | Version-skew detection: build stamping and forced reload of stale tabs | 2026-06-11 | Accepted |
+| [0042](0042-version-skew-detection.md) | Version-skew detection: build stamping and forced reload of stale tabs | 2026-06-11 | Accepted. Amended by 0072 |
 | [0043](0043-aws-platform.md) | AWS platform on ECS Fargate, provisioned by Pulumi | 2026-06-26 | Accepted. Amended by 0052 |
 | [0044](0044-graph-integrity-check.md) | Daily S3 graph comprehensiveness check with SNS alerting | 2026-07-06 | Accepted |
 | [0045](0045-concurrency-ceilings.md) | Concurrency ceilings sized from stress-test evidence | 2026-07-15 | Accepted. Amended by 0052 |
@@ -99,3 +99,4 @@ What follows, including what a later change would have to undo.
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
 | [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
 | [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
+| [0072](0072-maintenance-mode-gates-the-api.md) | Maintenance mode gates the API with a polled per-worker flag | 2026-11-18 | Accepted. Amends 0042 |
