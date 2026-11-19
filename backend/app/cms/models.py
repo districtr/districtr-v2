@@ -5,18 +5,45 @@ Content models (tags/places) moved to the Wagtail CMS; the legacy
 after cutover (migrate_tiptap reads them) but are no longer mapped here.
 """
 
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import AwareDatetime, BaseModel, Field as PydanticField, field_validator
+from sqlalchemy import TIMESTAMP
 from sqlmodel import Field, MetaData
 from app.core.models import SQLModel
 from app.constants import CMS_SCHEMA
+
+BANNER_MESSAGE_MAX_LENGTH = 500
 
 
 class SiteSettings(SQLModel, table=True):
     __tablename__ = "site_settings"
     metadata = MetaData(schema=CMS_SCHEMA)
     id: int = Field(default=1, primary_key=True)
+    # Maintenance mode: the frontend redirects to /under-construction and the
+    # API answers 503 (app/maintenance.py).
     under_construction: bool = Field(default=False, nullable=False)
+    # Shown site-wide by the frontend's SiteBanner; null hides it.
+    banner_message: str | None = Field(default=None)
+    # Scheduled downtime start; SiteBanner counts down to it. Cleared when
+    # maintenance mode turns on.
+    downtime_at: datetime | None = Field(default=None, sa_type=TIMESTAMP(timezone=True))
 
 
 class SiteSettingsUpdate(BaseModel):
-    under_construction: bool
+    """Partial update: fields left out of the request stay as they are."""
+
+    under_construction: bool | None = None
+    banner_message: str | None = PydanticField(
+        default=None, max_length=BANNER_MESSAGE_MAX_LENGTH
+    )
+    downtime_at: AwareDatetime | None = None
+
+    # Before the length check, so a CRLF from the textarea counts as one
+    # character (as the browser's maxlength does) and padding doesn't count.
+    @field_validator("banner_message", mode="before")
+    @classmethod
+    def normalize_banner(cls, value):
+        if isinstance(value, str):
+            return value.replace("\r\n", "\n").strip() or None
+        return value
