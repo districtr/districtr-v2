@@ -6,7 +6,7 @@ The paths mirror the S3 keys, so the app's source URL is `${NEXT_PUBLIC_TILES_WO
 
 | Path | Returns |
 |---|---|
-| `/tilesets/tx_districtr_view_v2.pmtiles` | TileJSON (uncached, and without `vector_layers`) |
+| `/tilesets/tx_districtr_view_v2.pmtiles` | TileJSON (kept by browsers for an hour, never by Cloudflare, and without `vector_layers`) |
 | `/tilesets/tx_districtr_view_v2.pmtiles/{z}/{x}/{y}.mvt` | A tile, gzipped exactly as stored (`Content-Encoding: gzip`), or 204 if empty |
 | `/tilesets/tx_districtr_view_v2.parent.pmtiles` and its tiles | The same for the map's [parent-only archive](#parent-only-archives) |
 
@@ -22,9 +22,9 @@ The child layers stay on the source the whole time. MapLibre reports an error fo
 
 ## Caching and cost guard
 
-Workers Cache (`cache` in `wrangler.jsonc`) answers repeat requests without running the Worker. Every request is billed, cached or not: $5/month covers 10M, then $0.30 per million. Tiles are cached for one day, by Cloudflare and by browsers. The cache key includes the Worker version, so a deploy purges Cloudflare's copy. Browsers can keep old tiles for up to a day after that, which is why a rebuilt tileset gets a new key.
+Workers Cache (`cache` in `wrangler.jsonc`) answers repeat requests without running the Worker. Every request is billed, cached or not: $5/month covers 10M, then $0.30 per million. Tiles are fresh for one day, at Cloudflare and in browsers. For a week after that, a cache may answer with its expired copy at once and fetch a fresh one in the background (`stale-while-revalidate`). A returning user then gets unchanged tiles with no wait, where an expired copy would otherwise cost as much as a miss: about 400 ms against 100 ms at Cloudflare, measured on the dev Worker on 2026-11-19. Each tile also carries its archive's ETag. A browser or Cloudflare refreshing an expired copy sends it back, and while the archive is unchanged the Worker answers 304 with no tile, after one R2 `head` request. The cache key includes the Worker version, so a deploy purges Cloudflare's copy. Browsers can show an old tile for up to eight days after that, which is why a rebuilt tileset gets a new key.
 
-Only cache misses run the Worker, and each one reads R2. A rate limit (`MISS_LIMITER` in `wrangler.jsonc`) answers 429 past 3,000 misses a minute from one client, counted by IPv4 address or IPv6 /64, in one Cloudflare location. It slows a single client's misses. Cache hits are billed too and pass it uncounted, so the guard on the total bill is a Cloudflare billing notification on the account.
+Only cache misses run the Worker, and each one reads R2. A rate limit (`MISS_LIMITER` in `wrangler.jsonc`) answers 429 past 3,000 misses a minute from one client, counted by IPv4 address or IPv6 /64, in one Cloudflare location. It slows a single client's misses. If the rate-limit service itself fails, the Worker serves the request uncounted, so a fault there leaves the tiles up. That includes misses forced through the request headers Workers Cache keys on, such as `X-Forwarded-Host` and `Forwarded`: the Worker serves those requests, because a proxy on a user's network may add such a header and a refusal would blank that user's map. Cache hits are billed too and pass it uncounted, so the guard on the total bill is a Cloudflare billing notification on the account. At $0.30 per million requests, 100 million cost about $30. If the notification ever fires, the next step is a rate-limiting rule on the `districtr-ddri.org` zone, which runs ahead of the cache and the Worker. A Workers spending limit would cap the bill by taking the maps down, so it stays off.
 
 ## Settings
 
@@ -90,7 +90,7 @@ The CDN path is a fallback for the rollout. Once production has run on the Worke
 
 ## New tilesets
 
-Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). Create the key as an R2 API token with Object Read & Write on `districtr-tilesets` alone; an account-wide key works too and grants more than the pipeline needs. `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key, parent-only archives included. For tilesets built one at a time, step 3 of `run-map-onboarding` has the commands. Give a rebuilt tileset a new key instead of overwriting it, so every cache serves the new tiles from the start.
+Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). Create the key as an R2 API token with Object Read & Write on `districtr-tilesets` alone; an account-wide key works too and grants more than the pipeline needs. `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key, parent-only archives included. For tilesets built one at a time, step 3 of `run-map-onboarding` has the commands. Give a rebuilt tileset a new key instead of overwriting it, so every cache serves the new tiles from the start. The upload logs a warning when it overwrites an archive, and goes ahead.
 
 ## Bootstrap
 

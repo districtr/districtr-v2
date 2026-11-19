@@ -17,7 +17,12 @@ const direct = new PMTiles(`${cdn}/${key}`);
 const header = await direct.getHeader();
 const tilejsonResp = await fetch(`${worker}/${key}`);
 assert(tilejsonResp.headers.get('access-control-allow-origin') === '*', 'TileJSON lacks CORS');
-assert(tilejsonResp.headers.get('cache-control') === 'no-store', 'TileJSON should not be cached');
+// Browsers may keep it; Cloudflare must not, since its cache key ignores the host.
+assert(
+  tilejsonResp.headers.get('cache-control') === 'private, max-age=3600',
+  'TileJSON should be cacheable by browsers alone'
+);
+assert(tilejsonResp.headers.get('cf-cache-status') !== 'HIT', 'TileJSON came from Cloudflare');
 const tilejson = await tilejsonResp.json();
 assert(
   tilejson.minzoom === header.minZoom && tilejson.maxzoom === header.maxZoom,
@@ -42,6 +47,7 @@ const tileAt = (z: number, lon: number, lat: number): [number, number] => {
 
 let compared = 0;
 let cacheHits = 0;
+let notModified = 0;
 for (let z = header.minZoom; z <= header.maxZoom; z++) {
   const [cx, cy] = tileAt(z, header.centerLon, header.centerLat);
   for (const [x, y] of [
@@ -54,7 +60,7 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
     // The cost saving rests on tiles being cacheable, empty ones included: an uncached
     // tile runs the Worker and reads R2 on every request.
     assert(
-      resp.headers.get('cache-control') === 'public, max-age=86400',
+      resp.headers.get('cache-control') === 'public, max-age=86400, stale-while-revalidate=604800',
       `${z}/${x}/${y}: not cacheable (${resp.headers.get('cache-control')})`
     );
     if (!expected) {
@@ -71,6 +77,13 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
     );
     compared++;
     if (resp.headers.get('cf-cache-status') === 'HIT') cacheHits++;
+    // A copy that is still current is answered with a 304 and no tile.
+    const etag = resp.headers.get('etag');
+    assert(etag, `${z}/${x}/${y}: no ETag`);
+    const again = await fetch(`${worker}/${key}/${z}/${x}/${y}.mvt`, {
+      headers: {'If-None-Match': etag},
+    });
+    if (again.status === 304) notModified++;
   }
 }
 assert(compared > 0, 'no tiles compared');
@@ -93,5 +106,5 @@ assert((await status(`${key}/3/8/0.mvt`)) === 404, 'x past the zoom should 404')
 // keeps its own cache, so the count can stay below the total for a few runs.
 console.log(
   `ok: ${compared} tiles match across z${header.minZoom}-${header.maxZoom} for ${key}` +
-    ` (${cacheHits} served from Cloudflare's cache)`
+    ` (${cacheHits} served from Cloudflare's cache, ${notModified} answered 304 to their own ETag)`
 );

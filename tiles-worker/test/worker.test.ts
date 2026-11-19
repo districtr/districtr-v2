@@ -5,12 +5,16 @@ import worker from '../src/index';
 
 let limiterKeys: string[];
 let limiterAllows: boolean;
+let limiterFails: boolean;
 let bucketReads: number;
 let bucketGet: () => Promise<unknown>;
+let bucketHead: () => Promise<unknown>;
+const ETAG = '"abc123"';
 
 const env = {
   MISS_LIMITER: {
     limit: async ({key}: {key: string}) => {
+      if (limiterFails) throw new Error('the limiter is down');
       limiterKeys.push(key);
       return {success: limiterAllows};
     },
@@ -20,6 +24,7 @@ const env = {
       bucketReads++;
       return bucketGet();
     },
+    head: () => bucketHead(),
   },
 };
 
@@ -31,8 +36,10 @@ const from = (ip: string) => ({headers: {'CF-Connecting-IP': ip}});
 beforeEach(() => {
   limiterKeys = [];
   limiterAllows = true;
+  limiterFails = false;
   bucketReads = 0;
   bucketGet = async () => null;
+  bucketHead = async () => ({httpEtag: ETAG});
 });
 
 describe('requests Workers Cache would skip', () => {
@@ -69,6 +76,17 @@ describe('the miss limiter', () => {
     expect(bucketReads).toBe(0);
   });
 
+  test('a limiter that fails lets the request through', async () => {
+    limiterFails = true;
+    const logged = spyOn(console, 'error').mockImplementation(() => {});
+    const response = await get(TILE, from('203.0.113.7'));
+    logged.mockRestore();
+    // The stand-in bucket holds no archive, so a request that got through ends in a 404.
+    expect(response.status).toBe(404);
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(bucketReads).toBeGreaterThan(0);
+  });
+
   test('an IPv4 client counts by its address', async () => {
     await get(TILE, from('203.0.113.7'));
     expect(limiterKeys).toEqual(['203.0.113.7']);
@@ -86,14 +104,45 @@ describe('the miss limiter', () => {
   });
 });
 
+describe('a request asking whether a copy is still current', () => {
+  const asking = (value: string) => ({headers: {'If-None-Match': value}});
+
+  test.each([
+    ["the archive's ETag", ETAG],
+    ['the ETag marked weak', `W/${ETAG}`],
+    ['a list holding it', `"other", ${ETAG}`],
+  ])('%s gets a 304 without a tile read', async (_name, value) => {
+    const response = await get(TILE, asking(value));
+    expect(response.status).toBe(304);
+    expect(response.headers.get('etag')).toBe(ETAG);
+    expect(response.headers.get('cache-control')).toContain('max-age=86400');
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(bucketReads).toBe(0);
+  });
+
+  test('an ETag from a replaced archive falls through to the tile read', async () => {
+    const response = await get(TILE, asking('"older"'));
+    expect(response.status).not.toBe(304);
+    expect(bucketReads).toBeGreaterThan(0);
+  });
+
+  test('a missing archive gets a 404', async () => {
+    bucketHead = async () => null;
+    const response = await get(TILE, asking(ETAG));
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+  });
+});
+
 describe('tiles', () => {
   test.each([
     ['z past 26', '/tilesets/mt.pmtiles/27/0/0.mvt'],
     ['x past the zoom', '/tilesets/mt.pmtiles/3/8/0.mvt'],
     ['y past the zoom', '/tilesets/mt.pmtiles/3/0/8.mvt'],
-  ])('%s gets a 404 without an R2 read', async (_name, path) => {
+  ])('%s gets a 404 before the limiter and R2', async (_name, path) => {
     const response = await get(path);
     expect(response.status).toBe(404);
+    expect(limiterKeys).toEqual([]);
     expect(bucketReads).toBe(0);
   });
 
