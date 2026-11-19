@@ -193,3 +193,53 @@ def test_share_twice_reuses_token(client, session, private_document):
         {"document_id": document_id},
     ).scalar_one()
     assert count == 1
+
+
+def test_empty_password_hash_is_treated_as_unset(client, session, private_document):
+    """Old share code stored a hash of "" on a second share click. That must
+    not unlock the plan, and the owner must still be able to set a password."""
+    from app.save_share.main import hash_password
+
+    document_id = private_document["document_id"]
+    public_id = private_document["public_id"]
+    unlock = f"/api/document/{public_id}/edit_access"
+    session.execute(
+        text(
+            "INSERT INTO document.map_document_token "
+            "(token_id, document_id, password_hash) "
+            "VALUES (gen_random_uuid(), :document_id, :password_hash)"
+        ),
+        {"document_id": document_id, "password_hash": hash_password("")},
+    )
+    session.commit()
+
+    for body in ({"password": ""}, {}):
+        assert client.post(unlock, json=body).status_code == 401
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": "alpha", "access_type": "edit"},
+    )
+    assert response.status_code == 200, response.json()
+    assert client.post(unlock, json={"password": "alpha"}).status_code == 200
+
+    # A real password is not overwritten by a later share.
+    client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": "bravo", "access_type": "edit"},
+    )
+    assert client.post(unlock, json={"password": "bravo"}).status_code == 401
+    assert client.post(unlock, json={"password": "alpha"}).status_code == 200
+
+
+def test_edit_access_without_password_set(client, private_document):
+    public_id = private_document["public_id"]
+    unlock = f"/api/document/{public_id}/edit_access"
+    # No token row yet.
+    assert client.post(unlock, json={"password": "x"}).status_code == 401
+    # Token row with a NULL hash.
+    client.post(
+        f"/api/document/{private_document['document_id']}/share",
+        json={"password": "", "access_type": "read"},
+    )
+    assert client.post(unlock, json={"password": "x"}).status_code == 401

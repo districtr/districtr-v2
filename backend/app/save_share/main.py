@@ -68,21 +68,29 @@ def share_districtr_plan(
         ),
         {"document_id": document.document_id},
     ).one()
-    password_required = bool(token_row.password_hash)
+    old_hash = token_row.password_hash
     # Truthy, not `is not None`: the frontend sends "" when no password is set.
+    # Old code stored a hash of "" on a second share click; treat that as
+    # unset so the owner can still choose a real password.
+    password_required = bool(old_hash) and not (
+        data.password and verify_password("", old_hash)
+    )
     if data.password and not password_required:
-        # First password wins; a later share can't overwrite it.
+        # First real password wins: the compare-and-set loses to a concurrent
+        # share that stored one first.
         session.execute(
             text(
                 """
                 UPDATE document.map_document_token
                 SET password_hash = :password_hash
-                WHERE document_id = :document_id AND password_hash IS NULL
+                WHERE document_id = :document_id
+                  AND password_hash IS NOT DISTINCT FROM :old_hash
                 """
             ),
             {
                 "password_hash": hash_password(data.password),
                 "document_id": document.document_id,
+                "old_hash": old_hash,
             },
         )
         password_required = True
@@ -117,9 +125,16 @@ def grant_edit_access_to_map_document(
             """
         ),
         {"document_id": protected_document.document_id},
-    ).one()
+    ).one_or_none()
 
-    if not verify_password(data.password, result.password_hash):
+    # An empty password must not unlock a plan holding a hash of "" (stored by
+    # old share code), and a plan with no password has nothing to unlock.
+    if (
+        not data.password
+        or result is None
+        or not result.password_hash
+        or not verify_password(data.password, result.password_hash)
+    ):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     return protected_document
