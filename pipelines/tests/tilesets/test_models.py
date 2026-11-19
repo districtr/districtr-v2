@@ -104,6 +104,32 @@ def test_upload_results_copies_only_pmtiles_to_r2(monkeypatch, r2_bucket):
         r2.upload_file.assert_not_called()
 
 
+@pytest.mark.parametrize("exists", [True, False])
+def test_upload_results_warns_before_overwriting_an_archive(
+    monkeypatch, caplog, exists
+):
+    """An overwrite purges no cache, so old and new tiles can mix for days. The
+    upload goes ahead either way; a parquet file is overwritten quietly."""
+    s3 = MagicMock()
+    if not exists:
+        s3.head_object.side_effect = Exception("An error occurred (404)")
+    monkeypatch.setattr(Settings, "get_s3_client", lambda self: s3)
+    monkeypatch.setattr(Settings, "get_r2_client", lambda self: None)
+    batch = TilesetBatch(name="test", tilesets={})
+    batch.add_result("/tmp/wy.pmtiles", "tilesets/wy.pmtiles")
+    batch.add_result("/tmp/wy_points.parquet", "tilesets/wy_points.parquet")
+
+    with caplog.at_level("WARNING"):
+        batch.upload_results()
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert s3.upload_file.call_count == 2
+    if exists:
+        assert len(warnings) == 1 and "tilesets/wy.pmtiles" in warnings[0]
+    else:
+        assert warnings == []
+
+
 @pytest.mark.parametrize(
     "missing", ["R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
 )

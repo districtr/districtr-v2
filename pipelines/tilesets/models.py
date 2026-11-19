@@ -5,7 +5,7 @@ from subprocess import run
 from urllib.parse import urlparse
 from core.models import Config
 from core.settings import settings
-from core.io import download_file_from_s3
+from core.io import download_file_from_s3, exists_in_s3
 from tilesets.utils import merge_tilesets
 from core.constants import S3_TILESETS_PREFIX
 from pathlib import Path
@@ -236,6 +236,16 @@ class TilesetBatch(Config):
             raise ValueError("Failed to get S3 client")
         r2_client = settings.get_r2_client()
         for result in self._results:
+            # Overwriting an archive purges no cache: Cloudflare and browsers can serve
+            # its old tiles for up to eight days, beside the new ones.
+            if result.s3_key.endswith(".pmtiles") and exists_in_s3(
+                s3_client, settings.S3_BUCKET, result.s3_key
+            ):
+                logger.warning(
+                    f"Overwriting {result.s3_key}. Caches can serve its old tiles for up "
+                    "to eight days, mixed with the new ones. If the tiles changed, "
+                    "upload under a new key."
+                )
             s3_client.upload_file(result.file_path, settings.S3_BUCKET, result.s3_key)
             logger.info(f"Uploaded {result.file_path} to {result.s3_key}")
 
