@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Districtr v2 is a community redistricting platform that lets users draw and evaluate electoral district maps interactively in the browser. The system is a monorepo with five main components: the frontend, the backend, the Wagtail CMS, the data pipelines, and the infrastructure code.
+Districtr v2 is a community redistricting platform that lets users draw and evaluate electoral district maps interactively in the browser. The system is a monorepo with six main components: the frontend, the backend, the Wagtail CMS, the data pipelines, the infrastructure code, and the tile Worker.
 
 ## System Diagram
 
@@ -69,7 +69,7 @@ graph TD
 
 ### Key wiring details
 
-- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3 CDN using HTTP range requests. The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
+- **Tiles & Parquet bypass the backend entirely.** The browser fetches PMTiles and Parquet directly from S3 CDN using HTTP range requests. On a stack switched to the tile Worker, district tiles come from it as `z/x/y` tiles (see Production below). The backend does not provide geospatial data directly, but it has a canonical copy of GerryDB data used to find missing assignments and perform other geospatial data validation steps.
 - **No Next.js API proxy.** The browser makes direct CORS requests to FastAPI; gated endpoints take a stateless session token ([ADR 0049](adr/0049-waf-session-tokens.md)), not a user login.
 - **The public site has no sign-in.** The Wagtail admin is the only signed-in surface. The CMS mints short-lived RS256 JWTs in-process for its own calls to FastAPI, which verifies them against the CMS's `/.well-known/jwks.json` ([ADR 0055](adr/0055-cms-identity-provider.md)). Public pages fetch their content from the CMS's anonymous `/api/content/` JSON API.
 - **IndexedDB is a local draft cache**, not a sync layer. Debounced writes store in-progress assignments; the server remains source of truth via optimistic concurrency (`updated_at`).
@@ -194,6 +194,7 @@ ECS Fargate services (backend, frontend, CMS) behind an ALB, RDS PostGIS, images
 - `test-backend.yml` - pytest against PostGIS on backend changes
 - `test-cms.yml` - CMS tests, `makemigrations --check`, and the mirror-drift check against a migrated backend schema
 - `test-app.yml` - frontend unit tests (`bun run test`) on `app/` changes
+- `test-tiles-worker.yml` - type-check and tests on `tiles-worker/` changes; Cloudflare deploys the Worker itself, not a workflow here
 
 ## Key Architectural Decisions
 

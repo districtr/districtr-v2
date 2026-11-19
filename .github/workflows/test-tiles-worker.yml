@@ -1,0 +1,39 @@
+name: Test tiles Worker
+
+# Cloudflare deploys the two Workers itself: each is connected to this repository in the
+# Cloudflare dashboard and builds from its branch (tiles-worker/README.md, Deploys). So
+# this repository holds no Cloudflare credential, and this workflow only tests.
+on:
+  # Same shape as the other test workflows: PRs run via pull_request, so push
+  # only covers dev/main.
+  push:
+    branches: [dev, main]
+    paths: &paths
+      - "tiles-worker/**"
+      - ".github/workflows/test-tiles-worker.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: tiles-worker
+
+jobs:
+  test:
+    name: Type-check and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test

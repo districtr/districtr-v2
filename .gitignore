@@ -187,3 +187,5 @@ app/public/*-basemap-style.json
 # Wrangler local state (tiles-worker)
 .wrangler/
 tiles-worker/worker-configuration.d.ts
+# Archives downloaded for a local run (tiles-worker/README.md, Local)
+tiles-worker/*.pmtiles

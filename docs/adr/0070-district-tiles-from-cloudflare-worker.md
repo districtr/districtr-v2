@@ -1,4 +1,4 @@
-# 70. District tiles served by a Cloudflare Worker, blocks loaded after the first shatter
+# 70. District tiles served by a Cloudflare Worker, blocks loaded when a plan needs them
 
 Date: 2026-11-11 (PR #829)
 
@@ -24,15 +24,18 @@ Each stack turns the two on separately, through the repo variables `TILES_WORKER
 
 - **Two sources, one per layer.** Within 10% of the one-source switch in the benchmark, and it changes 75 references to the source id.
 - **GeoJSON for the children of each shattered parent**, filtered by a Worker. The fewest bytes for a lightly shattered plan, at about 2.5 times the bytes per block of a tile and hundreds of MB of browser memory past roughly 10,000 shattered blocks.
+- **The split alone, on CloudFront.** It would cut most block bytes with no new vendor. CloudFront would still charge by the byte for what remains, and reading an archive by byte ranges keeps the cache behavior described above. One URL per tile is part of the saving, so the split is supported only with the Worker.
 - **A public R2 bucket read by byte ranges.** It needs the `r2.dev` hostname or DNS on Cloudflare, and keeps the range-request cache behavior.
 
 ## Consequences
 
 The CDN bill falls to about $27 a month: roughly $6 for the Worker and $20 of CloudFront request charges for what stays there. In the benchmark's TX session on a home-connection profile, the Worker with the split took 58% less time and 62% fewer bytes than the CDN path (1.5 s and 4.2 MB against 3.7 s and 11.0 MB).
 
-A map whose archive is missing from R2, or whose parent-only archive is missing, draws blank once its stack is switched over, so onboarding writes both stores and both archives (`run-map-onboarding`, step 3). Cloudflare and browsers cache a tile for a day, so a rebuilt tileset gets a new key. Selecting the Break tool downloads the block tiles in view, and a shatter keeps the map locked until they are there.
+A map whose archive is missing from R2, or whose parent-only archive is missing, draws blank once its stack is switched over, so onboarding writes both stores and both archives (`run-map-onboarding`, step 3). Cloudflare and browsers cache a tile for a day, so a rebuilt tileset gets a new key. Selecting the Break tool downloads the block tiles in view. A shatter keeps the map locked until they are there, for up to 20 seconds, after which it unlocks the map and asks the user to try again.
 
-The tile settings are part of the frontend image tag, since a change to them needs a new build of the same commit. Clearing the variables returns a stack to the CDN path; the S3 archives stay in place for that.
+The tile settings are part of the frontend image tag, since a change to them needs a new build of the same commit. Clearing the variables returns a stack to the CDN path; the S3 archives stay in place for that. The CDN path for district tiles is a rollout aid, not a standing option: once production has run on the Worker for about a month without trouble, the plan is to remove it, and with it the second URL scheme in the app and the tag suffix (#851).
+
+Cloudflare deploys the Workers through its own connection to the repository (Workers Builds), from `dev` and `main`. GitHub holds no Cloudflare credential, and `AWS_DEPLOY_*` does not gate these deploys.
 
 ## Revisit when
 

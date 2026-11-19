@@ -159,6 +159,12 @@ Mechanics:
   `true`. The CMS prod deploy reads `AWS_DEPLOY_CMS_PROD` instead.
   `workflow_dispatch` runs on those branches without it. Other
   branches never run (and could not assume the deploy role regardless).
+- **The tile Worker is outside all of this.** Cloudflare builds and deploys
+  `tiles-worker/` itself, from `dev` and `main`, through its own connection to
+  the repository. No workflow here deploys it, `AWS_DEPLOY_*` does not gate it,
+  and clearing those variables does not freeze it: turn on "Disable builds" in
+  the Worker's settings in the Cloudflare dashboard instead. See
+  `tiles-worker/README.md` (Deploys, Rollback).
 - Per-workflow concurrency groups + state-lock retry let a push touching
   backend + app + infra run all three, serialized on the S3 state lock.
 

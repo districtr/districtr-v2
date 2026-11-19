@@ -99,4 +99,4 @@ What follows, including what a later change would have to undo.
 | [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
 | [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
 | [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
-| [0070](0070-district-tiles-from-cloudflare-worker.md) | District tiles served by a Cloudflare Worker, blocks loaded after the first shatter | 2026-11-11 | Accepted. Amends 0008 |
+| [0070](0070-district-tiles-from-cloudflare-worker.md) | District tiles served by a Cloudflare Worker, blocks loaded when a plan needs them | 2026-11-11 | Accepted. Amends 0008 |

@@ -2,7 +2,7 @@
 
 A newcomer-oriented tour of what the system is, what the words mean, and how the pieces fit. Architecture diagrams and per-directory detail live in [`architecture.md`](architecture.md); the history of *why* things are shaped this way lives in the [ADRs](adr/README.md).
 
-Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has five active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and admin), `pipelines/` (offline data tooling), and `infra/` (Pulumi AWS deployment).
+Districtr is a community redistricting platform: people draw district maps (assigning geographic units to districts) or community maps (marking communities of interest) in the browser, save and share them, and submit them to portals. The monorepo has six active parts: `app/` (Next.js frontend), `backend/` (FastAPI + PostGIS), `cms/` (Wagtail CMS and admin), `pipelines/` (offline data tooling), `infra/` (Pulumi AWS deployment), and `tiles-worker/` (Cloudflare Worker serving district tiles).
 
 ## Repository layout
 
@@ -51,6 +51,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │   ├── moderation/              # Site settings
 │   └── portals/                 # Per-portal hub: form, gallery, takedown
 ├── pipelines/                   # Data pipelines (tilesets, tabular, transforms)
+├── tiles-worker/                # Cloudflare Worker: district tiles from R2 as z/x/y
 ├── docker-compose.yml           # Orchestration
 └── .env.example                 # Root env flags (LOAD_DATA, etc.)
 ```

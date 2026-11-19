@@ -10,13 +10,13 @@ The paths mirror the S3 keys, so the app's source URL is `${NEXT_PUBLIC_TILES_WO
 | `/tilesets/tx_districtr_view_v2.pmtiles/{z}/{x}/{y}.mvt` | A tile, gzipped exactly as stored (`Content-Encoding: gzip`), or 204 if empty |
 | `/tilesets/tx_districtr_view_v2.parent.pmtiles` and its tiles | The same for the map's [parent-only archive](#parent-only-archives) |
 
-Anything else gets a 404, including query strings and non-GET requests, since Workers Cache would skip them and every one would read R2.
+Any other path gets a 404. So does a request with a query string, an `Authorization` header, or a method other than GET and HEAD, since Workers Cache would skip it and each one would read R2.
 
 ## Parent-only archives
 
 A combined tile is about 90% block geometry, and the map draws blocks only inside shattered parents. So every map with a child layer has a second archive beside the combined one, holding the parent layer alone, under the same key ending in `.parent.pmtiles` (`parentTilesPath` in the app).
 
-With `NEXT_PUBLIC_TILES_SPLIT=true`, the map's source starts on the parent-only archive. It switches to the combined archive when the Break tool is selected, or when a plan opens with shattered parents, and stays there. The switch changes the source's URL in place, so the layers and feature-state carry over. A shatter keeps the map locked until the combined tiles are in view, so its blocks are there when the lock lifts (`utils/map/blockTiles.ts`).
+With `NEXT_PUBLIC_TILES_SPLIT=true`, the map's source starts on the parent-only archive. It switches to the combined archive when the Break tool is selected, or when a plan opens with shattered parents, and stays there. The switch changes the source's URL in place, so the layers and feature-state carry over. A shatter keeps the map locked until the combined tiles are in view, so its blocks are there when the lock lifts (`utils/map/blockTiles.ts`). It waits up to 20 seconds, then unlocks the map and asks the user to try again. If the request for the combined archive's TileJSON fails, the app sends it again until it loads.
 
 The child layers stay on the source the whole time. MapLibre reports an error for each style layer whose source-layer the TileJSON's `vector_layers` leaves out, so the Worker's TileJSON omits the list.
 
@@ -47,7 +47,7 @@ bun run dev     # http://localhost:8787
 bun run check   # tiles must match what pmtiles reads from the CDN
 ```
 
-To try it in the app, set `NEXT_PUBLIC_TILES_WORKER_URL=http://localhost:8787` in `app/.env.local`, plus `NEXT_PUBLIC_TILES_SPLIT=true` for the split, and restart the frontend. The split needs the map's parent-only archive in the local bucket too:
+To try it in the app, set `NEXT_PUBLIC_TILES_WORKER_URL=http://localhost:8787` in `app/.env.docker`, plus `NEXT_PUBLIC_TILES_SPLIT=true` for the split, and recreate the frontend container (`docker-compose up -d --force-recreate frontend`). The split needs the map's parent-only archive in the local bucket too:
 
 ```bash
 docker-compose run --rm -v "$PWD:/data" pipelines tile-join --no-tile-size-limit \
@@ -57,13 +57,40 @@ bunx wrangler r2 object put districtr-tilesets/tilesets/mt_districtr_view_v2.par
 
 ## Deploys
 
-Two Workers read the one bucket, as both stacks read one S3 bucket: `districtr-tiles-dev` (`env.dev` in `wrangler.jsonc`) for dev and `districtr-tiles` for prod. `.github/workflows/deploy-tiles-worker.yml` deploys the first on pushes to `dev` and the second on pushes to `main`, following the [deploy-authority](../agent-skills/deploy-authority/SKILL.md) rule; a pull request only type-checks. Once a stack's `TILES_WORKER_URL_*` is set, each deploy ends with `bun run check` against that hostname.
+Two Workers read the one bucket, as both stacks read one S3 bucket: `districtr-tiles-dev` (`env.dev` in `wrangler.jsonc`) for dev and `districtr-tiles` for prod.
 
-The workflow needs the secret `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" token template) and the variable `CLOUDFLARE_ACCOUNT_ID`.
+Cloudflare deploys them, not GitHub Actions. Each Worker is connected to this repository under Settings → Builds in the Cloudflare dashboard ([Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)), and Cloudflare builds and deploys it on each push to its branch that changes `tiles-worker/`:
+
+| Build setting | `districtr-tiles-dev` | `districtr-tiles` |
+|---|---|---|
+| Production branch | `dev` | `main` |
+| Root directory | `tiles-worker` | `tiles-worker` |
+| Build command | `bun run typecheck && bun run test` | `bun run typecheck && bun run test` |
+| Deploy command | `npx wrangler deploy --env dev` | `npx wrangler deploy` |
+| Build watch paths | `tiles-worker/*` | `tiles-worker/*` |
+| Preview builds | off | off |
+
+- **No Cloudflare credential is stored in GitHub**, so no branch or pull request can deploy a Worker. That keeps the [deploy-authority](../agent-skills/deploy-authority/SKILL.md) rule without a token to guard. `.github/workflows/test-tiles-worker.yml` runs the type-check and the tests on pull requests.
+- **The connection is the Cloudflare Workers and Pages GitHub App**, installed on this repository alone. It has write access to the repositories it is installed on, so keep it to this one.
+- **These settings live in the dashboard.** A pull request can't show a change to them, so record any change in this table.
+- **The watch paths matter.** A deploy empties Cloudflare's cache for that Worker, so the Worker should deploy only when its own code changes.
+- **`AWS_DEPLOY_*` does not gate these deploys.** To freeze one, turn on "Disable builds" in that Worker's build settings.
+
+To check a deployed version, run `bun run check https://dev.tilesets.districtr.org` (or `https://1.tilesets.districtr.org`). It compares tiles from that version byte for byte with the CDN's.
+
+## Rollback
+
+- **A bad Worker deploy.** In the Cloudflare dashboard, open the Worker's Deployments and roll back to the previous version. `bunx wrangler rollback --env=dev` (`--env=""` for prod) does the same from a logged-in terminal. Either takes effect at once. Then revert the commit on the branch, since the next push that changes `tiles-worker/` deploys the branch's head again.
+- **Tiles wrong or unreachable for a whole stack.** Clear the stack's `TILES_WORKER_URL_*` and run the app deploy (see [Settings](#settings)). The app then reads the PMTiles archives from the CDN again, and the S3 archives stay in place for that. This takes a full app build, and tabs already open keep the Worker until they reload.
+- **The split alone misbehaves.** Clear `TILES_SPLIT_*` and run the app deploy. Tiles stay on the Worker, and every map loads its combined archive.
+
+The CDN path is a fallback for the rollout. Once production has run on the Worker for about a month without trouble, the plan is to remove it (#851).
+
+`check.ts` reads `tilesets/mt_districtr_view_v2.pmtiles` unless given another key as its third argument, so it fails if that archive is ever removed.
 
 ## New tilesets
 
-Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key, parent-only archives included. For tilesets built one at a time, step 3 of `run-map-onboarding` has the commands. Give a rebuilt tileset a new key instead of overwriting it, so every cache serves the new tiles from the start.
+Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the pipeline's environment (see `pipelines/.env.example`). Create the key as an R2 API token with Object Read & Write on `districtr-tilesets` alone; an account-wide key works too and grants more than the pipeline needs. `tileset batch-create --upload` then copies each district `.pmtiles` to R2 under its S3 key, parent-only archives included. For tilesets built one at a time, step 3 of `run-map-onboarding` has the commands. Give a rebuilt tileset a new key instead of overwriting it, so every cache serves the new tiles from the start.
 
 ## Bootstrap
 
@@ -71,11 +98,11 @@ Set `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in
 2. Create the bucket: `bunx wrangler r2 bucket create districtr-tilesets`.
 3. Build the [parent-only archive](#parent-only-archives) of every existing map with a child layer, and upload each to S3 beside its combined archive. The list is every distinct `tiles_s3_path` in `districtrmap` that has a `child_layer`, hidden maps included, since their plans still open. For each one: `tile-join --no-tile-size-limit -o <name>.parent.pmtiles -l <parent_layer> <name>.pmtiles`. Take the layer name from the record: a mistyped name writes an empty archive and still exits with success. Check that each output lists that one layer and holds tiles.
 4. Copy the tilesets: `rclone copy s3:<tileset bucket>/tilesets r2:districtr-tilesets/tilesets`. That's about 10 GB, or under $1 of S3 egress.
-5. Deploy both Workers once by hand: `bun run deploy:dev` and `bun run deploy:prod`. A Worker has no address until its route exists. From the merge on, CI deploys both.
+5. Deploy both Workers once by hand: `bun run deploy:dev` and `bun run deploy:prod`. A Worker has no address until its route exists. Then connect each Worker to the repository with the build settings under [Deploys](#deploys); from then on Cloudflare deploys both. Installing the GitHub App needs an owner of the GitHub organisation.
 6. Set up the hostnames (next section), which route to the two Workers.
-7. Check each hostname twice: `bun run check https://dev.tilesets.districtr.org`. The second run reports every tile as served from Cloudflare's cache.
-8. Add the CI token and account id (see [Deploys](#deploys)), and a billing notification on the account.
-9. Switch each stack over with its [settings](#settings): the Worker URL first, then the split. Before each switch, confirm that R2 holds the archive of every map in `districtrmap`, and before the split, the parent-only archive of every map with a child layer. A map whose archive is missing draws blank.
+7. Check each hostname more than once: `bun run check https://dev.tilesets.districtr.org`. Repeat runs report tiles served from Cloudflare's cache; each Cloudflare location keeps its own cache, so the count can take a few runs to reach the total. Check a parent-only archive too, by passing its key: `bun run check https://dev.tilesets.districtr.org https://tilesets1.cdn.districtr.org tilesets/mt_districtr_view_v2.parent.pmtiles`.
+8. Add a billing notification on the account.
+9. Switch each stack over with its [settings](#settings): the Worker URL first, then the split. Before each switch, run `bun run check` against the stack's hostname, since the version serving may be newer than the one last checked. Also confirm that R2 holds the archive of every map in `districtrmap`, and before the split, the parent-only archive of every map with a child layer. A map whose archive is missing draws blank.
 
 ## Hostnames
 
