@@ -73,7 +73,7 @@ export const KeyOptionToggles: React.FC = () => {
               }}
               disabled={populationTooltipDisabled}
             />
-            Show population of paintable areas
+            Show population tooltip
           </Flex>
         </Text>
       </HelpTip>

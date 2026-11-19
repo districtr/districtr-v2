@@ -152,6 +152,24 @@ export const OverlaysPanel = () => {
         </Flex>
       )}
 
+      {!isSingleCounty && (
+        <Flex justify="between" align="center" gap="2">
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              Emphasize county names
+            </Text>
+            <Text size="1" color="gray">
+              Larger, darker county labels
+            </Text>
+          </Flex>
+          <Switch
+            checked={!!mapOptions.showCountyBoundaries && !!mapOptions.prominentCountyNames}
+            disabled={!mapOptions.showCountyBoundaries}
+            onCheckedChange={checked => setMapOptions({prominentCountyNames: checked})}
+          />
+        </Flex>
+      )}
+
       {/* Remaining boundaries (metro areas, school districts, tribal areas) */}
       {otherOverlays.map(renderOverlayRow)}
 
