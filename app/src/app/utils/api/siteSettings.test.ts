@@ -1,11 +1,12 @@
-/** Shared site-settings snapshot: throttling, keep-last-value, and the poller. Run with `bun test`. */
+/** Shared site-settings snapshot: throttling, keep-last-value, per-load flags, and the poller. Run with `bun test`. */
 import {afterAll, afterEach, describe, expect, mock, spyOn, test} from 'bun:test';
 import {MIN_GAP_MS, POLL_MS, getSiteSettings, refreshSiteSettings, subscribe} from './siteSettings';
 
-const settings = (message: string) => ({
+const settings = (message: string, feature_flags = {}) => ({
   under_construction: true,
   banner_message: message,
   downtime_at: null,
+  feature_flags,
 });
 const ok = (body: unknown) => new Response(JSON.stringify(body), {status: 200});
 
@@ -45,6 +46,13 @@ describe('refreshSiteSettings', () => {
     await refreshSiteSettings();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(getSiteSettings()).toEqual(settings('forced'));
+  });
+
+  test('feature flags hold for the page load while the rest updates', async () => {
+    tick(MIN_GAP_MS);
+    fetchSpy.mockResolvedValueOnce(ok(settings('later', {tuningView: false})));
+    await refreshSiteSettings();
+    expect(getSiteSettings()).toEqual(settings('later'));
   });
 });
 

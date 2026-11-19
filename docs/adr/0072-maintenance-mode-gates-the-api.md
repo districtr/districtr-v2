@@ -4,7 +4,7 @@ Date: 2026-11-18 (PR #845)
 
 ## Status
 
-Accepted. Amends [0042](0042-version-skew-detection.md).
+Accepted. Amends [0042](0042-version-skew-detection.md). Amended by [0073](0073-cms-feature-flags.md).
 
 ## Context
 

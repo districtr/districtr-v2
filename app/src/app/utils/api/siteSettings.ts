@@ -6,6 +6,8 @@ export type SiteSettings = {
   banner_message: string | null;
   /** ISO timestamp the downtime countdown runs to; null when none is set. */
   downtime_at: string | null;
+  /** CMS-set feature flags, as of the page load; see store/featureFlagStore.ts. */
+  feature_flags?: Record<string, boolean>;
 };
 
 // Quoted in the CMS Frontend settings help text ("about a minute"). Short
@@ -17,6 +19,10 @@ export const POLL_MS = 60 * 1000;
 export const MIN_GAP_MS = 60 * 1000;
 
 let current: SiteSettings | null = null;
+// Feature flags hold for the page load: the first good fetch's flags stick, so
+// a CMS change never pulls a feature out from under someone mid-session. The
+// maintenance fields keep updating. (Before that fetch, flags are defaults.)
+let sessionFlags: Record<string, boolean> | undefined;
 let lastFetchAt = -Infinity;
 const listeners = new Set<() => void>();
 
@@ -34,7 +40,9 @@ export async function refreshSiteSettings(minGapMs = MIN_GAP_MS): Promise<void> 
   try {
     const response = await fetch(`${API_URL || ''}/api/cms/site_settings`, {cache: 'no-store'});
     if (!response.ok) return;
-    current = await response.json();
+    const settings: SiteSettings = await response.json();
+    sessionFlags ??= settings.feature_flags ?? {};
+    current = {...settings, feature_flags: sessionFlags};
     listeners.forEach(listener => listener());
   } catch {
     // Network blip: keep the last value.
@@ -77,7 +85,7 @@ export function subscribe(listener: () => void) {
 }
 
 /**
- * Site settings (banner text, maintenance flag), shared by every caller: one
+ * Site settings (banner text, maintenance flag, feature flags), shared by every caller: one
  * poller per tab, on load, tab return, window focus and every minute
  * while visible. null until the first fetch succeeds.
  */

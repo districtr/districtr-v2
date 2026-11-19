@@ -22,6 +22,7 @@ def test_get_site_settings_default(client):
         "under_construction": False,
         "banner_message": None,
         "downtime_at": None,
+        "feature_flags": {},
     }
 
 
@@ -29,7 +30,12 @@ def test_update_site_settings(client):
     """Toggling under_construction persists and is returned by GET"""
     response = client.patch(SETTINGS, json={"under_construction": True})
     assert response.status_code == 200
-    expected = {"under_construction": True, "banner_message": None, "downtime_at": None}
+    expected = {
+        "under_construction": True,
+        "banner_message": None,
+        "downtime_at": None,
+        "feature_flags": {},
+    }
     assert response.json() == expected
     assert client.get(SETTINGS).json() == expected
     assert client.get(f"{SETTINGS}?fresh=true").json() == expected
@@ -58,25 +64,29 @@ def test_patch_leaves_fields_it_does_not_send(client):
         "under_construction": True,
         "banner_message": "Bye",
         "downtime_at": None,
+        "feature_flags": {},
     }
     assert client.patch(SETTINGS, json={"under_construction": False}).json() == {
         "under_construction": False,
         "banner_message": "Bye",
         "downtime_at": None,
+        "feature_flags": {},
     }
 
 
 def test_get_serves_the_worker_snapshot_unless_fresh(client):
-    maintenance.set_state(True, "from the poller", None)
+    maintenance.set_state(True, "from the poller", None, flags={"tuningView": False})
     assert client.get(SETTINGS).json() == {
         "under_construction": True,
         "banner_message": "from the poller",
         "downtime_at": None,
+        "feature_flags": {"tuningView": False},
     }
     assert client.get(f"{SETTINGS}?fresh=true").json() == {
         "under_construction": False,
         "banner_message": None,
         "downtime_at": None,
+        "feature_flags": {},
     }
 
 
@@ -125,6 +135,36 @@ def test_downtime_countdown_round_trips_and_ends_with_maintenance(client):
     assert client.get(SETTINGS).json()["downtime_at"] is None
 
 
+def test_feature_flags_replace_whole_and_take_only_booleans(client):
+    def save(flags):
+        return client.patch(SETTINGS, json={"feature_flags": flags})
+
+    assert save({"tuningView": False, "districtFocus": True}).status_code == 200
+    saved = {"tuningView": False, "districtFocus": True}
+    assert client.get(SETTINGS).json()["feature_flags"] == saved
+    assert client.get(f"{SETTINGS}?fresh=true").json()["feature_flags"] == saved
+    assert save({"districtFocus": False}).json()["feature_flags"] == {
+        "districtFocus": False
+    }
+    assert save({"tuningView": "off"}).status_code == 422
+    assert save([True]).status_code == 422
+    # null leaves them as they are; the banner alone doesn't touch them.
+    assert save(None).json()["feature_flags"] == {"districtFocus": False}
+    assert client.patch(SETTINGS, json={"banner_message": "Hi"}).json()[
+        "feature_flags"
+    ] == {"districtFocus": False}
+
+
+def test_get_without_a_settings_row_serves_defaults(client, session):
+    session.execute(text("DELETE FROM cms.site_settings"))
+    assert client.get(f"{SETTINGS}?fresh=true").json() == {
+        "under_construction": False,
+        "banner_message": None,
+        "downtime_at": None,
+        "feature_flags": {},
+    }
+
+
 def test_maintenance_mode_blocks_api_except_health_and_settings(client):
     client.patch(SETTINGS, json={"under_construction": True})
     blocked = client.get("/db_is_alive")
@@ -156,13 +196,15 @@ def test_poll_once_reads_the_row(session, poll_engine):
         text(
             "UPDATE cms.site_settings SET under_construction = true, "
             "banner_message = 'Back at 10', "
-            "downtime_at = '2026-11-18T21:10:00Z' WHERE id = 1"
+            "downtime_at = '2026-11-18T21:10:00Z', "
+            """feature_flags = '{"tuningView": false}' WHERE id = 1"""
         )
     )
     maintenance.poll_once()
     assert maintenance.enabled is True
     assert maintenance.banner_message == "Back at 10"
     assert maintenance.downtime_at == datetime.fromisoformat("2026-11-18T21:10:00Z")
+    assert maintenance.feature_flags == {"tuningView": False}
     assert maintenance.loaded is True
 
 
@@ -180,7 +222,10 @@ def test_poll_once_keeps_the_last_value_when_the_db_is_down(monkeypatch):
 
 def test_poll_once_does_not_undo_a_patch_that_landed_mid_poll(monkeypatch):
     stale_row = SimpleNamespace(
-        under_construction=True, banner_message="old", downtime_at=None
+        under_construction=True,
+        banner_message="old",
+        downtime_at=None,
+        feature_flags={},
     )
 
     class Conn:

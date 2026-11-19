@@ -6,6 +6,7 @@ takedown surface (hide/blur + visitor reports) lives on the Portals hub
 (portals/views.py). The HTTP bridge to the backend stays here in services.py.
 """
 
+import json
 import logging
 from datetime import timedelta
 
@@ -33,9 +34,25 @@ def _normalized(message: str) -> str:
     return message.replace("\r\n", "\n").strip()
 
 
+def _flags(text: str) -> dict:
+    # Blank means no flags, i.e. every feature at its frontend default. The
+    # backend checks the shape (an object of true/false).
+    try:
+        flags = json.loads(text) if text.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Feature flags aren't valid JSON: {exc}") from exc
+    # `null` would read as "leave as is" to the backend, yet report saved.
+    if not isinstance(flags, dict):
+        raise ValueError(
+            'Feature flags must be a JSON object, e.g. {"tuningView": false}.'
+        )
+    return flags
+
+
 def _changes(post) -> dict:
     """Only the fields the admin changed from what the form loaded, so two
-    admins saving at once don't overwrite each other's other field."""
+    admins saving at once don't overwrite each other's other field. Raises
+    ValueError on input to refuse, with a message for the admin."""
     changes = {}
     under_construction = "under_construction" in post
     if under_construction != (post.get("original_under_construction") == "on"):
@@ -60,6 +77,9 @@ def _changes(post) -> dict:
         changes["downtime_at"] = at.isoformat()
     elif "cancel_countdown" in post:
         changes["downtime_at"] = None
+    flags = _flags(post.get("feature_flags", ""))
+    if flags != _flags(post.get("original_feature_flags", "")):
+        changes["feature_flags"] = flags
     return changes
 
 
@@ -104,6 +124,7 @@ def site_settings(request):
             "downtime_at": downtime_at,
             "countdown_overdue": bool(downtime_at and downtime_at <= timezone.now()),
             "max_countdown_minutes": MAX_COUNTDOWN_MINUTES,
+            "feature_flags": json.dumps(current.get("feature_flags") or {}, indent=2),
             # Without the current values, saving would overwrite them blind.
             "error": error,
         },

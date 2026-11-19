@@ -37,13 +37,16 @@ logger = logging.getLogger(__name__)
 POLL_SECONDS = 15
 EXEMPT_PATHS = frozenset({"/", "/api/cms/site_settings"})
 QUERY = text(
-    f"SELECT under_construction, banner_message, downtime_at FROM {CMS_SCHEMA}.site_settings "
+    f"SELECT under_construction, banner_message, downtime_at, feature_flags "
+    f"FROM {CMS_SCHEMA}.site_settings "
     "WHERE id = 1"
 )
 
 enabled = False
 banner_message: str | None = None
 downtime_at: datetime | None = None
+# Frontend feature flags, passed through untouched (app/cms/models.py).
+feature_flags: dict = {}
 # False until the first successful poll or PATCH in this worker; the settings
 # GET reads the DB until then rather than serve a default.
 loaded = False
@@ -55,19 +58,26 @@ _lock = threading.Lock()
 
 
 def _apply(
-    under_construction: bool, message: str | None, downtime: datetime | None
+    under_construction: bool,
+    message: str | None,
+    downtime: datetime | None,
+    flags: dict | None,
 ) -> None:
-    global enabled, banner_message, downtime_at, loaded, _generation
+    global enabled, banner_message, downtime_at, feature_flags, loaded, _generation
     enabled, banner_message, downtime_at = under_construction, message, downtime
+    feature_flags = flags or {}
     loaded = True
     _generation += 1
 
 
 def set_state(
-    under_construction: bool, message: str | None, downtime: datetime | None
+    under_construction: bool,
+    message: str | None,
+    downtime: datetime | None,
+    flags: dict | None = None,
 ) -> None:
     with _lock:
-        _apply(under_construction, message, downtime)
+        _apply(under_construction, message, downtime, flags)
 
 
 def poll_once() -> None:
@@ -86,7 +96,12 @@ def poll_once() -> None:
         return
     with _lock:
         if seen == _generation:
-            _apply(bool(row.under_construction), row.banner_message, row.downtime_at)
+            _apply(
+                bool(row.under_construction),
+                row.banner_message,
+                row.downtime_at,
+                row.feature_flags,
+            )
 
 
 def _poll() -> None:
