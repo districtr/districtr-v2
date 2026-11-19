@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 import type {ErrorEvent, Map as MapLibreMap, VectorTileSource} from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
-import {splitsTiles} from '@constants/map/sources';
+import {blocksTilesUrl, splitsTiles} from '@constants/map/sources';
 
 /**
  * A map with a child layer starts on its parent-only archive (constants/map/sources.ts).
@@ -13,9 +13,6 @@ import {splitsTiles} from '@constants/map/sources';
  * undoing the last shatter leaves the source as it is. */
 export const useBlockTilesStore = create<{combinedFor?: string}>(() => ({}));
 
-let ready: Promise<void> = Promise.resolve();
-let markReady: (() => void) | undefined;
-
 /** Moves the document's block source to the combined archive. Callers ask when blocks
  * are about to be needed: the Break tool is selected, a shatter starts, or the plan has
  * shattered parents. */
@@ -24,27 +21,39 @@ export const requestBlockTiles = (
 ) => {
   if (!mapDocument || !splitsTiles(mapDocument)) return;
   if (useBlockTilesStore.getState().combinedFor === mapDocument.document_id) return;
-  ready = new Promise(resolve => {
-    markReady = resolve;
-  });
   useBlockTilesStore.setState({combinedFor: mapDocument.document_id});
 };
 
-/** Resolves once the tiles in view come from the archive last asked for. */
-export const blockTilesReady = () => ready;
+// The combined archive's url while the tiles in view come from it. BlockSource sets it
+// for the url its source is on, and clears it when that url changes or the source
+// unmounts. A shatter waits on the url, whichever document or mount put the source on it.
+let urlInView: string | undefined;
+let waiting: {url: string; resolve: () => void}[] = [];
 
-/** For a source that mounted on the archive asked for: its tiles all come from it. */
-export const markBlockTilesReady = () => {
-  markReady?.();
-  markReady = undefined;
+export const setBlockTilesInView = (url: string | undefined) => {
+  urlInView = url;
+  const arrived = waiting.filter(wait => wait.url === url);
+  waiting = waiting.filter(wait => wait.url !== url);
+  arrived.forEach(wait => wait.resolve());
+};
+
+/** Resolves once the tiles in view come from the document's combined archive. */
+export const blockTilesReady = (mapDocument: {
+  tiles_s3_path?: string | null;
+  child_layer?: string | null;
+}) => {
+  if (!mapDocument.tiles_s3_path || !splitsTiles(mapDocument)) return Promise.resolve();
+  const url = blocksTilesUrl(mapDocument.tiles_s3_path);
+  if (urlInView === url) return Promise.resolve();
+  return new Promise<void>(resolve => waiting.push({url, resolve}));
 };
 
 // Delay before each retry of a failed TileJSON; the last one repeats.
 const TILEJSON_RETRY_MS = [1000, 3000, 9000, 15000];
 
 /**
- * Follows the block source after its url changed to `url`, until every tile in view comes
- * from that archive. Returns a function that stops following.
+ * Follows the block source after its url changed to `url`, and calls `onInView` once
+ * every tile in view comes from that archive. Returns a function that stops following.
  * - A failed TileJSON request is sent again, since MapLibre leaves the source on the
  *   previous archive's tiles after one failure.
  * - When the TileJSON arrives, MapLibre fetches every loaded tile again from the current
@@ -52,9 +61,7 @@ const TILEJSON_RETRY_MS = [1000, 3000, 9000, 15000];
  *   fetched, so it keeps the previous archive's data. Only then, once the source has
  *   settled, one refresh fetches the tiles in view again.
  */
-export const followBlockTiles = (map: MapLibreMap, url: string) => {
-  const done = markReady;
-  markReady = undefined;
+export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => void) => {
   const tilesPath = `${new URL(url).pathname}/`;
   const source = () => map.getSource(BLOCK_SOURCE_ID) as VectorTileSource | undefined;
   let stage: 'tilejson' | 'settling' | 'refreshed' = 'tilejson';
@@ -91,7 +98,7 @@ export const followBlockTiles = (map: MapLibreMap, url: string) => {
       return;
     }
     stop();
-    done?.();
+    onInView();
   }
 
   function onIdle() {

@@ -1306,7 +1306,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       // view, since a unit shattered before that draws as an empty hole.
       requestBlockTiles(mapDocument);
       const blockTilesLoaded = Promise.race([
-        blockTilesReady().then(() => true),
+        blockTilesReady(mapDocument).then(() => true),
         new Promise<boolean>(resolve => setTimeout(() => resolve(false), BLOCK_TILES_TIMEOUT_MS)),
       ]);
       // set BLOCK_LAYER_ID based on features[0] to focused true
@@ -1331,7 +1331,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           notification: {
             importance: 2,
             type: 'error',
-            message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
+            // The block tiles keep loading after the wait gives up, and a refresh would
+            // start that load over.
+            message:
+              failure === 'no-block-tiles'
+                ? `The blocks for this area are still loading. Please wait a moment and try again. If this error persists, please share the error code below the Districtr team.`
+                : `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
             id: `break-patchShatter-${failure}-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
           },
         });

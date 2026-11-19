@@ -8,8 +8,8 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {blocksTilesUrl, splitsTiles} from '@/app/constants/map/sources';
 import {
   followBlockTiles,
-  markBlockTilesReady,
   requestBlockTiles,
+  setBlockTilesInView,
   useBlockTilesStore,
 } from '@utils/map/blockTiles';
 import {useClearMap} from '@/app/hooks/useClearMap';
@@ -55,15 +55,22 @@ export const BlockSource: React.FC<{children: React.ReactNode}> = ({children}) =
   }, [needsBlocks, mapDocument]);
 
   // The source's last url for this tileset. A source that mounts on the combined archive
-  // has all its tiles from it; one that changes to it is followed until it does.
+  // has all its tiles from it; one that changes to it is followed until it does. The
+  // cleanup runs when the url changes and when the source unmounts, so the combined
+  // archive counts as in view only while this effect has put it there.
   const last = useRef<{tilesPath?: string; url?: string}>({});
   useEffect(() => {
     const changed = last.current.tilesPath === tilesPath && last.current.url !== url;
     last.current = {tilesPath, url};
     const map = mapRef?.getMap();
     if (!map || !url || !split || parentOnly) return;
-    if (!changed) return markBlockTilesReady();
-    return followBlockTiles(map, url);
+    const inView = () => setBlockTilesInView(url);
+    const stop = changed ? followBlockTiles(map, url, inView) : undefined;
+    if (!changed) inView();
+    return () => {
+      stop?.();
+      setBlockTilesInView(undefined);
+    };
   }, [mapRef, tilesPath, url, split, parentOnly]);
 
   if (!mapDocument || !url) return null;
