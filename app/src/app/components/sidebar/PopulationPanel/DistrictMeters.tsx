@@ -172,7 +172,8 @@ export const DistrictMeters = () => {
     setChartOptions({popTuningView: on});
     setMapOptions({showPopulationNumbers: on || !!numbersBeforeTuning.current});
   };
-  // Turning the flag off mid-session closes the view, putting the numbers back.
+  // A console override turning the flag off mid-session closes the view,
+  // putting the numbers back. (CMS changes wait for the next page load.)
   useEffect(() => {
     if (!tuningFlag && useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps

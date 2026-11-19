@@ -99,8 +99,9 @@ export const resolveFlag = (
   cms: Record<string, boolean> | undefined
 ) => override ?? cms?.[flag] ?? DEFAULT_FEATURE_FLAGS[flag];
 
-/** Whether a CMS-toggled feature is on. The CMS values ride the shared
- * site-settings poll, so open tabs follow a change within about a minute.
+/** Whether a CMS-toggled feature is on. The CMS values come from the shared
+ * site-settings poll and hold for the page load, so a change reaches a tab on
+ * its next load.
  * Not to be confused with hooks/useFeatureFlags, which returns the /api/env
  * settings. */
 export const useFeatureFlag = (flag: FeatureFlag) =>

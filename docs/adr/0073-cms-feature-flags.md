@@ -12,7 +12,7 @@ Several features merged to dev at once (the active-layer pills, district focus, 
 
 ## Decision
 
-`cms.site_settings.feature_flags` is a JSONB object of flag name to boolean. Admins edit it as raw JSON on the CMS's Frontend settings page. It rides the 0072 snapshot and comes back with the rest of the settings, so open tabs follow a change within about a minute. A PATCH replaces the whole object, and the backend accepts only booleans.
+`cms.site_settings.feature_flags` is a JSONB object of flag name to boolean. Admins edit it as raw JSON on the CMS's Frontend settings page. It rides the 0072 snapshot and comes back with the rest of the settings. The frontend keeps the flags from its first good fetch for the rest of the page load, so a change reaches a tab on its next load and never pulls a feature out from under someone mid-session. The maintenance fields in the same response keep updating every poll. A PATCH replaces the whole object, and the backend accepts only booleans.
 
 On the frontend, `useFeatureFlag` in `store/featureFlagStore.ts` resolves each flag as: a per-browser override (localStorage, set from the console with `featureFlags.set(...)`), then the CMS value, then the default in `DEFAULT_FEATURE_FLAGS`. Every default is on, so a flag the CMS leaves out, an older backend, or a fetch that hasn't landed yet leaves the feature as it shipped. A flag hides only the feature's entry point and leaves its state at the default. It doesn't keep a second code path alive.
 
