@@ -216,7 +216,9 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
   (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`). After a snapshot restore or a manual
   `alembic downgrade`, the next API deploy must be dispatched with
   `force_migrations`: the SSM tag still names the newer SHA, so the
-  migration check would otherwise skip.
+  migration check would otherwise skip. Maintenance mode lives in the
+  database too, so a restore switches it off: switch it back on in the CMS
+  first if the work isn't done.
 - **Secrets**: `pulumi config set --secret <key> <value>` then `pulumi up`; the
   encrypted value is committed to the stack YAML and lands in SSM.
 - **Database**: the password is Pulumi-generated; `pulumi stack output

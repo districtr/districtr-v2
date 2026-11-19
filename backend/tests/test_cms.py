@@ -195,3 +195,11 @@ def test_poll_once_does_not_undo_a_patch_that_landed_mid_poll(monkeypatch):
     maintenance.poll_once()
     assert maintenance.enabled is False
     assert maintenance.banner_message == "patched"
+
+
+def test_sentry_skips_tracing_the_settings_poll():
+    from app.main import _traces_sampler
+
+    rate = _traces_sampler({"asgi_scope": {"path": "/api/document/x"}})
+    assert _traces_sampler({"asgi_scope": {"path": "/api/cms/site_settings"}}) == 0
+    assert rate == 1.0

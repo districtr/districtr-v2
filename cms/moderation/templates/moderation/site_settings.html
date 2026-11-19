@@ -72,8 +72,11 @@
                     Workflow: start a countdown (say 10 minutes) to warn people
                     mid-edit. When it runs out, switch maintenance on and wait a
                     few minutes before starting database work, so open tabs and
-                    in-flight requests settle. Afterwards, switch maintenance off
-                    and clear the banner text (one Save does both).
+                    in-flight requests settle. Expect the load balancer's 5xx
+                    alarm email: the paused API's 503s count. Afterwards, switch
+                    maintenance off and clear the banner text (one Save does
+                    both). The switch lives in the database, so restoring a
+                    snapshot turns it off: switch it back on first.
                 </p>
                 <button type="submit" class="button">Save</button>
             </fieldset>

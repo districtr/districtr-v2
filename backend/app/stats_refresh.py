@@ -22,6 +22,7 @@ from time import monotonic, sleep, time
 from sqlalchemy import exists, func, or_, text
 from sqlmodel import Session, select
 
+from app import maintenance
 from app.core.config import settings
 from app.core.db import engine
 from app.models import Assignments, Document
@@ -110,8 +111,8 @@ def evict_old_district_unions(max_bytes: float | None = None) -> tuple[int, int]
         """
     )
     rows = nbytes = 0
-    # Overshoots max_bytes by at most one batch.
-    while nbytes < max_bytes:
+    # Overshoots max_bytes by at most one batch. Stops for maintenance mode.
+    while nbytes < max_bytes and not maintenance.enabled:
         with Session(engine) as session:
             n, b = session.execute(
                 evict, {"age": EVICT_AFTER, "batch": EVICT_BATCH}
@@ -169,6 +170,10 @@ def refresh_stale_plans(spread_seconds: float = SPREAD_SECONDS) -> int:
                 if monotonic() - start > STOP_SECONDS:
                     break
                 sleep(max(0.0, start + i * gap - monotonic()))
+                # No writes under maintenance (ADR 0072); the next night retries it.
+                if maintenance.enabled:
+                    skipped += 1
+                    continue
                 try:
                     # Picked at 08:00 but its slot may be hours later: skip a
                     # plan whose owner is back editing (or that a viewer just

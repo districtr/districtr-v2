@@ -136,11 +136,20 @@ from ._sanitize import (
     _validate_community_save_payload,
 )
 
+
+def _traces_sampler(context: dict) -> float:
+    # Every open tab polls site settings once a minute; tracing those would
+    # drown out the rest.
+    if context.get("asgi_scope", {}).get("path") == "/api/cms/site_settings":
+        return 0
+    return settings.SENTRY_TRACES_SAMPLE_RATE
+
+
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
-        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-        # relative to traces_sample_rate, so one knob scales both
+        traces_sampler=_traces_sampler,
+        # relative to the traced rate, so one knob scales both
         profiles_sample_rate=1.0,
         environment=settings.ENVIRONMENT.value,
     )

@@ -26,7 +26,7 @@ On the frontend, one shared poller (`useSiteSettings` in `utils/api/siteSettings
 
 Two switches now reach differently. The CMS flag stops the API as well as redirecting pages. The `UNDER_CONSTRUCTION=true` frontend env var still only redirects pages; it is the fallback when the backend itself is unreachable.
 
-Other workers pick up a change within 15 seconds, the frontend proxy within a minute, and open tabs within about a minute. In-flight requests finish, and the nightly stats refresh isn't stopped. The runbook is therefore: start a countdown (say 10 minutes), switch maintenance on when it runs out, wait a few minutes, then start database work. The CMS help text says so.
+Other workers pick up a change within 15 seconds, the frontend proxy within a minute, and open tabs within about a minute. In-flight requests finish. The nightly stats refresh skips its rebuilds and eviction while maintenance is on, and the next night retries them. The runbook is therefore: start a countdown (say 10 minutes), switch maintenance on when it runs out, wait a few minutes, then start database work. The CMS help text says so. The 503s count toward the ALB's target-5xx alarm, so a planned downtime sends an alarm email. The flag lives in the database it protects, so restoring a snapshot from before the switch turns maintenance off; switch it back on first (`infra/README.md`, Rollback).
 
 CMS tools that call the API (submission moderation, imports, overlays, thumbnails) are paused along with everything else. A worker that starts during a DB outage serves ungated until its first good poll, but its requests fail on the DB anyway.
 

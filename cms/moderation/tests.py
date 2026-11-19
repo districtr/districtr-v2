@@ -221,6 +221,20 @@ class SiteSettingsViewTests(TestCase):
             self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
             self.assertContains(response, "1 to 1440 minutes")
 
+    def test_post_refuses_a_countdown_while_maintenance_is_on(self):
+        # Already on, or switched on in the same Save: the API would drop it.
+        for original in ("on", ""):
+            response, request = self.post(
+                {
+                    "under_construction": "on",
+                    "original_under_construction": original,
+                    "downtime_minutes": "10",
+                },
+                follow=True,
+            )
+            self.assertNotIn("PATCH", [call.args[0] for call in request.call_args_list])
+            self.assertContains(response, "Untick Maintenance mode")
+
     def test_post_failure_reports_the_backend_error(self):
         with mock.patch("moderation.services.requests.request") as request:
             request.side_effect = [

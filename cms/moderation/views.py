@@ -50,6 +50,12 @@ def _changes(post) -> dict:
             raise ValueError(
                 f"Downtime must be 1 to {MAX_COUNTDOWN_MINUTES} minutes away."
             )
+        if under_construction:
+            # The API clears a countdown while maintenance is on.
+            raise ValueError(
+                "A countdown warns before maintenance. Untick Maintenance "
+                "mode to start one."
+            )
         at = timezone.now() + timedelta(minutes=int(minutes))
         changes["downtime_at"] = at.isoformat()
     elif "cancel_countdown" in post:
