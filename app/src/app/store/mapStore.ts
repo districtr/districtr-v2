@@ -1356,6 +1356,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         : !(await blockTilesLoaded)
           ? 'no-block-tiles'
           : null;
+      // The waits above can last seconds. If the user has left this plan meanwhile, the
+      // rest would write the shatter, or its failure, into the plan now open. Loading a
+      // plan resets the map lock, which leaves undo tracking to restore.
+      if (get().mapDocument?.document_id !== mapDocument.document_id) {
+        temporalManager.resume(mapMode);
+        return;
+      }
       if (!edgesResult?.length || failure) {
         setMapLock(null);
         temporalManager.resume(mapMode);

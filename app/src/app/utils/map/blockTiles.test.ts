@@ -23,6 +23,7 @@ const {
   useBlockTilesStore,
 } = await import('./blockTiles');
 const {useMapStore} = await import('@/app/store/mapStore');
+const {useAssignmentsStore} = await import('@/app/store/assignmentsStore');
 
 const PATH = 'tilesets/mt_districtr_view_v2.pmtiles';
 const COMBINED = `${WORKER}/${PATH}`;
@@ -185,6 +186,30 @@ describe('following the block source to a new archive', () => {
     expect(map.refreshTiles).toHaveBeenCalledTimes(1);
   });
 
+  test('a tile that fails last still ends the follow', () => {
+    const map = fakeMap();
+    const inView = mock(() => {});
+    followBlockTiles(map as any, COMBINED, inView);
+    map.tileJsonArrives(true);
+    map.loaded = false;
+    map.emit('sourcedata', {sourceId: 'blocks', sourceDataType: 'content'});
+
+    // MapLibre fires `error` alone for a failed tile, and reports the source as loaded.
+    map.loaded = true;
+    map.emit('error', {sourceId: 'blocks', tile: {}});
+    expect(inView).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed tile of another source is ignored', () => {
+    const map = fakeMap();
+    const inView = mock(() => {});
+    followBlockTiles(map as any, COMBINED, inView);
+    map.tileJsonArrives(true);
+    map.loaded = true;
+    map.emit('error', {sourceId: 'counties', tile: {}});
+    expect(inView).not.toHaveBeenCalled();
+  });
+
   test('a failed TileJSON is requested again; a failed tile is not', () => {
     const map = fakeMap();
     followBlockTiles(map as any, COMBINED, () => {});
@@ -212,6 +237,53 @@ describe('following the block source to a new archive', () => {
     expect(map.source.setUrl).not.toHaveBeenCalled();
     expect(inView).not.toHaveBeenCalled();
     expect(map.listening()).toBe(0);
+  });
+});
+
+describe('a shatter whose plan is left during its wait', () => {
+  const start = () => {
+    useMapStore.setState({
+      mapDocument: {...doc, districtr_map_slug: 'mt_test'} as any,
+      mapLock: null,
+      notification: null,
+    } as any);
+    return useMapStore.getState().handleShatter([{id: 'vtd:A'}] as any);
+  };
+  // Loading a plan resets the lock; a lock present afterwards belongs to that plan.
+  const openAnotherPlan = () =>
+    useMapStore.setState({
+      mapDocument: {...doc, document_id: 'd2', districtr_map_slug: 'mt_test'} as any,
+      mapLock: {isLocked: true, reason: 'Saving map'},
+    } as any);
+
+  test('a timeout leaves the open plan alone', async () => {
+    jest.useFakeTimers();
+    const shatter = start();
+    await Promise.resolve();
+    openAnotherPlan();
+    jest.advanceTimersByTime(20_000);
+    await shatter;
+    jest.useRealTimers();
+    expect(useMapStore.getState().notification).toBeNull();
+    expect(useMapStore.getState().mapLock).toEqual({isLocked: true, reason: 'Saving map'});
+  });
+
+  test('arriving tiles do not shatter the open plan', async () => {
+    let sendEdges = () => {};
+    edgesMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          sendEdges = () => resolve([{parent_path: 'vtd:A', child_path: 'a1'}]);
+        })
+    );
+    setBlockTilesInView(COMBINED);
+    const shatter = start();
+    openAnotherPlan();
+    const before = useAssignmentsStore.getState().shatterIds;
+    sendEdges();
+    await shatter;
+    expect(useAssignmentsStore.getState().shatterIds).toBe(before);
+    expect(useMapStore.getState().mapLock).toEqual({isLocked: true, reason: 'Saving map'});
   });
 });
 

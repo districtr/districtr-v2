@@ -60,6 +60,9 @@ const TILEJSON_RETRY_MS = [1000, 3000, 9000, 15000];
  *   url. A tile that was still loading at that moment is re-parsed where it should be
  *   fetched, so it keeps the previous archive's data. Only then, once the source has
  *   settled, one refresh fetches the tiles in view again.
+ * - A tile that fails counts as settled. From a tile's failure until the source's next
+ *   load, MapLibre reports the source as loaded whatever its other tiles are doing, so
+ *   the follow can end while some are still loading. Their blocks draw when they arrive.
  */
 export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => void) => {
   const tilesPath = `${new URL(url).pathname}/`;
@@ -73,7 +76,7 @@ export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => 
   const stop = () => {
     map.off('sourcedata', advance);
     map.off('idle', onIdle);
-    map.off('error', retryTileJson);
+    map.off('error', onError);
     clearTimeout(retryTimer);
   };
 
@@ -105,9 +108,16 @@ export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => 
     advance();
   }
 
-  function retryTileJson(e: ErrorEvent & {sourceId?: string; tile?: unknown}) {
+  function onError(e: ErrorEvent & {sourceId?: string; tile?: unknown}) {
+    if (e.sourceId !== BLOCK_SOURCE_ID) return;
     // A tile's own failure carries the tile; the TileJSON's carries the source alone.
-    if (stage !== 'tilejson' || e.sourceId !== BLOCK_SOURCE_ID || e.tile) return;
+    if (e.tile) {
+      // MapLibre fires no sourcedata event for a failed tile, so when it is the last
+      // tile to settle, this is the only notice that the source has.
+      advance();
+      return;
+    }
+    if (stage !== 'tilejson') return;
     const delay = TILEJSON_RETRY_MS[Math.min(retries++, TILEJSON_RETRY_MS.length - 1)];
     clearTimeout(retryTimer);
     retryTimer = setTimeout(() => {
@@ -117,7 +127,7 @@ export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => 
 
   map.on('sourcedata', advance);
   map.on('idle', onIdle);
-  map.on('error', retryTileJson);
+  map.on('error', onError);
   advance();
   return stop;
 };
