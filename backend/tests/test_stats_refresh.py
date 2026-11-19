@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text, update
 from sqlalchemy.pool import NullPool
 
-from app import stats_refresh
+from app import maintenance, stats_refresh
 from app.core.config import settings
 from app.core.db import set_db_timeouts
 from app.main import app
@@ -200,6 +200,14 @@ def test_skips_a_plan_whose_owner_came_back(run):
     assert [p for p, _ in run.starts] == [1, 3]
 
 
+def test_skips_plans_once_maintenance_starts(run, caplog):
+    run.on_publish = lambda document_id: setattr(maintenance, "enabled", True)
+    with caplog.at_level(logging.INFO, logger="app.stats_refresh"):
+        assert stats_refresh.refresh_stale_plans() == 1
+    assert [p for p, _ in run.starts] == [1]  # 2 and 3 wait for tomorrow
+    assert "published 1, skipped 2, failed 0" in caplog.records[-1].message
+
+
 def try_lock(engine):
     """Whether another process could take the nightly lock right now."""
     other = create_engine(engine.url, poolclass=NullPool)
@@ -274,12 +282,14 @@ def test_starts_only_when_s3_is_configured(monkeypatch, bucket, starts):
     assert threading.Thread.called == starts
 
 
-def test_lifespan_starts_the_nightly_refresh(monkeypatch):
-    start = Mock()
+def test_lifespan_starts_the_nightly_refresh_and_maintenance_poller(monkeypatch):
+    start, poller = Mock(), Mock()
     monkeypatch.setattr("app.main.start_nightly_stats_refresh", start)
+    monkeypatch.setattr("app.main.start_maintenance_poller", poller)
     with TestClient(app):
         pass
     start.assert_called_once()
+    poller.assert_called_once()
 
 
 @pytest.fixture
@@ -337,6 +347,13 @@ def test_evicts_only_whole_plans_idle_for_two_weeks(
     rows, nbytes = stats_refresh.evict_old_district_unions()
     assert (rows, nbytes > 0) == ((2, True) if evicted else (0, False)), case
     assert unions.left(unions.a) == (0 if evicted else 2), case
+
+
+def test_no_eviction_during_maintenance(unions, monkeypatch):
+    unions.rows(unions.a, 15, edited=15)
+    monkeypatch.setattr(maintenance, "enabled", True)
+    assert stats_refresh.evict_old_district_unions() == (0, 0)
+    assert unions.left(unions.a) == 1
 
 
 def test_eviction_takes_the_oldest_plans_first_and_stops_at_the_byte_cap(

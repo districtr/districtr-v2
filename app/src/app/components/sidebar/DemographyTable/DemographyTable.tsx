@@ -52,7 +52,7 @@ import {
 import {MAP_MODES} from '@constants/map/mode';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
-import {usePinnedFilter} from '../ShowAllDistrictsButton';
+import {useFocusFilter} from '../ShowAllDistrictsButton';
 import {getReadableTextColor} from '@/app/utils/colors';
 
 type ColumnConfig = {
@@ -170,7 +170,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
   const communities = useMapStore(state => state.communities);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 0);
   const zoneOrder = useZoneOrder();
-  const pinFilter = usePinnedFilter(numDistricts, singleZone == null && mapMode !== MAP_MODES.COI);
+  const focusFilter = useFocusFilter(numDistricts, singleZone == null && mapMode !== MAP_MODES.COI);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
   const displayedStatLabels = summaryStatLabels.filter(f =>
     displayedColumnSets ? displayedColumnSets.includes(f.value) : true
@@ -238,7 +238,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
   })();
 
   const compareDistricts = byZoneOrder(zoneOrder);
-  const rows = pinFilter.filter(baseRows).sort((a, b) => {
+  const rows = focusFilter.filter(baseRows).sort((a, b) => {
     const aIsUniverse = Boolean((a as Record<string, unknown>).__isUniverse) || a.zone === 0;
     const bIsUniverse = Boolean((b as Record<string, unknown>).__isUniverse) || b.zone === 0;
     if (aIsUniverse) return 1;
@@ -337,7 +337,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
           </Text>
         </Flex>
       )}
-      {pinFilter.line}
+      {focusFilter.line}
       {/* One row per district/community — scroll past ten, like the
           population panel. */}
       <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
