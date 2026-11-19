@@ -8,6 +8,7 @@
     "deploy:prod": "wrangler deploy --env=\"\"",
     "types": "wrangler types",
     "typecheck": "wrangler types && tsc --noEmit",
+    "test": "bun test test",
     "check": "bun check.ts"
   },
   "dependencies": {

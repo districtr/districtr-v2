@@ -51,6 +51,12 @@ for (let z = header.minZoom; z <= header.maxZoom; z++) {
   ]) {
     const expected = await direct.getZxy(z, x, y);
     const resp = await fetch(`${worker}/${key}/${z}/${x}/${y}.mvt`);
+    // The cost saving rests on tiles being cacheable, empty ones included: an uncached
+    // tile runs the Worker and reads R2 on every request.
+    assert(
+      resp.headers.get('cache-control') === 'public, max-age=86400',
+      `${z}/${x}/${y}: not cacheable (${resp.headers.get('cache-control')})`
+    );
     if (!expected) {
       assert(resp.status === 204, `${z}/${x}/${y}: expected 204, got ${resp.status}`);
       continue;
@@ -82,7 +88,9 @@ assert((await status(`${tile}?bust=1`)) === 404, 'query string should 404');
 assert((await status(tile, {method: 'POST'})) === 404, 'POST should 404');
 assert((await status(tile.replace(`/${cx}/`, `/0${cx}/`))) === 404, 'padded x should 404');
 assert((await status(`${key}/27/0/0.mvt`)) === 404, 'z > 26 should 404');
-// Against a deployed Worker, a second run should report every tile as a cache hit.
+assert((await status(`${key}/3/8/0.mvt`)) === 404, 'x past the zoom should 404');
+// Against a deployed Worker, a repeat run reports cache hits. Each Cloudflare location
+// keeps its own cache, so the count can stay below the total for a few runs.
 console.log(
   `ok: ${compared} tiles match across z${header.minZoom}-${header.maxZoom} for ${key}` +
     ` (${cacheHits} served from Cloudflare's cache)`
