@@ -4,6 +4,7 @@ import React, {useEffect, useRef} from 'react';
 import {ToolControls} from '@/app/components/Toolbar/ToolControls/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
+import {useSpacePan} from '@/app/hooks/useSpacePan';
 
 export const Toolbar: React.FC = () => {
   const isEditing = useMapControlsStore(state => state.isEditing);
@@ -14,6 +15,7 @@ export const Toolbar: React.FC = () => {
   // toolbar constantly via undo/redo state).
   const activeToolsRef = useRef(activeTools);
   activeToolsRef.current = activeTools;
+  useSpacePan();
 
   useEffect(() => {
     // Trigger tool hotkeys.
