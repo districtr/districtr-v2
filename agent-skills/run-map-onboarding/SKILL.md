@@ -88,9 +88,9 @@ docker-compose exec backend python cli.py create-districtr-map \
 
 ## Adding columns to an onboarded layer
 
-For new data on a state that is already onboarded, such as a new election. Existing values are never changed: every named column must be new, or hold only NULLs left by an interrupted run. Steps 3–5 run in the backend container of each environment, one environment at a time.
+For new data on a state that is already onboarded, such as a new election. Existing values are never changed: every named column must be new, or hold only NULLs left by an interrupted run. Name an election's columns `<office>_<yy>_dem` and `<office>_<yy>_rep`, lowercase; the frontend shows only elections listed in `ALL_VOTER_COLUMN_GROUPINGS` (`app/src/app/utils/api/summaryStats.ts`). Steps 3–5 run in each environment's backend container (on AWS, ECS exec into service `backend` of cluster `districtr-<env>`): dev first, then prod after a manual RDS snapshot.
 
-1. **Merge the CSV into the GeoPackages** (pipelines). Block values join on the CSV's `geoid20`; each parent's values are the sums of its blocks, with membership read from the map's graph npz. Writes copies of both files to `--out-dir`; the inputs are untouched.
+1. **Merge the CSV into the GeoPackages** (pipelines). Block values join on the CSV's `geoid20`, and every block needs a numeric value; each parent's values are the sums of its blocks, with membership read from the map's graph npz. Writes copies of both files to `--out-dir`; the inputs are untouched.
 
    ```bash
    docker-compose exec pipelines python cli.py transforms add-block-columns \
