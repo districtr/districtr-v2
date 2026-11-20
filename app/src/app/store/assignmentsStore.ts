@@ -731,14 +731,20 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       childToParent: currChildToParent,
       zoneAssignments: currZoneAssignments,
       clientLastUpdated,
+      pendingShatterUndoState,
     } = get();
-    const preShatterSnapshot = cloneTemporalSnapshot({
-      shatterIds: currShatterIds,
-      parentToChild: currParentToChild,
-      childToParent: currChildToParent,
-      zoneAssignments: currZoneAssignments,
-      clientLastUpdated,
-    });
+    // A break whose snapshot is still pending (no edit recorded since) keeps
+    // it: breaking one unit and then another before painting is one undo step
+    // back to before the first, rather than leaving the first unit broken.
+    const preShatterSnapshot =
+      pendingShatterUndoState ??
+      cloneTemporalSnapshot({
+        shatterIds: currShatterIds,
+        parentToChild: currParentToChild,
+        childToParent: currChildToParent,
+        zoneAssignments: currZoneAssignments,
+        clientLastUpdated,
+      });
 
     // Ensure both maps are provided or build from each other
     const _parentToChild =

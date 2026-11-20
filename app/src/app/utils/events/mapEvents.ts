@@ -33,7 +33,12 @@ import GeometryWorker from '../GeometryWorker';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
+import {filterFeatures} from '../map/filterFeatures';
+import {getBreakTarget} from '../map/breakTarget';
+import {MAP_MODES} from '@constants/map/mode';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
 
@@ -115,23 +120,78 @@ if (typeof module !== 'undefined' && (module as any).hot) {
 }
 
 /**
- * Break the clicked unit. From inside block view this jumps: the current unit
- * is exited (healing if its blocks share one zone) and the clicked one broken.
+ * Break the clicked unit, or reopen it if it's already broken (the click is on
+ * one of its blocks). From inside block view this jumps, leaving the current
+ * unit broken: the units opened in one session heal together on exit
+ * (exitBlockView). Returns whether the click picked a unit.
  */
-export const breakUnit = (
-  features: MapGeoJSONFeature[],
-  mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target']
-) => {
+export const breakUnit = (features: MapGeoJSONFeature[]) => {
   const mapStore = useMapStore.getState();
-  if (!mapStore.captiveIds.size) return mapStore.handleShatter(features);
-  // handleShatter bails while locked; don't leave the current unit for nothing.
-  if (mapStore.mapLock) return;
-  mapStore.exitBlockView();
-  // The heal in exitBlockView re-renders shatter state, and that render clears
-  // mapLock (mapRenderSubs.renderShatter). Break the next unit after it so its
-  // lock holds through the fetch — otherwise stray clicks paint whole units.
-  mapRef.once('render', () => useMapStore.getState().handleShatter(features));
-  mapRef.triggerRepaint();
+  const {childToParent} =
+    useMapControlsStore.getState().mapMode === MAP_MODES.COI
+      ? useCoiAssignmentsStore.getState()
+      : useAssignmentsStore.getState();
+  const target = getBreakTarget(features, childToParent, mapStore.focusFeatures[0]?.id?.toString());
+  if (!target) return false;
+  if ('units' in target) {
+    mapStore.handleShatter(target.units);
+  } else if (!mapStore.mapLock) {
+    // Reopening needs no fetch, but a break in flight still holds the map.
+    mapStore.enterBlockView(target.parentId);
+  }
+  return true;
+};
+
+/**
+ * In block view, a Paint or Erase click outside the unit's blocks moves to
+ * the clicked unit instead: it breaks an unbroken one, or reopens a broken
+ * one, with the tool kept. Returns whether it did.
+ */
+export const breakClickedUnitFromBlockView = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool, mapOptions} = useMapControlsStore.getState();
+  if (
+    (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
+    !useMapStore.getState().captiveIds.size
+  ) {
+    return false;
+  }
+  // Broken units drop out of the unit layer here (filterFeatures skips parents
+  // that have blocks), so they're picked by their blocks. Same filtering as
+  // picking a unit to break: not the brush's paint-over or locked-zone rules
+  // (activeTool is Paint here), only units and blocks in locked zones.
+  const lockedAreas = useToolbarStore.getState().superDraw ? mapOptions.lockPaintedAreas : [];
+  const {zoneAssignments} = useAssignmentsStore.getState();
+  const units = filterFeatures({
+    _features: e.target.queryRenderedFeatures(e.point, {
+      layers: [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD],
+    }),
+    allowOutsideCaptiveIds: true,
+    filterLocked: false,
+    additionalFilters: [
+      f => !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') ?? null),
+    ],
+  });
+  return breakUnit(units);
+};
+
+/**
+ * In block view with Paint or Erase, a crosshair outside the unit's blocks,
+ * where a click moves to the unit under it instead of painting (the picking
+ * state's crosshair comes from the container's cursor-shatter class). Only
+ * writes the style when it changes.
+ */
+export const updateBlockViewCursor = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const {activeTool} = useMapControlsStore.getState();
+  const {captiveIds} = useMapStore.getState();
+  const outsideBlocks =
+    (activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER) &&
+    captiveIds.size > 0 &&
+    !e.target
+      .queryRenderedFeatures(e.point, {layers: [BLOCK_HOVER_LAYER_ID_CHILD]})
+      .some(f => captiveIds.has(String(f.id)));
+  const canvas = e.target.getCanvas();
+  const cursor = outsideBlocks ? 'crosshair' : '';
+  if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
 };
 
 export const handleFeatureSelection = (
@@ -146,8 +206,8 @@ export const handleFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER:
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length && mapRef) {
-        breakUnit(selectedFeatures, mapRef);
+      if (documentId && selectedFeatures?.length) {
+        breakUnit(selectedFeatures);
       }
       return;
     case ACTIVE_TOOLS.BRUSH:
@@ -212,8 +272,17 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
     return;
   }
+  if (breakClickedUnitFromBlockView(e)) return;
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
-    selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
+    // Blocks too: a click on a broken unit's block reopens that unit.
+    selectedFeatures = paintFunction(
+      mapRef,
+      e,
+      0,
+      mapStore.mapDocument?.child_layer
+        ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+        : [BLOCK_HOVER_LAYER_ID]
+    );
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     // The inspector reads data everywhere, including locked areas.
@@ -345,6 +414,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
 
 export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 
