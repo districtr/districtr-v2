@@ -139,11 +139,7 @@ export const SaveShareModal: React.FC<{
           {isEditing ? (
             <Flex direction="column" gap="2" className="mt-4">
               <Flex direction="row" gap="2" justify="between">
-                <Button
-                  variant="soft"
-                  onClick={() => generateLink().then(() => setLinkCopied(true))}
-                  size="3"
-                >
+                <Button variant="soft" onClick={() => generateLink().then(setLinkCopied)} size="3">
                   <Flex direction="row" gap="2" align="center" className="flex-0 w-fit">
                     <Link1Icon />
                     <Text>{linkCopied ? 'Copied!' : 'Copy Share Link'}</Text>
@@ -168,9 +164,7 @@ export const SaveShareModal: React.FC<{
               <Button
                 variant="soft"
                 size="3"
-                onClick={() =>
-                  editableDocId && generateLink(editableDocId).then(() => setLinkCopied(true))
-                }
+                onClick={() => editableDocId && generateLink(editableDocId).then(setLinkCopied)}
               >
                 <Flex direction="row" gap="2" align="center" className="flex-0 w-fit">
                   <Link1Icon />
