@@ -1,4 +1,4 @@
-/** Zone label placement in the geometry worker. Run with `bun test`. */
+/** Zone label placement and zone bounds in the geometry worker. Run with `bun test`. */
 import {expect, test} from 'bun:test';
 import GeometryWorker from './geometryWorker';
 
@@ -46,6 +46,32 @@ test('one label per zone, inside the view, sticky across pans', async () => {
   // Unassigning zones 2 and 3 drops their labels.
   GeometryWorker.updateZones(grid.map(f => [f.properties.path, 1] as [string, number]));
   expect(await labels([-1, -1, 40, 10])).toEqual({1: [5, 5]});
+});
+
+test('zone bounds span its units, blocks of broken units included, as currently assigned', () => {
+  GeometryWorker.clear();
+  GeometryWorker.setPointData(fc([pt('a', 0, 0), pt('b', 4, 2), pt('c', 9, 9), pt('p', 5, 5)]));
+  // 'p' is broken; its blocks carry the zone instead.
+  GeometryWorker.setChildPointData(fc([pt('p1', -3, 6), pt('p2', 6, 6)]));
+  GeometryWorker.updateZones([
+    ['a', 1],
+    ['b', 1],
+    ['p1', 1],
+    ['p2', 2],
+    ['c', 3],
+  ]);
+  expect(GeometryWorker.getZoneBounds(1)).toEqual({bbox: [-3, 0, 4, 6], geoIds: undefined});
+  // A lone unit hands back its id so the camera can frame its real outline.
+  expect(GeometryWorker.getZoneBounds(3)).toEqual({bbox: [9, 9, 9, 9], geoIds: ['c']});
+  expect(GeometryWorker.getZoneBounds(4)).toBeNull();
+
+  // Repainting moves the extent without new point data.
+  GeometryWorker.updateZones([
+    ['a', 1],
+    ['c', 1],
+  ]);
+  expect(GeometryWorker.getZoneBounds(1)).toEqual({bbox: [0, 0, 9, 9], geoIds: undefined});
+  expect(GeometryWorker.getZoneBounds(2)).toBeNull();
 });
 
 test('a repaint only re-places the zones it touched', async () => {

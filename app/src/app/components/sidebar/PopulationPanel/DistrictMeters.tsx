@@ -8,6 +8,7 @@ import {
   LockClosedIcon,
   LockOpen2Icon,
   TableIcon,
+  ZoomInIcon,
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -34,20 +35,26 @@ import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
+import GeometryWorker from '@utils/GeometryWorker';
+import {zoomToBounds} from '@utils/map/fitBounds';
 
 const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
-// Width of the rows' Super Draw icon cluster (focus, comment, lock), shared by
-// the header strip so its x-scale matches the bars'. The three ghost buttons
-// and their trailing space render about 69px wide.
-const ICONS_WIDTH = 72;
-// Extra space after the focus button, so it doesn't crowd the comment button.
+// Width of the rows' Super Draw icon cluster (focus, zoom, comment, lock),
+// shared by the header strip so its x-scale matches the bars'. The four ghost
+// buttons and their trailing space render about 96px wide: the zoom button
+// adds the focus button's 23px plus a 4px gap.
+const ICONS_WIDTH = 99;
+// Extra space after the focus and zoom buttons, so they don't crowd each other
+// or the comment button.
 const FOCUS_TRAIL = 4;
 // ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
 // twin copies it so the lock-all sits over the rows' locks.
 const TWIN_TRAIL = 8;
 // Label column: as wide as the longest label, up to this many characters.
 const MAX_LABEL_CH = 8;
+// Tuning view's color swatch, in the bar's place ahead of the contiguity.
+const SWATCH_SIZE = 12;
 
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
@@ -315,8 +322,43 @@ export const DistrictMeters = () => {
     );
   };
 
-  // A row's Super Draw icons (focus, comment, lock), right after the label.
-  // Icons manage their own interactions; clicks don't re-select the row.
+  // Fits the map to the district as painted now, unsaved edits included: the
+  // geometry worker's unit centroids under the client-side assignments.
+  // zoomToBounds pads the fit (centroids understate the extent) and leaves
+  // block view first.
+  const cancelDistrictZoom = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelDistrictZoom.current?.(), []);
+  const zoomToDistrict = async (zone: number) => {
+    const extent = await GeometryWorker?.getZoneBounds(zone);
+    const {getMapRef, mapDocument} = useMapStore.getState();
+    const map = getMapRef();
+    if (!extent || !map) return;
+    cancelDistrictZoom.current?.();
+    cancelDistrictZoom.current = zoomToBounds(map, mapDocument, {
+      bounds: extent.bbox,
+      geoIds: extent.geoIds,
+    });
+  };
+  // Hidden until the row is hovered or focused, like an unfocused district's
+  // focus button; disabled while the district has nothing to zoom to.
+  const zoomButton = (zone: number, label: string) => (
+    <Tooltip delayDuration={HELP_TIP_HOVER_DELAY} content={`Zoom to district ${label}`}>
+      <IconButton
+        onClick={() => zoomToDistrict(zone)}
+        variant="ghost"
+        size="1"
+        disabled={!startedData.some(d => d.zone === zone)}
+        aria-label={`Zoom to district ${label}`}
+        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
+        style={{marginRight: FOCUS_TRAIL}}
+      >
+        <ZoomInIcon />
+      </IconButton>
+    </Tooltip>
+  );
+
+  // A row's Super Draw icons (focus, zoom, comment, lock), right after the
+  // label. Icons manage their own interactions; clicks don't re-select the row.
   const rowIcons = (zone: number) => {
     const locked = lockPaintedAreas.includes(zone);
     const label = getZoneLabel(zone);
@@ -329,6 +371,7 @@ export const DistrictMeters = () => {
         onClick={e => e.stopPropagation()}
       >
         {focusButton(zone)}
+        {zoomButton(zone, label)}
         <ZoneDescriptionPopover zone={zone} color={getZoneColor(zone)} />
         <Tooltip
           delayDuration={HELP_TIP_HOVER_DELAY}
@@ -352,11 +395,13 @@ export const DistrictMeters = () => {
     );
   };
 
-  // Header over rowIcons: invisible twins of the focus and comment buttons,
-  // then the lock-all, so it lands directly above the rows' locks (ghost-margin
-  // quirks included).
+  // Header over rowIcons: invisible twins of the focus, zoom and comment
+  // buttons, then the lock-all, so it lands directly above the rows' locks
+  // (ghost-margin quirks included). The zoom button matches the focus button's
+  // size and trail, so the focus twin stands in for both.
   const iconHeader = (
     <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+      {focusTwin}
       {focusTwin}
       <IconButton
         variant="ghost"
@@ -476,7 +521,23 @@ export const DistrictMeters = () => {
             {showRowIcons && iconHeader}
             {showCommentCol && <Box style={{width: COMMENT_COL_WIDTH, flexShrink: 0}} />}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
-              {!!idealPopulation && tickFraction !== undefined && (
+              {/* Tuning view draws no ideal line; its column is contiguity,
+                  labeled over the verdicts, past the rows' swatch and gap. */}
+              {tuningView && (
+                <Text
+                  color="gray"
+                  style={{
+                    ...COL_LABEL_STYLE,
+                    position: 'absolute',
+                    left: `calc(${SWATCH_SIZE}px + var(--space-2))`,
+                    bottom: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Contiguity
+                </Text>
+              )}
+              {!tuningView && !!idealPopulation && tickFraction !== undefined && (
                 /* The label itself is the help trigger — an extra info icon
                    would crowd the header strip. */
                 <HelpTip tip="idealPopulation" openDelay={HELP_TIP_FAST_DELAY}>
@@ -585,8 +646,8 @@ export const DistrictMeters = () => {
                           aria-label={`Select district ${label}`}
                           className="shrink-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
                           style={{
-                            width: 12,
-                            height: 12,
+                            width: SWATCH_SIZE,
+                            height: SWATCH_SIZE,
                             borderRadius: 3,
                             border: 'none',
                             padding: 0,
