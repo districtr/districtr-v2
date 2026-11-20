@@ -1,9 +1,10 @@
-import React from 'react';
-import {Dialog, Button, Flex, Text, Box, Spinner, Grid} from '@radix-ui/themes';
-import {Cross2Icon} from '@radix-ui/react-icons';
+import React, {useState} from 'react';
+import {Dialog, Button, Flex, Text, Box, Spinner, Grid, Callout} from '@radix-ui/themes';
+import {Cross2Icon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {SyncConflictResolution} from '@constants/document/sync';
 import {SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 import {CloudIcon, LocalIcon, ForkIcon} from './SyncConflictModalIcons';
+import {ConflictMapPreview} from './ConflictMapPreview';
 
 interface SyncConflictModalProps {
   open: boolean;
@@ -12,14 +13,61 @@ interface SyncConflictModalProps {
   loading: boolean;
 }
 
+type Choice = Exclude<SyncConflictResolution, SyncConflictResolution.KeepLocal>;
+
+const CHOICES: Array<{resolution: Choice; Icon: React.FC; label: string}> = [
+  {
+    resolution: SyncConflictResolution.UseLocal,
+    Icon: LocalIcon,
+    label: 'Use this version (overwrite the cloud version)',
+  },
+  {
+    resolution: SyncConflictResolution.UseServer,
+    Icon: CloudIcon,
+    label: 'Use the cloud version (overwrite this version)',
+  },
+  {
+    resolution: SyncConflictResolution.Fork,
+    Icon: ForkIcon,
+    label: 'Clone this version and make a new plan (keep both)',
+  },
+];
+
+/** Plain-language account of what each choice does, shown before the user commits to it. */
+const outcome = (resolution: Choice, serverDate: string) => {
+  switch (resolution) {
+    case SyncConflictResolution.UseLocal:
+      return {
+        text: `The cloud version of this plan (saved ${serverDate}) will be replaced by the version on this computer. Anyone who opens this plan's link will see your version, and the changes in the cloud version can't be recovered.`,
+        confirm: 'Overwrite the cloud version',
+        destructive: true,
+      };
+    case SyncConflictResolution.UseServer:
+      return {
+        text: `The unsaved changes on this computer will be discarded and the map will switch to the cloud version (saved ${serverDate}). Your discarded changes can't be recovered.`,
+        confirm: 'Discard my changes',
+        destructive: true,
+      };
+    case SyncConflictResolution.Fork:
+      return {
+        text: `A new plan will be created from the version on this computer, with its own new link, and you'll be taken to it. The original plan keeps its cloud version (saved ${serverDate}) and its link, unchanged.`,
+        confirm: 'Create the new plan',
+        destructive: false,
+      };
+  }
+};
+
 export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
   open,
   conflict,
   onResolve,
   loading,
 }) => {
+  const [showPreview, setShowPreview] = useState(false);
+  const [selected, setSelected] = useState<Choice | null>(null);
   const localDate = new Date(conflict.localLastUpdated).toLocaleString();
   const serverDate = new Date(conflict.serverLastUpdated).toLocaleString();
+  const selectedOutcome = selected && outcome(selected, serverDate);
 
   return (
     <Dialog.Root
@@ -33,7 +81,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
         }
       }}
     >
-      <Dialog.Content>
+      <Dialog.Content maxWidth={showPreview ? '1000px' : '600px'}>
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">
             Save Conflict Detected
@@ -64,76 +112,87 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
             </Box>
           ) : (
             <>
-              <Box className="mb-4 p-3 bg-gray-50 rounded">
-                <Text size="2" weight="bold" className="block mb-2">
-                  Local Version
-                </Text>
-                <Text size="2" className="block mb-1">
-                  Last updated: {localDate}
-                </Text>
-                {conflict.localDocument.map_metadata?.name && (
-                  <Text size="2" className="block">
-                    Name: {conflict.localDocument.map_metadata.name}
+              <Grid columns="2" gap="3" className="mb-4">
+                <Box className="p-3 bg-gray-50 rounded">
+                  <Text size="2" weight="bold" className="block mb-2">
+                    This computer&apos;s version
                   </Text>
-                )}
-              </Box>
+                  <Text size="2" className="block mb-1">
+                    Last updated: {localDate}
+                  </Text>
+                  {conflict.localDocument.map_metadata?.name && (
+                    <Text size="2" className="block">
+                      Name: {conflict.localDocument.map_metadata.name}
+                    </Text>
+                  )}
+                </Box>
+                <Box className="p-3 bg-gray-50 rounded">
+                  <Text size="2" weight="bold" className="block mb-2">
+                    Cloud version
+                  </Text>
+                  <Text size="2" className="block mb-1">
+                    Last updated: {serverDate}
+                  </Text>
+                  {conflict.serverDocument.map_metadata?.name && (
+                    <Text size="2" className="block">
+                      Name: {conflict.serverDocument.map_metadata.name}
+                    </Text>
+                  )}
+                </Box>
+              </Grid>
 
-              <Box className="mb-4 p-3 bg-gray-50 rounded">
-                <Text size="2" weight="bold" className="block mb-2">
-                  Cloud Version
-                </Text>
-                <Text size="2" className="block mb-1">
-                  Last updated: {serverDate}
-                </Text>
-                {conflict.serverDocument.map_metadata?.name && (
-                  <Text size="2" className="block">
-                    Name: {conflict.serverDocument.map_metadata.name}
-                  </Text>
-                )}
-              </Box>
+              {showPreview && <ConflictMapPreview conflict={conflict} />}
+              <Button
+                onClick={() => setShowPreview(!showPreview)}
+                variant="soft"
+                // Inline: Radix's button reset outranks Tailwind's sizing utilities.
+                style={{width: '100%', marginBottom: 'var(--space-4)'}}
+                size="2"
+              >
+                {showPreview ? 'Hide map comparison' : 'Compare the two maps side by side'}
+              </Button>
+
+              <Grid columns="3" gap="2">
+                {CHOICES.map(({resolution, Icon, label}) => (
+                  <Button
+                    key={resolution}
+                    onClick={() => setSelected(resolution)}
+                    variant={selected === resolution ? 'solid' : 'outline'}
+                    aria-pressed={selected === resolution}
+                    style={{height: 'auto', paddingBlock: 'var(--space-4)'}}
+                    size="3"
+                  >
+                    <Flex direction="column" align="center" gap="2">
+                      <Icon />
+                      <Text size="2">{label}</Text>
+                    </Flex>
+                  </Button>
+                ))}
+              </Grid>
+
+              {selectedOutcome && (
+                <Callout.Root
+                  color={selectedOutcome.destructive ? 'red' : 'blue'}
+                  className="mt-4"
+                  role="status"
+                >
+                  <Callout.Icon>
+                    <InfoCircledIcon />
+                  </Callout.Icon>
+                  <Callout.Text>{selectedOutcome.text}</Callout.Text>
+                </Callout.Root>
+              )}
 
               <Flex gap="2" direction="column" className="mt-4">
-                <Grid columns="3" gap="2">
-                  <Button
-                    onClick={() => onResolve(SyncConflictResolution.UseLocal)}
-                    variant="solid"
-                    className="w-full h-auto py-4"
-                    size="3"
-                  >
-                    <Flex direction="column" align="center" gap="2">
-                      <LocalIcon />
-                      <Text size="2">Use this version (overwrite the cloud version)</Text>
-                    </Flex>
-                  </Button>
-                  <Button
-                    onClick={() => onResolve(SyncConflictResolution.UseServer)}
-                    variant="solid"
-                    className="w-full h-auto py-4"
-                    size="3"
-                  >
-                    <Flex direction="column" align="center" gap="2">
-                      <CloudIcon />
-                      <Text size="2">
-                        Use the cloud version (overwrite this version)
-                        <br />
-                        <br />
-                      </Text>
-                    </Flex>
-                  </Button>
-                  <Button
-                    onClick={() => onResolve(SyncConflictResolution.Fork)}
-                    variant="solid"
-                    className="w-full h-auto py-4"
-                    size="3"
-                  >
-                    <Flex direction="column" align="center" gap="2">
-                      <ForkIcon />
-                      <Text size="2">
-                        Clone this version and make a new plan <br /> (keep both)
-                      </Text>
-                    </Flex>
-                  </Button>
-                </Grid>
+                <Button
+                  onClick={() => selected && onResolve(selected)}
+                  disabled={!selectedOutcome}
+                  color={selectedOutcome?.destructive ? 'red' : undefined}
+                  className="w-full"
+                  size="3"
+                >
+                  {selectedOutcome ? selectedOutcome.confirm : 'Choose an option above'}
+                </Button>
                 <Button
                   onClick={() => onResolve(SyncConflictResolution.KeepLocal)}
                   variant="outline"

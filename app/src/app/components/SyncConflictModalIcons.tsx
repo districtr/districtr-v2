@@ -1,6 +1,6 @@
 export const CloudIcon = () => (
   <svg
-    className="size-10 fill-white"
+    className="size-10 fill-current"
     version="1.1"
     viewBox="0 0 100 100"
     xmlns="http://www.w3.org/2000/svg"
@@ -11,7 +11,7 @@ export const CloudIcon = () => (
 );
 export const LocalIcon = () => (
   <svg
-    className="size-10 fill-white"
+    className="size-10 fill-current"
     version="1.1"
     viewBox="0 0 100 100"
     xmlns="http://www.w3.org/2000/svg"
@@ -21,7 +21,7 @@ export const LocalIcon = () => (
 );
 export const ForkIcon = () => (
   <svg
-    className="size-10 fill-white"
+    className="size-10 fill-current"
     version="1.1"
     viewBox="0 0 100 100"
     xmlns="http://www.w3.org/2000/svg"
