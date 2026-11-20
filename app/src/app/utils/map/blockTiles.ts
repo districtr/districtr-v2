@@ -1,0 +1,133 @@
+import {create} from 'zustand';
+import type {ErrorEvent, Map as MapLibreMap, VectorTileSource} from 'maplibre-gl';
+import {BLOCK_SOURCE_ID} from '@constants/map/layerIds';
+import {blocksTilesUrl, splitsTiles} from '@constants/map/sources';
+
+/**
+ * A map with a child layer starts on its parent-only archive (constants/map/sources.ts).
+ * This module moves a document's block source to the combined archive ahead of the first
+ * shatter, and tells the shatter when the tiles in view come from it.
+ */
+
+/** The document whose source has moved to the combined archive. It stays there, so
+ * undoing the last shatter leaves the source as it is. */
+export const useBlockTilesStore = create<{combinedFor?: string}>(() => ({}));
+
+/** Moves the document's block source to the combined archive. Callers ask when blocks
+ * are about to be needed: the Break tool is selected, a shatter starts, or the plan has
+ * shattered parents. */
+export const requestBlockTiles = (
+  mapDocument: {document_id: string; child_layer?: string | null} | null | undefined
+) => {
+  if (!mapDocument || !splitsTiles(mapDocument)) return;
+  if (useBlockTilesStore.getState().combinedFor === mapDocument.document_id) return;
+  useBlockTilesStore.setState({combinedFor: mapDocument.document_id});
+};
+
+// The combined archive's url while the tiles in view come from it. BlockSource sets it
+// for the url its source is on, and clears it when that url changes or the source
+// unmounts. A shatter waits on the url, whichever document or mount put the source on it.
+let urlInView: string | undefined;
+let waiting: {url: string; resolve: () => void}[] = [];
+
+export const setBlockTilesInView = (url: string | undefined) => {
+  urlInView = url;
+  const arrived = waiting.filter(wait => wait.url === url);
+  waiting = waiting.filter(wait => wait.url !== url);
+  arrived.forEach(wait => wait.resolve());
+};
+
+/** Resolves once the tiles in view come from the document's combined archive. */
+export const blockTilesReady = (mapDocument: {
+  tiles_s3_path?: string | null;
+  child_layer?: string | null;
+}) => {
+  if (!mapDocument.tiles_s3_path || !splitsTiles(mapDocument)) return Promise.resolve();
+  const url = blocksTilesUrl(mapDocument.tiles_s3_path);
+  if (urlInView === url) return Promise.resolve();
+  return new Promise<void>(resolve => waiting.push({url, resolve}));
+};
+
+// Delay before each retry of a failed TileJSON; the last one repeats.
+const TILEJSON_RETRY_MS = [1000, 3000, 9000, 15000];
+
+/**
+ * Follows the block source after its url changed to `url`, and calls `onInView` once
+ * every tile in view comes from that archive. Returns a function that stops following.
+ * - A failed TileJSON request is sent again, since MapLibre leaves the source on the
+ *   previous archive's tiles after one failure.
+ * - When the TileJSON arrives, MapLibre fetches every loaded tile again from the current
+ *   url. A tile that was still loading at that moment is re-parsed where it should be
+ *   fetched, so it keeps the previous archive's data. Only then, once the source has
+ *   settled, one refresh fetches the tiles in view again.
+ * - A tile that fails counts as settled. From a tile's failure until the source's next
+ *   load, MapLibre reports the source as loaded whatever its other tiles are doing, so
+ *   the follow can end while some are still loading. Their blocks draw when they arrive.
+ */
+export const followBlockTiles = (map: MapLibreMap, url: string, onInView: () => void) => {
+  const tilesPath = `${new URL(url).pathname}/`;
+  const source = () => map.getSource(BLOCK_SOURCE_ID) as VectorTileSource | undefined;
+  let stage: 'tilejson' | 'settling' | 'refreshed' = 'tilejson';
+  // Whether a tile in view may hold the previous archive's data.
+  let stale = true;
+  let retries = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const stop = () => {
+    map.off('sourcedata', advance);
+    map.off('idle', onIdle);
+    map.off('error', onError);
+    clearTimeout(retryTimer);
+  };
+
+  function advance(e?: {sourceId?: string; sourceDataType?: string}) {
+    const current = source();
+    if (stage === 'tilejson') {
+      const loaded =
+        current?.url === url &&
+        current.tiles?.some(tile => new URL(tile).pathname.startsWith(tilesPath));
+      if (!loaded) return;
+      stage = 'settling';
+      // This is the TileJSON's own event when it is the source's metadata event, and
+      // MapLibre's reload follows it. With every tile loaded now, that reload is enough.
+      const atArrival = e?.sourceId === BLOCK_SOURCE_ID && e.sourceDataType === 'metadata';
+      stale = !(atArrival && map.isSourceLoaded(BLOCK_SOURCE_ID));
+      return;
+    }
+    if (!current || !map.isSourceLoaded(BLOCK_SOURCE_ID)) return;
+    if (stage === 'settling' && stale) {
+      stage = 'refreshed';
+      map.refreshTiles(BLOCK_SOURCE_ID);
+      return;
+    }
+    stop();
+    onInView();
+  }
+
+  function onIdle() {
+    advance();
+  }
+
+  function onError(e: ErrorEvent & {sourceId?: string; tile?: unknown}) {
+    if (e.sourceId !== BLOCK_SOURCE_ID) return;
+    // A tile's own failure carries the tile; the TileJSON's carries the source alone.
+    if (e.tile) {
+      // MapLibre fires no sourcedata event for a failed tile, so when it is the last
+      // tile to settle, this is the only notice that the source has.
+      advance();
+      return;
+    }
+    if (stage !== 'tilejson') return;
+    const delay = TILEJSON_RETRY_MS[Math.min(retries++, TILEJSON_RETRY_MS.length - 1)];
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      if (source()?.url === url) source()?.setUrl(url);
+    }, delay);
+  }
+
+  map.on('sourcedata', advance);
+  map.on('idle', onIdle);
+  map.on('error', onError);
+  advance();
+  return stop;
+};

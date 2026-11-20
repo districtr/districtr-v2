@@ -5,7 +5,7 @@ from subprocess import run
 from urllib.parse import urlparse
 from core.models import Config
 from core.settings import settings
-from core.io import download_file_from_s3
+from core.io import download_file_from_s3, exists_in_s3
 from tilesets.utils import merge_tilesets
 from core.constants import S3_TILESETS_PREFIX
 from pathlib import Path
@@ -219,16 +219,40 @@ class TilesetBatch(Config):
                 parent_layer=out_parent_tiles,
                 child_layer=out_child_tiles,
                 out_name=k,
+                replace=replace,
             )
             self.add_result(result, f"{S3_TILESETS_PREFIX}/{k}.pmtiles")
+            # The app's source starts on the parent tiles alone and loads the
+            # combined archive once blocks are needed. Key: parentTilesPath in
+            # app/src/app/constants/map/sources.ts.
+            self.add_result(
+                out_parent_tiles, f"{S3_TILESETS_PREFIX}/{k}.parent.pmtiles"
+            )
 
     def upload_results(self):
         logger.info("Uploading results to S3")
+        s3_client = settings.get_s3_client()
+        if not s3_client:
+            raise ValueError("Failed to get S3 client")
+        r2_client = settings.get_r2_client()
         for result in self._results:
-            s3_client = settings.get_s3_client()
-            if not s3_client:
-                raise ValueError("Failed to get S3 client")
-
+            # Overwriting an archive purges no cache: Cloudflare and browsers can serve
+            # its old tiles for up to eight days, beside the new ones.
+            if result.s3_key.endswith(".pmtiles") and exists_in_s3(
+                s3_client, settings.S3_BUCKET, result.s3_key
+            ):
+                logger.warning(
+                    f"Overwriting {result.s3_key}. Caches can serve its old tiles for up "
+                    "to eight days, mixed with the new ones. If the tiles changed, "
+                    "upload under a new key."
+                )
             s3_client.upload_file(result.file_path, settings.S3_BUCKET, result.s3_key)
-
             logger.info(f"Uploaded {result.file_path} to {result.s3_key}")
+
+            # Same key in R2, so tiles-worker/ serves it at the map's tiles_s3_path.
+            # The _points.parquet files stay S3-only.
+            if r2_client and result.s3_key.endswith(".pmtiles"):
+                r2_client.upload_file(
+                    result.file_path, settings.R2_BUCKET, result.s3_key
+                )
+                logger.info(f"Uploaded {result.file_path} to R2 {result.s3_key}")
