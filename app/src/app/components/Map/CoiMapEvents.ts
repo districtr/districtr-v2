@@ -24,6 +24,7 @@ import {
   breakUnit,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
+import {isSpacePanHeld} from '@/app/utils/events/spacePan';
 
 function getLayerIdsToPaint(
   child_layer: string | undefined | null,
@@ -93,6 +94,7 @@ const handleCoiFeatureSelection = (
 };
 
 export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  if (isSpacePanHeld()) return;
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
@@ -133,6 +135,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
 }, 25);
 
 export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  if (isSpacePanHeld()) return;
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();

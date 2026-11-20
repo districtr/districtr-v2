@@ -66,7 +66,8 @@ export const useActiveTools = () => {
 
   const config: ActiveToolConfig[] = [
     {
-      hotKeyLabel: 'M',
+      // ␣: holding Space also moves the map under any tool (useSpacePan).
+      hotKeyLabel: 'M / ␣',
       mode: ACTIVE_TOOLS.PAN,
       disabled: !mapDocument?.document_id,
       label: 'Move',
