@@ -68,12 +68,12 @@ body {
   cursor: crosshair;
 }
 /* Holding Space pans under any tool (useSpacePan), so its hand wins over the
-   tool cursors above. */
+   tool cursors above and over a cursor set on the canvas itself. */
 body.space-pan .maplibregl-canvas-container canvas {
-  cursor: grab;
+  cursor: grab !important;
 }
 body.space-pan .maplibregl-canvas-container:active canvas {
-  cursor: grabbing;
+  cursor: grabbing !important;
 }
 
 /* Bottom-center map pills (break flow): accent ring, strong shadow, and a

@@ -34,10 +34,10 @@ import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
-import {boxAroundPoint} from '../map/bboxAroundPoint';
-import {isSpacePanHeld, startsOutsidePlanArea} from './spacePan';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
+import {boxAroundPoint} from '../map/bboxAroundPoint';
+import {isSpacePanHeld, startsOutsidePlanArea} from './spacePan';
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
   ACTIVE_TOOLS.BRUSH,
