@@ -63,7 +63,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # The live .sql files stay in app/sql/ (earlier migrations still read
+    # The live .sql files stay in app/alembic/sql/ (earlier migrations still read
     # them directly on a full replay), so recreate straight from there.
     for _, _, filename in UDFS_TO_DROP:
         with open(settings.SQL_DIR / filename, "r") as f:

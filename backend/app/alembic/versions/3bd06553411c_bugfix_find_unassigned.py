@@ -18,7 +18,7 @@ down_revision: Union[str, None] = "552ac8c1defd"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-SQL_PATH = Path(__file__).parent.parent.parent / "sql"
+SQL_PATH = Path(__file__).parent.parent / "sql"
 
 
 def upgrade() -> None:
