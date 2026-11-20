@@ -47,17 +47,10 @@ export default function PaintByCounty() {
   // demonstration as pan/paint/erase(/break/inspector) instead of its own.
   const superDraw = useToolbarStore(state => state.superDraw);
   const combinationHelpKey = superDraw ? 'superdrawToolsCombination' : 'drawToolsCombination';
-  // Break picks one unit and block-scale painting has no counties to paint by.
-  // Toggling here would also swap the break tool's single-feature selector for
-  // the county one, so the next break click would shatter the whole county.
-  // handleShatter turns the brush off on entry; this keeps it off until exit.
-  const lockedForBreak = activeTool === ACTIVE_TOOLS.SHATTER || inBlockView;
-  // Pan doesn't paint at all — same as the brush-size slider and zone picker,
-  // just visually/functionally inert, no explanatory tooltip needed.
-  const disabledForPan = activeTool === ACTIVE_TOOLS.PAN;
+  // Block-scale painting has no counties to paint by. handleShatter turns the
+  // brush off on entering block view; this keeps it off until exit.
   const disabledForGeography = !useCountyPaintAvailable();
-  const disabled =
-    access === ACCESS_STATES.READ || lockedForBreak || disabledForPan || disabledForGeography;
+  const disabled = access === ACCESS_STATES.READ || inBlockView || disabledForGeography;
   // Already on counts as satisfied — a click would turn it off.
   const {guiding, flashing} = useGuideTarget('county-brush', paintByCounty);
   const advanceGuide = useUiHintStore(state => state.advanceGuide);
@@ -68,16 +61,17 @@ export default function PaintByCounty() {
     setMapOptions({
       paintByCounty: !paintByCounty,
     });
-    if (!paintByCounty) {
-      // Clear overlay constraint when enabling county paint
-      clearPaintConstraint();
-      setPaintFunction(getFeaturesIntersectingCounties);
-    } else {
-      setPaintFunction(getFeaturesInBbox);
+    // Clear overlay constraint when enabling county paint
+    if (!paintByCounty) clearPaintConstraint();
+    // Break keeps its own single-unit selector while armed (the county one
+    // would make the next break click shatter a whole county); the brush picks
+    // the setting up when its tool is chosen (mapRenderSubs.renderCursor).
+    if (activeTool !== ACTIVE_TOOLS.SHATTER) {
+      setPaintFunction(paintByCounty ? getFeaturesInBbox : getFeaturesIntersectingCounties);
     }
   };
 
-  const disabledReasonText = lockedForBreak
+  const disabledReasonText = inBlockView
     ? 'Unavailable while breaking a unit into blocks'
     : disabledForGeography
       ? 'Unavailable for this map'
@@ -88,16 +82,14 @@ export default function PaintByCounty() {
       tip={combinationHelpKey}
       openDelay={HELP_TIP_HOVER_DELAY}
       text={disabledReasonText}
-      hideLink={lockedForBreak || disabledForGeography}
+      hideLink={inBlockView || disabledForGeography}
     >
       <Card
         size="1"
         className={`${paintByCounty ? 'bg-indigo-50' : ''} ${
           guiding ? 'ui-guide' : flashing ? 'ui-flash' : ''
         }`}
-        style={
-          lockedForBreak || disabledForPan || disabledForGeography ? {opacity: 0.5} : undefined
-        }
+        style={inBlockView || disabledForGeography ? {opacity: 0.5} : undefined}
       >
         <Text as="label" size="2" className="cursor-pointer select-none">
           <Flex gap="2" align="center">

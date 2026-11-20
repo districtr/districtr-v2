@@ -34,7 +34,7 @@ const listLabels = (labels: string[]) => {
   return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
 };
 
-export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) => {
+export const DistrictsZonePicker: React.FC = () => {
   const superDraw = useToolbarStore(state => state.superDraw);
   const [showNumDistrictEditor, setShowNumDistrictEditor] = useState(false);
   const selectedZone = useMapControlsStore(state => state.selectedZone);
@@ -61,6 +61,9 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
   const handleRadioChange = (index: number, _color: string) => {
     const value = index + 1;
     setSelectedZone(value);
+    // Picking a district picks what to paint, so it switches to the brush, as
+    // a panel row or a number key does.
+    useMapControlsStore.getState().startPainting();
   };
 
   const commitNumDistricts = (newNumDistricts: number) => {
@@ -116,7 +119,7 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
 
   return (
     <Box
-      className={isReadOnly || disabled ? 'pointer-events-none opacity-50' : ''}
+      className={isReadOnly ? 'pointer-events-none opacity-50' : ''}
       data-testid="zone-picker"
       width="100%"
     >
