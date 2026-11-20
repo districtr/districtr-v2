@@ -17,14 +17,14 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('heading', {name: 'You draw the lines.'})).toBeVisible();
 
     // Check for descriptive text about the tool
-    await expect(page.getByText('This is a beta release of')).toBeVisible();
+    await expect(page.getByText('Districtr is a free browser-based tool').first()).toBeVisible();
   });
 
   test('should have working navigation links', async ({page}) => {
     // Look for common nav links
-    await expect(page.getByRole('link', {name: 'About Districtr'})).toBeVisible();
-    await expect(page.getByRole('link', {name: 'Guide'}).first()).toBeVisible();
-    await expect(page.getByRole('link', {name: 'Data'}).first()).toBeVisible();
+    for (const name of ['Learn', 'Draw', 'Catalog']) {
+      await expect(page.getByRole('link', {name, exact: true}).first()).toBeVisible();
+    }
   });
 
   test('should display action sections', async ({page}) => {

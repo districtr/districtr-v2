@@ -1,7 +1,14 @@
-import {test, expect} from '@playwright/test';
-import {testSelectors, testTimeouts, skipConditions} from '../../fixtures/test-data';
-import {createMapDocument, navigateToMap} from '../../fixtures/map-fixture';
-import {getMapCenter} from '../../utils/map-helpers';
+import {test, expect, type Page} from '@playwright/test';
+import {testSelectors, skipConditions} from '../../fixtures/test-data';
+import {
+  createMapDocument,
+  navigateToMap,
+  getRegionScreenshot,
+  settleAfter,
+  selectTool,
+} from '../../fixtures/map-fixture';
+import {getMapCenter, dragOnMap} from '../../utils/map-helpers';
+import {mapTools, skipWithoutWebMcp} from '../../utils/webmcp';
 
 // Shared document ID for all tests in this file
 let sharedDocumentId: string | null = null;
@@ -10,116 +17,54 @@ test.describe('Map Navigation', () => {
   test.skip(skipConditions.requiresWriteAccess(), 'Requires write access - skipped on production');
 
   test.beforeAll(async ({request}) => {
-    try {
-      sharedDocumentId = await createMapDocument(request);
-      console.log(`Created document ID for navigation tests: ${sharedDocumentId}`);
-    } catch (error) {
-      console.error('Failed to create document:', error);
-    }
+    sharedDocumentId = await createMapDocument(request);
   });
 
   test.beforeEach(async ({page}) => {
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-    await navigateToMap(page, sharedDocumentId);
+    await navigateToMap(page, sharedDocumentId!);
   });
 
-  test('should zoom in with mouse wheel', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
+  /** Run a view change and assert the map around the center redrew. */
+  async function expectViewChange(page: Page, action: () => Promise<unknown>) {
     const center = await getMapCenter(page);
+    const before = await getRegionScreenshot(page, center.x, center.y, 200);
+    await settleAfter(page, action);
+    const after = await getRegionScreenshot(page, center.x, center.y, 200);
+    expect(after.equals(before)).toBe(false);
+  }
 
-    // Zoom in using mouse wheel
+  /** Zoom level after the action, once the map settles (WebMCP get_map_state). */
+  async function zoomAfter(page: Page, action: () => Promise<unknown>) {
+    await skipWithoutWebMcp(page);
+    const before = (await mapTools.state(page)).zoom;
+    await action();
+    return {before, after: async () => (await mapTools.state(page)).zoom};
+  }
+
+  test('should zoom in with mouse wheel', async ({page}) => {
+    const center = await getMapCenter(page);
     await page.mouse.move(center.x, center.y);
-    await page.mouse.wheel(0, -300); // Negative Y = zoom in
-
-    // Wait for zoom animation
-    await page.waitForTimeout(500);
-
-    // Map should still be visible after zoom
-    await expect(mapCanvas).toBeVisible();
+    const {before, after} = await zoomAfter(page, () => page.mouse.wheel(0, -300));
+    await expect.poll(after).toBeGreaterThan(before);
   });
 
   test('should zoom out with mouse wheel', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
     const center = await getMapCenter(page);
-
-    // Zoom out using mouse wheel
     await page.mouse.move(center.x, center.y);
-    await page.mouse.wheel(0, 300); // Positive Y = zoom out
-
-    // Wait for zoom animation
-    await page.waitForTimeout(500);
-
-    // Map should still be visible
-    await expect(mapCanvas).toBeVisible();
+    const {before, after} = await zoomAfter(page, () => page.mouse.wheel(0, 300));
+    await expect.poll(after).toBeLessThan(before);
   });
 
   test('should pan the map when in pan mode', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Click the pan tool to ensure we're in pan mode
-    const panTool = page.locator(testSelectors.panTool);
-    if (await panTool.isVisible()) {
-      await panTool.click();
-    }
-
-    // Get map center
-    const center = await getMapCenter(page);
-
-    // Pan the map by dragging
-    await page.mouse.move(center.x, center.y);
-    await page.mouse.down();
-    await page.mouse.move(center.x + 100, center.y + 100, {steps: 10});
-    await page.mouse.up();
-
-    // Wait for pan to complete
-    await page.waitForTimeout(300);
-
-    // Map should still be visible
-    await expect(mapCanvas).toBeVisible();
-  });
-
-  test('should have navigation controls', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Check for navigation control (zoom buttons)
-    const navControl = page.getByRole('button', {name: 'Zoom in'});
-    await expect(navControl).toBeVisible();
+    await selectTool(page, testSelectors.panTool);
+    const c = await getMapCenter(page);
+    await expectViewChange(page, () => dragOnMap(page, c.x, c.y, c.x + 100, c.y + 100, 10));
   });
 
   test('should zoom out via navigation control button', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-    await page.waitForTimeout(500);
-    const zoomOutButton = page.locator(testSelectors.navigationZoomOut);
-    await expect(zoomOutButton).toBeVisible();
-    await zoomOutButton.click();
-    await page.waitForTimeout(300);
-
-    // Map should still be visible
-    await expect(mapCanvas).toBeVisible();
+    const {before, after} = await zoomAfter(page, () =>
+      page.locator(testSelectors.navigationZoomOut).click()
+    );
+    await expect.poll(after).toBeLessThan(before);
   });
 });
