@@ -37,7 +37,6 @@ import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
 import {boxAroundPoint} from '../map/bboxAroundPoint';
-import {isSpacePanHeld, startsOutsidePlanArea} from './spacePan';
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
   ACTIVE_TOOLS.BRUSH,
@@ -174,7 +173,6 @@ export const handleFeatureSelection = (
  * @param map - Map | null, the maplibre map instance
  */
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-  if (isSpacePanHeld()) return;
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
@@ -250,66 +248,20 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
   }
 };
 
-// Cleanup for an in-flight manual pan (a middle-mouse drag, or a paint stroke
-// handed over to Space-pan); module-level so a second one can never stack a
-// duplicate listener pair.
-let endWindowPan: (() => void) | null = null;
+// Cleanup for an in-flight middle-mouse pan; module-level so a second
+// middle-click can never stack a duplicate listener pair.
+let endMiddleMousePan: (() => void) | null = null;
 
-/**
- * Pan the map from window mousemoves while `buttonMask` stays pressed — for
- * drags maplibre's dragPan can't take, since it didn't see them start.
- */
-export const startWindowPan = (
-  mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'],
-  buttonMask: number,
-  start?: MouseEvent
-) => {
-  endWindowPan?.();
-  let last = start;
-  const onMove = (me: MouseEvent) => {
-    // A release outside the window never delivers a mouseup; the buttons
-    // bitmask (1 = left, 4 = middle) tells us the drag ended, so end the pan here.
-    if (!(me.buttons & buttonMask)) {
-      endWindowPan?.();
-      return;
-    }
-    if (last) {
-      mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
-    }
-    last = me;
-  };
-  const onUp = () => endWindowPan?.();
-  endWindowPan = () => {
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
-    window.removeEventListener('blur', onUp);
-    endWindowPan = null;
-  };
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup', onUp);
-  window.addEventListener('blur', onUp);
-};
-
-// A Space-pan or outside-the-plan pan enables dragPan for one drag. The tool's
-// own dragPan state is put back at the next mousedown, so Break and Inspect
-// (which never set it) behave exactly as before the pan.
-let dragPanBeforeTempPan: boolean | null = null;
-// True from a temporary pan's mousedown until mouseup, so dragging it across
-// a unit's edge doesn't resume painting (see handleMapMouseEnter).
-let tempPanDragging = false;
-
-const startTempPan = (mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target']) => {
-  dragPanBeforeTempPan = mapRef.dragPan.isEnabled();
-  mapRef.dragPan.enable();
-  useMapControlsStore.getState().setIsPainting(false);
-  tempPanDragging = true;
-  window.addEventListener('mouseup', () => (tempPanDragging = false), {once: true});
-};
+// True from a paint/erase mousedown that landed off the plan until mouseup:
+// that drag pans, so crossing onto a unit must not start painting
+// (handleMapMouseEnter).
+let offPlanPanning = false;
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
+  offPlanPanning = false;
 
   // A second finger means a pinch/two-finger gesture, never a paint stroke —
   // cancel any in-progress paint and let maplibre's touchZoomRotate handle it.
@@ -323,19 +275,28 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   if (originalEvent?.button === 1) {
     // Suppress the browser's middle-click autoscroll and any tool behavior.
     originalEvent.preventDefault();
-    startWindowPan(mapRef, 4, originalEvent);
-    return;
-  }
-
-  tempPanDragging = false;
-  if (dragPanBeforeTempPan !== null) {
-    if (dragPanBeforeTempPan) mapRef.dragPan.enable();
-    else mapRef.dragPan.disable();
-    dragPanBeforeTempPan = null;
-  }
-  // Holding Space turns any tool's drag into a pan.
-  if (originalEvent && isSpacePanHeld()) {
-    startTempPan(mapRef);
+    endMiddleMousePan?.();
+    let last = originalEvent;
+    const onMove = (me: MouseEvent) => {
+      // A release outside the window never delivers a mouseup; the buttons
+      // bitmask (4 = middle) tells us the drag ended, so end the pan here.
+      if (!(me.buttons & 4)) {
+        endMiddleMousePan?.();
+        return;
+      }
+      mapRef.panBy([last.clientX - me.clientX, last.clientY - me.clientY], {animate: false});
+      last = me;
+    };
+    const onUp = () => endMiddleMousePan?.();
+    endMiddleMousePan = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
+      endMiddleMousePan = null;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp);
     return;
   }
 
@@ -348,21 +309,24 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
       mapControls.setIsPainting(false);
       return;
     }
-    // Judged on the raw rendered units, not paintFunction's filtered result,
-    // so a locked or masked-out district under the brush still counts as the
-    // plan and doesn't pan.
-    if (originalEvent) {
-      const layers = getLayerIdsToPaint(
-        useMapStore.getState().mapDocument?.child_layer,
-        activeTool
-      );
-      const units = mapRef.queryRenderedFeatures(boxAroundPoint(e, mapControls.brushSize), {
-        layers,
-      });
-      if (startsOutsidePlanArea(units.length, useMapStore.getState().captiveIds.size > 0)) {
-        startTempPan(mapRef);
-        return;
-      }
+    // With none of the plan's units under the brush (ocean, a neighboring
+    // state), the drag pans instead of painting nothing. Judged on the raw
+    // rendered units, not paintFunction's filtered result, so a locked or
+    // masked-out district still counts as the plan. Mouse only, and not in
+    // block view, whose camera is confined to the broken unit.
+    const {mapDocument, captiveIds} = useMapStore.getState();
+    if (
+      originalEvent &&
+      !captiveIds.size &&
+      !mapRef.queryRenderedFeatures(boxAroundPoint(e, mapControls.brushSize), {
+        layers: getLayerIdsToPaint(mapDocument?.child_layer, activeTool),
+      }).length
+    ) {
+      mapRef.dragPan.enable();
+      mapControls.setIsPainting(false);
+      offPlanPanning = true;
+      window.addEventListener('mouseup', () => (offPlanPanning = false), {once: true});
+      return;
     }
     // disable drag pan
     mapRef.dragPan.disable();
@@ -374,12 +338,10 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   const {activeTool, setIsPainting} = useMapControlsStore.getState();
   if (
     (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
-    !canMutateAssignments()
+    !canMutateAssignments() ||
+    offPlanPanning
   )
     return;
-  // A pan drag (Space, middle-mouse, or one started off the plan) entering a
-  // unit stays a pan.
-  if (isSpacePanHeld() || tempPanDragging || endWindowPan) return;
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
@@ -409,8 +371,6 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
 };
 
 export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-  // Space-pan cleared the hover footprint and tooltips when it engaged.
-  if (isSpacePanHeld()) return;
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();

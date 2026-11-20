@@ -1,88 +1,89 @@
 'use client';
 import {useEffect} from 'react';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useMapStore} from '@store/mapStore';
-import {useTooltipStore} from '@store/tooltipStore';
-import {setHoverFeatures} from '@utils/map/hoverFeatures';
-import {EMPTY_FEATURE_ARRAY, startWindowPan} from '@utils/events/mapEvents';
-import {
-  classifySpaceFocus,
-  isSpacePanHeld,
-  setSpacePanHeld,
-  shouldStartSpacePan,
-} from '@utils/events/spacePan';
-
-// Body class that swaps every tool's map cursor for a grab hand (globals.css).
-const SPACE_PAN_CLASS = 'space-pan';
+import {ACTIVE_TOOLS, type ActiveTool} from '@constants/map/tools';
+import {spaceHoldsMove} from '@utils/events/spacePan';
 
 /**
- * Hold Space to move the map under any tool; the map mouse handlers read the
- * flag this sets. Mounted once with the Toolbar, which owns the other tool
- * hotkeys. Releases on window blur and hidden tabs too, since both can
- * swallow the keyup.
+ * Hold Space to move the map: Space down switches to the Move tool, Space up
+ * switches back to the tool it interrupted. Mounted once with the Toolbar,
+ * which owns the other tool hotkeys.
  */
 export const useSpacePan = () => {
   useEffect(() => {
-    // Whether focus last moved with Tab rather than a click: keyboard users
-    // keep Space on the control they tabbed to.
+    // The tool Space interrupted, while it is held.
+    let heldTool: ActiveTool | null = null;
+    // Whether focus last moved by keyboard rather than a click (spaceHoldsMove).
     let focusedByKeyboard = false;
-    const handlePointerDown = () => {
-      focusedByKeyboard = false;
-    };
-    const release = () => {
-      if (!isSpacePanHeld()) return;
-      setSpacePanHeld(false);
-      document.body.classList.remove(SPACE_PAN_CLASS);
+    let pointerDown = false;
+    let restoreOnPointerUp = false;
+
+    const restore = () => {
+      restoreOnPointerUp = false;
+      if (heldTool === null) return;
+      const {activeTool, setActiveTool} = useMapControlsStore.getState();
+      // Unless a tool hotkey pressed meanwhile already picked another.
+      if (activeTool === ACTIVE_TOOLS.PAN) setActiveTool(heldTool);
+      heldTool = null;
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSpacePanHeld()) {
-        // Swallow auto-repeat so the page doesn't scroll while held.
-        if (e.code === 'Space') e.preventDefault();
+      if (e.key === 'Tab' || e.key.startsWith('Arrow')) focusedByKeyboard = true;
+      if (e.code !== 'Space') return;
+      if (heldTool !== null) {
+        // Auto-repeat while held.
+        e.preventDefault();
         return;
       }
-      if (e.key === 'Tab') focusedByKeyboard = true;
-      if (e.code !== 'Space') return;
-      const pointerOverMap = !!document.querySelector('.maplibregl-canvas-container:hover');
-      const focus = classifySpaceFocus(document.activeElement, focusedByKeyboard);
-      if (!shouldStartSpacePan(e, focus, pointerOverMap)) return;
-      e.preventDefault();
-      setSpacePanHeld(true);
-      document.body.classList.add(SPACE_PAN_CLASS);
-      setHoverFeatures(EMPTY_FEATURE_ARRAY);
-      const {setTooltip, setZoneDescriptionTooltip} = useTooltipStore.getState();
-      setTooltip(null);
-      setZoneDescriptionTooltip(null);
-      const {isPainting, setIsPainting} = useMapControlsStore.getState();
-      if (isPainting) {
-        // Mid-stroke: end the stroke (it ingests as one gesture on the
-        // isPainting flush) and carry the held button on as a pan.
-        setIsPainting(false);
-        const mapRef = useMapStore.getState().getMapRef();
-        if (mapRef) startWindowPan(mapRef, 1);
+      const {activeTool, setActiveTool, isPainting, setIsPainting} = useMapControlsStore.getState();
+      if (
+        activeTool === ACTIVE_TOOLS.PAN ||
+        !spaceHoldsMove(e, document.activeElement, focusedByKeyboard)
+      ) {
+        return;
       }
+      e.preventDefault();
+      // A stroke in progress ends here and ingests as one gesture; left open,
+      // it would outlive the mouseup, which only closes a Paint or Erase stroke.
+      if (isPainting) setIsPainting(false);
+      heldTool = activeTool;
+      setActiveTool(ACTIVE_TOOLS.PAN);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || !isSpacePanHeld()) return;
-      // A focused button activates on Space keyup; without this, the tool
+      if (e.code !== 'Space' || heldTool === null) return;
+      // A focused button activates on Space keyup; without this the tool
       // button just clicked would toggle back to Move.
       e.preventDefault();
-      release();
+      // Mid-drag, wait for the button: Paint restored under a held button
+      // would start painting as the drag crosses units.
+      if (pointerDown) restoreOnPointerUp = true;
+      else restore();
     };
-    const handleVisibilityChange = () => {
-      if (document.hidden) release();
+    const handlePointerDown = () => {
+      focusedByKeyboard = false;
+      pointerDown = true;
+    };
+    const handlePointerUp = () => {
+      pointerDown = false;
+      // After this release's click, so it doesn't land as a paint.
+      if (restoreOnPointerUp) setTimeout(restore);
+    };
+    // A switch away can swallow the keyup.
+    const handleBlur = () => {
+      pointerDown = false;
+      restore();
     };
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keyup', handleKeyUp);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', release);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('pointerup', handlePointerUp, true);
+    window.addEventListener('blur', handleBlur);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keyup', handleKeyUp);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', release);
-      release();
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('pointerup', handlePointerUp, true);
+      window.removeEventListener('blur', handleBlur);
+      restore();
     };
   }, []);
 };
