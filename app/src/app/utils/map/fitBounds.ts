@@ -25,6 +25,37 @@ export const getFitBoundsPadding = (
   return {top: vertical, bottom: vertical, left: horizontal, right: horizontal};
 };
 
+/** [west, south, east, north] */
+export type Bbox = [number, number, number, number];
+
+/** The bbox grown on each side by `fraction` of its width and height. */
+export const padBbox = ([west, south, east, north]: Bbox, fraction: number): Bbox => {
+  const padX = (east - west) * fraction;
+  const padY = (north - south) * fraction;
+  return [west - padX, south - padY, east + padX, north + padY];
+};
+
+/**
+ * The union of `current` and `seen`, or null when `seen` already lies inside
+ * `current`, so callers can skip an update that would change nothing.
+ */
+export const widenBbox = (current: Bbox, seen: Bbox): Bbox | null => {
+  if (
+    seen[0] >= current[0] &&
+    seen[1] >= current[1] &&
+    seen[2] <= current[2] &&
+    seen[3] <= current[3]
+  ) {
+    return null;
+  }
+  return [
+    Math.min(current[0], seen[0]),
+    Math.min(current[1], seen[1]),
+    Math.max(current[2], seen[2]),
+    Math.max(current[3], seen[3]),
+  ];
+};
+
 /**
  * Union bbox of the geometries' rendered tile pieces, or null if none are in
  * the loaded tiles (a feature can be split across tiles).
@@ -33,7 +64,7 @@ export const queryRenderedGeoIdBounds = (
   map: MapLibreMap | null | undefined,
   mapDocument: DocumentObject | null | undefined,
   geoIds: string[]
-): LngLatBoundsLike | null => {
+): Bbox | null => {
   if (!map) return null;
   const sourceLayers = [mapDocument?.parent_layer, mapDocument?.child_layer].filter(
     (l): l is string => !!l
@@ -60,10 +91,7 @@ export const queryRenderedGeoIdBounds = (
   };
   pieces.forEach(p => 'coordinates' in p.geometry && eat(p.geometry.coordinates));
   if (minX > maxX) return null;
-  return [
-    [minX, minY],
-    [maxX, maxY],
-  ];
+  return [minX, minY, maxX, maxY];
 };
 
 /** Minimum hold at the general-area snap before the fly-in, so the orienting
