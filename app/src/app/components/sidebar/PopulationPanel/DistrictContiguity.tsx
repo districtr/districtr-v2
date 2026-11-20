@@ -1,7 +1,12 @@
 'use client';
 import React, {useEffect, useRef, useState} from 'react';
 import {Button, DropdownMenu, Flex, Text, Tooltip} from '@radix-ui/themes';
-import {CheckCircledIcon, CrossCircledIcon, QuestionMarkCircledIcon} from '@radix-ui/react-icons';
+import {
+  CheckCircledIcon,
+  ChevronDownIcon,
+  CrossCircledIcon,
+  QuestionMarkCircledIcon,
+} from '@radix-ui/react-icons';
 import {queryOptions, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useMapStore} from '@store/mapStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
@@ -13,30 +18,13 @@ import {ACCESS_STATES} from '@constants/document/state';
 import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
 import {HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
-// Zoom targets that fit beside a verdict in the bar's place; more pieces than
-// this collapse into a "+N" menu.
-export const MAX_PIECE_TARGETS = 3;
-
-/** Pieces (0 = largest) shown as their own targets, and those in the "+N"
- * menu: every piece when they fit, otherwise one fewer so the menu takes the
- * last slot. */
-export const splitPieceTargets = (count: number, max = MAX_PIECE_TARGETS) => {
-  const all = Array.from({length: count}, (_, i) => i);
-  if (count <= max) return {shown: all, overflow: []};
-  return {shown: all.slice(0, max - 1), overflow: all.slice(max - 1)};
-};
-
 const pieceName = (index: number) => (index === 0 ? 'Largest piece' : `Piece ${index + 1}`);
-const unitCount = (n: number) => `${n} unit${n === 1 ? '' : 's'}`;
 
-/** A piece's tooltip/menu text, with its size once the bboxes have loaded. */
+/** A piece's menu text, with its size once the bboxes have loaded. */
 export const pieceLabel = (index: number, nGeos?: number) =>
-  nGeos === undefined ? pieceName(index) : `${pieceName(index)} · ${unitCount(nGeos)}`;
-
-/** A piece target's accessible name. */
-export const pieceAriaLabel = (index: number, district: string, nGeos?: number) =>
-  `Zoom to ${pieceName(index).toLowerCase()} of district ${district}` +
-  (nGeos === undefined ? '' : `, ${unitCount(nGeos)}`);
+  nGeos === undefined
+    ? pieceName(index)
+    : `${pieceName(index)} · ${nGeos} unit${nGeos === 1 ? '' : 's'}`;
 
 // One district's connected-component bboxes, largest first. Keyed by save like
 // the contiguity check, so the pieces match the verdict's count.
@@ -85,7 +73,7 @@ export const useDistrictContiguity = (enabled: boolean) => {
   const isReadOnly = useMapStore(state => state.mapStatus?.access) === ACCESS_STATES.READ;
   const stale = isOutdated && !isReadOnly;
 
-  // Zoom to one piece of a non-contiguous district (see ContiguityCell).
+  // Zoom to one piece of a non-contiguous district (see PieceMenu).
   const queryClient = useQueryClient();
   const mapRef = useMapStore(state => state.getMapRef());
   const cancelPendingFly = useRef<(() => void) | null>(null);
@@ -115,69 +103,81 @@ export const useDistrictContiguity = (enabled: boolean) => {
 
 export type DistrictContiguity = ReturnType<typeof useDistrictContiguity>;
 
+// The verdict's text gives way first when the sidebar is narrow; its icon and
+// color still carry it.
+const TRUNCATE: React.CSSProperties = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
 /** A row's verdict, in the bar's place: an icon and text, so it doesn't rest
  * on color alone. Grey with a question mark while unsaved edits make it stale,
- * dimmed while a post-save recheck is in flight. A non-contiguous district
- * follows with a zoom target per piece. */
+ * dimmed while a post-save recheck is in flight. A non-contiguous district's
+ * verdict opens the list of its pieces. */
 export const ContiguityCell: React.FC<{
   zone: number;
   label: string;
   contiguity: DistrictContiguity;
 }> = ({zone, label, contiguity: {components, isFetching, stale, zoomToPiece}}) => {
   const pieces = components?.[zone];
-  const VerdictIcon = stale
-    ? QuestionMarkCircledIcon
-    : pieces === 1
-      ? CheckCircledIcon
-      : CrossCircledIcon;
   return (
-    <Flex align="center" gap="2" style={{opacity: isFetching ? 0.5 : 1}}>
+    // Clipped, not spilled: the cell is as narrow as the bar it replaces.
+    <Flex
+      align="center"
+      gap="2"
+      minWidth="0"
+      style={{opacity: isFetching ? 0.5 : 1, overflowX: 'clip'}}
+    >
       {pieces === undefined ? (
         <Text size="2" color="gray">
           —
         </Text>
-      ) : (
-        <>
-          <Text
-            size="2"
-            color={stale ? 'gray' : pieces === 1 ? 'green' : 'red'}
-            style={{display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'}}
-          >
-            <VerdictIcon aria-hidden style={{flexShrink: 0}} />
-            {/* Short to fit the bar's place; read as "not contiguous, 3 pieces". */}
-            {pieces === 1 ? (
-              'Contiguous'
-            ) : (
-              <span>
-                <span className="sr-only">Not contiguous, </span>
-                {pieces} pieces
-              </span>
-            )}
-            {stale && <span className="sr-only">, as of the last save</span>}
-          </Text>
-          {pieces > 1 && (
-            <PieceTargets zone={zone} label={label} count={pieces} zoomToPiece={zoomToPiece} />
+      ) : pieces === 1 ? (
+        <Text
+          size="2"
+          color={stale ? 'gray' : 'green'}
+          style={{display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0}}
+        >
+          {stale ? (
+            <QuestionMarkCircledIcon aria-hidden style={{flexShrink: 0}} />
+          ) : (
+            <CheckCircledIcon aria-hidden style={{flexShrink: 0}} />
           )}
-        </>
+          <span style={TRUNCATE}>Contiguous</span>
+          {stale && <span className="sr-only">, as of the last save</span>}
+        </Text>
+      ) : (
+        <PieceMenu
+          zone={zone}
+          label={label}
+          count={pieces}
+          stale={stale}
+          zoomToPiece={zoomToPiece}
+        />
       )}
     </Flex>
   );
 };
 
-/** One zoom target per piece, largest first, overflowing into a "+N" menu.
- * Sizes load on first hover or focus; a click before then fetches and zooms.
- * The last piece zoomed to stays marked until the next save renumbers them. */
-const PieceTargets: React.FC<{
+/** A non-contiguous district's verdict, and the way to its pieces: a menu of
+ * zoom targets, largest first, with sizes once they load. One trigger fits the
+ * bar's place at any sidebar width, where a button per piece would not. The
+ * menu stays open after a pick so the pieces can be stepped through; its mark
+ * shows the last one zoomed to, until the next save renumbers them. */
+const PieceMenu: React.FC<{
   zone: number;
   label: string;
   count: number;
+  stale: boolean;
   zoomToPiece: DistrictContiguity['zoomToPiece'];
-}> = ({zone, label, count, zoomToPiece}) => {
+}> = ({zone, label, count, stale, zoomToPiece}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const [wantSizes, setWantSizes] = useState(false);
+  const [open, setOpen] = useState(false);
   const {data: features} = useQuery({
     ...piecesQuery(mapDocument, zone),
-    enabled: wantSizes && !!mapDocument,
+    enabled: open && !!mapDocument,
   });
   const nGeos = (index: number) => {
     const feature = features?.[index];
@@ -187,72 +187,56 @@ const PieceTargets: React.FC<{
   };
   const [last, setLast] = useState<{savedAt?: string; index: number} | null>(null);
   const lastIndex = last && last.savedAt === mapDocument?.updated_at ? last.index : null;
-  const zoom = (index: number) => {
-    setLast({savedAt: mapDocument?.updated_at, index});
-    zoomToPiece(zone, index);
-  };
-  const {shown, overflow} = splitPieceTargets(count);
 
   return (
     // Zoom only; clicks here (menu items too, through the portal) don't select
     // the row or switch the brush to this district.
-    <Flex
-      align="center"
-      gap="1"
-      flexShrink="0"
-      onClick={e => e.stopPropagation()}
-      onPointerEnter={() => setWantSizes(true)}
-      onFocus={() => setWantSizes(true)}
-    >
-      {shown.map(index => (
-        <Tooltip
-          key={index}
-          content={pieceLabel(index, nGeos(index))}
-          delayDuration={HELP_TIP_HOVER_DELAY}
-        >
-          <Button
-            size="1"
-            variant={index === lastIndex ? 'solid' : 'outline'}
-            aria-label={pieceAriaLabel(index, label, nGeos(index))}
-            aria-current={index === lastIndex || undefined}
-            onClick={() => zoom(index)}
-            className="cursor-pointer"
-          >
-            {index + 1}
-          </Button>
+    <Flex minWidth="0" onClick={e => e.stopPropagation()}>
+      <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+        <Tooltip content="Show this district's pieces" delayDuration={HELP_TIP_HOVER_DELAY}>
+          <DropdownMenu.Trigger>
+            <Button
+              size="2"
+              variant="ghost"
+              color={stale ? 'gray' : 'red'}
+              className="cursor-pointer"
+              style={{minWidth: 0, gap: 4}}
+            >
+              {stale ? (
+                <QuestionMarkCircledIcon aria-hidden style={{flexShrink: 0}} />
+              ) : (
+                <CrossCircledIcon aria-hidden style={{flexShrink: 0}} />
+              )}
+              {/* Short to fit the bar's place; read as "not contiguous, 3 pieces". */}
+              <span style={TRUNCATE}>
+                <span className="sr-only">Not contiguous, </span>
+                {count} pieces
+                {stale && <span className="sr-only">, as of the last save</span>}
+              </span>
+              <ChevronDownIcon aria-hidden style={{flexShrink: 0}} />
+            </Button>
+          </DropdownMenu.Trigger>
         </Tooltip>
-      ))}
-      {overflow.length > 0 && (
-        <DropdownMenu.Root>
-          <Tooltip content="More pieces" delayDuration={HELP_TIP_HOVER_DELAY}>
-            <DropdownMenu.Trigger>
-              <Button
-                size="1"
-                variant={lastIndex !== null && overflow.includes(lastIndex) ? 'solid' : 'outline'}
-                aria-label={`${overflow.length} more pieces of district ${label}`}
-                className="cursor-pointer"
+        <DropdownMenu.Content size="1">
+          <DropdownMenu.Label>Zoom to a piece of district {label}</DropdownMenu.Label>
+          <DropdownMenu.RadioGroup value={lastIndex === null ? '' : String(lastIndex)}>
+            {Array.from({length: count}, (_, index) => (
+              <DropdownMenu.RadioItem
+                key={index}
+                value={String(index)}
+                onSelect={e => {
+                  // Keep the menu open, to go on to the next piece.
+                  e.preventDefault();
+                  setLast({savedAt: mapDocument?.updated_at, index});
+                  zoomToPiece(zone, index);
+                }}
               >
-                +{overflow.length}
-              </Button>
-            </DropdownMenu.Trigger>
-          </Tooltip>
-          <DropdownMenu.Content size="1">
-            {/* The radio mark shows the piece last zoomed to. */}
-            <DropdownMenu.RadioGroup value={lastIndex === null ? '' : String(lastIndex)}>
-              {overflow.map(index => (
-                <DropdownMenu.RadioItem
-                  key={index}
-                  value={String(index)}
-                  onSelect={() => zoom(index)}
-                  aria-label={pieceAriaLabel(index, label, nGeos(index))}
-                >
-                  {pieceLabel(index, nGeos(index))}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.RadioGroup>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      )}
+                {pieceLabel(index, nGeos(index))}
+              </DropdownMenu.RadioItem>
+            ))}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
     </Flex>
   );
 };
