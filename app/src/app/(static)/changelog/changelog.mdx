@@ -1,3 +1,41 @@
+## v2.4.1
+
+**November 20, 2026**
+
+**New features**
+
+- Customize district colors from the Map actions menu, by CSS or LaTeX color name, from palettes, or with the color picker; no two districts can share a color
+- Inspector shows how many whole units and blocks the brush covers, and an election point of view in Voter history mode
+
+**Launching soon**
+
+These features are built and behind feature flags. They will be switched on over the coming weeks.
+
+- Name your districts: a label replaces the district number everywhere in the editor
+- Reorder districts from the Map actions menu
+- Tuning view for Super Draw's population chart: a compact table of each district's population, signed deviation and contiguity, for fine-grained balancing
+- Focus on a few districts so the meters, demographics, elections and contiguity tables can narrow to just those rows
+- Dismissible pills under the palette for every active map layer (shading, population labels, highlights, boundaries); click one to turn it off
+
+**UI polish**
+
+- Stacked panels scroll as one surface instead of several nested scroll boxes
+- District labels avoid colliding with each other, and population labels are softer
+- Autosave waits until you have been idle for 30 seconds (never more than 3 minutes after an edit), so it no longer interrupts panning and zooming
+- Site-wide notification banner and downtime countdown, managed from the CMS
+
+**Reliability and bug fixes**
+
+- District locks persist across View/Evaluate switches and page reloads
+- Fixed errors opening some private plans that had been shared more than once at the same time
+- Exports and stats no longer stall behind a stats publish on every save; district stats now publish nightly for idle plans
+- Cached district geometry is freed for plans idle for two weeks
+
+**Developer and ops**
+
+- CMS-managed feature flags for the new editor features
+- Commands for adding columns to an already-onboarded GerryDB layer; county data for splits metrics now loads in backend memory
+- Infra deploys refresh Pulumi state first, which restored alarm email subscriptions
 
 ## v2.4.0
 
