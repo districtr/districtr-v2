@@ -16,7 +16,7 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useUnassignedFeatures} from '@/app/hooks/useUnassignedFeatures';
 import {useGuideTarget, type ValidationTab} from '@/app/store/uiHintStore';
-import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
+import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {formatNumber} from '@utils/numbers';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {FALLBACK_NUM_DISTRICTS} from '@constants/document/limits';
@@ -125,7 +125,7 @@ export const MapValidation = () => {
   // the draft-status helper (same key), so no extra requests once either has
   // fetched; keying on updated_at refreshes it per save.
   const {data: contiguityData} = useQuery({
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => await getContiguity(mapDocument),
     enabled: !!mapDocument,
     staleTime: Infinity,

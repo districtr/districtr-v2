@@ -105,6 +105,7 @@ class DistrictrShortcutsPanelTests(TestCase):
         self.assertLess(partner, super_partner)
         self.assertLess(super_partner, admin)
         self.assertIn("Teams", admin - super_partner)
+        self.assertIn("Maintenance mode", admin - super_partner)
 
     def test_groupless_user_gets_empty_panel(self):
         user = get_user_model().objects.create_user(

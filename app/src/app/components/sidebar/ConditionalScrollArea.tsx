@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {createContext, useContext} from 'react';
 import {ScrollArea} from '@radix-ui/themes';
 
 // Radix's overlay scrollbar (see the `type="always"` note below) renders as a
@@ -20,12 +20,21 @@ const OUTER_SCROLLBAR_GAP = '0.75rem';
 // must reserve the same amount to stay column-aligned with the rows.
 export const SCROLL_RESERVED_WIDTH = `calc(${DATA_GUTTER} + ${OUTER_SCROLLBAR_GAP})`;
 
+/** True inside the stacked panels layout, where several panels sit open in the
+ * sidebar's one scroller. A capped inner scroller there catches the wheel
+ * partway down the sidebar, then hands it back at its end, so rows render flat
+ * and the sidebar scrolls them. The tabbed layout's Stats tab stacks three
+ * sections the same way, so it sets this too; the other tabs show one panel
+ * and keep their inner scrollers. */
+export const FlatRowsContext = createContext(false);
+
 export const ConditionalScrollArea: React.FC<{
   children: React.ReactNode;
   shouldUseScrollableRows: boolean;
   maxHeight: string;
 }> = ({children, shouldUseScrollableRows, maxHeight}) => {
-  if (shouldUseScrollableRows) {
+  const flatRows = useContext(FlatRowsContext);
+  if (shouldUseScrollableRows && !flatRows) {
     return (
       // type="always" keeps the scrollbar visible even while not scrolling — it is the
       // sole affordance that more rows exist below (no fade-out effect).

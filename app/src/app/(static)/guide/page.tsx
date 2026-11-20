@@ -154,11 +154,12 @@ export default function GuidePage() {
             </Heading>
 
             <Text size="3">
-              The “Population” tab lists the districts — click a district number to select it and
-              switch the brush to that district&apos;s color (or type the number of the district on
-              your keyboard as a shortcut). The tab also shows the population of each district; to
-              balance your population evenly between districts, refer to the ideal population count
-              provided in this panel (shown visually with a vertical bar).
+              The “Population” tab lists the districts — click a district&apos;s bar to select it
+              and switch the brush to that district&apos;s color (or, if the district&apos;s label
+              is a number, type it on your keyboard as a shortcut). Click a label to rename the
+              district. The tab also shows the population of each district; to balance your
+              population evenly between districts, refer to the ideal population count provided in
+              this panel (shown visually with a vertical bar).
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/district_overview.webm`}
@@ -214,10 +215,10 @@ export default function GuidePage() {
             />
 
             <Text size="3">
-              The last section of the “Map Layer” tab lists a number of helpful controls. For
-              instance, you can uncheck “Painted districts” to hide the districts from the map,
-              toggle “County Boundaries” to show or remove county boundaries, and check “Highlight
-              unassigned areas” to see which units are waiting to be painted.
+              The first section of the “Map Layers” tab, “Map options”, lists a number of helpful
+              controls. For instance, you can uncheck “Painted districts” to hide the districts from
+              the map, and check “Highlight unassigned areas” to see which units are waiting to be
+              painted. County boundaries are under “Boundaries and areas”.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/visual_settings.webm`}
@@ -343,8 +344,8 @@ export default function GuidePage() {
               districts, click the break icon on the toolbar. Then click on a unit you want to break
               down to smaller pieces, which allows you to paint individual blocks within the
               precinct or block group. You can see the population numbers on the blocks from the
-              pop-up below, or by selecting the “Population labels on exposed blocks” option under
-              the “Map Layers” tab.
+              pop-up below, or by checking “Population numbers” under “Map options” in the “Map
+              Layers” tab.
             </Text>
             <LoopVideoPlayer
               videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/guide-2026/shatter.webm`}

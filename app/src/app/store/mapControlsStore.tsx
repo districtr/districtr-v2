@@ -13,6 +13,8 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {ACCESS_STATES} from '@constants/document/state';
+import {idb} from '@utils/idb/idb';
+import {useToolbarStore} from './toolbarStore';
 import {exposeStoreToWindow as _exposeControlsStore} from './exposeToWindow';
 
 type SidebarPanel =
@@ -55,6 +57,8 @@ export interface MapControlsStore {
   setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
+  /** Picking a district to paint (a panel row, a number key) switches to the brush. */
+  startPainting: () => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
   paintFunction: PaintEventHandler;
@@ -65,11 +69,26 @@ export interface MapControlsStore {
   hoveredCountyGeoid: string | null;
   setHoveredCountyGeoid: (geoid: string | null) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
+  /** Move the selection off a locked district (Super Draw only), since the brush
+   * paints nothing there. Used where saved locks start applying again. */
+  selectUnlockedZone: () => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
+  /** Districts the user focused in Super Draw's population meters. Focusing
+   * only marks them; the sidebar's district tables narrow to those rows once
+   * the user turns on showFocusedOnly (see useFocusFilter). Cleared when a map
+   * loads. */
+  focusedZones: Zone[];
+  toggleFocusedZone: (zone: Zone) => void;
+  clearFocusedZones: () => void;
+  /** "Show focused districts", shared by every district table so it survives
+   * tab switches. Off by default: focusing districts never filters on its own.
+   * Turns off when the last focus is removed. */
+  showFocusedOnly: boolean;
+  setShowFocusedOnly: (showFocusedOnly: boolean) => void;
   /** Workflow-tab sections a user collapsed (sections default open, so absent
    * = open). Lives here rather than in TabSection state because tab content
    * unmounts on switch. */
@@ -106,7 +125,6 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPaintedDistricts: true,
   showZoneNumbers: true,
   showPopulationTooltip: false,
-  showBlockPopulationNumbers: false,
   showPopulationNumbers: false,
   demographicDisplayMode: undefined,
   overlayOpacity: OVERLAY_OPACITY,
@@ -150,6 +168,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({activeTool: tool});
       }
     },
+    startPainting: () => {
+      // Edit tools are off while painted districts are hidden (see setMapOptions).
+      if (get().mapOptions.showPaintedDistricts === false) return;
+      get().setActiveTool(ACTIVE_TOOLS.BRUSH);
+    },
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),
     paintFunction: getFeaturesInBbox,
@@ -179,13 +202,34 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
       }
     },
-    setLockedZones: zones =>
+    setLockedZones: zones => {
       set({
         mapOptions: {
           ...get().mapOptions,
           lockPaintedAreas: zones,
         },
-      }),
+      });
+      // Remembered per document so locks survive a reload (restored in setMapDocument).
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (mapDocument?.access === ACCESS_STATES.EDIT && mapDocument.document_id) {
+        idb.setZoneLocks(mapDocument.document_id, zones);
+      }
+    },
+    selectUnlockedZone: () => {
+      const {mapMode, mapOptions, selectedZone, setSelectedZone} = get();
+      const locked = mapOptions.lockPaintedAreas;
+      if (!useToolbarStore.getState().superDraw || !locked.includes(selectedZone)) return;
+      const mapStore = useMapStore.getState();
+      const zones =
+        mapMode === MAP_MODES.COI
+          ? mapStore.communities.map(community => community.id)
+          : Array.from(
+              {length: mapStore.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS},
+              (_, i) => i + 1
+            );
+      const unlocked = zones.find(zone => !locked.includes(zone));
+      if (unlocked !== undefined) setSelectedZone(unlocked);
+    },
     toggleLockAllAreas: () => {
       const {mapMode, mapOptions} = get();
       const mapStore = useMapStore.getState();
@@ -204,17 +248,23 @@ export const useMapControlsStore = create<MapControlsStore>()(
         );
       }
 
-      set({
-        mapOptions: {
-          ...mapOptions,
-          lockPaintedAreas: nextLockPaintedAreas,
-        },
-      });
+      get().setLockedZones(nextLockPaintedAreas);
     },
     spatialUnit: 'tract',
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+    focusedZones: [],
+    toggleFocusedZone: zone =>
+      set(state => {
+        const focusedZones = state.focusedZones.includes(zone)
+          ? state.focusedZones.filter(z => z !== zone)
+          : [...state.focusedZones, zone];
+        return {focusedZones, showFocusedOnly: focusedZones.length > 0 && state.showFocusedOnly};
+      }),
+    clearFocusedZones: () => set({focusedZones: [], showFocusedOnly: false}),
+    showFocusedOnly: false,
+    setShowFocusedOnly: showFocusedOnly => set({showFocusedOnly}),
     collapsedTabSections: [],
     openTabSection: id =>
       set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),

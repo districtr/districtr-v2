@@ -150,7 +150,13 @@ export interface AssignmentsStore {
         childToParent: AssignmentsStore['childToParent'];
       }
     | undefined;
-  removeAssignmentsForZonesAbove: (maxZone: number) => void;
+  /** Remove every assignment above `maxZone`, after moving each unit in a key
+   * zone of `renumber` (a permutation) to its mapped zone. */
+  removeAssignmentsForZonesAbove: (
+    maxZone: number,
+    renumber?: ReadonlyMap<number, number>,
+    timestamp?: string
+  ) => void;
   /** Applies the user's repair choices for the check's issues (see utils/map/assignmentIntegrity). */
   applyAssignmentRepair: (
     seen: AssignmentIssues,
@@ -248,7 +254,7 @@ const resolveUseLocal = async (
         'Failed to post local assignments when resolving conflict.'
       );
     }
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
   } finally {
     setMapLock(null);
   }
@@ -326,9 +332,21 @@ const resolveFork = async ({
       zone: c.zone,
       text: c.text,
     }));
+    // The copy is of the server's version, so also carry over the local district
+    // count, colors, labels and panel order, like the comments above. The count
+    // first: the local labels and assignments only fit the local count.
+    const {localDocument} = syncConflictInfo;
     const newDocWithLocalComments = {
       ...createMapDocumentResponse.response,
+      num_districts:
+        localDocument.num_districts ?? createMapDocumentResponse.response.num_districts,
       document_comments: localComments,
+      color_scheme: localDocument.color_scheme ?? createMapDocumentResponse.response.color_scheme,
+      map_metadata: {
+        ...createMapDocumentResponse.response.map_metadata,
+        zone_aliases: localDocument.map_metadata?.zone_aliases ?? {},
+        zone_order: localDocument.map_metadata?.zone_order ?? [],
+      },
     };
     setMapDocument(newDocWithLocalComments);
     const data = await loadLocalAssignments(syncConflictInfo.localDocument.document_id);
@@ -349,7 +367,7 @@ const resolveFork = async ({
       updated_at: response.response.updated_at,
     };
     setMapDocument(updatedDocument);
-    store.setClientLastUpdated(response.response.updated_at);
+    !response.response.superseded && store.setClientLastUpdated(response.response.updated_at);
     store.ingestFromDocument(data, updatedDocument);
     if (onNavigate) {
       onNavigate(createMapDocumentResponse.response);
@@ -837,18 +855,27 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     return {applied: true};
   },
 
-  removeAssignmentsForZonesAbove: maxZone => {
+  removeAssignmentsForZonesAbove: (
+    maxZone,
+    renumber = new Map(),
+    timestamp = new Date().toISOString()
+  ) => {
     const {zoneAssignments, zonesLastUpdated} = get();
     const {mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
 
     const updatedAssignments = new Map(zoneAssignments);
     const updatedZonesLastUpdated = new Map(zonesLastUpdated);
-    const timestamp = new Date().toISOString();
     const removedGeoids: Array<{id: string; sourceLayer: string}> = [];
 
-    // Remove assignments for zones above maxZone
-    updatedAssignments.forEach((zone, geoid) => {
+    // Renumber, then remove assignments for zones above maxZone. The map
+    // recolors renumbered units from the zoneAssignments subscription.
+    updatedAssignments.forEach((assigned, geoid) => {
+      const zone = assigned === null ? null : (renumber.get(assigned) ?? assigned);
+      if (assigned !== null && zone !== null && zone !== assigned) {
+        updatedAssignments.set(geoid, zone);
+        updatedZonesLastUpdated.set(assigned, timestamp).set(zone, timestamp);
+      }
       if (zone !== null && zone > maxZone) {
         updatedAssignments.delete(geoid);
         updatedZonesLastUpdated.set(zone, timestamp);
@@ -902,6 +929,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
     const {mapDocument, setMapLock, setNotification, setShowSaveConflictModal, updated} =
       useMapStore.getState();
+    // Read with mapDocument: any edit after this point supersedes this save.
+    const clientLastUpdatedAtStart = get().clientLastUpdated;
     if (!mapDocument?.document_id || !mapDocument.updated_at) {
       setNotification({
         message: 'Unable to save: no map document loaded.',
@@ -956,6 +985,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         shatterIds,
         childToParent,
         overwrite,
+        clientLastUpdatedAtStart,
       });
 
       if (
@@ -983,7 +1013,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         };
       } else if (assignmentsPostResponse.ok) {
         setShowSaveConflictModal(false);
-        if (hasPendingChanges && !silent) {
+        if (hasPendingChanges && !silent && !assignmentsPostResponse.response.superseded) {
           setNotification({message: 'Map saved', importance: 2, type: 'success'});
           return {
             ok: true,

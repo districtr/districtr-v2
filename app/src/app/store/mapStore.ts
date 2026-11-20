@@ -20,6 +20,15 @@ import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
 import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
+import {
+  aliasesForCount,
+  cleanZoneLabel,
+  uniqueZoneLabel,
+  normalizeZoneOrder,
+  renumberedAliases,
+  renumberingForOrder,
+  swapsToDropLastRows,
+} from '../utils/zoneLabels';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
@@ -225,6 +234,8 @@ export interface MapStore {
   resetMapState: () => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
+  /** Set the district count. Lowering it removes the panel's last rows, with
+   * their assignments. */
   setNumDistricts: (numDistricts: number) => void;
   numCommunities: number;
   communities: Community[];
@@ -244,6 +255,19 @@ export interface MapStore {
   clearZoneDescription: (zone: number) => void;
   getZoneDescriptionForZone: (zone: number) => DocumentComment | null;
   getZonesWithDescriptions: () => number[];
+
+  // DISTRICT LABELS / PANEL ORDER
+  /** Set (or reset to its number, with a blank name) a district's label. A
+   * label another district already shows gets a _2, _3, … suffix. */
+  setZoneAlias: (zone: number, alias: string) => void;
+  /** Reorder the districts (`order`: current district numbers, first row first)
+   * by renumbering them: row i becomes district i + 1. Assignments, labels,
+   * descriptions, locks and focus move with each district; colors stay with the
+   * rows, so a district takes the color of the row it lands on. */
+  reorderZones: (order: number[]) => void;
+  /** Merge into map_metadata as a local edit: marks the map unsaved, writes
+   * IndexedDB, and saves with the next PUT /api/assignments. */
+  editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
 
   // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
   /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
@@ -505,17 +529,21 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           ...MAP_MODE_DEFAULT_OPTIONS[mapControlsState.mapMode],
           bounds: preservedBounds,
           stateFipsSet: newStateFipsSet,
+          // Locks follow the plan across edit/display/evaluate switches; a different
+          // map starts unlocked and restores its own saved locks below.
+          lockPaintedAreas: sameMapAcrossViews ? mapControlsState.mapOptions.lockPaintedAreas : [],
         },
         // A fresh map (not just switching edit/display/eval views of the same
-        // one) defaults to painting — that's what a user opens a map to do.
+        // one) opens on the hand; a blank one switches to the brush once its
+        // data loads (demographyStore's updateData knows when it's blank).
         activeTool:
-          mapDocument.access !== ACCESS_STATES.EDIT
-            ? ACTIVE_TOOLS.PAN
-            : sameMapAcrossViews
-              ? mapControlsState.activeTool
-              : ACTIVE_TOOLS.BRUSH,
+          mapDocument.access === ACCESS_STATES.EDIT && sameMapAcrossViews
+            ? mapControlsState.activeTool
+            : ACTIVE_TOOLS.PAN,
         selectedZone: communities[0]?.id ?? mapControlsState.selectedZone,
         sidebarPanels: ['population'],
+        focusedZones: [],
+        showFocusedOnly: false,
         isPainting: false,
         // Drop a remembered viewport when loading a different map so a fresh map
         // fits to its extent; keep it across same-map view switches.
@@ -525,6 +553,23 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         passwordUnlockable: sameMapAcrossViews ? mapControlsState.passwordUnlockable : false,
         isEditing: mapDocument.access === ACCESS_STATES.EDIT,
       });
+
+      const documentId = mapDocument.document_id;
+      if (mapDocument.access === ACCESS_STATES.EDIT && documentId) {
+        // Restored in plain Draw too, which ignores them until Super Draw is back.
+        idb.getZoneLocks(documentId).then(zones => {
+          // Skip if another map loaded meanwhile or the user locked something already.
+          const {mapOptions} = useMapControlsStore.getState();
+          if (
+            zones.length &&
+            get().mapDocument?.document_id === documentId &&
+            !mapOptions.lockPaintedAreas.length
+          ) {
+            useMapControlsStore.setState({mapOptions: {...mapOptions, lockPaintedAreas: zones}});
+            useMapControlsStore.getState().selectUnlockedZone();
+          }
+        });
+      }
 
       useAssignmentsStore.getState().resetShatterState();
 
@@ -736,6 +781,99 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       return Array.from(zones).sort((a, b) => a - b);
     },
 
+    setZoneAlias: (zone, alias) => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+      const zone_aliases = {...mapDocument.map_metadata?.zone_aliases};
+      // Same pipeline and cap the server applies, so the stored name is what's shown.
+      // A label another district already shows gets a _2, _3, … suffix.
+      const label = uniqueZoneLabel(
+        zone,
+        cleanZoneLabel(alias),
+        zone_aliases,
+        mapDocument.num_districts ?? 0
+      );
+      // A label equal to the district's number is its default: nothing to store.
+      const stored = label && label !== String(zone) ? label : undefined;
+      // Unchanged once cleaned: not an edit, so no unsaved mark and no save.
+      if (stored === zone_aliases[zone]) return;
+      if (stored) {
+        zone_aliases[zone] = stored;
+      } else {
+        delete zone_aliases[zone];
+      }
+      get().editMapMetadata({zone_aliases});
+    },
+
+    reorderZones: order => {
+      const {mapDocument, updated, pinnedDescriptionZone} = get();
+      if (!mapDocument) return;
+      const numDistricts = mapDocument.num_districts ?? 0;
+      // Older plans may carry a panel order; the rows show it until a reorder
+      // renumbers them, which also clears it.
+      const current = normalizeZoneOrder(mapDocument.map_metadata?.zone_order, numDistricts);
+      const next = normalizeZoneOrder(order, numDistricts);
+      const renumber = renumberingForOrder(next);
+      if (!renumber.size) return;
+      const remap = (zone: number) => renumber.get(zone) ?? zone;
+      // Row i keeps the color it showed.
+      const scheme = extendColorArray(mapDocument.color_scheme ?? DefaultColorScheme, numDistricts);
+      const color_scheme = [
+        ...current.map(zone => scheme[zone - 1]),
+        ...scheme.slice(numDistricts),
+      ];
+      const zone_aliases = renumberedAliases(
+        mapDocument.map_metadata?.zone_aliases,
+        renumber,
+        numDistricts
+      );
+      set({
+        mapDocument: {
+          ...mapDocument,
+          color_scheme,
+          document_comments: mapDocument.document_comments?.map(c =>
+            c.zone == null ? c : {...c, zone: remap(c.zone)}
+          ),
+          map_metadata: {...mapDocument.map_metadata, zone_aliases, zone_order: null},
+        },
+        pinnedDescriptionZone: pinnedDescriptionZone == null ? null : remap(pinnedDescriptionZone),
+        updated: {...updated, metadata: true, comments: true},
+      });
+      const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
+      useMapControlsStore
+        .getState()
+        .setLockedZones(lockPaintedAreas.map(zone => (zone ? remap(zone) : zone)));
+      useMapControlsStore.setState(state => ({
+        focusedZones: state.focusedZones.map(remap),
+        selectedZone: remap(state.selectedZone),
+      }));
+      const timestamp = new Date().toISOString();
+      // Renumbers the units and writes IndexedDB with the document above.
+      useAssignmentsStore
+        .getState()
+        .removeAssignmentsForZonesAbove(numDistricts, renumber, timestamp);
+      useAssignmentsStore.getState().setClientLastUpdated(timestamp);
+      // Labels, colors, descriptions and locks aren't in the undo history, so
+      // undoing past the reorder would renumber the units back without them.
+      // The dialog says it can't be undone, like the district-count change.
+      temporalManager.clear(MAP_MODES.DISTRICTS);
+    },
+
+    editMapMetadata: patch => {
+      const {mapDocument, updated} = get();
+      if (!mapDocument) return;
+      const newMapDocument = {
+        ...mapDocument,
+        map_metadata: {...mapDocument.map_metadata, ...patch},
+      };
+      set({mapDocument: newMapDocument, updated: {...updated, metadata: true}});
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        idb.updateIdbDocumentMetadata(newMapDocument, newClientLastUpdated);
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+      }
+    },
+
     hoveredPublicZones: [],
     setHoveredPublicZones: zones => set({hoveredPublicZones: zones}),
 
@@ -745,29 +883,90 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
     setNumDistricts: numDistricts => {
-      const {mapDocument, updated, numCommunities} = get();
+      const {mapDocument, updated, numCommunities, pinnedDescriptionZone} = get();
       if (!mapDocument) return;
-      const newColorScheme = extendColorArray(
-        mapDocument.color_scheme ?? DefaultColorScheme,
-        Math.max(numDistricts, numCommunities)
-      );
+      const prevCount = mapDocument.num_districts ?? 0;
+      const lowering = numDistricts < prevCount;
+      // The districts that go are the panel's last rows: they swap numbers with
+      // the kept districts above the new count, carrying color, label,
+      // description, lock and focus with them.
+      const renumber = lowering
+        ? swapsToDropLastRows(
+            normalizeZoneOrder(mapDocument.map_metadata?.zone_order, prevCount),
+            numDistricts
+          )
+        : new Map<number, number>();
+      const remap = (zone: number) => renumber.get(zone) ?? zone;
+      const colors = mapDocument.color_scheme ?? DefaultColorScheme;
+      const swappedColors = [...colors];
+      renumber.forEach((to, from) => (swappedColors[to - 1] = colors[from - 1]));
+      const {zone_aliases, zone_order} = mapDocument.map_metadata ?? {};
       const updatedDocument = {
         ...mapDocument,
         num_districts: numDistricts,
-        color_scheme: newColorScheme,
+        color_scheme: extendColorArray(swappedColors, Math.max(numDistricts, numCommunities)),
+        document_comments: mapDocument.document_comments?.map(c =>
+          c.zone == null ? c : {...c, zone: remap(c.zone)}
+        ),
+        ...(mapDocument.map_metadata && {
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            // Labels past the count go; a new district's default label can't
+            // repeat another district's (see aliasesForCount).
+            ...(zone_aliases && {
+              zone_aliases: aliasesForCount(
+                Object.fromEntries(
+                  Object.entries(zone_aliases).map(([zone, label]) => [remap(Number(zone)), label])
+                ),
+                prevCount,
+                numDistricts
+              ),
+            }),
+            ...(zone_order && {zone_order: zone_order.map(remap)}),
+          },
+        }),
       };
       set({
         mapDocument: updatedDocument,
+        pinnedDescriptionZone: pinnedDescriptionZone == null ? null : remap(pinnedDescriptionZone),
         updated: {
           ...updated,
           metadata: true,
+          comments: updated.comments || renumber.size > 0,
         },
       });
+      // Locks on districts that no longer exist would come back if the count is
+      // raised again; dropping them through setLockedZones updates the saved copy too.
+      const {lockPaintedAreas} = useMapControlsStore.getState().mapOptions;
+      const keptLocks = lockPaintedAreas
+        .map(zone => (zone ? remap(zone) : zone))
+        .filter(zone => !zone || zone <= numDistricts);
+      if (keptLocks.join() !== lockPaintedAreas.join()) {
+        useMapControlsStore.getState().setLockedZones(keptLocks);
+      }
+      // Focus on districts that no longer exist would filter tables down to
+      // rows that aren't there.
+      useMapControlsStore.setState(state => {
+        const focusedZones = state.focusedZones.map(remap).filter(zone => zone <= numDistricts);
+        const selectedZone = remap(state.selectedZone);
+        return {
+          focusedZones,
+          showFocusedOnly: focusedZones.length > 0 && state.showFocusedOnly,
+          selectedZone: selectedZone <= numDistricts ? selectedZone : 1,
+        };
+      });
+      const newClientLastUpdated = new Date().toISOString();
+      if (lowering) {
+        // Its IndexedDB write carries the document above: one write, not two racing.
+        useAssignmentsStore
+          .getState()
+          .removeAssignmentsForZonesAbove(numDistricts, renumber, newClientLastUpdated);
+      }
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
-        const newClientLastUpdated = new Date().toISOString();
         // Update assignments store's clientLastUpdated so SavePopover detects the change
         useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        if (lowering) return;
 
         idb
           .getDocument(mapDocument.document_id)
@@ -1098,13 +1297,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         },
       });
 
-      useMapControlsStore.setState(state => ({
-        selectedZone: remappedSelectedZone,
-        mapOptions: {
-          ...state.mapOptions,
-          lockPaintedAreas: remappedLockedZones,
-        },
-      }));
+      useMapControlsStore.setState({selectedZone: remappedSelectedZone});
+      useMapControlsStore.getState().setLockedZones(remappedLockedZones);
 
       useCoiAssignmentsStore.getState().removeCommunity(communityId);
 
@@ -1318,6 +1512,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
         resetZoneAssignments();
         resetShatterState();
+        // District labels go with the painting; they save like any label edit.
+        get().editMapMetadata({zone_aliases: {}, zone_order: null});
+        // Undo would bring back the painting the server just deleted.
+        temporalManager.clear(MAP_MODES.DISTRICTS);
 
         set({
           appLoadingState: APP_LOADING_STATES.LOADED,

@@ -139,7 +139,7 @@ export const getNextUnusedCommunityColor = (
   let nextColor = palette.find(color => !usedColors.has(color));
 
   while (!nextColor) {
-    palette = extendColorArray(palette, palette.length + 1, DefaultColorScheme);
+    palette = extendColorArray(palette, palette.length + 1);
     nextColor = palette.find(color => !usedColors.has(color));
   }
 
@@ -159,7 +159,7 @@ export const getUnusedCommunityColors = (
   let unusedColors = palette.filter(color => !usedColors.has(color));
 
   while (unusedColors.length < minimumCount) {
-    palette = extendColorArray(palette, palette.length + minimumCount, DefaultColorScheme);
+    palette = extendColorArray(palette, palette.length + minimumCount);
     unusedColors = palette.filter(
       (color, index, colors) => !usedColors.has(color) && colors.indexOf(color) === index
     );

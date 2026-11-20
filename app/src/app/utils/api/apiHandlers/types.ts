@@ -30,6 +30,8 @@ export interface AssignmentsCreate {
     num_districts?: number | null;
     num_communities?: number | null;
     community_metadata_list?: Community[] | null;
+    zone_aliases?: Record<string, string> | null;
+    zone_order?: number[] | null;
   };
   comments?: DocumentCommentCreate[] | null;
 }
@@ -68,6 +70,13 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
+  /** District labels, keyed by district number; a district without one shows
+   * its number. */
+  zone_aliases?: Record<string, string> | null;
+  /** District numbers in population-panel order; absent means 1..N. Legacy:
+   * nothing writes it since reordering renumbers districts (reorderZones clears
+   * it), but older plans still carry one and the panel reads it. */
+  zone_order?: number[] | null;
 }
 
 export interface Community {

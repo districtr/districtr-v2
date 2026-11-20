@@ -15,6 +15,36 @@ interface ZoomToFeatureProps {
   labels?: string[];
 }
 
+function isFeature(feature: any): feature is Feature {
+  return feature && typeof feature === 'object' && feature.type === 'Feature';
+}
+
+function isPolygon(feature: any): feature is Polygon {
+  return feature && typeof feature === 'object' && feature.type === 'Polygon';
+}
+
+/** A zoom target's bounds: its bbox property, else its bbox-ring Polygon. */
+export const getFeatureBounds = (feature: Feature | Polygon): LngLatBoundsLike | null => {
+  if (isFeature(feature) && feature.properties?.bbox) {
+    return feature.properties.bbox;
+  }
+  // Assumes the Polygon is a bbox ring à la PostGIS `ST_Envelope`:
+  // ((MINX, MINY), (MAXX, MINY), (MAXX, MAXY), (MINX, MAXY), (MINX, MINY)),
+  // so corners 0 and 2 are SW/NE. An arbitrary polygon won't work here.
+  const polygon = isPolygon(feature)
+    ? feature
+    : isFeature(feature) && isPolygon(feature.geometry)
+      ? feature.geometry
+      : null;
+  if (polygon) {
+    return [
+      {lng: polygon.coordinates[0][0][0], lat: polygon.coordinates[0][0][1]},
+      {lng: polygon.coordinates[0][2][0], lat: polygon.coordinates[0][2][1]},
+    ];
+  }
+  return null;
+};
+
 export default function ZoomToFeature({
   selectedIndex,
   setSelectedIndex,
@@ -45,37 +75,8 @@ export default function ZoomToFeature({
     setHasMounted(true);
   }, []);
 
-  function isFeature(feature: any): feature is Feature {
-    return feature && typeof feature === 'object' && feature.type === 'Feature';
-  }
-
   const nextIndex = selectedIndex === null ? 0 : selectedIndex + 1;
   const prevIndex = selectedIndex === null ? null : selectedIndex - 1;
-
-  function isPolygon(feature: any): feature is Polygon {
-    return feature && typeof feature === 'object' && feature.type === 'Polygon';
-  }
-
-  const getFeatureBounds = (feature: Feature | Polygon): LngLatBoundsLike | null => {
-    if (isFeature(feature) && feature.properties?.bbox) {
-      return feature.properties.bbox;
-    }
-    // Assumes the Polygon is a bbox ring à la PostGIS `ST_Envelope`:
-    // ((MINX, MINY), (MAXX, MINY), (MAXX, MAXY), (MINX, MAXY), (MINX, MINY)),
-    // so corners 0 and 2 are SW/NE. An arbitrary polygon won't work here.
-    const polygon = isPolygon(feature)
-      ? feature
-      : isFeature(feature) && isPolygon(feature.geometry)
-        ? feature.geometry
-        : null;
-    if (polygon) {
-      return [
-        {lng: polygon.coordinates[0][0][0], lat: polygon.coordinates[0][0][1]},
-        {lng: polygon.coordinates[0][2][0], lat: polygon.coordinates[0][2][1]},
-      ];
-    }
-    return null;
-  };
 
   const zoomToFeature = (selectedIndex: number | null) => {
     let feature;

@@ -4,7 +4,7 @@ Date: 2026-11-06 (PR #830)
 
 ## Status
 
-Accepted. Amends [0047](0047-stats-cdn-offload.md).
+Accepted. Amends [0047](0047-stats-cdn-offload.md). Amended by [0069](0069-district-unions-eviction.md).
 
 ## Context
 

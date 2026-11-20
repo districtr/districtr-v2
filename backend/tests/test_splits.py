@@ -7,7 +7,7 @@ Assignment scenarios:
     Three-zone: 6 VTDs, 2 per zone (1/2/3) → actual_split_pieces = 3
     Single-zone: same 6 VTDs, all zone 1  → actual_split_pieces = 1
 
-County population: 30000 (pre-seeded in COUNTY_CONTEXT cache).
+County population: 30000 (pre-seeded in COUNTY_CONTEXT).
 """
 
 from datetime import datetime
@@ -19,6 +19,7 @@ from app.evaluation.context import (
     COUNTY_CONTEXT,
     CountyContext,
     CountyGeoid,
+    CountyTable,
     DocumentEvaluationContext,
     GerrydbTableName,
 )
@@ -95,7 +96,9 @@ def _create_context(client, session, assignments, ideal_population=_KS_ELLIS_IDE
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, assignments)
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}
+    COUNTY_CONTEXT._tables[_KS_ELLIS_TABLE] = CountyTable(
+        populations={_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}, ideals={}
+    )
     COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     return _StubSplitsContext(
         session, document_id=document_id, ideal_population=ideal_population
@@ -103,7 +106,7 @@ def _create_context(client, session, assignments, ideal_population=_KS_ELLIS_IDE
 
 
 def _cleanup_county_context():
-    COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_TABLE, None)
+    COUNTY_CONTEXT._tables.pop(_KS_ELLIS_TABLE, None)
     COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_TABLE, None)
     COUNTY_CONTEXT._name_cache.clear()
 
@@ -154,7 +157,7 @@ def test_county_pieces_name(three_zone_context):
 def test_county_pieces_unassigned_county_zero(three_zone_context):
     """A county absent from assignments has pieces = 0."""
     phantom = _KS_PHANTOM_COUNTY
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
+    COUNTY_CONTEXT._tables[_KS_ELLIS_TABLE].populations[phantom] = 5000
     result = county_pieces(three_zone_context)
     assert result[phantom]["pieces"] == 0
 
@@ -179,13 +182,13 @@ def test_county_pieces_cold_cache_shatterable_map(
 
     The old bug: county_pieces passes context.gerrydb_table (the combined
     materialized view, relkind='m') to county_populations, which trips the
-    relkind != 'r' guard in _populate_county_data.
+    relkind != 'r' guard in the county load.
     """
     _KS_ELLIS_PARENT_LAYER = GerrydbTableName("ks_ellis_county_vtd")
     _cleanup_county_context()
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_PARENT_LAYER] = {
-        _KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP
-    }
+    COUNTY_CONTEXT._tables[_KS_ELLIS_PARENT_LAYER] = CountyTable(
+        populations={_KS_ELLIS_COUNTY: _KS_ELLIS_TOTAL_POP}, ideals={}
+    )
     COUNTY_CONTEXT._name_cache.update(_COUNTY_NAMES)
     try:
         resp = client.post(
@@ -200,14 +203,14 @@ def test_county_pieces_cold_cache_shatterable_map(
         result = county_pieces(ctx)
         assert result[_KS_ELLIS_COUNTY]["pieces"] == 3
     finally:
-        COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_PARENT_LAYER, None)
+        COUNTY_CONTEXT._tables.pop(_KS_ELLIS_PARENT_LAYER, None)
         COUNTY_CONTEXT._attempts.pop(_KS_ELLIS_PARENT_LAYER, None)
 
 
 def test_county_pieces_unassigned_county_population(three_zone_context):
     """A county absent from assignments still reports its population."""
     phantom = _KS_PHANTOM_COUNTY
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
+    COUNTY_CONTEXT._tables[_KS_ELLIS_TABLE].populations[phantom] = 5000
     result = county_pieces(three_zone_context)
     assert result[phantom]["total_pop"] == 5000
 
@@ -215,7 +218,7 @@ def test_county_pieces_unassigned_county_population(three_zone_context):
 def test_county_pieces_keyed_by_county_pops(three_zone_context):
     """Result contains exactly the counties present in county_pops."""
     phantom = _KS_PHANTOM_COUNTY
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE][phantom] = 5000
+    COUNTY_CONTEXT._tables[_KS_ELLIS_TABLE].populations[phantom] = 5000
     result = county_pieces(three_zone_context)
     assert set(result.keys()) == {_KS_ELLIS_COUNTY, phantom}
 
@@ -236,7 +239,7 @@ def test_county_pieces_empty_when_no_county_pops(
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
     _put_assignments(client, document_id, _THREE_ZONE_ASSIGNMENTS)
-    COUNTY_CONTEXT._pop_cache[_KS_ELLIS_TABLE] = {}
+    COUNTY_CONTEXT._tables[_KS_ELLIS_TABLE] = CountyTable(populations={}, ideals={})
     try:
         ctx = _StubSplitsContext(session, document_id=document_id)
         assert county_pieces(ctx) == {}
@@ -256,7 +259,7 @@ def test_county_pieces_raises_when_attempts_exhausted(
     )
     assert resp.status_code == 201
     document_id = resp.json()["document_id"]
-    COUNTY_CONTEXT._pop_cache.pop(_KS_ELLIS_TABLE, None)
+    COUNTY_CONTEXT._tables.pop(_KS_ELLIS_TABLE, None)
     COUNTY_CONTEXT._attempts[_KS_ELLIS_TABLE] = CountyContext.MAX_LOAD_ATTEMPTS
     try:
         ctx = _StubSplitsContext(session, document_id=document_id)

@@ -4,6 +4,7 @@ import {ChatBubbleIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import {useState} from 'react';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {draftContainerFocusProps} from '@/app/hooks/useCommittedDraft';
 import {
   ZoneDescriptionContent,
   ZONE_DESCRIPTION_CARD_WIDTH,
@@ -56,7 +57,11 @@ export const ZoneDescriptionPopover: React.FC<ZoneDescriptionPopoverProps> = ({
           )}
         </IconButton>
       </Popover.Trigger>
-      <Popover.Content style={{width: ZONE_DESCRIPTION_CARD_WIDTH}} align="start">
+      <Popover.Content
+        style={{width: ZONE_DESCRIPTION_CARD_WIDTH}}
+        align="start"
+        {...draftContainerFocusProps}
+      >
         <ZoneDescriptionContent zone={zone} color={color} showEditingControls={isEditing} />
       </Popover.Content>
     </Popover.Root>

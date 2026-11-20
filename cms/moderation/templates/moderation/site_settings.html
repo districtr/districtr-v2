@@ -2,26 +2,101 @@
 {% block titletag %}Frontend settings{% endblock %}
 
 {% block content %}
-    {% include "wagtailadmin/shared/header.html" with title="Frontend settings" subtitle="Site-wide switches on the public frontend" icon="cog" %}
+    {% include "wagtailadmin/shared/header.html" with title="Frontend settings" subtitle="Site-wide banner, downtime countdown and maintenance mode" icon="cog" %}
 
     <div class="nice-padding">
         {% if error %}
-            <div class="help-block help-critical"><p>{{ error }}</p></div>
+            <div class="help-block help-critical"><p>Couldn't load the current settings, so saving is disabled: {{ error }}</p></div>
         {% endif %}
 
         <form method="post" novalidate>
             {% csrf_token %}
-            <label>
-                <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
-                Under-construction mode
-            </label>
-            <p class="help">
-                When enabled, the public site redirects visitors to the
-                under-construction page. The frontend caches this flag, so a
-                change takes up to a minute to apply. The Wagtail admin and
-                the map editor stay reachable.
-            </p>
-            <button type="submit" class="button">Save</button>
+            {# What the form loaded, so the view sends only the fields that changed. #}
+            <input type="hidden" name="original_banner_message" value="{{ banner_message }}">
+            <input type="hidden" name="original_under_construction" value="{% if under_construction %}on{% endif %}">
+            <input type="hidden" name="original_feature_flags" value="{{ feature_flags }}">
+            <fieldset {% if error %}disabled{% endif %} style="border: 0; padding: 0; margin: 0;">
+                <h2><label for="banner_message">Notification banner</label></h2>
+                <textarea id="banner_message" name="banner_message" rows="3" maxlength="{{ banner_max_length }}" style="max-width: 48rem;">{{ banner_message }}</textarea>
+                <p class="help">
+                    Shown at the top of every page, including the map editor —
+                    use it for downtime notices. Leave blank to hide it. Visitors
+                    can dismiss a message; changing the text shows it again. Open
+                    tabs pick up a change within about a minute.
+                </p>
+
+                <h2><label for="downtime_minutes">Downtime countdown</label></h2>
+                {% if downtime_at %}
+                    <p>
+                        {# Wagtail renders times in each admin's own zone, hence T. #}
+                        <strong>Counting down:</strong> downtime at
+                        {{ downtime_at|date:"H:i T" }}
+                        ({% if countdown_overdue %}time's up — switch maintenance mode on below, or cancel{% else %}in {{ downtime_at|timeuntil }}{% endif %}).
+                    </p>
+                    <label>
+                        <input type="checkbox" name="cancel_countdown">
+                        Cancel the countdown
+                    </label>
+                {% endif %}
+                <p>
+                    Downtime starts in
+                    <input type="number" id="downtime_minutes" name="downtime_minutes" min="1" max="{{ max_countdown_minutes }}" style="width: 6rem; display: inline-block;">
+                    minutes{% if downtime_at %} (replaces the current countdown){% endif %}
+                </p>
+                <p class="help">
+                    Adds a live line to the banner, above any banner text:
+                    "Districtr will be down for scheduled maintenance in 10
+                    minutes. Please finish up what you're doing." Visitors can dismiss it; a new
+                    countdown shows again. The countdown does not start
+                    maintenance: switch maintenance mode on below when you're
+                    ready, which also ends the countdown. If you don't, the line
+                    drops off the banner 30 minutes after the deadline.
+                </p>
+
+                <h2 id="maintenance">Maintenance mode</h2>
+                <label>
+                    <input type="checkbox" name="under_construction" {% if under_construction %}checked{% endif %}>
+                    Maintenance mode
+                </label>
+                <p class="help">
+                    When enabled, the public site redirects visitors to the
+                    under-construction page and the backend API answers 503 to
+                    everything except site settings, so in-flight edits stop
+                    saving. Tabs already open show a blocking maintenance notice
+                    (with the banner text) within about a minute, and drop it
+                    once maintenance ends. The frontend caches this flag for up to
+                    a minute, the API for up to 15 seconds. This admin stays
+                    reachable, but its tools that call the API (submission
+                    moderation, imports, overlays, thumbnails) are paused too.
+                </p>
+                <p class="help">
+                    Workflow: start a countdown (say 10 minutes) to warn people
+                    mid-edit. When it runs out, switch maintenance on and wait a
+                    few minutes before starting database work, so open tabs and
+                    in-flight requests settle. Expect the load balancer's 5xx
+                    alarm email: the paused API's 503s count. Afterwards, switch
+                    maintenance off and clear the banner text (one Save does
+                    both). The switch lives in the database, so restoring a
+                    snapshot turns it off: switch it back on first.
+                </p>
+                {# Flag names and defaults: app/src/app/store/featureFlagStore.ts. #}
+                <h2><label for="feature_flags">Feature flags</label></h2>
+                <textarea id="feature_flags" name="feature_flags" rows="6" spellcheck="false" style="max-width: 48rem; font-family: monospace;">{{ feature_flags }}</textarea>
+                <p class="help">
+                    JSON object of feature names to true (on) or false (off), e.g.
+                    <code>{"tuningView": false}</code>. A feature left out keeps its
+                    default (on). Features: <code>activeMapPills</code> (the
+                    dismissible pills for active map layers),
+                    <code>districtFocus</code> (focusing districts in Super Draw),
+                    <code>tuningView</code> (Super Draw's Tuning view button),
+                    <code>reorderDistricts</code> (Reorder districts in Map actions),
+                    <code>districtLabels</code> (renaming districts). A change
+                    applies on the next page load; open tabs keep what they
+                    loaded with, so nothing changes under someone mid-session.
+                </p>
+
+                <button type="submit" class="button">Save</button>
+            </fieldset>
         </form>
     </div>
 {% endblock %}

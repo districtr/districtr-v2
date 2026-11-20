@@ -55,7 +55,7 @@ What follows, including what a later change would have to undo.
 | [0021](0021-auth0-scopes.md) | Auth0 JWT with scopes for admin/CMS surfaces | 2025-05-05 | Superseded by 0055 |
 | [0022](0022-share-model-public-ids.md) | Share model: the document UUID is the edit capability; public ids for everything else | 2025-08-06 | Accepted |
 | [0023](0023-comment-moderation.md) | Comment moderation: OpenAI moderation API with local-lexicon fallback | 2025-09-02 | Superseded by 0059 and 0060 |
-| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted. Amended by 0047 |
+| [0024](0024-district-unions-cache.md) | district_unions: precomputed per-district cache table | 2025-09-05 | Accepted. Amended by 0047 and 0069 |
 | [0025](0025-save-sync-model.md) | Save/sync model: IndexedDB drafts, automated server sync, derived dirtiness | 2025-12-19 | Accepted |
 | [0026](0026-bun-runtime.md) | Bun as frontend runtime | 2025-12-19 | Accepted |
 | [0027](0027-per-plan-num-districts.md) | num_districts: a per-plan override of the module value | 2026-02-03 | Accepted |
@@ -67,13 +67,13 @@ What follows, including what a later change would have to undo.
 | [0033](0033-centralized-frontend-constants.md) | Centralized constants directory with domain subfolders | 2026-04-24 | Accepted |
 | [0034](0034-evaluation-metrics-json-payload.md) | Evaluation metrics as versioned JSON payload | 2026-04-29 | Accepted |
 | [0035](0035-graph-lru-cache.md) | Graph LRU cache in the API process | 2026-05-06 | Accepted |
-| [0036](0036-eguia-state-ideal-cache.md) | In-memory singleton cache for Eguia state ideals | 2026-05-13 | Accepted |
-| [0037](0037-county-demographics-cache.md) | County demographics materialized in DB, keyed by GerryDB table name | 2026-05-13 | Accepted |
+| [0036](0036-eguia-state-ideal-cache.md) | In-memory singleton cache for Eguia state ideals | 2026-05-13 | Accepted. Amended by 0065 |
+| [0037](0037-county-demographics-cache.md) | County demographics materialized in DB, keyed by GerryDB table name | 2026-05-13 | Superseded by 0065 |
 | [0038](0038-backend-reliability-policy.md) | Backend reliability policy: DB timeouts, slow-request logging, self-owned background sessions | 2026-05-28 | Accepted |
 | [0039](0039-pipeline-built-hybrid-graph.md) | Single hybrid dual-level graph, built by the pipeline | 2026-06-10 | Accepted |
 | [0040](0040-msgpack-wire-format.md) | msgpack wire format for assignment-heavy endpoints | 2026-06-10 | Accepted |
 | [0041](0041-computation-placement.md) | Computation placement: graph in process over SQL on the request path | 2026-06-10 | Accepted |
-| [0042](0042-version-skew-detection.md) | Version-skew detection: build stamping and forced reload of stale tabs | 2026-06-11 | Accepted |
+| [0042](0042-version-skew-detection.md) | Version-skew detection: build stamping and forced reload of stale tabs | 2026-06-11 | Accepted. Amended by 0072 |
 | [0043](0043-aws-platform.md) | AWS platform on ECS Fargate, provisioned by Pulumi | 2026-06-26 | Accepted. Amended by 0052 |
 | [0044](0044-graph-integrity-check.md) | Daily S3 graph comprehensiveness check with SNS alerting | 2026-07-06 | Accepted |
 | [0045](0045-concurrency-ceilings.md) | Concurrency ceilings sized from stress-test evidence | 2026-07-15 | Accepted. Amended by 0052 |
@@ -96,4 +96,8 @@ What follows, including what a later change would have to undo.
 | [0062](0062-deterministic-moderation-submissions-only.md) | Moderation is a deterministic word list, applied to portal submissions only | 2026-09-30 | Accepted. Amends 0058 and 0060 |
 | [0063](0063-compactness-state-utm.md) | Compactness projects each state to its GerryChain UTM zone | 2026-10-15 | Accepted |
 | [0064](0064-advisory-lock-single-flight.md) | Cache-cold computes are single-flight under polled advisory locks | 2026-10-15 | Accepted |
-| [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047 |
+| [0065](0065-county-data-in-process-memory.md) | County data held in process memory | 2026-10-01 | Accepted. Supersedes 0037. Amends 0036 |
+| [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
+| [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
+| [0072](0072-maintenance-mode-gates-the-api.md) | Maintenance mode gates the API with a polled per-worker flag | 2026-11-18 | Accepted. Amends 0042. Amended by 0073 |
+| [0073](0073-cms-feature-flags.md) | CMS feature flags ride the site-settings snapshot and fail open | 2026-11-18 | Accepted. Amends 0072 |

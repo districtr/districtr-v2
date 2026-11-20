@@ -150,6 +150,11 @@ class Settings(BaseSettings):
     # in-process LRU; a redeploy or task restart starts fresh.
     GRAPH_CACHE_PATH: str = "/tmp/districtr-graph-cache"
 
+    # Most stored geometry the nightly pass evicts from district_unions per
+    # run (app/stats_refresh.py, ADR 0069). Each evicted byte writes about a
+    # byte of WAL, so this bounds the night's disk work. 0 turns eviction off.
+    DISTRICT_UNIONS_EVICT_GB_PER_NIGHT: float = 30
+
     # Object storage is AWS S3. R2_BUCKET_NAME is accepted as a legacy env-var
     # alias — it is still the bucket secret's name in existing deployments.
     AWS_S3_BUCKET: str | None = Field(

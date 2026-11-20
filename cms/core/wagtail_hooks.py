@@ -2,8 +2,9 @@
 Site-wide Wagtail admin customisations:
 
 - a role-aware "Districtr shortcuts" dashboard panel (construct_homepage_panels)
-  rendered as action cards whose labels match the sidebar actions exactly
-  (Site content, Review, Map modules, admin screens);
+  rendered as action cards that reuse the admin's action and section labels
+  (portals, map modules, overlays, admin screens); some deep-link into a
+  section of a page (Maintenance mode -> Frontend settings#maintenance);
 - main-menu trimming (construct_main_menu): Reports, the raw Pages tree and
   the generic Snippets listing are hidden for non-admins (the Portals hub
   covers portal pages and forms); Reports is relabelled "Admin analytics"
@@ -51,7 +52,7 @@ def _index_explorer_url(index_model):
 
 
 class DistrictrShortcutsPanel(Component):
-    """Action cards mirroring the sidebar's action labels, one card each."""
+    """Action cards reusing the admin's action and section labels."""
 
     name = "districtr_shortcuts"
     order = 50  # above every stock panel (110+)
@@ -131,6 +132,13 @@ class DistrictrShortcutsPanel(Component):
                     "label": "Frontend settings",
                     "url": reverse("moderation_site_settings"),
                     "icon": "cog",
+                }
+            )
+            cards.append(
+                {
+                    "label": "Maintenance mode",
+                    "url": reverse("moderation_site_settings") + "#maintenance",
+                    "icon": "warning",
                 }
             )
 

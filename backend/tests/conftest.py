@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import app.evaluation.graph_loader as eval_graph_module
+import app.maintenance as maintenance
 from app.evaluation.graph_loader import get_graph as _get_graph_cached
 from app.evaluation.context import GerrydbTableName
 from app.evaluation.types import Election
@@ -79,6 +80,19 @@ class MsgpackAwareTestClient(TestClient):
 
 
 client = MsgpackAwareTestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def maintenance_isolated(monkeypatch):
+    """No real maintenance poller in tests (it reads DATABASE_URL's DB, not
+    the test DB, and never stops), and a clean flag for every test: the
+    settings PATCH sets process-wide state."""
+    monkeypatch.setattr("app.main.start_maintenance_poller", lambda: None)
+    monkeypatch.setattr(maintenance, "enabled", False)
+    monkeypatch.setattr(maintenance, "banner_message", None)
+    monkeypatch.setattr(maintenance, "downtime_at", None)
+    monkeypatch.setattr(maintenance, "feature_flags", {})
+    monkeypatch.setattr(maintenance, "loaded", False)
 
 
 @pytest.fixture(name="client")
@@ -670,7 +684,7 @@ def ks_ellis_parent_layer_only_districtr_map(
 #   block  (r, c): county=(r//2)*2+(c//4), within-county index=(r%2)*4+(c%4)
 #           geo_id = "{county:05d}{idx:07d}"          (bare → unit_type="block")
 #
-# _populate_county_data extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
+# CountyContext._load extracts LEFT(path, 5) / LEFT(SPLIT_PART(path,':',2), 5)
 # for the county GEOID — both encodings map to f"{county:05d}". ✓
 #
 # All parent-adjacency edge weights = 2 (two block edges cross each VTD boundary).

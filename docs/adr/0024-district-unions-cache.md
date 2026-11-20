@@ -4,7 +4,7 @@ Date: 2025-09-05 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted. Amended by [0047](0047-stats-cdn-offload.md).
+Accepted. Amended by [0047](0047-stats-cdn-offload.md) and [0069](0069-district-unions-eviction.md).
 
 ## Context
 

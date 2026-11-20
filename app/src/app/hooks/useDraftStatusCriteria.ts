@@ -5,7 +5,7 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
-import {getContiguity} from '@utils/api/apiHandlers/getContiguity';
+import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {DRAFT_STATUSES, type DraftStatus} from '@constants/document/draftStatus';
 import {FALLBACK_NUM_DISTRICTS} from '@constants/document/limits';
 import {MAP_MODES} from '@constants/map/mode';
@@ -55,7 +55,7 @@ export function useDraftStatusCriteria() {
   // until the scratch checklist is complete) and for docs without a public_id
   // (the endpoint resolves by public_id).
   const {data: contiguityData, isFetching: contiguityFetching} = useQuery({
-    queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+    queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => await getContiguity(mapDocument),
     enabled:
       !!mapDocument?.document_id &&

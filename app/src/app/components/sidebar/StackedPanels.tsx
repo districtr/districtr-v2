@@ -14,6 +14,7 @@ import OverlaysPanel from './OverlaysPanel';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 import {AnimatedCollapse} from './AnimatedCollapse';
+import {FlatRowsContext} from './ConditionalScrollArea';
 import {CoalitionExpander} from './CoalitionExpander';
 import {MapControlsStore, useMapControlsStore} from '@store/mapControlsStore';
 import {useGuideTarget} from '@store/uiHintStore';
@@ -195,15 +196,17 @@ export const StackedPanels: React.FC = () => {
     );
 
   return (
-    <Flex direction="column" gap="2">
-      {visibleSections.map(section => (
-        <AccordionSection
-          key={section.key}
-          section={section}
-          open={sidebarPanels.includes(section.key)}
-          onToggle={() => toggleSection(section.key)}
-        />
-      ))}
-    </Flex>
+    <FlatRowsContext.Provider value>
+      <Flex direction="column" gap="2">
+        {visibleSections.map(section => (
+          <AccordionSection
+            key={section.key}
+            section={section}
+            open={sidebarPanels.includes(section.key)}
+            onToggle={() => toggleSection(section.key)}
+          />
+        ))}
+      </Flex>
+    </FlatRowsContext.Provider>
   );
 };

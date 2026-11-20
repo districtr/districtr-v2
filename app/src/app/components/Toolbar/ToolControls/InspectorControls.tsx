@@ -7,12 +7,15 @@ import {Flex, RadioGroup, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
 import {CardCheckbox, ResponsiveCheckboxCards} from '@/app/components/Shared/CardCheckbox';
 import {SUMMARY_TYPES, TOTAL_COLUMN, type SummaryType} from '@constants/demography/summary';
+import {PovSwitcher} from '@components/Shared/PovSwitcher';
 
 export const InspectorControls = () => {
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const setInspectorMode = useTooltipStore(state => state.setInspectorMode);
   const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
+  const inspectorPov = useTooltipStore(state => state.inspectorPov);
+  const setInspectorPov = useTooltipStore(state => state.setInspectorPov);
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const availableModes = summaryStatLabels.filter(f => availableSummaries[f.value]);
 
@@ -72,21 +75,20 @@ export const InspectorControls = () => {
               {availableModes[0].label}
             </Text>
           )}
+          {inspectorMode === SUMMARY_TYPES.VOTERHISTORY && (
+            <PovSwitcher pov={inspectorPov} setPov={setInspectorPov} />
+          )}
         </Flex>
       )}
-      <Flex direction="column" gap="1">
-        <Text size="2" weight="medium">
-          Columns
-        </Text>
-        <Flex direction="row" className="w-full" wrap="wrap" gap="1">
+      {columnList.length > 0 && (
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            Rows shown
+          </Text>
           <ResponsiveCheckboxCards
-            defaultValue={[]}
             value={activeColumns}
-            gap="1"
             size="1"
-            onValueChange={value => {
-              setActiveColumns([...value, ...totalColumns]);
-            }}
+            onValueChange={value => setActiveColumns([...value, ...totalColumns])}
             id="inspector-columns"
           >
             {columnList.map(f => (
@@ -94,7 +96,7 @@ export const InspectorControls = () => {
             ))}
           </ResponsiveCheckboxCards>
         </Flex>
-      </Flex>
+      )}
     </Flex>
   );
 };

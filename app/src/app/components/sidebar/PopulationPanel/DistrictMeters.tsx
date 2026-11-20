@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useState} from 'react';
+import React, {useContext, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {Box, Button, Flex, IconButton, Text, Tooltip} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
@@ -7,6 +7,7 @@ import {
   EyeOpenIcon,
   LockClosedIcon,
   LockOpen2Icon,
+  TableIcon,
 } from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {useMapControlsStore} from '@store/mapControlsStore';
@@ -16,30 +17,38 @@ import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useSelectCommunity} from '@/app/hooks/useSelectCommunity';
+import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
+import {byZoneOrder} from '@utils/zoneLabels';
+import {ZoneRowLabel} from './ZoneRowControls';
 import {ZoneDescriptionPopover} from './ZoneDescriptionPopover';
-import {ConditionalScrollArea, SCROLL_RESERVED_WIDTH} from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton} from '../ShowAllDistrictsButton';
-import {PopulationPanelOptions} from './PopulationPanelOptions';
-import {formatNumber} from '@utils/numbers';
-import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
+import {
+  ConditionalScrollArea,
+  FlatRowsContext,
+  SCROLL_RESERVED_WIDTH,
+} from '../ConditionalScrollArea';
+import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAllDistrictsButton';
+import {FocusIcon} from '../FocusIcon';
+import {useFeatureFlag} from '@store/featureFlagStore';
+import {ContiguityCell, ContiguityNotes, useDistrictContiguity} from './DistrictContiguity';
+import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
+import {HelpTip, HELP_TIP_FAST_DELAY, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 import {NUMBER_FORMATS} from '@constants/demography/format';
 import {ACCESS_STATES} from '@constants/document/state';
 
 const POP_COL_WIDTH = 76;
 const DEV_COL_WIDTH = 76;
-// Mirrors the rows' Super Draw icon cluster so the header strip's x-scale
-// matches the bars' when icons are showing: two size-1 icon buttons (24px), the
-// cluster gap (4px), and the comment button's trailing space (TWIN_TRAIL).
-const ICONS_WIDTH = 56;
-// ZoneDescriptionPopover's trigger carries mr-2, but its ghost-variant negative
-// margin eats half of it: measured against the rendered rows, its real trailing
-// space is 6px, not 8. The header's invisible twin uses the measured value —
-// copying the mr-2 class instead puts the lock-all 4px right of the rows'.
-const TWIN_TRAIL = 6;
+// Width of the rows' Super Draw icon cluster (focus, comment, lock), shared by
+// the header strip so its x-scale matches the bars'. The three ghost buttons
+// and their trailing space render about 69px wide.
+const ICONS_WIDTH = 72;
+// Extra space after the focus button, so it doesn't crowd the comment button.
+const FOCUS_TRAIL = 4;
+// ZoneDescriptionPopover's trigger carries mr-2 (8px); the header's invisible
+// twin copies it so the lock-all sits over the rows' locks.
+const TWIN_TRAIL = 8;
+// Label column: as wide as the longest label, up to this many characters.
+const MAX_LABEL_CH = 8;
 
-// Bars stop growing on wide sidebars; everything (label strip, rows,
-// scoreboard) shares the cap so columns stay aligned.
-const MAX_METERS_WIDTH = 560;
 const ROW_SCROLL_THRESHOLD = 10;
 // Small plans default to showing every district; larger ones start with
 // started-only.
@@ -86,12 +95,6 @@ const COL_LABEL_STYLE: React.CSSProperties = {
   fontSize: 10,
 };
 
-// Unicode minus to match the tabular figures.
-const signedNumber = (value: number) =>
-  `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value), NUMBER_FORMATS.STRING)}`;
-const signedPercent = (value: number, ideal: number) =>
-  `${value < 0 ? '−' : '+'}${formatNumber(Math.abs(value / ideal), NUMBER_FORMATS.PERCENT)}`;
-
 // Population past ideal darkens toward black as the overage grows: the excess
 // segment starts 30% black at the ideal line and is fully black at 100% over.
 const overflowColorFor = (color: string, population: number, ideal?: number) => {
@@ -103,8 +106,8 @@ const overflowColorFor = (color: string, population: number, ideal?: number) => 
 const chevronCount = (population: number, ideal: number) =>
   Math.min(MAX_CHEVRONS, Math.floor((population - ideal) / ideal / CHEVRON_STEP));
 
-// The Super Draw icon cluster minus the lock button (24px) and cluster gap (4px).
-const COMMENT_COL_WIDTH = ICONS_WIDTH - 28;
+// Plain Draw's comment column: the comment button alone.
+const COMMENT_COL_WIDTH = 28;
 
 /** "Keeps going" marker on an off-the-scale bar's end. */
 const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
@@ -123,15 +126,15 @@ const OffScaleChevrons: React.FC<{count: number}> = ({count}) => (
 /**
  * District overview as a set of population meters: each district's colored bar
  * fills toward a shared ideal line; population past ideal renders in a darker
- * shade of the district color. Rows lead with their district number and show
+ * shade of the district color. Rows lead with their district label and show
  * population and signed deviation in labeled columns. Bars pinned at the
  * track's end (125% of ideal and beyond) turn their row text red and carry a
  * chevron per 25% over ideal. A plan-wide scoreboard (unassigned, top-to-bottom
  * deviation, max deviation) sits at the bottom; the two deviation stats only
  * resolve once every district is started.
  *
- * Honors the population chart settings (chartStore): column visibility and the
- * target-deviation band around the ideal line.
+ * Super Draw's tuning view keeps these rows and swaps each bar for the
+ * district's contiguity, so the exact numbers stay where they were.
  */
 export const DistrictMeters = () => {
   const {populationData} = useZonePopulations();
@@ -141,6 +144,8 @@ export const DistrictMeters = () => {
   const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const setLockedZones = useMapControlsStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
+  const focusedZones = useFocusedZones();
+  const toggleFocusedZone = useMapControlsStore(state => state.toggleFocusedZone);
   const higlightUnassigned = useMapControlsStore(
     state => state.mapOptions.higlightUnassigned ?? false
   );
@@ -152,38 +157,73 @@ export const DistrictMeters = () => {
   // comment_length_limit 0/null disables descriptions — gate the icon so it
   // can't open empty.
   const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
-  const chartOptions = useChartStore(state => state.chartOptions);
+  const popTuningView = useChartStore(state => state.chartOptions.popTuningView);
+  const tuningFlag = useFeatureFlag('tuningView');
+  const focusFlag = useFeatureFlag('districtFocus');
+  const labelsFlag = useFeatureFlag('districtLabels');
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
-  // Plain Draw has no chart-settings UI, so leaving Super Draw resets the
-  // options — otherwise hidden columns or a target-deviation band would be
-  // stranded with no way to undo them.
+  // The tuning view turns population numbers on while it's open, then puts
+  // back whatever the user had.
+  const numbersBeforeTuning = useRef<boolean | undefined>(undefined);
+  const setTuningView = (on: boolean) => {
+    const {mapOptions} = useMapControlsStore.getState();
+    if (on) numbersBeforeTuning.current = mapOptions.showPopulationNumbers;
+    setChartOptions({popTuningView: on});
+    setMapOptions({showPopulationNumbers: on || !!numbersBeforeTuning.current});
+  };
+  // A console override turning the flag off mid-session closes the view,
+  // putting the numbers back. (CMS changes wait for the next page load.)
   useEffect(() => {
-    if (!superDraw) setChartOptions(DEFAULT_CHART_OPTIONS);
+    if (!tuningFlag && useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tuningFlag]);
+  // Plain Draw has no tuning view, so leaving Super Draw turns it off.
+  useEffect(() => {
+    if (superDraw) return;
+    if (useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
+    setChartOptions(DEFAULT_CHART_OPTIONS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [superDraw, setChartOptions]);
   const getZoneColor = useZoneColorGetter();
   const selectCommunity = useSelectCommunity();
+  const startPainting = useMapControlsStore(state => state.startPainting);
+  // Picking a row picks the district to paint, so it switches to the brush.
+  // Clicking the label to rename it selects the row but keeps the tool.
+  const selectRow = (zone: number, e: React.MouseEvent) => {
+    selectCommunity(zone);
+    if (!(e.target as Element).closest('[data-zone-rename]')) startPainting();
+  };
+  const getZoneLabel = useZoneLabelGetter();
+  const zoneOrder = useZoneOrder();
 
   // Both Draw and Super Draw default to started-districts-only (small plans
-  // default to all); null = no explicit choice yet.
+  // default to all); null = no explicit choice yet. Focusing doesn't change
+  // that choice, and focused districts always get a row. Only the shared "Show
+  // focused districts" (in the line atop each table) narrows the rows to the
+  // focused ones and replaces the started/all toggle.
   const [showAllOverride, setShowAllOverride] = useState<boolean | null>(null);
-  const showAll = showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX;
+  const focusFilter = useFocusFilter(populationData.length);
+  const focusing = focusFilter.filtering;
+  const showAll = !focusing && (showAllOverride ?? populationData.length < SHOW_ALL_DEFAULT_MAX);
   const startedData = populationData.filter(d => (d.total_pop_20 ?? 0) > 0);
-  // The selected district always gets a row, started or not: picking an empty
-  // district to draw into and having no bar appear reads as a broken panel.
+  const inSubset = (d: (typeof populationData)[number]) =>
+    focusedZones.includes(d.zone) || (!focusing && (d.total_pop_20 ?? 0) > 0);
+  // The selected district always gets a row, in the subset or not: picking an
+  // empty district to draw into and having no bar appear reads as a broken
+  // panel, and it's how an unfocused district shows up to be focused.
+  const byOrder = byZoneOrder(zoneOrder);
+  const orderedData = [...populationData].sort((a, b) => byOrder(a.zone, b.zone));
   const visibleData = showAll
-    ? populationData
-    : populationData.filter(d => (d.total_pop_20 ?? 0) > 0 || d.zone === selectedZone);
+    ? orderedData
+    : orderedData.filter(d => inSubset(d) || d.zone === selectedZone);
   const hiddenCount = showAll
-    ? populationData.length - startedData.length
+    ? populationData.length - populationData.filter(inSubset).length
     : populationData.length - visibleData.length;
   const nothingStarted = startedData.length === 0;
 
-  // Population chart settings (the settings popover in Super Draw).
-  const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
-  const showPopNumbers = chartOptions.popShowPopNumbers;
-  const showDeviations = chartOptions.popShowTopBottomDeviation;
-  const targetDeviation = chartOptions.popTargetPopDeviation;
+  const tuningView = superDraw && tuningFlag && popTuningView;
+  const contiguity = useDistrictContiguity(tuningView);
 
   const isReadOnly = access === ACCESS_STATES.READ;
   const populations = populationData.map(d => d.total_pop_20 ?? 0);
@@ -221,33 +261,190 @@ export const DistrictMeters = () => {
     }
   };
 
-  // Fixed number column sized to the widest district number so every bar
-  // starts at the same x.
-  const numColWidth = `${String(populationData.length).length + 1}ch`;
+  const lockAllButton = (
+    <HelpTip tip="districtLock">
+      <IconButton
+        onClick={toggleLockAllAreas}
+        variant="ghost"
+        size="1"
+        disabled={isReadOnly}
+        aria-label={allLocked ? 'Unlock all districts' : 'Lock all districts'}
+      >
+        {allLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+      </IconButton>
+    </HelpTip>
+  );
+
+  // Unfocused districts' focus buttons stay hidden until the row is hovered or
+  // focused (opacity, not visibility, so they remain focusable); rows carry the
+  // `group` class.
+  // Holds the focus button's place, so the icons stay aligned: in iconHeader,
+  // and in the rows while the districtFocus flag is off.
+  const focusTwin = (
+    <IconButton
+      variant="ghost"
+      size="1"
+      aria-hidden
+      tabIndex={-1}
+      style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
+    >
+      <FocusIcon />
+    </IconButton>
+  );
+  const focusButton = (zone: number) => {
+    const focused = focusedZones.includes(zone);
+    if (!focusFlag) return focusTwin;
+    return (
+      <HelpTip tip="districtFocus" text={focused ? 'Remove this district from focus.' : undefined}>
+        <IconButton
+          onClick={() => toggleFocusedZone(zone)}
+          variant="ghost"
+          size="1"
+          aria-pressed={focused}
+          aria-label={`Focus district ${getZoneLabel(zone)}`}
+          className={
+            focused
+              ? undefined
+              : 'opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100'
+          }
+          style={{marginRight: FOCUS_TRAIL}}
+        >
+          <FocusIcon filled={focused} />
+        </IconButton>
+      </HelpTip>
+    );
+  };
+
+  // A row's Super Draw icons (focus, comment, lock), right after the label.
+  // Icons manage their own interactions; clicks don't re-select the row.
+  const rowIcons = (zone: number) => {
+    const locked = lockPaintedAreas.includes(zone);
+    const label = getZoneLabel(zone);
+    return (
+      <Flex
+        align="center"
+        gap="1"
+        flexShrink="0"
+        style={{width: ICONS_WIDTH}}
+        onClick={e => e.stopPropagation()}
+      >
+        {focusButton(zone)}
+        <ZoneDescriptionPopover zone={zone} color={getZoneColor(zone)} />
+        <Tooltip
+          delayDuration={HELP_TIP_HOVER_DELAY}
+          content={
+            locked
+              ? 'Unlock this district to allow painting over it'
+              : "Lock this district so it can't be painted over"
+          }
+        >
+          <IconButton
+            onClick={() => handleLockChange(zone)}
+            variant="ghost"
+            size="1"
+            disabled={isReadOnly}
+            aria-label={locked ? `Unlock district ${label}` : `Lock district ${label}`}
+          >
+            {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
+          </IconButton>
+        </Tooltip>
+      </Flex>
+    );
+  };
+
+  // Header over rowIcons: invisible twins of the focus and comment buttons,
+  // then the lock-all, so it lands directly above the rows' locks (ghost-margin
+  // quirks included).
+  const iconHeader = (
+    <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
+      {focusTwin}
+      <IconButton
+        variant="ghost"
+        size="1"
+        aria-hidden
+        tabIndex={-1}
+        style={{visibility: 'hidden', marginRight: TWIN_TRAIL}}
+      >
+        <LockOpen2Icon />
+      </IconButton>
+      {lockAllButton}
+    </Flex>
+  );
+
+  // Fixed label column sized to the longest label (capped; longer ones end in an
+  // ellipsis) so every bar starts at the same x.
+  const labelChars = Math.min(
+    MAX_LABEL_CH,
+    Math.max(1, ...populationData.map(d => Array.from(getZoneLabel(d.zone)).length))
+  );
+  // `ch` is a digit's width, exact for numbers. Letters vary, so other labels
+  // are measured in the row font, bold (the selected row's weight) so selecting
+  // a row doesn't move the bars; until then, a quarter more room per character.
+  const labels = populationData.map(d => getZoneLabel(d.zone));
+  const allDigits = labels.every(label => /^\d+$/.test(label));
+  const labelCh = allDigits ? labelChars : Math.ceil(labelChars * 1.25);
+  const labelSizerRef = useRef<HTMLDivElement>(null);
+  const [labelPx, setLabelPx] = useState<number | null>(null);
+  const labelsKey = allDigits ? '' : labels.join('\n');
+  useLayoutEffect(() => {
+    const el = labelSizerRef.current;
+    const ctx = labelsKey && el ? document.createElement('canvas').getContext('2d') : null;
+    if (!el || !ctx) return setLabelPx(null);
+    const {fontSize, fontFamily} = getComputedStyle(el);
+    ctx.font = `bold ${fontSize} ${fontFamily}`;
+    // Digits render tabular, as wide as "0".
+    const widths = labelsKey
+      .split('\n')
+      .map(label => ctx.measureText(label.replace(/\d/g, '0')).width);
+    const widest = Math.max(...widths);
+    setLabelPx(Math.ceil(widest) + 1);
+  }, [labelsKey]);
+  const labelWidth = labelPx ? `min(${labelPx}px, ${labelCh}ch)` : `${labelCh}ch`;
+  const labelColWidth = `calc(${labelWidth} + 1ch)`;
   const showRowIcons = superDraw && isEditing;
+  const canRename = isEditing && !isReadOnly && labelsFlag;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
-  const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD;
+  const flatRows = useContext(FlatRowsContext);
+  const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD && !flatRows;
 
-  // The target-deviation band brackets the ideal line; rendered per row (like
-  // the tick) so it reads as one continuous band.
-  const band =
-    targetDeviation && idealPopulation && scaleTotal
-      ? {
-          left: Math.max(0, (idealPopulation - targetDeviation) / scaleTotal),
-          right: Math.min(1, (idealPopulation + targetDeviation) / scaleTotal),
-        }
-      : undefined;
+  // While showing focused districts only, the focus line atop the rows
+  // replaces the started/all toggle.
+  const footer = (
+    <Flex align="center" justify="between" mt="1">
+      {!focusing && (
+        <ShowAllDistrictsButton
+          showAll={showAll}
+          onToggle={() => setShowAllOverride(!showAll)}
+          total={populationData.length}
+          hiddenCount={hiddenCount}
+        />
+      )}
+      {superDraw && tuningFlag && (
+        <Flex align="center" gap="1" style={{marginLeft: 'auto'}}>
+          {/* Same toggle-button treatment as Show on map. */}
+          <Button
+            size="1"
+            variant={tuningView ? 'solid' : 'surface'}
+            color="gray"
+            highContrast={tuningView}
+            onClick={() => setTuningView(!tuningView)}
+            aria-pressed={tuningView}
+          >
+            <TableIcon />
+            Tuning view
+          </Button>
+          <HelpTip tip="tuningView" openDelay={HELP_TIP_FAST_DELAY} />
+        </Flex>
+      )}
+    </Flex>
+  );
 
   return (
-    <Flex
-      direction="column"
-      gap="0"
-      mt="2"
-      // Centered once the sidebar is wider than the cap, rather than left-hugging
-      // with all the slack on one side.
-      style={{maxWidth: MAX_METERS_WIDTH, width: '100%', marginInline: 'auto'}}
-    >
+    <Flex direction="column" gap="0" mt="2" style={{width: '100%'}}>
+      {/* Above the empty state too: with every district erased, it's the way
+          out of a focused-only filter the other tables still apply. */}
+      {focusFilter.line}
       {nothingStarted ? (
         <Text color="gray" size="2" my="4" style={{textAlign: 'center'}}>
           Start painting to see population bars
@@ -261,44 +458,22 @@ export const DistrictMeters = () => {
               from under their labels. */}
           <Flex
             gap="2"
-            px="1"
+            px="2"
             pb="1"
             align="end"
             style={
               rowsScroll
-                ? {paddingRight: `calc(var(--space-1) + ${SCROLL_RESERVED_WIDTH})`}
+                ? {paddingRight: `calc(var(--space-2) + ${SCROLL_RESERVED_WIDTH})`}
                 : undefined
             }
           >
-            {showDistrictNumbers && <Box style={{width: numColWidth, flexShrink: 0}} />}
-            {showRowIcons && (
-              /* Mirrors the rows' icon cluster exactly — an invisible twin of
-                 the comment button, then the lock — so the lock-all lands
-                 directly above the rows' lock icons (ghost-margin quirks
-                 included). */
-              <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  aria-hidden
-                  tabIndex={-1}
-                  style={{visibility: 'hidden', marginRight: TWIN_TRAIL}}
-                >
-                  <LockOpen2Icon />
-                </IconButton>
-                <HelpTip tip="districtLock" openDelay={HELP_TIP_FAST_DELAY}>
-                  <IconButton
-                    onClick={toggleLockAllAreas}
-                    variant="ghost"
-                    size="1"
-                    disabled={isReadOnly}
-                    aria-label={allLocked ? 'Unlock all districts' : 'Lock all districts'}
-                  >
-                    {allLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                  </IconButton>
-                </HelpTip>
-              </Flex>
-            )}
+            {/* labelColWidth is partly in ch, so the spacer takes the rows' size-2
+                font or it comes out wider than their label cells. */}
+            <Box
+              ref={labelSizerRef}
+              style={{width: labelColWidth, flexShrink: 0, fontSize: 'var(--font-size-2)'}}
+            />
+            {showRowIcons && iconHeader}
             {showCommentCol && <Box style={{width: COMMENT_COL_WIDTH, flexShrink: 0}} />}
             <Box flexGrow="1" style={{position: 'relative', alignSelf: 'stretch'}}>
               {!!idealPopulation && tickFraction !== undefined && (
@@ -322,32 +497,18 @@ export const DistrictMeters = () => {
                 </HelpTip>
               )}
             </Box>
-            {showPopNumbers && (
-              <Text
-                color="gray"
-                style={{
-                  ...COL_LABEL_STYLE,
-                  width: POP_COL_WIDTH,
-                  flexShrink: 0,
-                  textAlign: 'right',
-                }}
-              >
-                Pop
-              </Text>
-            )}
-            {showDeviations && (
-              <Text
-                color="gray"
-                style={{
-                  ...COL_LABEL_STYLE,
-                  width: DEV_COL_WIDTH,
-                  flexShrink: 0,
-                  textAlign: 'right',
-                }}
-              >
-                Deviation
-              </Text>
-            )}
+            <Text
+              color="gray"
+              style={{...COL_LABEL_STYLE, width: POP_COL_WIDTH, flexShrink: 0, textAlign: 'right'}}
+            >
+              Pop
+            </Text>
+            <Text
+              color="gray"
+              style={{...COL_LABEL_STYLE, width: DEV_COL_WIDTH, flexShrink: 0, textAlign: 'right'}}
+            >
+              Deviation
+            </Text>
           </Flex>
           <ConditionalScrollArea shouldUseScrollableRows={rowsScroll} maxHeight="60vh">
             <Flex direction="column" gap="0">
@@ -360,7 +521,7 @@ export const DistrictMeters = () => {
                 const chevrons = idealPopulation ? chevronCount(population, idealPopulation) : 0;
                 const color = getZoneColor(d.zone);
                 const overflowColor = overflowColorFor(color, population, idealPopulation);
-                const locked = lockPaintedAreas.includes(d.zone);
+                const label = getZoneLabel(d.zone);
                 const deviation = idealPopulation ? population - idealPopulation : undefined;
                 const overflowsIdeal =
                   tickFraction !== undefined && !!idealPopulation && population > idealPopulation;
@@ -369,12 +530,12 @@ export const DistrictMeters = () => {
                     key={d.zone}
                     align="center"
                     gap="2"
-                    px="1"
+                    px="2"
                     // Clicking anywhere on the row selects it, but the row
                     // itself stays a plain div: a role="button" wrapping the
                     // lock/comment controls is invalid ARIA and hides them
                     // from assistive tech. The bar carries the real <button>.
-                    onClick={() => selectCommunity(d.zone)}
+                    onClick={e => selectRow(d.zone, e)}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
                       selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
@@ -382,49 +543,24 @@ export const DistrictMeters = () => {
                     style={{height: ROW_HEIGHT}}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
-                    {showDistrictNumbers && (
-                      <Text
+                    <Flex
+                      align="center"
+                      justify="end"
+                      flexShrink="0"
+                      // A minimum, so the field can widen the cell while editing.
+                      style={{minWidth: labelColWidth, fontSize: 'var(--font-size-2)'}}
+                    >
+                      <ZoneRowLabel
+                        zone={d.zone}
                         size="2"
+                        editable={canRename}
                         color={offScale ? 'red' : 'gray'}
                         weight={selectedZone === d.zone ? 'bold' : 'regular'}
-                        style={{...NUM_CELL_STYLE, width: numColWidth}}
-                      >
-                        {d.zone}
-                      </Text>
-                    )}
-                    {/* Comment and per-district lock are Super Draw features.
-                        Icons manage their own interactions; don't let clicks
-                        re-select the row. */}
-                    {showRowIcons && (
-                      <Flex
-                        align="center"
-                        gap="1"
-                        flexShrink="0"
-                        style={{width: ICONS_WIDTH}}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <ZoneDescriptionPopover zone={d.zone} color={color} />
-                        <Tooltip
-                          content={
-                            locked
-                              ? 'Unlock this district to allow painting over it'
-                              : "Lock this district so it can't be painted over"
-                          }
-                        >
-                          <IconButton
-                            onClick={() => handleLockChange(d.zone)}
-                            variant="ghost"
-                            size="1"
-                            disabled={isReadOnly}
-                            aria-label={
-                              locked ? `Unlock district ${d.zone}` : `Lock district ${d.zone}`
-                            }
-                          >
-                            {locked ? <LockClosedIcon /> : <LockOpen2Icon />}
-                          </IconButton>
-                        </Tooltip>
-                      </Flex>
-                    )}
+                        style={{...NUM_CELL_STYLE, maxWidth: labelColWidth}}
+                      />
+                    </Flex>
+                    {/* Focus, comment and per-district lock are Super Draw features. */}
+                    {showRowIcons && rowIcons(d.zone)}
                     {showCommentCol && (
                       <Flex
                         align="center"
@@ -440,174 +576,163 @@ export const DistrictMeters = () => {
                         lock/comment buttons. Its clicks (including the one
                         Enter/Space synthesizes) bubble to the row's handler,
                         so it needs no onClick of its own. */}
-                    <button
-                      type="button"
-                      aria-label={`Select district ${d.zone}`}
-                      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
-                      style={{
-                        flexGrow: 1,
-                        height: BAR_HEIGHT,
-                        position: 'relative',
-                        padding: 0,
-                        border: 'none',
-                        background: 'none',
-                        cursor: 'pointer',
-                        outlineOffset: 2,
-                      }}
-                    >
-                      {offScale && tickFraction !== undefined ? (
-                        /* Off the scale: the bar runs to the track's end and
+                    {tuningView ? (
+                      <Flex align="center" gap="2" flexGrow="1" minWidth="0">
+                        {/* The bar's stand-in: the row's keyboard control, in
+                            the district's color. */}
+                        <button
+                          type="button"
+                          aria-label={`Select district ${label}`}
+                          className="shrink-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 3,
+                            border: 'none',
+                            padding: 0,
+                            background: color,
+                            outlineOffset: 2,
+                          }}
+                        />
+                        <ContiguityCell zone={d.zone} label={label} contiguity={contiguity} />
+                      </Flex>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`Select district ${label}`}
+                        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-8)]"
+                        style={{
+                          flexGrow: 1,
+                          height: BAR_HEIGHT,
+                          position: 'relative',
+                          padding: 0,
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          outlineOffset: 2,
+                        }}
+                      >
+                        {offScale && tickFraction !== undefined ? (
+                          /* Off the scale: the bar runs to the track's end and
                            stops flat. Rounded cap on the left, darker shaft
                            past the ideal line, and chevrons on the end: this
                            district is off the chart. */
-                        <>
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              width: `${tickFraction * 100}%`,
-                              background: color,
-                              borderRadius: '99px 0 0 99px',
-                            }}
-                          />
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: `${tickFraction * 100}%`,
-                              right: 0,
-                              background: overflowColor,
-                            }}
-                          />
-                          <OffScaleChevrons count={chevrons} />
-                        </>
-                      ) : (
-                        <>
-                          {/* The track runs from the bar's start to the ideal
-                              line: rounded cap on the left, squared off exactly
-                              at ideal. */}
-                          <Box
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              bottom: 0,
-                              left: 0,
-                              width: `${(tickFraction ?? 1) * 100}%`,
-                              borderRadius: '99px 0 0 99px',
-                              background: 'var(--gray-a4)',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <Box
-                              style={{
-                                width: `${Math.min(fill / (tickFraction ?? 1), 1) * 100}%`,
-                                height: '100%',
-                                background: color,
-                                transition: BAR_SPRING,
-                              }}
-                            />
-                          </Box>
-                          {/* Population past ideal extends beyond the track's
-                              square end in a darker shade of the district
-                              color. */}
-                          {overflowsIdeal && tickFraction !== undefined && (
+                          <>
                             <Box
                               style={{
                                 position: 'absolute',
-                                left: `${tickFraction * 100}%`,
                                 top: 0,
                                 bottom: 0,
-                                width: `${(Math.min(fill, 1) - tickFraction) * 100}%`,
-                                background: overflowColor,
-                                transition: BAR_SPRING,
+                                left: 0,
+                                width: `${tickFraction * 100}%`,
+                                background: color,
+                                borderRadius: '99px 0 0 99px',
                               }}
                             />
-                          )}
-                        </>
-                      )}
-                      {/* Target-deviation band bracketing the ideal line. */}
-                      {band && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            left: `${band.left * 100}%`,
-                            width: `${(band.right - band.left) * 100}%`,
-                            top: -TICK_OVERHANG,
-                            bottom: -TICK_OVERHANG,
-                            background: 'var(--gray-a3)',
-                            pointerEvents: 'none',
-                          }}
-                        />
-                      )}
-                      {/* Per-row segment of the shared ideal line; the overhang
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: `${tickFraction * 100}%`,
+                                right: 0,
+                                background: overflowColor,
+                              }}
+                            />
+                            <OffScaleChevrons count={chevrons} />
+                          </>
+                        ) : (
+                          <>
+                            {/* The track runs from the bar's start to the ideal
+                              line: rounded cap on the left, squared off exactly
+                              at ideal. */}
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: 0,
+                                width: `${(tickFraction ?? 1) * 100}%`,
+                                borderRadius: '99px 0 0 99px',
+                                background: 'var(--gray-a4)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <Box
+                                style={{
+                                  width: `${Math.min(fill / (tickFraction ?? 1), 1) * 100}%`,
+                                  height: '100%',
+                                  background: color,
+                                  transition: BAR_SPRING,
+                                }}
+                              />
+                            </Box>
+                            {/* Population past ideal extends beyond the track's
+                              square end in a darker shade of the district
+                              color. */}
+                            {overflowsIdeal && tickFraction !== undefined && (
+                              <Box
+                                style={{
+                                  position: 'absolute',
+                                  left: `${tickFraction * 100}%`,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: `${(Math.min(fill, 1) - tickFraction) * 100}%`,
+                                  background: overflowColor,
+                                  transition: BAR_SPRING,
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                        {/* Per-row segment of the shared ideal line; the overhang
                           bridges the gap to the neighboring rows' bars so the
                           line reads as continuous. */}
-                      {tickFraction !== undefined && (
-                        <Box
-                          style={{
-                            position: 'absolute',
-                            left: `${tickFraction * 100}%`,
-                            top: -TICK_OVERHANG,
-                            bottom: -TICK_OVERHANG,
-                            width: 2,
-                            marginLeft: -1,
-                            background: 'var(--gray-a6)',
-                          }}
-                        />
-                      )}
-                    </button>
-                    {showPopNumbers && (
-                      <Text
-                        size="2"
-                        weight="medium"
-                        color={offScale ? 'red' : undefined}
-                        style={{...NUM_CELL_STYLE, width: POP_COL_WIDTH}}
-                      >
-                        {formatNumber(population, NUMBER_FORMATS.STRING)}
-                      </Text>
+                        {tickFraction !== undefined && (
+                          <Box
+                            style={{
+                              position: 'absolute',
+                              left: `${tickFraction * 100}%`,
+                              top: -TICK_OVERHANG,
+                              bottom: -TICK_OVERHANG,
+                              width: 2,
+                              marginLeft: -1,
+                              background: 'var(--gray-a6)',
+                            }}
+                          />
+                        )}
+                      </button>
                     )}
-                    {showDeviations && (
-                      <Text
-                        size="2"
-                        color={offScale ? 'red' : 'gray'}
-                        style={{...NUM_CELL_STYLE, width: DEV_COL_WIDTH}}
-                      >
-                        {/* An unstarted district's "deviation" is just the
-                            ideal restated as a negative; leave it blank. */}
-                        {population > 0 && deviation !== undefined ? signedNumber(deviation) : '—'}
-                      </Text>
-                    )}
+                    <Text
+                      size="2"
+                      weight="medium"
+                      color={offScale ? 'red' : undefined}
+                      style={{...NUM_CELL_STYLE, width: POP_COL_WIDTH}}
+                    >
+                      {formatNumber(population, NUMBER_FORMATS.STRING)}
+                    </Text>
+                    <Text
+                      size="2"
+                      color={offScale ? 'red' : 'gray'}
+                      style={{...NUM_CELL_STYLE, width: DEV_COL_WIDTH}}
+                    >
+                      {/* An unstarted district's "deviation" is just the
+                          ideal restated as a negative; leave it blank. */}
+                      {population > 0 && deviation !== undefined ? signedNumber(deviation) : '—'}
+                    </Text>
                   </Flex>
                 );
               })}
             </Flex>
           </ConditionalScrollArea>
-          <Flex align="center" justify="between" mt="1">
-            <ShowAllDistrictsButton
-              showAll={showAll}
-              onToggle={() => setShowAllOverride(!showAll)}
-              total={populationData.length}
-              hiddenCount={hiddenCount}
-            />
-            {superDraw && (
-              <span style={{marginLeft: 'auto'}}>
-                <PopulationPanelOptions
-                  chartOptions={chartOptions}
-                  setChartOptions={setChartOptions}
-                  idealPopulation={idealPopulation}
-                />
-              </span>
-            )}
-          </Flex>
+          {tuningView && <ContiguityNotes contiguity={contiguity} />}
+          {footer}
         </>
       )}
       {/* Plan-wide scoreboard: always visible, even with unstarted districts. */}
       <Flex
         gap="4"
-        px="1"
+        px="2"
         pt="3"
         mt="2"
         justify="between"

@@ -5,6 +5,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolbarInSidebar} from './ToolbarInSidebar';
+import {ActiveMapFeaturePills} from './ActiveMapFeaturePills';
+import {useFeatureFlag} from '@store/featureFlagStore';
 import {styled} from '@stitches/react';
 import {MapContextComment} from './MapContextComment';
 import {CoiCommunityViewer} from './CoiCommunityViewer';
@@ -20,6 +22,7 @@ const StyledScrollArea = styled(ScrollArea, {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
+  const pillsFlag = useFeatureFlag('activeMapPills');
   const [width, setWidth] = React.useState(350);
   const [hovered, setHovered] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
@@ -105,6 +108,7 @@ export default function SidebarComponent() {
       <Flex direction="column" gap="3" className="size-full">
         <div className="flex flex-col gap-3 pr-3">
           <ToolbarInSidebar />
+          {pillsFlag && <ActiveMapFeaturePills />}
           <RepairAssignmentsCallout />
           <CoiCommunityViewer />
           <MapContextComment />
