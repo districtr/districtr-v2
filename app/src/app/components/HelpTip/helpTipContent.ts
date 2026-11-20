@@ -32,7 +32,7 @@ export const helpTipContent = {
   // (the video modal's description still does).
   drawToolsCombination: {
     title: 'Draw tools',
-    text: 'Hold Space and drag to move the map without switching tools. Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
+    text: 'Use Paint by county to paint the basic outline, and use smaller brushes/erasers to refine the edges:',
     videoFile: 'draw_tools_combination.webm',
     guideAnchor: 'drawing-the-districts',
     linkSuffix: 'on how to combine tools efficiently',
@@ -41,7 +41,7 @@ export const helpTipContent = {
   // share this one entry, same pattern as drawToolsCombination above.
   superdrawToolsCombination: {
     title: 'Super Draw tools',
-    text: 'Hold Space and drag to move the map without switching tools. After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
+    text: 'After drawing a district in approximation, break units on the edge into smaller units to fine-tune a district’s population balance:',
     videoFile: 'superdraw_tools_combination.webm',
     guideAnchor: 'super-draw',
     linkSuffix: 'on how to combine tools efficiently',

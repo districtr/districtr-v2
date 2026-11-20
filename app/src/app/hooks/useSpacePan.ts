@@ -23,6 +23,12 @@ const SPACE_PAN_CLASS = 'space-pan';
  */
 export const useSpacePan = () => {
   useEffect(() => {
+    // Whether focus last moved with Tab rather than a click: keyboard users
+    // keep Space on the control they tabbed to.
+    let focusedByKeyboard = false;
+    const handlePointerDown = () => {
+      focusedByKeyboard = false;
+    };
     const release = () => {
       if (!isSpacePanHeld()) return;
       setSpacePanHeld(false);
@@ -34,10 +40,11 @@ export const useSpacePan = () => {
         if (e.code === 'Space') e.preventDefault();
         return;
       }
+      if (e.key === 'Tab') focusedByKeyboard = true;
+      if (e.code !== 'Space') return;
       const pointerOverMap = !!document.querySelector('.maplibregl-canvas-container:hover');
-      if (!shouldStartSpacePan(e, classifySpaceFocus(document.activeElement), pointerOverMap)) {
-        return;
-      }
+      const focus = classifySpaceFocus(document.activeElement, focusedByKeyboard);
+      if (!shouldStartSpacePan(e, focus, pointerOverMap)) return;
       e.preventDefault();
       setSpacePanHeld(true);
       document.body.classList.add(SPACE_PAN_CLASS);
@@ -65,11 +72,13 @@ export const useSpacePan = () => {
       if (document.hidden) release();
     };
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown, true);
     document.addEventListener('keyup', handleKeyUp);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', release);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
       document.removeEventListener('keyup', handleKeyUp);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', release);

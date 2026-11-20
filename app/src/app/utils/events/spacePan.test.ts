@@ -36,6 +36,14 @@ describe('classifySpaceFocus', () => {
   test('any other control is left native', () => {
     expect(classifySpaceFocus(el('BUTTON'))).toBe('other');
   });
+
+  test('a control reached with Tab keeps Space, tool buttons included', () => {
+    expect(classifySpaceFocus(el('BUTTON'), true)).toBe('keyboard');
+    expect(classifySpaceFocus(el('BUTTON', ['.tool-button']), true)).toBe('keyboard');
+    // The map and an empty focus have no use for Space either way.
+    expect(classifySpaceFocus(el('CANVAS', ['.maplibregl-map']), true)).toBe('neutral');
+    expect(classifySpaceFocus(null, true)).toBe('neutral');
+  });
 });
 
 describe('shouldStartSpacePan', () => {
@@ -49,9 +57,10 @@ describe('shouldStartSpacePan', () => {
     expect(shouldStartSpacePan(space, 'other', true)).toBe(true);
   });
 
-  test('typing and overlays always keep Space', () => {
+  test('typing, overlays and keyboard-reached controls always keep Space', () => {
     expect(shouldStartSpacePan(space, 'editable', true)).toBe(false);
     expect(shouldStartSpacePan(space, 'overlay', true)).toBe(false);
+    expect(shouldStartSpacePan(space, 'keyboard', true)).toBe(false);
   });
 
   test('modifier chords and other keys never start a pan', () => {

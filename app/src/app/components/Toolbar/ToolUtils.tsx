@@ -30,6 +30,8 @@ export type ActiveToolConfig = {
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
   helpKey?: HelpTipKey;
+  /** Hover text for this one tool, in place of the help entry's own. */
+  helpText?: string;
 };
 
 export const useActiveTools = () => {
@@ -73,6 +75,7 @@ export const useActiveTools = () => {
       label: 'Move',
       icon: HandIcon,
       helpKey: combinationHelpKey,
+      helpText: 'Hold Space and drag to move the map without leaving your current tool.',
       hotKeyAccessor: e => {
         return e.code === 'KeyM';
       },
