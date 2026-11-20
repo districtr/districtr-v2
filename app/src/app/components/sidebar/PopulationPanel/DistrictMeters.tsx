@@ -26,7 +26,13 @@ import {
   FlatRowsContext,
   SCROLL_RESERVED_WIDTH,
 } from '../ConditionalScrollArea';
-import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAllDistrictsButton';
+import {
+  ShowAllDistrictsButton,
+  focusedFirst,
+  pinnedRowCount,
+  useFocusFilter,
+  useFocusedZones,
+} from '../ShowAllDistrictsButton';
 import {FocusIcon} from '../FocusIcon';
 import {useFeatureFlag} from '@store/featureFlagStore';
 import {ContiguityCell, ContiguityNotes, useDistrictContiguity} from './DistrictContiguity';
@@ -213,7 +219,11 @@ export const DistrictMeters = () => {
   // empty district to draw into and having no bar appear reads as a broken
   // panel, and it's how an unfocused district shows up to be focused.
   const byOrder = byZoneOrder(zoneOrder);
-  const orderedData = [...populationData].sort((a, b) => byOrder(a.zone, b.zone));
+  // Focused districts lead, so the ones being watched sit together at the top.
+  const orderedData = focusedFirst(
+    [...populationData].sort((a, b) => byOrder(a.zone, b.zone)),
+    focusedZones
+  );
   const visibleData = showAll
     ? orderedData
     : orderedData.filter(d => inSubset(d) || d.zone === selectedZone);
@@ -407,6 +417,29 @@ export const DistrictMeters = () => {
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);
   const rowsScroll = visibleData.length > ROW_SCROLL_THRESHOLD && !flatRows;
+  // The leading focused rows stick, stacked, atop the rows' own scroller. Flat
+  // rows only lead: AnimatedCollapse's overflow-hidden is the nearest scroll
+  // container there, so sticky can't reach the sidebar's scroller.
+  const pinnedRows = rowsScroll
+    ? pinnedRowCount(
+        visibleData.filter(d => focusedZones.includes(d.zone)).length,
+        visibleData.length
+      )
+    : 0;
+  // Pinned rows are opaque so rows scroll under them, not through them; the
+  // last one's shadow marks where the pinned group ends.
+  const pinnedRowStyle = (index: number): React.CSSProperties | undefined =>
+    index < pinnedRows
+      ? {
+          position: 'sticky',
+          top: index * ROW_HEIGHT,
+          zIndex: 1,
+          boxShadow:
+            index === pinnedRows - 1
+              ? '0 1px 0 var(--gray-a5), 0 4px 6px -4px var(--gray-a8)'
+              : undefined,
+        }
+      : undefined;
 
   // While showing focused districts only, the focus line atop the rows
   // replaces the started/all toggle.
@@ -512,7 +545,7 @@ export const DistrictMeters = () => {
           </Flex>
           <ConditionalScrollArea shouldUseScrollableRows={rowsScroll} maxHeight="60vh">
             <Flex direction="column" gap="0">
-              {visibleData.map(d => {
+              {visibleData.map((d, index) => {
                 const population = d.total_pop_20 ?? 0;
                 const fill = scaleTotal ? population / scaleTotal : 0;
                 // Off the scale: 125% of ideal and beyond. The row goes red and
@@ -538,9 +571,11 @@ export const DistrictMeters = () => {
                     onClick={e => selectRow(d.zone, e)}
                     // `group`: ZoneDescriptionPopover's bubble fades in on row hover
                     className={`group cursor-pointer rounded-md transition-colors duration-150 ${
-                      selectedZone === d.zone ? 'bg-[var(--accent-3)]' : 'hover:bg-[var(--gray-2)]'
+                      selectedZone === d.zone
+                        ? 'bg-[var(--accent-3)]'
+                        : `hover:bg-[var(--gray-2)] ${index < pinnedRows ? 'bg-[var(--color-panel-solid)]' : ''}`
                     }`}
-                    style={{height: ROW_HEIGHT}}
+                    style={{height: ROW_HEIGHT, ...pinnedRowStyle(index)}}
                     data-testid={`district-meter-row-${d.zone}`}
                   >
                     <Flex

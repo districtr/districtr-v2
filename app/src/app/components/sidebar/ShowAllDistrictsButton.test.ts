@@ -4,6 +4,9 @@ import {
   filterFocusedRows,
   focusFilterLabel,
   focusFiltering,
+  focusedFirst,
+  MAX_PINNED_ROWS,
+  pinnedRowCount,
 } from './ShowAllDistrictsButton';
 import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
@@ -39,6 +42,21 @@ describe('focused districts', () => {
     toggleFocusedZone(7);
     toggleFocusedZone(3);
     expect(useMapControlsStore.getState().focusedZones).toEqual([7]);
+  });
+
+  test('focusedFirst moves focused rows to the front, each group in its order', () => {
+    const rows = [{zone: 1}, {zone: 2}, {zone: 3}, {zone: 4}];
+    expect(focusedFirst(rows, [4, 2])).toEqual([{zone: 2}, {zone: 4}, {zone: 1}, {zone: 3}]);
+    expect(focusedFirst(rows, [])).toEqual(rows);
+  });
+
+  test('pinnedRowCount pins focused rows up to the cap, and only over other rows', () => {
+    expect(pinnedRowCount(0, 20)).toBe(0);
+    expect(pinnedRowCount(2, 20)).toBe(2);
+    expect(pinnedRowCount(MAX_PINNED_ROWS, 20)).toBe(MAX_PINNED_ROWS);
+    expect(pinnedRowCount(MAX_PINNED_ROWS + 1, 20)).toBe(0);
+    // Every row focused (Show focused districts): nothing scrolls beneath.
+    expect(pinnedRowCount(3, 3)).toBe(0);
   });
 
   test('focusFilterLabel lists the focused districts by label', () => {
