@@ -264,9 +264,10 @@ export const ModeSwitcher: React.FC = () => {
       if (needsSave) setViewTransition(null);
       return;
     }
-    // Reset the destination's load flags and show the overlay, then navigate
-    // immediately so the overlay covers the real load and only clears once the
-    // destination view's data has loaded (see LoadingOverlay / useViewTransition).
+    // Reset the destination's load flags and start the transition, then navigate
+    // immediately so it spans the real load and only clears once the destination
+    // view's data has loaded (see LoadingOverlay / useViewTransition). Evaluate
+    // shows its overlay; Display opens directly behind an invisible click guard.
     setLoadingState('publicSourceLoaded', false);
     setLoadingState('metricsLoaded', false);
     setViewTransition(mode);
