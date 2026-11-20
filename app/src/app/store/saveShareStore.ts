@@ -9,11 +9,21 @@ import {ACCESS_STATES, type AccessState} from '@constants/document/state';
 interface SaveShareStore {
   password: string;
   setPassword: (password: string) => void;
-  generateLink: (editDocId?: string) => Promise<void>;
+  /** Resolves true once a link is on the clipboard. */
+  generateLink: (editDocId?: string) => Promise<boolean>;
   updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => Promise<void>;
   sharingMode: AccessState;
   setSharingMode: (sharingMode: AccessState) => void;
 }
+
+/** On a 409 the plan already holds a different password (set from another
+ * device). Drop the local copy so Copy link stops re-sending it and the
+ * password field unlocks. */
+const forgetRefusedPassword = (status: number | undefined, documentId: string) => {
+  if (status !== 409) return;
+  useSaveShareStore.setState({password: ''});
+  idb.updatePassword(documentId, '');
+};
 
 export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
   password: '',
@@ -27,7 +37,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     const canEdit = mapDocument?.access === ACCESS_STATES.EDIT || !!editDocId;
 
     if (!canEdit) {
-      return;
+      return false;
     }
 
     if (!documentId || !mapDocument) {
@@ -36,16 +46,18 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
         importance: 2,
         type: 'error',
       });
-      return;
+      return false;
     }
     const response = await patchSharePlan({
       document_id: documentId,
-      password: password ?? null,
+      // Only editable links carry a password.
+      password: sharingMode === ACCESS_STATES.EDIT ? password : null,
       access_type: sharingMode,
     });
     if (!response.ok) {
+      forgetRefusedPassword(response.error.status, documentId);
       setNotification({message: response.error.detail, importance: 2, type: 'error'});
-      return;
+      return false;
     }
     const {public_id: publicId} = response.response;
     const routePrefix = routeForType(mapDocument.map_type);
@@ -64,6 +76,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     }
 
     navigator.clipboard.writeText(shareableLink.toString());
+    return true;
   },
   updatePassword: async (mapDocument: MapStore['mapDocument'], password: string) => {
     if (!mapDocument?.document_id) {
@@ -79,6 +92,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       set({password});
       idb.updatePassword(mapDocument?.document_id, password);
     } else {
+      forgetRefusedPassword(response.error.status, mapDocument.document_id);
       setNotification({message: response.error.detail, importance: 2, type: 'error'});
     }
   },

@@ -58,48 +58,53 @@ def share_districtr_plan(
         ),
         {"document_id": document.document_id},
     )
+    # FOR UPDATE: a concurrent share of the same plan waits here, then sees
+    # the password this request stores.
     token_row = session.execute(
         text(
             """
             SELECT token_id, password_hash
             FROM document.map_document_token
             WHERE document_id = :document_id
+            FOR UPDATE
             """
         ),
         {"document_id": document.document_id},
     ).one()
-    old_hash = token_row.password_hash
+    stored_hash = token_row.password_hash
     # Truthy, not `is not None`: the frontend sends "" when no password is set.
-    # Old code stored a hash of "" on a second share click; treat that as
-    # unset so the owner can still choose a real password.
-    password_required = bool(old_hash) and not (
-        data.password and verify_password("", old_hash)
-    )
-    if data.password and not password_required:
-        # First real password wins: the compare-and-set loses to a concurrent
-        # share that stored one first.
+    # The device that set the password re-sends it on every Copy link, so a
+    # match is a no-op.
+    if data.password and not (
+        stored_hash and verify_password(data.password, stored_hash)
+    ):
+        # The first real password wins. Old share code stored a hash of "" on a
+        # second share click; the owner never chose that, so it's replaceable.
+        if stored_hash and not verify_password("", stored_hash):
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="This plan already has a different password, so yours wasn't saved.",
+            )
         session.execute(
             text(
                 """
                 UPDATE document.map_document_token
                 SET password_hash = :password_hash
                 WHERE document_id = :document_id
-                  AND password_hash IS NOT DISTINCT FROM :old_hash
                 """
             ),
             {
                 "password_hash": hash_password(data.password),
                 "document_id": document.document_id,
-                "old_hash": old_hash,
             },
         )
-        password_required = True
     session.commit()
 
     payload = {
         "token": token_row.token_id,
         "access": data.access_type,
-        "password_required": password_required,
+        "password_required": bool(stored_hash or data.password),
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token, "public_id": document.public_id}

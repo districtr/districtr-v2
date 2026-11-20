@@ -16,6 +16,9 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
   const mapDocument = useMapStore(state => state.mapDocument);
   const userMap = useIdbDocument(mapDocument?.document_id);
   const handleSetPassword = (password: string) => updatePassword(mapDocument, password);
+  // Both, not IndexedDB alone: a refused (409) password is cleared from the
+  // store before this component's IndexedDB copy refreshes.
+  const passwordSaved = !!userMap?.password && !!password;
 
   if (!mapDocument || !isEditing) {
     return null;
@@ -62,11 +65,11 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
             <TextField.Root
               value={password}
               onChange={e => setPassword(e.target.value)}
-              disabled={!!userMap?.password}
+              disabled={passwordSaved}
               className="flex-1"
               placeholder={password || 'Enter a password for your map'}
             />
-            {userMap?.password ? (
+            {passwordSaved ? (
               <Button variant="soft" onClick={() => setShowPassword(p => !p)}>
                 {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
               </Button>
