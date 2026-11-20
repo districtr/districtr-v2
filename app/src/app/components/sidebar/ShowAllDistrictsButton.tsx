@@ -44,6 +44,21 @@ export const useFocusedZones = () => {
 export const filterFocusedRows = <T extends {zone?: unknown}>(rows: T[], focusedZones: Zone[]) =>
   rows.filter(({zone}) => typeof zone !== 'number' || zone <= 0 || focusedZones.includes(zone));
 
+/** Rows with the focused districts first, each group keeping its order. */
+export const focusedFirst = <T extends {zone: number}>(rows: T[], focusedZones: Zone[]) => [
+  ...rows.filter(({zone}) => focusedZones.includes(zone)),
+  ...rows.filter(({zone}) => !focusedZones.includes(zone)),
+];
+
+// Pinning stops past about half of the ~10 rows a 60vh row scroller shows, so
+// the rest still have room to scroll.
+export const MAX_PINNED_ROWS = 5;
+
+/** How many leading (focused) rows pin atop a scrolling table: all of them, up
+ * to MAX_PINNED_ROWS, and none when nothing else would scroll beneath them. */
+export const pinnedRowCount = (focusedCount: number, rowCount: number) =>
+  focusedCount <= MAX_PINNED_ROWS && focusedCount < rowCount ? focusedCount : 0;
+
 /** What the line atop a table with focused districts says, e.g. "Focused:
  * North, 7", given their labels in panel order. */
 export const focusFilterLabel = (labels: string[], focusedOnly: boolean) => {
