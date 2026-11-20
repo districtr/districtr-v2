@@ -142,6 +142,52 @@ export function createMonitoring(
     alarmDescription: "RDS CPU above 80%",
   });
 
+  // Thresholds match the 2026-11-05/06 slowdown, when /stats and /evaluation
+  // took 35–100 s. Two 5-minute periods so one slow export doesn't page.
+  // ponytail: no minimum-sample guard; at night p99 can be one slow request.
+  // Add a RequestCount metric-math gate if that pages.
+  for (const [stat, seconds] of [
+    ["p50", 5],
+    ["p95", 15],
+    ["p99", 40],
+  ] as const) {
+    new aws.cloudwatch.MetricAlarm(`${name}-backend-latency-${stat}`, {
+      ...alarmDefaults,
+      name: `${name}-backend-latency-${stat}`,
+      namespace: "AWS/ApplicationELB",
+      metricName: "TargetResponseTime",
+      dimensions: {
+        LoadBalancer: alb.alb.arnSuffix,
+        TargetGroup: alb.backendTargetGroup.arnSuffix,
+      },
+      extendedStatistic: stat,
+      period: 300,
+      evaluationPeriods: 2,
+      threshold: seconds,
+      comparisonOperator: "GreaterThanThreshold",
+      alarmDescription: `Backend ${stat} response time above ${seconds}s for 10 min`,
+    });
+  }
+
+  // The 11-05 slowdown was disk throughput, not CPU: the t4g instance's EBS
+  // byte-burst balance hit 0 and reads fell to the baseline (IO:DataFileRead
+  // waits) while CPU stayed under 80%. Only instance sizes with burstable EBS
+  // bandwidth (most below 4xlarge, r7g.large included) report the metric;
+  // elsewhere it's missing, which treatMissingData counts as OK.
+  new aws.cloudwatch.MetricAlarm(`${name}-db-ebs-byte-balance`, {
+    ...alarmDefaults,
+    name: `${name}-db-ebs-byte-balance-low`,
+    namespace: "AWS/RDS",
+    metricName: "EBSByteBalance%",
+    dimensions: {DBInstanceIdentifier: database.db.identifier},
+    statistic: "Minimum",
+    period: 300,
+    evaluationPeriods: 1,
+    threshold: 20,
+    comparisonOperator: "LessThanThreshold",
+    alarmDescription: "RDS EBS byte-burst balance below 20% (disk reads about to be throttled)",
+  });
+
   // One pane of glass for stress-test runs (see infra/athena/OBSERVABILITY.md).
   // Dashboard only — deliberately no new alarms.
   new aws.cloudwatch.Dashboard(`${name}-stress-test-dashboard`, {
@@ -206,6 +252,10 @@ export function createMonitoring(
             ]),
             widget(7, "RDS freeable memory", [
               ["AWS/RDS", "FreeableMemory", "DBInstanceIdentifier", dbId, {stat: "Minimum"}],
+            ]),
+            widget(8, "RDS EBS burst balance %", [
+              ["AWS/RDS", "EBSByteBalance%", "DBInstanceIdentifier", dbId, {stat: "Minimum"}],
+              ["AWS/RDS", "EBSIOBalance%", "DBInstanceIdentifier", dbId, {stat: "Minimum"}],
             ]),
           ],
         });
