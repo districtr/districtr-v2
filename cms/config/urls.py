@@ -7,7 +7,7 @@ from wagtail import urls as wagtail_urls
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.documents import urls as wagtaildocs_urls
 
-from authapi.views import jwks
+from authapi.views import extract_token, jwks
 from core.views import health
 
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/admin/")),
     path("health", health),
     path(".well-known/jwks.json", jwks),
+    path("api/extract-token/", extract_token),
     # Public content compat API (replaces the legacy FastAPI /api/cms/content).
     path("api/content/", include("content.urls")),
     path("django-admin/", admin.site.urls),
