@@ -4,7 +4,6 @@ import {useMapControlsStore} from '@store/mapControlsStore';
 import {useMapStore} from '@store/mapStore';
 import {useUiHintStore, useGuideTarget} from '@store/uiHintStore';
 import {ACCESS_STATES} from '@constants/document/state';
-import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 import {HelpTip, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
 
@@ -15,14 +14,9 @@ export const KeyOptionToggles: React.FC = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const access = useMapStore(state => state.mapStatus?.access);
-  const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const disallowPaintOverDisabled = access === ACCESS_STATES.READ;
-  // The population tooltip only shows on hover while actively painting —
-  // it's a no-op during Pan, so the toggle is disabled there too (District
-  // numbers stays enabled; that display doesn't depend on the active tool).
-  const populationTooltipDisabled =
-    access === ACCESS_STATES.READ || activeTool === ACTIVE_TOOLS.PAN;
+  const populationTooltipDisabled = access === ACCESS_STATES.READ;
   const showPopulationTooltip = mapOptions.showPopulationTooltip === true;
   // Already on counts as satisfied — a click would turn it off.
   const {guiding, flashing} = useGuideTarget('population-tooltip', showPopulationTooltip);

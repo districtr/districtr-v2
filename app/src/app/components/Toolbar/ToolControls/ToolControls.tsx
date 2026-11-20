@@ -6,9 +6,9 @@ import {ActiveTool} from '@constants/map/tools';
 import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorControls';
 
 // Every paint-adjacent tool (pan, paint, erase, break) mounts the same
-// ToolControlsScaffold regardless of which is active — the scaffold itself
-// decides what's interactive per tool. Inspector is the one exception, kept
-// on its own separate layout (see InspectorControls).
+// ToolControlsScaffold regardless of which is active, with its controls live
+// under each. Inspector is the one exception, kept on its own separate layout
+// (see InspectorControls).
 const ToolControlsConfig: Record<Partial<ActiveTool>, {Component?: () => React.JSX.Element}> = {
   pan: {Component: ToolControlsScaffold},
   // Unreachable as activeTool (they fire onClick instead), listed for the type.
