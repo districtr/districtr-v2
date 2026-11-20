@@ -58,11 +58,12 @@ export const getFeaturesIntersectingCounties = (
 
   // filterLocked is part of the key: the inspector writes unfiltered entries,
   // and a brush click at the same spot must not replay one onto locked units.
+  // So is the demography table: a shatter or heal reloads it with other units.
   const countyKey =
     distinctCounties
       .map(({fips}) => fips)
       .sort()
-      .join(',') + `|${filterLocked}`;
+      .join(',') + `|${filterLocked}|${demographyService.hash}`;
 
   if (countyKey === lastCountyKey) {
     return lastResult;
