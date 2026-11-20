@@ -1,12 +1,14 @@
 'use client';
 import React, {useEffect, useState} from 'react';
-import {Dialog, Button, Text, Flex} from '@radix-ui/themes';
+import {Dialog, Button, Flex} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
+import {useSiteSettings} from '../utils/api/siteSettings';
 
 // Inlined into the client bundle at build time from .env.production (the git
 // SHA stamped by the deploy workflow). The /api/version route reports the
 // running server's value, so a mismatch means this tab loaded its bundle
-// before the latest deploy. Undefined in local dev, which disables the check.
+// before the latest deploy. Undefined in local dev, which disables the version
+// comparison.
 const CLIENT_VERSION = process.env.NEXT_PUBLIC_BUILD_TAG;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -35,10 +37,14 @@ async function fetchServerVersion(): Promise<string | null> {
  * The dialog intentionally has no dismiss affordance — onOpenChange is not
  * wired, so ESC and backdrop clicks are no-ops and reloading is the only way
  * forward.
+ *
+ * Stands aside while MaintenanceDialog is up; reloading then would only land
+ * on /under-construction.
  */
 export const VersionCheck: React.FC = () => {
   const [stale, setStale] = useState(false);
   const {isVisible} = useVisibilityState();
+  const maintenance = useSiteSettings()?.under_construction;
 
   useEffect(() => {
     if (!CLIENT_VERSION || !isVisible) return;
@@ -63,16 +69,16 @@ export const VersionCheck: React.FC = () => {
     };
   }, [isVisible]);
 
-  if (!stale) return null;
+  if (!stale || maintenance) return null;
 
   return (
     <Dialog.Root open>
       <Dialog.Content>
         <Dialog.Title>Districtr has been updated</Dialog.Title>
-        <Text size="3" className="block mb-4">
+        <Dialog.Description size="3" className="block mb-4">
           A new version of Districtr was released after this page loaded. Please reload the page to
           keep working — your saved work will be right where you left it.
-        </Text>
+        </Dialog.Description>
         <Flex justify="end">
           <Button size="3" onClick={() => window.location.reload()}>
             Reload now

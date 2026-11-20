@@ -30,14 +30,14 @@ Rollback: an image rollback alone leaves the old code on the new schema, where
 every district save fails (the ECS circuit breaker does this by itself if the
 new tasks don't stabilise). The old image doesn't have this revision, so the
 downgrade must run from the new image: a one-off migrate task with the command
-`alembic downgrade 55d7b369ed57`, then deploy the old image with
+`alembic downgrade 1f0fe1359926`, then deploy the old image with
 `force_migrations` (infra/README.md, "Rollback").
 
 Downgrade rebuilds the plain table with the same rows, under the same lock.
 Documents saved with an empty plan keep no rows either way.
 
 Revision ID: 71fa732b1bbc
-Revises: 55d7b369ed57
+Revises: 1f0fe1359926
 Create Date: 2026-11-07
 
 """
@@ -48,7 +48,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "71fa732b1bbc"
-down_revision: Union[str, None] = "55d7b369ed57"
+down_revision: Union[str, None] = "1f0fe1359926"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

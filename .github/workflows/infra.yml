@@ -69,9 +69,13 @@ jobs:
         run: |
           set -euo pipefail
           pulumi stack select "${{ steps.cfg.outputs.stack }}"
+          # --refresh: read AWS first, so resources deleted outside Pulumi
+          # come back (the alarm topic's email subscriptions vanished
+          # unnoticed). Only here: the deploy-*.yml image rolls skip it to
+          # stay fast.
           # Retry: another workflow's `pulumi up` may hold the state lock.
           for attempt in 1 2 3; do
-            if pulumi up --yes --diff; then exit 0; fi
+            if pulumi up --refresh --yes --diff; then exit 0; fi
             echo "pulumi up failed (attempt $attempt); retrying in 60s in case of state-lock contention"
             sleep 60
           done

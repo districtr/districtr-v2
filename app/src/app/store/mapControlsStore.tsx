@@ -57,6 +57,8 @@ export interface MapControlsStore {
   setPasswordUnlockable: (unlockable: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
+  /** Picking a district to paint (a panel row, a number key) switches to the brush. */
+  startPainting: () => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
   paintFunction: PaintEventHandler;
@@ -75,17 +77,18 @@ export interface MapControlsStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   sidebarPanels: SidebarPanel[];
   setSidebarPanels: (panels: SidebarPanel[]) => void;
-  /** Districts the user pinned in Super Draw's population meters. While any
-   * are pinned, the sidebar's district tables show only those rows (see
-   * usePinnedZones). Cleared when a map loads. */
-  pinnedZones: Zone[];
-  togglePinnedZone: (zone: Zone) => void;
-  clearPinnedZones: () => void;
-  /** "Show all" over the pinned filter, shared by every district table so it
-   * survives tab switches. Resets whenever pinning starts or stops, so each
-   * round of pins filters from the first one. */
-  showAllPinned: boolean;
-  setShowAllPinned: (showAllPinned: boolean) => void;
+  /** Districts the user focused in Super Draw's population meters. Focusing
+   * only marks them; the sidebar's district tables narrow to those rows once
+   * the user turns on showFocusedOnly (see useFocusFilter). Cleared when a map
+   * loads. */
+  focusedZones: Zone[];
+  toggleFocusedZone: (zone: Zone) => void;
+  clearFocusedZones: () => void;
+  /** "Show focused districts", shared by every district table so it survives
+   * tab switches. Off by default: focusing districts never filters on its own.
+   * Turns off when the last focus is removed. */
+  showFocusedOnly: boolean;
+  setShowFocusedOnly: (showFocusedOnly: boolean) => void;
   /** Workflow-tab sections a user collapsed (sections default open, so absent
    * = open). Lives here rather than in TabSection state because tab content
    * unmounts on switch. */
@@ -122,7 +125,6 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   showPaintedDistricts: true,
   showZoneNumbers: true,
   showPopulationTooltip: false,
-  showBlockPopulationNumbers: false,
   showPopulationNumbers: false,
   demographicDisplayMode: undefined,
   overlayOpacity: OVERLAY_OPACITY,
@@ -165,6 +167,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
       if (canEdit) {
         set({activeTool: tool});
       }
+    },
+    startPainting: () => {
+      // Edit tools are off while painted districts are hidden (see setMapOptions).
+      if (get().mapOptions.showPaintedDistricts === false) return;
+      get().setActiveTool(ACTIVE_TOOLS.BRUSH);
     },
     brushSize: 1,
     setBrushSize: brushSize => set({brushSize}),
@@ -247,18 +254,17 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setSpatialUnit: spatialUnit => set({spatialUnit}),
     sidebarPanels: ['population'],
     setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-    pinnedZones: [],
-    togglePinnedZone: zone =>
+    focusedZones: [],
+    toggleFocusedZone: zone =>
       set(state => {
-        const pinnedZones = state.pinnedZones.includes(zone)
-          ? state.pinnedZones.filter(z => z !== zone)
-          : [...state.pinnedZones, zone];
-        const stillPinning = state.pinnedZones.length > 0 && pinnedZones.length > 0;
-        return {pinnedZones, showAllPinned: stillPinning && state.showAllPinned};
+        const focusedZones = state.focusedZones.includes(zone)
+          ? state.focusedZones.filter(z => z !== zone)
+          : [...state.focusedZones, zone];
+        return {focusedZones, showFocusedOnly: focusedZones.length > 0 && state.showFocusedOnly};
       }),
-    clearPinnedZones: () => set({pinnedZones: [], showAllPinned: false}),
-    showAllPinned: false,
-    setShowAllPinned: showAllPinned => set({showAllPinned}),
+    clearFocusedZones: () => set({focusedZones: [], showFocusedOnly: false}),
+    showFocusedOnly: false,
+    setShowFocusedOnly: showFocusedOnly => set({showFocusedOnly}),
     collapsedTabSections: [],
     openTabSection: id =>
       set(state => ({collapsedTabSections: state.collapsedTabSections.filter(k => k !== id)})),

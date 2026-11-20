@@ -192,7 +192,8 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
           onValueChange={handleRadioChange}
           defaultValue={0}
           value={selectedZone - 1}
-          disabled={disabled}
+          // Number keys stay live while the picker is greyed out (Move, Erase):
+          // a number key picks the district and switches to the brush.
         />
       </Flex>
       <AlertDialog.Root
@@ -205,7 +206,8 @@ export const DistrictsZonePicker: React.FC<{disabled?: boolean}> = ({disabled}) 
             Reducing your plan to {pendingDecrease} districts removes the last{' '}
             {removedLabels.length === 1 ? 'district' : `${removedLabels.length} districts`} in the
             population list, with their assignments and labels: {listLabels(removedLabels)}. To keep
-            a district, drag it higher in the list first. This cannot be undone.
+            a district, move it higher with Reorder districts in the Map actions menu first. This
+            cannot be undone.
           </AlertDialog.Description>
           <Flex gap="3" mt="4" justify="end">
             <AlertDialog.Cancel>

@@ -19,7 +19,6 @@ export type DistrictrMapOptions = {
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
   showCountyBoundaries?: boolean;
-  showBlockPopulationNumbers?: boolean;
   showPopulationNumbers?: boolean;
   demographicDisplayMode?: undefined | DemographicMode;
   showPaintedDistricts?: boolean;
@@ -30,17 +29,12 @@ export type DistrictrMapOptions = {
 };
 
 export type DistrictrChartOptions = {
-  popTargetPopDeviation?: number;
-  popTargetPopDeviationPct?: number;
   popShowPopNumbers: boolean;
   popShowDistrictNumbers: boolean;
   popBarScaleToCurrent: boolean;
   popShowTopBottomDeviation: boolean;
   // Super Draw's table view of the population chart, for fine tuning.
   popTuningView: boolean;
-  // Super Draw: a reordered district keeps its color. Off, colors stay on the
-  // panel rows.
-  popColorsFollowDistricts: boolean;
 };
 
 interface APIErrorResponse extends AxiosResponse {

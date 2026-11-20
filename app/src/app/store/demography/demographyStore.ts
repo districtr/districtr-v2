@@ -252,6 +252,8 @@ export var useDemographyStore = create(
           const paintByCounty =
             !isConnecticut && !hasAssignments && demographyService.spansMultipleCounties();
           useMapControlsStore.getState().setMapOptions({paintByCounty});
+          // A blank map starts with the brush, not the hand.
+          if (!hasAssignments) useMapControlsStore.getState().startPainting();
           if (paintByCounty) {
             useMapControlsStore.getState().setPaintFunction(getFeaturesIntersectingCounties);
           }

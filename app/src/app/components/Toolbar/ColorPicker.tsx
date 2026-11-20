@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {NullableZone} from '@constants/map/zone';
 import {isDigitLabel, orderedZoneLabels} from '@/app/utils/zoneLabels';
 import {ColorRadioGroup} from './ColorRadioGroup';
@@ -71,10 +72,10 @@ export const ColorPicker = <T extends boolean>({
     if (zone === undefined) return;
     const index = zone - 1;
     const newValue = colorScheme[index];
-    if (multiple) {
-    } else {
-      onValueChange(index, newValue);
-    }
+    if (multiple) return;
+    onValueChange(index, newValue);
+    // A number key picks the district to paint, so it switches to the brush.
+    useMapControlsStore.getState().startPainting();
   };
 
   useEffect(() => {

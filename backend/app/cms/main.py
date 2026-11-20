@@ -1,53 +1,50 @@
-import time
-
-from fastapi import APIRouter, Depends, HTTPException, Request, Security
+from fastapi import APIRouter, Depends, Security
 from sqlmodel import Session
 
+import app.maintenance as maintenance
 from app.core.db import get_session
 from app.core.security import TokenScope, auth
 from app.cms.models import SiteSettings, SiteSettingsUpdate
 
+# Every route here is reachable during maintenance only if it's listed in
+# app/maintenance.py EXEMPT_PATHS.
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 
-# How long each process trusts its last read of the under_construction flag.
-MAINTENANCE_TTL_SECONDS = 30
-_maintenance = {"on": False, "checked_at": float("-inf")}
 
-
-def reject_writes_under_construction(
-    request: Request, session: Session = Depends(get_session)
-) -> None:
-    """503 for every write while the site is under construction.
-
-    The frontend only redirects page loads, so a tab that is already open keeps
-    saving; this is what stops it. Reads still work, and so does the toggle
-    itself. Each process re-reads the flag every MAINTENANCE_TTL_SECONDS: after
-    switching it on, wait that long before relying on it.
-    """
-    if (
-        request.method in ("GET", "HEAD", "OPTIONS")
-        or request.url.path == "/api/cms/site_settings"
-    ):
-        return
-    now = time.monotonic()
-    if now - _maintenance["checked_at"] > MAINTENANCE_TTL_SECONDS:
-        settings = session.get(SiteSettings, 1)
-        _maintenance.update(
-            on=bool(settings and settings.under_construction), checked_at=now
-        )
-    if _maintenance["on"]:
-        raise HTTPException(
-            status_code=503,
-            detail="Districtr is down for maintenance. Please try again in a few minutes.",
-            headers={"Retry-After": "120"},
-        )
+def _public(under_construction, banner_message, downtime_at, feature_flags) -> dict:
+    return {
+        "under_construction": under_construction,
+        "banner_message": banner_message,
+        "downtime_at": downtime_at,
+        "feature_flags": feature_flags or {},
+    }
 
 
 @router.get("/site_settings")
-def get_site_settings(session: Session = Depends(get_session)):
-    """Get site-wide settings (public)"""
+def get_site_settings(fresh: bool = False, session: Session = Depends(get_session)):
+    """Get site-wide settings (public).
+
+    Served from this worker's poller snapshot (app/maintenance.py), so open
+    tabs polling it cost no DB work and it keeps answering while the DB is
+    down. `fresh=true` reads the row instead, for the CMS form, which reads
+    right after a save that may have landed on another worker.
+    """
+    if maintenance.loaded and not fresh:
+        return _public(
+            maintenance.enabled,
+            maintenance.banner_message,
+            maintenance.downtime_at,
+            maintenance.feature_flags,
+        )
     settings = session.get(SiteSettings, 1)
-    return {"under_construction": bool(settings and settings.under_construction)}
+    if settings is None:
+        return _public(False, None, None, None)
+    return _public(
+        settings.under_construction,
+        settings.banner_message,
+        settings.downtime_at,
+        settings.feature_flags,
+    )
 
 
 @router.patch("/site_settings")
@@ -56,11 +53,23 @@ def update_site_settings(
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.update_all_content]),
 ):
-    """Update site-wide settings (admin only)"""
+    """Update site-wide settings (admin only). Only the fields sent change."""
     settings = session.get(SiteSettings, 1) or SiteSettings(id=1)
-    settings.under_construction = data.under_construction
+    for field in data.model_fields_set:
+        value = getattr(data, field)
+        if field in ("under_construction", "feature_flags") and value is None:
+            continue  # NOT NULL column: null means "leave as is"
+        setattr(settings, field, value)
+    if settings.under_construction:
+        settings.downtime_at = None  # the countdown is over
     session.add(settings)
     session.commit()
-    # This process sees the change on its next write; the others within the TTL.
-    _maintenance["checked_at"] = float("-inf")
-    return {"under_construction": settings.under_construction}
+    # This worker flips now; the others on their next poll.
+    state = (
+        settings.under_construction,
+        settings.banner_message,
+        settings.downtime_at,
+        settings.feature_flags,
+    )
+    maintenance.set_state(*state)
+    return _public(*state)

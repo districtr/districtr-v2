@@ -7,7 +7,7 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/map/layerStyle';
 import ContiguityDetail from './ContiguityDetail';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
-import {usePinnedFilter} from '../ShowAllDistrictsButton';
+import {useFocusFilter} from '../ShowAllDistrictsButton';
 import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {byZoneOrder} from '@/app/utils/zoneLabels';
 
@@ -16,7 +16,7 @@ export const Contiguity = () => {
   const getZoneColor = useZoneColorGetter();
   const getZoneLabel = useZoneLabelGetter();
   const zoneOrder = useZoneOrder();
-  const pinFilter = usePinnedFilter(mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+  const focusFilter = useFocusFilter(mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
     queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => {
@@ -74,11 +74,11 @@ export const Contiguity = () => {
     );
   }
 
-  const rows = pinFilter.filter(tableData);
+  const rows = focusFilter.filter(tableData);
 
   return (
     <Box>
-      {pinFilter.line}
+      {focusFilter.line}
       {/* One row per district — scroll past ten, like the population panel. */}
       <ConditionalScrollArea shouldUseScrollableRows={rows.length > 10} maxHeight="60vh">
         <Table.Root size="1">

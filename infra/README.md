@@ -123,7 +123,9 @@ overridden by setting the corresponding key.
 
 Five GitHub Actions workflows (`.github/workflows/`):
 
-- **AWS Infrastructure (Pulumi)** — `infra.yml`: `pulumi up` for the stack.
+- **AWS Infrastructure (Pulumi)** — `infra.yml`: `pulumi up --refresh` for the
+  stack, so resources deleted outside Pulumi are recreated (and console edits
+  reverted to the code). Run it by hand (workflow_dispatch) to repair drift.
 - **AWS Deploy API (Pulumi)** — `deploy-api.yml`: build → ECR → run alembic
   migrations as a one-off task (skipped when alembic, `requirements.txt`, and
   the Dockerfile are unchanged since the SHA in the SSM image tag; dispatch
@@ -214,7 +216,9 @@ pulumi stack output --show-secrets      # incl. DATABASE_URL for manual DB acces
   (`docs/WAGTAIL-CUTOVER-FOLLOWUPS.md`). After a snapshot restore or a manual
   `alembic downgrade`, the next API deploy must be dispatched with
   `force_migrations`: the SSM tag still names the newer SHA, so the
-  migration check would otherwise skip.
+  migration check would otherwise skip. Maintenance mode lives in the
+  database too, so a restore switches it off: switch it back on in the CMS
+  first if the work isn't done.
 - **Secrets**: `pulumi config set --secret <key> <value>` then `pulumi up`; the
   encrypted value is committed to the stack YAML and lands in SSM.
 - **Database**: the password is Pulumi-generated; `pulumi stack output

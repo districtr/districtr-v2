@@ -32,7 +32,7 @@ Districtr is a community redistricting platform: people draw district maps (assi
 │       ├── admin_ops/           # GeoPackage import + map-module compose over HTTP
 │       ├── alembic/             # Alembic DB migrations
 │       ├── assignments/         # Zone assignments management
-│       ├── cms/                 # Site settings (under-construction toggle)
+│       ├── cms/                 # Site settings (maintenance mode, site banner, feature flags)
 │       ├── contiguity/          # Geographic spatial contiguity
 │       ├── core/                # DB, config, security, dependencies
 │       ├── district_notes/      # Per-district notes on a map

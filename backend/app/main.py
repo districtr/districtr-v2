@@ -88,6 +88,7 @@ from app.submissions.models import (
 )
 import app.thumbnails.main as thumbnails
 from app.stats_refresh import start_nightly_stats_refresh
+from app.maintenance import MaintenanceMiddleware, start_maintenance_poller
 from app.models import (
     Assignments,
     ColorsSetResult,
@@ -142,11 +143,20 @@ from ._sanitize import (
     _validate_community_save_payload,
 )
 
+
+def _traces_sampler(context: dict) -> float:
+    # Every open tab polls site settings once a minute; tracing those would
+    # drown out the rest.
+    if context.get("asgi_scope", {}).get("path") == "/api/cms/site_settings":
+        return 0
+    return settings.SENTRY_TRACES_SAMPLE_RATE
+
+
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
-        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-        # relative to traces_sample_rate, so one knob scales both
+        traces_sampler=_traces_sampler,
+        # relative to the traced rate, so one knob scales both
         profiles_sample_rate=1.0,
         environment=settings.ENVIRONMENT.value,
     )
@@ -161,13 +171,11 @@ async def lifespan(app: FastAPI):
     # Publishes stale district stats overnight for plans nobody is editing
     # (app/stats_refresh.py); a no-op without S3.
     start_nightly_stats_refresh()
+    start_maintenance_poller()
     yield
 
 
-app = FastAPI(
-    lifespan=lifespan,
-    dependencies=[Depends(cms.reject_writes_under_construction)],
-)
+app = FastAPI(lifespan=lifespan)
 app.include_router(admin_ops.router)
 app.include_router(cms.router)
 app.include_router(exports.router)
@@ -179,6 +187,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 VERBOSE_LOGGING = settings.VERBOSE_LOGGING
 
+
+# Added before CORS so CORS wraps it and browsers can read the 503.
+app.add_middleware(MaintenanceMiddleware)
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS or settings.BACKEND_CORS_ORIGIN_REGEX:
