@@ -91,6 +91,8 @@ Likely to fire:
 |---|---|---|
 | `districtr-prod-backend-memory-high` | ECS memory avg > 85% for 2×5 min | Eval load fills the in-RAM graph cache — the expected suspect |
 | `districtr-prod-db-cpu-high` | RDS CPU avg > 80% for 2×5 min | Concurrent COPY writes + assignment reads |
+| `districtr-prod-backend-latency-p50` / `-p95` / `-p99` | backend response time > 5 s / 15 s / 40 s for 2×5 min | Requests queue once the pool or the disk saturates |
+| `districtr-prod-db-ebs-byte-balance-low` | RDS `EBSByteBalance%` min < 20% over 5 min | Sustained reads drain the t4g disk-throughput burst (the 2026-11-05 slowdown) |
 
 Possible if things go wrong (also the run's abort criteria):
 
