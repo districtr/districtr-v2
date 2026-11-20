@@ -2,6 +2,7 @@
 import React from 'react';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {EvalTransitionOverlay} from './EvalTransitionOverlay';
 import {useViewTransition} from './useViewTransition';
 
@@ -51,7 +52,8 @@ function useDelayed(active: boolean, delayMs: number) {
  *     nothing is edited mid-navigation.
  *  3. Operation lock (save / revert / reset / copy / conflict resolution) — shows
  *     the lock reason.
- *  4. Document loading — generic "Loading map" while a document fetch is in flight.
+ *  4. Document loading — generic "Loading map" while a document fetch is in flight,
+ *     in the editor and Evaluate. View mode opens without it, from a link too.
  *
  * The Evaluate transition shows immediately (intentional); loading/lock states wait
  * a beat so quick operations don't flash. Replaces the legacy MapLockShade.
@@ -61,8 +63,12 @@ export const LoadingOverlay: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const documentLoading = useMapStore(state => state.loadingStates.documentLoading);
 
+  // View mode has nothing to protect while its document loads, so it shows the
+  // page filling in rather than a card.
+  const viewMode = useMapControlsStore(state => !state.isEditing && !state.isEval);
+
   // Silent locks (background autosave) block edits but never show the overlay.
-  const busy = Boolean(mapLock?.isLocked && !mapLock.silent) || documentLoading;
+  const busy = Boolean(mapLock?.isLocked && !mapLock.silent) || (documentLoading && !viewMode);
   const showBusy = useDelayed(busy, BUSY_SHOW_DELAY_MS);
 
   // Auto-save kicked off by a mode switch: the transition is already active, so surface
