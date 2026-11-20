@@ -1,7 +1,6 @@
 'use client';
 import React from 'react';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
-import {EyeOpenIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@store/mapStore';
 import {EvalTransitionOverlay} from './EvalTransitionOverlay';
 import {useViewTransition} from './useViewTransition';
@@ -10,10 +9,7 @@ import {useViewTransition} from './useViewTransition';
 const BUSY_SHOW_DELAY_MS = 150;
 
 /** Full-screen busy card: a spinner with a short message. */
-const OverlayCard: React.FC<{
-  message: string;
-  icon?: React.ComponentType<{className?: string}>;
-}> = ({message, icon: Icon}) => (
+const OverlayCard: React.FC<{message: string}> = ({message}) => (
   <div
     className="fixed inset-0 z-[100000] flex items-center justify-center bg-white/90 backdrop-blur-sm"
     role="status"
@@ -26,12 +22,9 @@ const OverlayCard: React.FC<{
       className="rounded-xl border border-gray-200 bg-white px-8 py-6 shadow-xl"
     >
       <Spinner size="3" />
-      <Flex align="center" gap="2">
-        {Icon && <Icon className="size-4 text-districtrBlue" />}
-        <Text size="2" weight="medium">
-          {message}
-        </Text>
-      </Flex>
+      <Text size="2" weight="medium">
+        {message}
+      </Text>
     </Flex>
   </div>
 );
@@ -53,13 +46,15 @@ function useDelayed(active: boolean, delayMs: number) {
 /**
  * Root-mounted overlay for every "map busy" state, in priority order:
  *  1. View transition into Evaluate — themed step sequence.
- *  2. View transition into Display — covers the load until the map is painted.
+ *  2. View transition into Display — no card: the view opens directly and fills in
+ *     as it loads. An invisible guard holds clicks until the map is painted, so
+ *     nothing is edited mid-navigation.
  *  3. Operation lock (save / revert / reset / copy / conflict resolution) — shows
  *     the lock reason.
  *  4. Document loading — generic "Loading map" while a document fetch is in flight.
  *
- * Transitions show immediately (intentional); loading/lock states wait a beat so
- * quick operations don't flash. Replaces the legacy MapLockShade.
+ * The Evaluate transition shows immediately (intentional); loading/lock states wait
+ * a beat so quick operations don't flash. Replaces the legacy MapLockShade.
  */
 export const LoadingOverlay: React.FC = () => {
   const {viewTransition, step} = useViewTransition();
@@ -79,7 +74,7 @@ export const LoadingOverlay: React.FC = () => {
     return <EvalTransitionOverlay activeStep={step} />;
   }
   if (viewTransition === 'display') {
-    return <OverlayCard icon={EyeOpenIcon} message="Loading view mode" />;
+    return <div className="fixed inset-0 z-[100000] cursor-progress" aria-hidden />;
   }
   // Silent locks (background autosave) keep the page-wide interaction guard the
   // visible card used to provide — otherwise topbar/sidebar edits landing while
