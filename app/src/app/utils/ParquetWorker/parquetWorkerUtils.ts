@@ -12,6 +12,22 @@ interface Part {
 // each multipart response, which is held whole until the read finishes.
 const MAX_BATCH_BYTES = 1 << 21; // 2mb
 
+/**
+ * The url to read a parquet file from, tagged with the file's Last-Modified time,
+ * and its byte length. The CDN marks these files immutable for a year, so a
+ * browser would otherwise keep reading cached byte ranges of a replaced file,
+ * mixed with ranges of the new one. The HEAD skips the browser cache; the tag
+ * gives each version of the file its own cache entries.
+ */
+export async function versionedParquetUrl(url: string): Promise<{url: string; byteLength: number}> {
+  const res = await fetch(url, {method: 'HEAD', cache: 'no-store'});
+  if (!res.ok) throw new Error(`HEAD ${url} failed: ${res.status}`);
+  const byteLength = Number(res.headers.get('Content-Length'));
+  const modified = Date.parse(res.headers.get('Last-Modified') ?? '');
+  const sep = url.includes('?') ? '&' : '?';
+  return {url: Number.isNaN(modified) ? url : `${url}${sep}v=${modified / 1000}`, byteLength};
+}
+
 /** Urls whose server refused or ignored a multi-range request. Exported for tests. */
 export const singleRangeUrls = new Set<string>();
 

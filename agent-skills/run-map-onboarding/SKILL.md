@@ -88,9 +88,9 @@ docker-compose exec backend python cli.py create-districtr-map \
 
 ## Adding columns to an onboarded layer
 
-For new data on a state that is already onboarded, such as a new election. Existing values are never changed: every named column must be new, or hold only NULLs left by an interrupted run. Steps 3–5 run in the backend container of each environment, one environment at a time.
+For new data on a state that is already onboarded, such as a new election. Existing values are never changed: every named column must be new, or hold only NULLs left by an interrupted run. Name an election's columns `<office>_<yy>_dem` and `<office>_<yy>_rep`, lowercase; the frontend shows only elections listed in `ALL_VOTER_COLUMN_GROUPINGS` (`app/src/app/utils/api/summaryStats.ts`). Steps 3–5 run in each environment's backend container (on AWS, ECS exec into service `backend` of cluster `districtr-<env>`): dev first, then prod after a manual RDS snapshot.
 
-1. **Merge the CSV into the GeoPackages** (pipelines). Block values join on the CSV's `geoid20`; each parent's values are the sums of its blocks, with membership read from the map's graph npz. Writes copies of both files to `--out-dir`; the inputs are untouched.
+1. **Merge the CSV into the GeoPackages** (pipelines). Block values join on the CSV's `geoid20`, and every block needs a numeric value; each parent's values are the sums of its blocks, with membership read from the map's graph npz. Writes copies of both files to `--out-dir`; the inputs are untouched.
 
    ```bash
    docker-compose exec pipelines python cli.py transforms add-block-columns \
@@ -120,7 +120,7 @@ For new data on a state that is already onboarded, such as a new election. Exist
      -n <view> -n <parent-table> -n <child-table> [--dry-run]
    ```
 
-6. **Rebuild and upload the view's parquet**, which feeds the frontend's demography table (`tabular build-parquet --parent-layer … --child-layer … -o <view>.parquet -f --upload`), then invalidate its CDN cache key. Do this last: the CDN serves the parquet to every environment reading the bucket, so upload it only once every environment's database has the columns.
+6. **Rebuild and upload the view's parquet**, which feeds the frontend's demography table (`tabular build-parquet --parent-layer … --child-layer … -o <view>.parquet -f --upload`), then invalidate `/tabular/<view>.parquet` on the CDN: it caches parquets for a year and leaves the query string out of its cache key, so it keeps serving the old file until invalidated. Browsers then pick up the new file on their own, because the frontend tags the parquet url with the file's `Last-Modified` time. Do this last: the CDN serves the parquet to every environment reading the bucket, so upload it only once every environment's database has the columns.
 
 No backend restart is needed: county data for the splits and Eguia metrics reloads itself when an evaluation asks for a new election. A correction to the values of an existing column shows in those metrics only after a restart.
 
