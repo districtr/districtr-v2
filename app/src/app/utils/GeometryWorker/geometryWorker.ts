@@ -217,6 +217,28 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     return index;
   },
+  getZoneBounds(zone) {
+    // Centroids, so this understates the zone's true extent; callers pad the fit.
+    const {ids, x, y, zones} = this.getPointIndex();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let count = 0;
+    let last = -1;
+    for (let i = 0; i < zones.length; i++) {
+      if (zones[i] !== zone) continue;
+      count++;
+      last = i;
+      if (x[i] < minX) minX = x[i];
+      if (x[i] > maxX) maxX = x[i];
+      if (y[i] < minY) minY = y[i];
+      if (y[i] > maxY) maxY = y[i];
+    }
+    if (!count) return null;
+    // A lone unit's bbox is a point; its id lets zoomToBounds frame the real outline.
+    return {bbox: [minX, minY, maxX, maxY], geoIds: count === 1 ? [ids[last]] : undefined};
+  },
   async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     const {x, y, pop, zones} = this.getPointIndex();

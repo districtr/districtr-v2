@@ -1,6 +1,7 @@
 import type {LngLatBoundsLike, Map as MapLibreMap, PaddingOptions} from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '@/app/constants/map/layerIds';
 import type {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {useMapStore} from '@/app/store/mapStore';
 
 /**
  * Clamp fitBounds padding to a fraction of each canvas dimension (default a
@@ -93,6 +94,7 @@ const finalFitOptions = (map: MapLibreMap, bounds: LngLatBoundsLike, singleUnit:
  * is idle and a short dwell has passed, flies in. With `geoIds`, the fly targets
  * the union bbox of their rendered pieces: `bounds` may be centroid-derived, so
  * it understates the true extent and collapses to a point for a single unit.
+ * Leaves block view first, since it confines the camera to the broken unit.
  * Returns a cancel function; call it before starting another zoom (or on
  * unmount) so a stale idle handler can't yank the camera later.
  */
@@ -101,6 +103,15 @@ export const zoomToBounds = (
   mapDocument: DocumentObject | null | undefined,
   {bounds, geoIds, padding}: {bounds: LngLatBoundsLike; geoIds?: string[]; padding?: number}
 ): (() => void) => {
+  const mapStore = useMapStore.getState();
+  if (mapStore.captiveIds.size) {
+    mapStore.exitBlockView();
+    // BlockModePill lifts its maxBounds/minZoom only in an effect cleanup,
+    // after React re-renders, so the jump below would still be clamped to the
+    // unit. Lift them now; the cleanup repeats this harmlessly.
+    map.setMaxBounds(null);
+    map.setMinZoom(null);
+  }
   const isSingleUnit = geoIds?.length === 1;
   // A single unit's `bounds` is centroid-derived — a zero-size point — so
   // cameraForBounds returns ~max zoom no matter the padding; padding can't
