@@ -88,9 +88,11 @@ describe('ingestFromDocument checked plan', () => {
     parentToChild: new Map(),
     childToParent: new Map(),
   };
+  // The store's own action: another suite swaps it for a stub and leaves it.
+  const {ingestFromDocument} = useAssignmentsStore.getInitialState();
 
   test("a load with no local edits is the server's plan for its version", () => {
-    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
+    ingestFromDocument(data, doc, false);
     const {checkedPlan, zoneAssignments} = useAssignmentsStore.getState();
     expect(checkedPlan?.updatedAt).toBe('T1');
     expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
@@ -99,11 +101,11 @@ describe('ingestFromDocument checked plan', () => {
   });
 
   test('a load with local edits, or without its document, is not', () => {
-    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
-    useAssignmentsStore.getState().ingestFromDocument(data, doc, true);
+    ingestFromDocument(data, doc, false);
+    ingestFromDocument(data, doc, true);
     expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
-    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
-    useAssignmentsStore.getState().ingestFromDocument(data);
+    ingestFromDocument(data, doc, false);
+    ingestFromDocument(data);
     expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
   });
 });
