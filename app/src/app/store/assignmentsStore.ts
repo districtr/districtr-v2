@@ -48,6 +48,13 @@ type SaveOptions = {
   silent?: boolean;
   /** A background save; stays quiet once the user has dismissed the repair modal. */
   autosave?: boolean;
+  /** Takes no map lock, so input isn't blocked while it runs: the tuning view's
+   * autosaves, which come every few seconds and would swallow the start of a
+   * stroke. Safe because the map stays editable through any save: what it sends
+   * is copied, an edit landing meanwhile leaves the map dirty for the next save
+   * (putUpdateAssignmentsAndVerify), and a stroke in progress at the end
+   * isn't touched. It also leaves alone a lock someone else holds (a break). */
+  unlocked?: boolean;
 };
 
 export interface AssignmentsStore {
@@ -83,6 +90,16 @@ export interface AssignmentsStore {
   ) => void;
 
   clientLastUpdated: string;
+  /** The plan the server's contiguity verdicts for `updatedAt` are about: what
+   * the last verified save sent, or a load with no local edits. The tuning view
+   * diffs it with the current plan to tell which verdicts are stale. Not in the
+   * undo history, which can't change what the server has. */
+  checkedPlan: {
+    documentId: string;
+    updatedAt: string;
+    zoneAssignments: Map<string, NullableZone>;
+    childToParent: Map<string, string>;
+  } | null;
   /** Internal snapshot used to collapse shatter + first child paint into a single undo step */
   pendingShatterUndoState: AssignmentsTemporalSnapshot | null;
   setClientLastUpdated: (updated_at: string) => void;
@@ -394,6 +411,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   parentToChild: new Map<string, Set<string>>(),
   childToParent: new Map<string, string>(),
   clientLastUpdated: '',
+  checkedPlan: null,
   pendingShatterUndoState: null,
   setClientLastUpdated: (updated_at: string) => {
     set({
@@ -505,6 +523,18 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild: new Map(data.parentToChild),
       childToParent: new Map(data.childToParent),
       clientLastUpdated: nextClientLastUpdated,
+      // The server's plan for that version only when it comes with its document
+      // and nothing local: the other callers ingest this browser's copy.
+      checkedPlan:
+        mapDocument && !hasLocalEdits
+          ? {
+              documentId: mapDocument.document_id,
+              updatedAt: baselineUpdatedAt,
+              // Copies: a heal edits the store's maps in place.
+              zoneAssignments: new Map(data.zoneAssignments),
+              childToParent: new Map(data.childToParent),
+            }
+          : null,
       pendingShatterUndoState: null,
     });
     if (mapDocument) {
@@ -720,6 +750,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       },
       parentToChild: new Map<string, Set<string>>(),
       childToParent: new Map<string, string>(),
+      checkedPlan: null,
       pendingShatterUndoState: null,
     });
   },
@@ -922,7 +953,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
   // One save at a time across stores; see serializeMapSaves.
   handlePutAssignments: serializeMapSaves(async (overwrite = false, opts: SaveOptions = {}) => {
-    const {silent = false, autosave = false} = opts;
+    const {silent = false, autosave = false, unlocked = false} = opts;
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
     if (!(await checkAssignments(autosave ? 'autosave' : 'save'))) {
@@ -967,7 +998,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const hasPendingChanges =
       Object.values(updated).some(Boolean) ||
       (get().clientLastUpdated !== '' && get().clientLastUpdated !== mapDocument.updated_at);
-    setMapLock({isLocked: true, reason: 'Saving plan', silent});
+    if (!unlocked) setMapLock({isLocked: true, reason: 'Saving plan', silent});
 
     try {
       // Use mapStore.mapDocument (has latest comments from in-memory edits) merged with
@@ -1032,7 +1063,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         };
       }
     } finally {
-      setMapLock(null);
+      if (!unlocked) setMapLock(null);
     }
     setNotification({
       message: 'Saving this map failed. Please try again in a moment.',

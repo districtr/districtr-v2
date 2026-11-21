@@ -10,6 +10,7 @@ import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {useFocusFilter} from '../ShowAllDistrictsButton';
 import {useZoneLabelGetter, useZoneOrder} from '@/app/hooks/useZoneLabel';
 import {byZoneOrder} from '@/app/utils/zoneLabels';
+import {isTuningViewOn, useTuningView} from '@/app/hooks/useTuningView';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
@@ -17,13 +18,17 @@ export const Contiguity = () => {
   const getZoneLabel = useZoneLabelGetter();
   const zoneOrder = useZoneOrder();
   const focusFilter = useFocusFilter(mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+  // In the tuning view each save brings its contiguity back into this cache
+  // entry (putUpdateAssignmentsAndVerify), and the key already encodes the
+  // version, so an entry is taken as it is rather than fetched again.
+  const tuningView = useTuningView();
   const {data, isLoading, refetch, dataUpdatedAt} = useQuery({
     queryKey: contiguityQueryKey(mapDocument),
     queryFn: async () => {
       return await getContiguity(mapDocument);
     },
     enabled: !!mapDocument,
-    staleTime: 0,
+    staleTime: tuningView ? Infinity : 0,
     retry: false,
     placeholderData: previousData => previousData,
     refetchOnWindowFocus: false,
@@ -34,7 +39,8 @@ export const Contiguity = () => {
     : null;
 
   useEffect(() => {
-    refetch();
+    // A key with no entry yet fetches on its own.
+    if (!isTuningViewOn()) refetch();
   }, [mapDocument?.document_id, mapDocument?.updated_at, refetch]);
 
   const tableData = useMemo(() => {

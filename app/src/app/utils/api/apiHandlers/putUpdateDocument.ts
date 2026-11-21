@@ -10,6 +10,7 @@ export const putUpdateDocument = async ({
   map_type,
   metadata,
   comments,
+  include_contiguity,
 }: AssignmentsCreate) => {
   return await putMsgpack<AssignmentsCreate, AssignmentsCreateResponse>('assignments', {
     assignments,
@@ -26,5 +27,7 @@ export const putUpdateDocument = async ({
       zone_order: metadata?.zone_order ?? null,
     },
     comments: comments ?? null,
+    // Only when asked: a save without it is the request it always was.
+    ...(include_contiguity && {include_contiguity: true}),
   });
 };

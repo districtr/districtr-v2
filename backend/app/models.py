@@ -564,6 +564,9 @@ class AssignmentsCreate(BaseModel):
     map_type: str | None = None
     metadata: AssignmentsMetadata | None = None
     comments: list[DocumentCommentCreate] | None = None
+    # District maps: also return the saved plan's contiguity, as the
+    # contiguity endpoint counts it (see update_assignments).
+    include_contiguity: bool = False
 
 
 class AssignmentsResponse(SQLModel):

@@ -34,12 +34,18 @@ export interface AssignmentsCreate {
     zone_order?: number[] | null;
   };
   comments?: DocumentCommentCreate[] | null;
+  /** District maps: also return the saved plan's contiguity. */
+  include_contiguity?: boolean;
 }
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
   updated_at: string;
   /** SHA-256 of the stored plan (district maps); see hashAssignments. */
   assignments_hash?: string;
+  /** Asked for with include_contiguity: each district's number of connected
+   * pieces in the saved plan, as getContiguity returns it. Absent when the
+   * server couldn't count it. */
+  contiguity?: Record<string, number>;
 }
 
 export interface AssignmentsReset {

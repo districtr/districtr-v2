@@ -5,6 +5,7 @@ from app.contiguity.main import (
     check_subgraph_contiguity,
     subgraph_number_connected_components,
     get_assigned_nodes,
+    plan_number_connected_components,
 )
 import app.evaluation.graph_loader as graph
 from app.models import DistrictrMap
@@ -542,3 +543,160 @@ def test_unassigned_falls_back_to_singletons_without_graph(
         "vtd:000010000002",
         "vtd:000010000003",
     ]
+
+
+# -- contiguity returned by the save ------------------------------------------
+
+# A broken-up vtd:…001 whose blocks split between districts 1 and 2, leaving
+# district 1 in two pieces (see test_simple_geos_discontiguity).
+BROKEN_DISCONTIGUOUS = [
+    ["000010000000001", 1],
+    ["000010000000005", 2],
+    ["vtd:000010000002", 2],
+    ["vtd:000010000003", 1],
+]
+
+
+def _put_plan(client: TestClient, document_id: str, assignments, **body):
+    return client.put(
+        "/api/assignments",
+        json={
+            "document_id": document_id,
+            "assignments": assignments,
+            "last_updated_at": datetime.now().astimezone().isoformat(),
+            **body,
+        },
+    )
+
+
+def _get_contiguity(client: TestClient, document_id: str):
+    response = client.get(f"/api/document/{document_id}/contiguity")
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_plan_number_connected_components_expands_non_contiguous_parents():
+    # p1 is a non-contiguous parent: its blocks c1 and c2 don't touch.
+    G = make_graph(
+        edges=[("c1", "x"), ("c2", "y")],
+        parents={"c1": "p1", "c2": "p1"},
+        non_contiguous_parents={"p1"},
+    )
+    plan = {"p1": 1, "x": 1, "y": 2, "unknown": 2, "z": None}
+    assert plan_number_connected_components(G, plan) == {1: 2, 2: 1}
+
+
+def test_put_returns_contiguity_matching_get(
+    client: TestClient, document_id: str, mock_gerrydb_graph_file
+):
+    response = _put_plan(
+        client, document_id, BROKEN_DISCONTIGUOUS, include_contiguity=True
+    )
+    assert response.status_code == 200, response.json()
+    assert response.json()["contiguity"] == {"1": 2, "2": 1}
+    assert response.json()["contiguity"] == _get_contiguity(client, document_id)
+
+
+def test_put_returns_contiguity_matching_get_ks_ellis(
+    client: TestClient, ks_ellis_document_id: str, mock_gerrydb_graph_file
+):
+    # The same plan as ks_ellis_assignments: district 3 is in two pieces.
+    plan = [
+        ["vtd:20051120060", 1],
+        ["vtd:20051000280", 1],
+        ["vtd:20051000050", 1],
+        ["vtd:20051000040", 1],
+        ["vtd:20051900090", 2],
+        ["vtd:20051900010", 2],
+        ["vtd:20051120070", 2],
+        ["vtd:20051120050", 2],
+        ["vtd:20051120040", 2],
+        ["vtd:20051000310", 2],
+        ["vtd:20051000300", 2],
+        ["vtd:20051000290", 2],
+        ["vtd:2005100010A", 2],
+        ["vtd:20051000090", 2],
+        ["vtd:20051000080", 2],
+        ["vtd:20051000030", 2],
+        ["vtd:20051900100", 3],
+        ["vtd:20051900070", 3],
+        ["vtd:20051900060", 3],
+        ["vtd:20051900050", 3],
+        ["vtd:20051000240", 3],
+        ["vtd:20051000230", 3],
+        ["vtd:20051000220", 3],
+        ["vtd:2005100021A", 3],
+        ["vtd:20051000200", 3],
+        ["vtd:2005100003A", 3],
+    ]
+    response = _put_plan(client, ks_ellis_document_id, plan, include_contiguity=True)
+    assert response.status_code == 200, response.json()
+    assert response.json()["contiguity"] == {"1": 1, "2": 1, "3": 2}
+    assert response.json()["contiguity"] == _get_contiguity(
+        client, ks_ellis_document_id
+    )
+
+
+def test_put_without_the_flag_returns_no_contiguity(
+    client: TestClient, document_id: str, mock_gerrydb_graph_file
+):
+    response = _put_plan(client, document_id, BROKEN_DISCONTIGUOUS)
+    assert response.status_code == 200
+    assert "contiguity" not in response.json()
+
+
+def test_unchanged_save_still_returns_contiguity(
+    client: TestClient, session: Session, document_id: str, mock_gerrydb_graph_file
+):
+    # Stored before saves checked ids, so it can hold one the graph lacks.
+    plan = dict(BROKEN_DISCONTIGUOUS) | {"vtd:999": 2}
+    seed_assignments(session, document_id, plan)
+    before = client.get(f"/api/document/{document_id}").json()["updated_at"]
+
+    response = _put_plan(
+        client, document_id, [[g, z] for g, z in plan.items()], include_contiguity=True
+    )
+    assert response.status_code == 200, response.json()
+    # Nothing changed, so nothing was written.
+    assert datetime.fromisoformat(response.json()["updated_at"]) == (
+        datetime.fromisoformat(before)
+    )
+    assert response.json()["contiguity"] == {"1": 2, "2": 1}
+    assert response.json()["contiguity"] == _get_contiguity(client, document_id)
+
+
+def test_save_without_a_graph_omits_contiguity_and_saves(
+    client: TestClient, document_id: str, monkeypatch
+):
+    import fastapi
+    import app.main as main_module
+
+    def _raise(_name: str):
+        raise fastapi.HTTPException(status_code=404, detail="Graph unavailable")
+
+    monkeypatch.setattr(main_module, "get_graph", _raise)
+    response = _put_plan(
+        client, document_id, BROKEN_DISCONTIGUOUS, include_contiguity=True
+    )
+    assert response.status_code == 200, response.json()
+    assert "contiguity" not in response.json()
+    rows = client.get(f"/api/get_assignments/{document_id}").json()
+    assert {r["geo_id"]: r["zone"] for r in rows} == dict(BROKEN_DISCONTIGUOUS)
+
+
+def test_save_whose_contiguity_fails_omits_it_and_saves(
+    client: TestClient, document_id: str, mock_gerrydb_graph_file, monkeypatch
+):
+    import app.contiguity.main as contiguity_module
+
+    def _raise(*_args):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(contiguity_module, "plan_number_connected_components", _raise)
+    response = _put_plan(
+        client, document_id, BROKEN_DISCONTIGUOUS, include_contiguity=True
+    )
+    assert response.status_code == 200, response.json()
+    assert "contiguity" not in response.json()
+    rows = client.get(f"/api/get_assignments/{document_id}").json()
+    assert {r["geo_id"]: r["zone"] for r in rows} == dict(BROKEN_DISCONTIGUOUS)

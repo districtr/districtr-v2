@@ -11,6 +11,12 @@ import {hashAssignments} from '../../map/hashAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {idb} from '@/app/utils/idb/idb';
+import {useChartStore} from '@/app/store/chartStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
+import {queryClient} from '../queryClient';
+import {contiguityQueryKey} from './getContiguity';
 
 const doc = {
   document_id: 'd1',
@@ -46,6 +52,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
   let updateIdbAssignments: ReturnType<typeof spyOn>;
   let putUpdateDocument: ReturnType<typeof spyOn>;
   let getAssignments: ReturnType<typeof spyOn>;
+  let getDocument: ReturnType<typeof spyOn>;
   // Runs while the PUT is in flight, standing in for a stroke or undo landing mid-save.
   let duringPut = () => {};
 
@@ -81,9 +88,9 @@ describe('putUpdateAssignmentsAndVerify', () => {
           response: [{geo_id: 'a', zone: 1}],
         })) as any
       )),
-      spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
+      (getDocument = spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
         ok: false,
-      })) as any),
+      })) as any)),
     ];
     // Another test file may already have spied on idb; start each count at zero.
     updateIdbAssignments.mockClear();
@@ -92,6 +99,11 @@ describe('putUpdateAssignmentsAndVerify', () => {
   afterEach(() => {
     spies.forEach(spy => spy.mockRestore());
     idb.documents = realDocuments;
+    useToolbarStore.setState({superDraw: false});
+    useChartStore.setState({
+      chartOptions: {...useChartStore.getState().chartOptions, popTuningView: false},
+    });
+    queryClient.clear();
   });
 
   const save = (mapDocument = doc) => {
@@ -237,12 +249,77 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
   });
 
+  // With nothing blocking input during a save, these all land while one runs.
+  test('a stroke still in progress when the save ends is left to finish', async () => {
+    const staged = new Map([['b', 2]]);
+    duringPut = () => useAssignmentsStore.setState({accumulatedAssignments: staged});
+
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBeFalsy();
+    // Saved as sent; the stroke's units wait for its ingest, which dirties the map.
+    expect(useAssignmentsStore.getState().clientLastUpdated).toBe(SERVER_UPDATED_AT);
+    expect(useAssignmentsStore.getState().accumulatedAssignments).toBe(staged);
+    expect(useAssignmentsStore.getState().zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test("a description written during the save stays, not the server's copy", async () => {
+    const withNote = {...doc, document_comments: [{comment_id: 7, zone: 1, text: 'old'}]};
+    useMapStore.setState({mapDocument: withNote, updated: {metadata: false, comments: false}});
+    getDocument.mockImplementation((async () => ({ok: true, response: withNote})) as any);
+    duringPut = () => useMapStore.getState().setZoneDescription(1, 'new');
+
+    const result = await save(withNote);
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(useMapStore.getState().mapDocument?.document_comments?.[0].text).toBe('new');
+    expect(useMapStore.getState().updated.comments).toBe(true);
+    expect(useMapStore.getState().mapDocument?.updated_at).toBe(SERVER_UPDATED_AT);
+  });
+
+  test('a district count changed during the save stays unsaved', async () => {
+    const counted = {...doc, num_districts: 4, num_districts_modifiable: true};
+    useMapStore.setState({mapDocument: counted, updated: {metadata: false, comments: false}});
+    duringPut = () => useMapStore.getState().setNumDistricts(5);
+
+    const result = await save(counted);
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(putUpdateDocument.mock.calls[0][0].metadata.num_districts).toBe(4);
+    expect(useMapStore.getState().mapDocument?.num_districts).toBe(5);
+    expect(useMapStore.getState().updated.metadata).toBe(true);
+  });
+
+  test("a heal during the save, rewriting the store's map in place, stays unsaved", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () => {
+      // healParentsIfAllChildrenInSameZone edits the current map before replacing it.
+      const current = useAssignmentsStore.getState().zoneAssignments;
+      current.delete('a');
+      current.set('p', 1);
+      useAssignmentsStore.setState({
+        zoneAssignments: new Map(current),
+        clientLastUpdated: 'T2-heal',
+      });
+    };
+
+    const result = await save();
+    // Checked against what was sent, not the map as it is now.
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(putUpdateDocument.mock.calls[0][0].assignments).toEqual([['a', 1]]);
+    expect(useAssignmentsStore.getState().clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
+  });
+
   /** The server's reply to a save: a new version, and the hash of `plan`. */
-  const serverSaves = (updatedAt: string, plan: Map<string, number | null>) =>
-    putUpdateDocument.mockImplementation((async () => ({
-      ok: true,
-      response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan)},
-    })) as any);
+  const serverSaves = (
+    updatedAt: string,
+    plan: Map<string, number | null>,
+    extra: Record<string, unknown> = {}
+  ) =>
+    putUpdateDocument.mockImplementation((async () => {
+      duringPut();
+      return {
+        ok: true,
+        response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan), ...extra},
+      };
+    }) as any);
 
   test('a save the server confirms by hash skips the download', async () => {
     serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
@@ -258,6 +335,90 @@ describe('putUpdateAssignmentsAndVerify', () => {
     serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
     expect((await save()).ok).toBe(false);
     expect(records.get('d1').clientLastUpdated).toBe('T2');
+  });
+
+  test('a verified save records the plan it sent as the checked one', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    await save();
+    const {checkedPlan} = useAssignmentsStore.getState();
+    expect(checkedPlan?.documentId).toBe('d1');
+    expect(checkedPlan?.updatedAt).toBe(SERVER_UPDATED_AT);
+    expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test('a superseded save records what it sent, not the edit made since', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () =>
+      useAssignmentsStore.setState({
+        zoneAssignments: new Map([['a', 2]]),
+        clientLastUpdated: 'T2-edit',
+      });
+    await save();
+    const {checkedPlan} = useAssignmentsStore.getState();
+    expect(checkedPlan?.updatedAt).toBe(SERVER_UPDATED_AT);
+    expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test('a save that fails its check, or finishes after the user left, records nothing', async () => {
+    useAssignmentsStore.setState({checkedPlan: null});
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
+    await save();
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () => useMapStore.setState({mapDocument: {...doc, document_id: 'd2'}});
+    await save();
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
+  });
+
+  const openTuningView = () => {
+    // Another test file may have left the map in community mode.
+    useMapControlsStore.setState({mapMode: MAP_MODES.DISTRICTS});
+    useToolbarStore.setState({superDraw: true});
+    useChartStore.setState({
+      chartOptions: {...useChartStore.getState().chartOptions, popTuningView: true},
+    });
+  };
+  const seeded = () =>
+    queryClient.getQueryData(contiguityQueryKey({...doc, updated_at: SERVER_UPDATED_AT}));
+  const CONTIGUITY = {'1': 2};
+
+  test('asks for contiguity only in the tuning view', async () => {
+    await save();
+    expect(putUpdateDocument.mock.calls[0][0].include_contiguity).toBe(false);
+    openTuningView();
+    await save();
+    expect(putUpdateDocument.mock.calls[1][0].include_contiguity).toBe(true);
+    // Super Draw off: no tuning view, whatever the meters' toggle says.
+    useToolbarStore.setState({superDraw: false});
+    await save();
+    expect(putUpdateDocument.mock.calls[2][0].include_contiguity).toBe(false);
+  });
+
+  test("a save's contiguity is cached for the version it made", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]), {contiguity: CONTIGUITY});
+    let cachedWhenKeyTurned: unknown;
+    const unsub = useMapStore.subscribe(state => {
+      if (state.mapDocument?.updated_at === SERVER_UPDATED_AT) cachedWhenKeyTurned ??= seeded();
+    });
+    expect((await save()).ok).toBe(true);
+    unsub();
+    expect(seeded()).toEqual({ok: true, response: CONTIGUITY});
+    // Already there when the document's updated_at (the key) moved to it.
+    expect(cachedWhenKeyTurned).toEqual({ok: true, response: CONTIGUITY});
+  });
+
+  test("a save whose hash doesn't match caches no contiguity", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]), {contiguity: CONTIGUITY});
+    expect((await save()).ok).toBe(false);
+    expect(seeded()).toBeUndefined();
+  });
+
+  test('a superseded save still caches its contiguity', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]), {contiguity: CONTIGUITY});
+    duringPut = () => useAssignmentsStore.setState({clientLastUpdated: 'T2-edit'});
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(seeded()).toEqual({ok: true, response: CONTIGUITY});
   });
 });
 

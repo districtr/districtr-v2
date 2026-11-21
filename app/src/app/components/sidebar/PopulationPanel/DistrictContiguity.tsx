@@ -1,5 +1,5 @@
 'use client';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Button, DropdownMenu, Flex, Text, Tooltip} from '@radix-ui/themes';
 import {
   CheckCircledIcon,
@@ -9,6 +9,7 @@ import {
 } from '@radix-ui/react-icons';
 import {queryOptions, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useMapStore} from '@store/mapStore';
+import {useAssignmentsStore} from '@store/assignmentsStore';
 import {useMapSaveStatus} from '@/app/hooks/useMapSaveStatus';
 import {contiguityQueryKey, getContiguity} from '@utils/api/apiHandlers/getContiguity';
 import {getZoneConnectedComponentBBoxes} from '@utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
@@ -17,6 +18,7 @@ import {zoomToBounds} from '@utils/map/fitBounds';
 import {ACCESS_STATES} from '@constants/document/state';
 import {getFeatureBounds} from '../MapValidation/ZoomToFeature';
 import {HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
+import {touchedZones} from '@utils/map/touchedZones';
 
 const pieceName = (index: number) => (index === 0 ? 'Largest piece' : `Piece ${index + 1}`);
 
@@ -49,12 +51,17 @@ const piecesQuery = (mapDocument: DocumentObject | null, zone: number) =>
  *
  * Contiguity shares one cache entry (contiguityQueryKey) with the validation
  * panel and the draft-status helper. The key turns over with the document's
- * updated_at, so the check runs once per save; between saves the verdicts are
- * marked stale rather than refetched.
+ * updated_at, so the check runs once per save (and comes back with the save
+ * itself; see putUpdateAssignmentsAndVerify). Between saves a district's
+ * verdict is marked stale once a unit has entered or left it.
  */
 export const useDistrictContiguity = (enabled: boolean) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const {data: contiguity, isFetching} = useQuery({
+  const {
+    data: contiguity,
+    isFetching,
+    isPlaceholderData,
+  } = useQuery({
     queryKey: contiguityQueryKey(mapDocument),
     queryFn: () => getContiguity(mapDocument),
     // The endpoint resolves by public_id. staleTime Infinity (as in
@@ -71,7 +78,36 @@ export const useDistrictContiguity = (enabled: boolean) => {
   // a viewer's map can't be out of date with itself.
   const {isOutdated, save} = useMapSaveStatus();
   const isReadOnly = useMapStore(state => state.mapStatus?.access) === ACCESS_STATES.READ;
-  const stale = isOutdated && !isReadOnly;
+  const outdated = isOutdated && !isReadOnly;
+  // The districts whose units changed since the plan the verdicts are about.
+  // Recomputed when the plan changes (an ingest, undo, break or heal), not per
+  // pointer move. Without that plan (loaded with local edits, or still showing
+  // the previous version's verdicts while the next loads), all are stale.
+  const zoneAssignments = useAssignmentsStore(state => state.zoneAssignments);
+  const childToParent = useAssignmentsStore(state => state.childToParent);
+  const checkedPlan = useAssignmentsStore(state => state.checkedPlan);
+  const touched = useMemo(
+    () =>
+      enabled &&
+      outdated &&
+      !isPlaceholderData &&
+      checkedPlan &&
+      checkedPlan.documentId === mapDocument?.document_id &&
+      checkedPlan.updatedAt === mapDocument?.updated_at
+        ? touchedZones(checkedPlan, {zoneAssignments, childToParent})
+        : null,
+    [
+      enabled,
+      outdated,
+      isPlaceholderData,
+      checkedPlan,
+      mapDocument?.document_id,
+      mapDocument?.updated_at,
+      zoneAssignments,
+      childToParent,
+    ]
+  );
+  const isStale = (zone: number) => outdated && (!touched || touched.has(zone));
 
   // Zoom to one piece of a non-contiguous district (see PieceMenu).
   const queryClient = useQueryClient();
@@ -94,7 +130,9 @@ export const useDistrictContiguity = (enabled: boolean) => {
   return {
     components,
     isFetching,
-    stale,
+    /** Whether any district's verdict is stale. */
+    stale: outdated && (!touched || touched.size > 0),
+    isStale,
     save,
     error: contiguity?.ok === false ? contiguity.error.detail : null,
     zoomToPiece,
@@ -113,15 +151,16 @@ const TRUNCATE: React.CSSProperties = {
 };
 
 /** A row's verdict, in the bar's place: an icon and text, so it doesn't rest
- * on color alone. Grey with a question mark while unsaved edits make it stale,
- * dimmed while a post-save recheck is in flight. A non-contiguous district's
- * verdict opens the list of its pieces. */
+ * on color alone. Grey with a question mark while unsaved edits to this
+ * district make it stale, dimmed while a post-save recheck is in flight. A
+ * non-contiguous district's verdict opens the list of its pieces. */
 export const ContiguityCell: React.FC<{
   zone: number;
   label: string;
   contiguity: DistrictContiguity;
-}> = ({zone, label, contiguity: {components, isFetching, stale, zoomToPiece}}) => {
+}> = ({zone, label, contiguity: {components, isFetching, isStale, zoomToPiece}}) => {
   const pieces = components?.[zone];
+  const stale = isStale(zone);
   return (
     // Clipped, not spilled: the cell is as narrow as the bar it replaces.
     <Flex

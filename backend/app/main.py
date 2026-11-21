@@ -1222,6 +1222,23 @@ def _sync_update_assignments(
             assignments_count_and_hash(session, document_id)
         )
     session.commit()
+    # After the commit, so the row lock isn't held for it. Counted from the
+    # plan just written, as GET /api/document/{id}/contiguity counts it. The
+    # save has landed, so nothing here may fail it: without a graph, or if
+    # the count raises, the field is left out.
+    if data.include_contiguity:
+        if is_community_map or shatter_graph is None:
+            logger.info(
+                "Save of %s asked for contiguity; none without a district graph",
+                document_id,
+            )
+        else:
+            try:
+                response["contiguity"] = contiguity.plan_number_connected_components(
+                    shatter_graph, plan
+                )
+            except Exception:
+                logger.exception("Contiguity for the save of %s failed", document_id)
     if VERBOSE_LOGGING:
         logger.info(
             f"PUT /api/assignments complete: document_id={document_id}, "
@@ -1274,6 +1291,8 @@ async def update_assignments(
             - map_type: Optional; must match the document's stored map_type ("default" vs "community")
             - metadata: Optional metadata to update the document
             - comments: Optional list of district/community comments to sync
+            - include_contiguity: Optional; also return the saved plan's
+              contiguity (district maps)
         session (Session): Database session dependency
 
     Returns:
@@ -1283,6 +1302,10 @@ async def update_assignments(
             - assignments_hash: District maps only. SHA-256 of the stored plan
               (see ``assignments_count_and_hash``); the client compares it with
               its own hash to confirm the save.
+            - contiguity: Only with include_contiguity, on a district map whose
+              graph loads. {zone: number of connected pieces} for the saved
+              plan, as GET /api/document/{id}/contiguity returns it; left out
+              (the save still succeeds) when it can't be counted.
 
     Raises:
         HTTPException: 400 if the body cannot be msgpack-decoded, no changes are
