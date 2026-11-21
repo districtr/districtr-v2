@@ -50,6 +50,7 @@ import {
   type TableDisplayMode,
 } from '@constants/demography/demographyTableMode';
 import {MAP_MODES} from '@constants/map/mode';
+import {MAP_TYPES} from '@constants/document/types';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {ConditionalScrollArea} from '../ConditionalScrollArea';
 import {useFocusFilter} from '../ShowAllDistrictsButton';
@@ -79,6 +80,8 @@ type DemographyTableDataRow = SummaryRecord | Record<string, string | number | b
 type DemographyTableHeaderProps = {
   columnConfigs: ColumnConfig[];
   zoneHeader?: string;
+  /** Hover text for a column's header, e.g. an election's statewide share. */
+  headerHint?: (column: string) => string | undefined;
 };
 
 type DemographyTableBodyProps = {
@@ -169,6 +172,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
   const superDraw = useToolbarStore(state => state.superDraw);
   const communities = useMapStore(state => state.communities);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 0);
+  const isLocalMap = useMapStore(state => state.mapDocument?.map_type === MAP_TYPES.LOCAL);
   const zoneOrder = useZoneOrder();
   const focusFilter = useFocusFilter(numDistricts, singleZone == null && mapMode !== MAP_MODES.COI);
   const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
@@ -186,6 +190,14 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
     isVoterHistory && pov === 'rep'
       ? columnConfigs.map(c => ({...c, column: c.column.replace('_dem', '_rep')}))
       : columnConfigs;
+  // An election's header tells the point-of-view party's share across the
+  // whole map, the baseline each district's share reads against.
+  const electionHint = (column: string) => {
+    const share = demographyService.universeTotals?.[`${column}_pct` as keyof SummaryRecord];
+    if (typeof share !== 'number' || !Number.isFinite(share)) return undefined;
+    const party = pov === 'dem' ? 'Democratic' : 'Republican';
+    return `${isLocalMap ? 'Map-wide' : 'Statewide'}: ${formatNumber(share, numberFormats[TABLE_DISPLAY_MODES.SHARE])} ${party}`;
+  };
 
   useEffect(() => {
     if (
@@ -234,7 +246,10 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
       const filtered = zoneData.filter(r => r.zone === singleZone);
       return [...filtered, ...(universeRow ? [universeRow] : [])];
     }
-    return [...zoneData, ...(universeRow ? [universeRow] : [])];
+    // The unassigned row (zone null) only once something is left unassigned:
+    // with every unit painted it has nothing to show.
+    const shown = zoneData.filter(r => r.zone != null || (r.total_pop_20 ?? 0) > 0);
+    return [...shown, ...(universeRow ? [universeRow] : [])];
   })();
 
   const compareDistricts = byZoneOrder(zoneOrder);
@@ -243,8 +258,8 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
     const bIsUniverse = Boolean((b as Record<string, unknown>).__isUniverse) || b.zone === 0;
     if (aIsUniverse) return 1;
     if (bIsUniverse) return -1;
-    if (a.zone === undefined) return 1;
-    if (b.zone === undefined) return -1;
+    if (a.zone == null) return 1;
+    if (b.zone == null) return -1;
     if (mapMode === MAP_MODES.COI) {
       return compareCoiZonesByRenderOrder(a.zone as number, b.zone as number, communities);
     }
@@ -346,6 +361,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
             <DemographyTableHeader
               columnConfigs={effectiveColumnConfigs}
               zoneHeader={mapMode === MAP_MODES.COI ? 'Community' : 'District'}
+              headerHint={isVoterHistory ? electionHint : undefined}
             />
             <DemographyTableBody
               rows={rows}
@@ -370,6 +386,7 @@ const DemographyTable: React.FC<DemographyTableProps> = ({
 const DemographyTableHeader: React.FC<DemographyTableHeaderProps> = ({
   columnConfigs,
   zoneHeader = 'District',
+  headerHint,
 }) => {
   return (
     <Table.Header>
@@ -384,7 +401,13 @@ const DemographyTableHeader: React.FC<DemographyTableHeaderProps> = ({
               key={i}
             >
               <Flex justify="end" align="center" gap="1">
-                <span>{f.label}</span>
+                {headerHint?.(f.column) ? (
+                  <Tooltip content={headerHint(f.column)}>
+                    <span className="cursor-help">{f.label}</span>
+                  </Tooltip>
+                ) : (
+                  <span>{f.label}</span>
+                )}
                 {f.tooltip && (
                   <Tooltip content={f.tooltip}>
                     <span className="inline-flex text-gray-600">
@@ -410,11 +433,7 @@ const DemographyTableBody: React.FC<DemographyTableBodyProps> = ({rows, ...props
           // keys would otherwise force re-mounts / miss updates. Unassigned
           // (zone === undefined) and universe rows need distinct keys.
           key={
-            typeof row.zone === 'number'
-              ? row.zone
-              : row.zone === undefined
-                ? 'unassigned'
-                : 'universe'
+            typeof row.zone === 'number' ? row.zone : row.zone == null ? 'unassigned' : 'universe'
           }
           {...props}
           row={row}
@@ -439,7 +458,9 @@ const DemographyTableRow: React.FC<DemographyTableRowProps> = ({
   pov,
 }) => {
   const isUniverse = Boolean((row as Record<string, unknown>).__isUniverse) || row.zone === 0;
-  const isUnassigned = !isUniverse && row.zone === undefined;
+  // Unassigned population arrives as zone null (or undefined); left to the
+  // district branch it read as a district "0".
+  const isUnassigned = !isUniverse && row.zone == null;
   const label = useZoneLabel((row.zone as number) ?? 0);
   const zoneName = isUniverse ? (
     'Overall'
