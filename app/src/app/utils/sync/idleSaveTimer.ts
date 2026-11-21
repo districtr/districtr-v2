@@ -7,6 +7,7 @@
  * continuous drag costs nothing: the one live timer checks the stamp when it
  * wakes and sleeps again for the remainder. `postpone(ms)` re-checks in `ms`
  * without starting a new cycle, for when a due save has to wait a moment.
+ * `setIdle(ms)` changes the idle wait, for a pending save too.
  */
 export function createIdleSaveTimer(idleMs: number, maxWaitMs: number, onFire: () => void) {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -38,6 +39,13 @@ export function createIdleSaveTimer(idleMs: number, maxWaitMs: number, onFire: (
       clearTimeout(timer);
       deadline = performance.now() + ms;
       timer = setTimeout(check, ms);
+    },
+    setIdle(ms: number) {
+      idleMs = ms;
+      if (timer === undefined) return;
+      // Sooner may already be due; later, check sleeps for the remainder.
+      clearTimeout(timer);
+      check();
     },
     cancel() {
       clearTimeout(timer);

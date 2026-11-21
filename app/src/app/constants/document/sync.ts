@@ -2,6 +2,9 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 
 /** Auto-save fires once the user has been idle (no input or map move) this long. */
 export const AUTOSAVE_DEBOUNCE_MS = 30 * 1000;
+/** In Super Draw's tuning view, idle this long instead: each save brings back
+ * the contiguity verdicts, and pointer moves don't count (see useAutoSave). */
+export const AUTOSAVE_TUNING_DEBOUNCE_MS = 3 * 1000;
 /** ...but no later than this after the first unsaved edit, even if they never stop. */
 export const AUTOSAVE_MAX_WAIT_MS = 3 * 60 * 1000;
 

@@ -52,6 +52,7 @@ describe('putUpdateAssignmentsAndVerify', () => {
   let updateIdbAssignments: ReturnType<typeof spyOn>;
   let putUpdateDocument: ReturnType<typeof spyOn>;
   let getAssignments: ReturnType<typeof spyOn>;
+  let getDocument: ReturnType<typeof spyOn>;
   // Runs while the PUT is in flight, standing in for a stroke or undo landing mid-save.
   let duringPut = () => {};
 
@@ -87,9 +88,9 @@ describe('putUpdateAssignmentsAndVerify', () => {
           response: [{geo_id: 'a', zone: 1}],
         })) as any
       )),
-      spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
+      (getDocument = spyOn(getDocumentModule, 'getDocument').mockImplementation((async () => ({
         ok: false,
-      })) as any),
+      })) as any)),
     ];
     // Another test file may already have spied on idb; start each count at zero.
     updateIdbAssignments.mockClear();
@@ -246,6 +247,64 @@ describe('putUpdateAssignmentsAndVerify', () => {
     // Advanced, so reopening the map sees an unsaved edit, not a conflict.
     expect(copy.document_metadata.updated_at).toBe(SERVER_UPDATED_AT);
     expect(useMapStore.getState().mapDocument?.updated_at).toBe('X');
+  });
+
+  // With nothing blocking input during a save, these all land while one runs.
+  test('a stroke still in progress when the save ends is left to finish', async () => {
+    const staged = new Map([['b', 2]]);
+    duringPut = () => useAssignmentsStore.setState({accumulatedAssignments: staged});
+
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBeFalsy();
+    // Saved as sent; the stroke's units wait for its ingest, which dirties the map.
+    expect(useAssignmentsStore.getState().clientLastUpdated).toBe(SERVER_UPDATED_AT);
+    expect(useAssignmentsStore.getState().accumulatedAssignments).toBe(staged);
+    expect(useAssignmentsStore.getState().zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test("a description written during the save stays, not the server's copy", async () => {
+    const withNote = {...doc, document_comments: [{comment_id: 7, zone: 1, text: 'old'}]};
+    useMapStore.setState({mapDocument: withNote, updated: {metadata: false, comments: false}});
+    getDocument.mockImplementation((async () => ({ok: true, response: withNote})) as any);
+    duringPut = () => useMapStore.getState().setZoneDescription(1, 'new');
+
+    const result = await save(withNote);
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(useMapStore.getState().mapDocument?.document_comments?.[0].text).toBe('new');
+    expect(useMapStore.getState().updated.comments).toBe(true);
+    expect(useMapStore.getState().mapDocument?.updated_at).toBe(SERVER_UPDATED_AT);
+  });
+
+  test('a district count changed during the save stays unsaved', async () => {
+    const counted = {...doc, num_districts: 4, num_districts_modifiable: true};
+    useMapStore.setState({mapDocument: counted, updated: {metadata: false, comments: false}});
+    duringPut = () => useMapStore.getState().setNumDistricts(5);
+
+    const result = await save(counted);
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(putUpdateDocument.mock.calls[0][0].metadata.num_districts).toBe(4);
+    expect(useMapStore.getState().mapDocument?.num_districts).toBe(5);
+    expect(useMapStore.getState().updated.metadata).toBe(true);
+  });
+
+  test("a heal during the save, rewriting the store's map in place, stays unsaved", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () => {
+      // healParentsIfAllChildrenInSameZone edits the current map before replacing it.
+      const current = useAssignmentsStore.getState().zoneAssignments;
+      current.delete('a');
+      current.set('p', 1);
+      useAssignmentsStore.setState({
+        zoneAssignments: new Map(current),
+        clientLastUpdated: 'T2-heal',
+      });
+    };
+
+    const result = await save();
+    // Checked against what was sent, not the map as it is now.
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(putUpdateDocument.mock.calls[0][0].assignments).toEqual([['a', 1]]);
+    expect(useAssignmentsStore.getState().clientLastUpdated).not.toBe(SERVER_UPDATED_AT);
   });
 
   /** The server's reply to a save: a new version, and the hash of `plan`. */

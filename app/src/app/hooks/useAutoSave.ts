@@ -8,8 +8,13 @@ import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {useAssignmentRepairStore} from '@/app/store/assignmentRepairStore';
 import {useMapSaveStatus} from './useMapSaveStatus';
 import {ACCESS_STATES} from '@constants/document/state';
-import {AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS} from '@constants/document/sync';
+import {
+  AUTOSAVE_DEBOUNCE_MS,
+  AUTOSAVE_MAX_WAIT_MS,
+  AUTOSAVE_TUNING_DEBOUNCE_MS,
+} from '@constants/document/sync';
 import {createIdleSaveTimer} from '@utils/sync/idleSaveTimer';
+import {useTuningView} from './useTuningView';
 
 // Any of these counts as the user still working, pushing the save back.
 const ACTIVITY_EVENTS = [
@@ -21,6 +26,15 @@ const ACTIVITY_EVENTS = [
   'touchstart',
 ] as const;
 
+/** Whether an input event (or a map move, `'move'`) pushes the save back. In
+ * the tuning view only presses do: hovering or scrolling the map to read the
+ * numbers mustn't hold off the save that brings back their contiguity. */
+export const countsAsActivity = (type: string, tuningView: boolean) =>
+  !tuningView || !['pointermove', 'wheel', 'scroll', 'move'].includes(type);
+
+const idleWait = (tuningView: boolean) =>
+  tuningView ? AUTOSAVE_TUNING_DEBOUNCE_MS : AUTOSAVE_DEBOUNCE_MS;
+
 // A save that comes due mid-brushstroke checks again this often until the stroke ends.
 const PAINTING_RETRY_MS = 1000;
 
@@ -31,9 +45,14 @@ const PAINTING_RETRY_MS = 1000;
  * or window unfocus. The cap can land mid-gesture: mid-brushstroke it waits for
  * the stroke to end, and an edit made while a save runs stays unsaved for the next.
  *
+ * In Super Draw's tuning view the wait is 3 seconds, and only presses (pointer
+ * down, keys, touch) reset it; switching the view applies to a save already
+ * pending.
+ *
  * Returns `isAutoSaving`, true while a timer-driven save runs (held for a
  * minimum beat so an instant save doesn't read as a UI glitch) — drives the
- * "Auto-saving…" popup in the topbar.
+ * "Auto-saving…" popup in the topbar. Not in the tuning view, where saves come
+ * every few seconds.
  */
 export function useAutoSave() {
   const {isOutdated, save} = useMapSaveStatus();
@@ -47,14 +66,17 @@ export function useAutoSave() {
   const repairPending = useAssignmentRepairStore(
     state => !!documentId && state.issues?.documentId === documentId
   );
+  const tuningView = useTuningView();
 
   // Listeners and timers read through this ref so they always see fresh state.
-  const ref = useRef({enabled: false, save});
+  const ref = useRef({enabled: false, save, tuningView});
   ref.current = {
     enabled:
       isEditing && access === ACCESS_STATES.EDIT && !!documentId && isOutdated && !repairPending,
     save,
+    tuningView,
   };
+  const timerRef = useRef<ReturnType<typeof createIdleSaveTimer> | null>(null);
 
   useEffect(() => {
     // Single-flight: blur and visibilitychange fire together on alt-tab, and a
@@ -65,17 +87,24 @@ export function useAutoSave() {
       saving = true;
       try {
         // Silent: autosave shouldn't toast "Map saved" or flash the lock overlay
-        // — the topbar cloud icon and "Auto-saving…" popup are enough.
-        await ref.current.save(false, {silent: true, autosave: true});
+        // — the topbar cloud icon and "Auto-saving…" popup are enough. The
+        // tuning view's saves take no lock at all (see SaveOptions.unlocked).
+        await ref.current.save(false, {
+          silent: true,
+          autosave: true,
+          unlocked: ref.current.tuningView,
+        });
       } finally {
         saving = false;
       }
     };
 
     // Timer-driven saves show the "Auto-saving…" popup, held at least 1.5s so a
-    // near-instant save doesn't flash by looking like a glitch.
+    // near-instant save doesn't flash by looking like a glitch. Not in the
+    // tuning view: saving every few seconds, it would hardly ever go away.
     const saveWithNotice = async () => {
       if (!ref.current.enabled || saving) return;
+      if (ref.current.tuningView) return saveNow();
       setIsAutoSaving(true);
       try {
         await Promise.all([saveNow(), new Promise(resolve => setTimeout(resolve, 1500))]);
@@ -89,9 +118,12 @@ export function useAutoSave() {
     // the cap since that first edit runs out.
     let map: MapLibreMap | undefined;
     let disposed = false;
+    const onActivity = (e: {type: string}) => {
+      if (countsAsActivity(e.type, ref.current.tuningView)) timer.activity();
+    };
     const endCycle = () => {
       timer.cancel();
-      map?.off('move', timer.activity);
+      map?.off('move', onActivity);
       map = undefined;
     };
     const timer = createIdleSaveTimer(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MAX_WAIT_MS, () => {
@@ -103,6 +135,7 @@ export function useAutoSave() {
       endCycle();
       saveWithNotice();
     });
+    timerRef.current = timer;
     const onClientLastUpdated = (clientLastUpdated: string) => {
       // Every save (this one, the Save button, blur) ends by setting clientLastUpdated
       // to the server's updated_at, then copying that onto mapDocument in the same
@@ -117,7 +150,7 @@ export function useAutoSave() {
         if (!map) {
           // Programmatic moves (fly-to, keyboard pan) don't come through the DOM.
           map = useMapStore.getState().getMapRef();
-          map?.on('move', timer.activity);
+          map?.on('move', onActivity);
         }
         timer.arm();
       });
@@ -141,18 +174,25 @@ export function useAutoSave() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     // Capture so scrolls inside panes (which don't bubble) count too.
     const activityOpts = {capture: true, passive: true};
-    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, timer.activity, activityOpts));
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, onActivity, activityOpts));
     return () => {
+      timerRef.current = null;
       unsubDistrict();
       unsubCoi();
       disposed = true;
       endCycle();
-      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, timer.activity, activityOpts));
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, onActivity, activityOpts));
       window.removeEventListener('pagehide', saveNow);
       window.removeEventListener('blur', saveNow);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
+
+  // The idle wait follows the tuning view, for a save already pending too.
+  // Declared after the effect above, so it also runs once that has made the timer.
+  useEffect(() => {
+    timerRef.current?.setIdle(idleWait(tuningView));
+  }, [tuningView]);
 
   return {isAutoSaving};
 }
