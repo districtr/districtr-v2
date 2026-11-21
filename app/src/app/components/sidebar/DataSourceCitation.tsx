@@ -6,18 +6,28 @@ const ACS_CITATION =
   'Source: U.S. Census Bureau, American Community Survey 2020–2024 (5-year), at the block-group level';
 
 /** Small gray data-source line under demographic/election tables and legends.
- * Election results come from more than one source, so they link to the Data
- * page rather than naming one. */
+ * Election results are Dave's Redistricting App's precinct tabulations, but
+ * the district figures shown are Districtr's own sums of them, so the line
+ * says so and links to the Data page for the detail. */
 export const DataSourceCitation: React.FC<{elections?: boolean; acs?: boolean}> = ({
   elections,
   acs,
 }) => (
   <Text size="1" color="gray">
     {elections ? (
-      // A new tab, so the map being edited stays open.
-      <Link href="/data" target="_blank" rel="noopener noreferrer" color="gray" underline="always">
-        Data sourcing
-      </Link>
+      <>
+        Calculated by Districtr from Dave&apos;s Redistricting App election data ·{' '}
+        {/* A new tab, so the map being edited stays open. */}
+        <Link
+          href="/data"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="gray"
+          underline="always"
+        >
+          Data sourcing
+        </Link>
+      </>
     ) : acs ? (
       ACS_CITATION
     ) : (
