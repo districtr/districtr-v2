@@ -694,6 +694,31 @@ def test_contiguity_check_rejected_for_community_map(
     assert "not supported for community maps" in response.json()["detail"]
 
 
+def test_community_save_asking_for_contiguity_saves_without_it(
+    client, community_document_id: str
+):
+    initial_document = client.get(f"/api/document/{community_document_id}").json()
+    response = client.put(
+        "/api/assignments",
+        json={
+            "document_id": community_document_id,
+            "assignments": [["202090441022004", 1]],
+            "map_type": "community",
+            "metadata": {
+                "num_communities": 2,
+                "community_metadata_list": build_community_metadata_list(),
+            },
+            "include_contiguity": True,
+            "last_updated_at": initial_document["updated_at"],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    assert "contiguity" not in response.json()
+    assert get_assignments_by_geoid(client, community_document_id) == {
+        "202090441022004": 1
+    }
+
+
 def test_contiguity_bboxes_rejected_for_community_map(
     client, community_document_id: str
 ):

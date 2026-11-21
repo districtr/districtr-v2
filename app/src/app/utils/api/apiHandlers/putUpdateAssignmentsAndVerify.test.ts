@@ -11,6 +11,12 @@ import {hashAssignments} from '../../map/hashAssignments';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {idb} from '@/app/utils/idb/idb';
+import {useChartStore} from '@/app/store/chartStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {MAP_MODES} from '@constants/map/mode';
+import {queryClient} from '../queryClient';
+import {contiguityQueryKey} from './getContiguity';
 
 const doc = {
   document_id: 'd1',
@@ -92,6 +98,11 @@ describe('putUpdateAssignmentsAndVerify', () => {
   afterEach(() => {
     spies.forEach(spy => spy.mockRestore());
     idb.documents = realDocuments;
+    useToolbarStore.setState({superDraw: false});
+    useChartStore.setState({
+      chartOptions: {...useChartStore.getState().chartOptions, popTuningView: false},
+    });
+    queryClient.clear();
   });
 
   const save = (mapDocument = doc) => {
@@ -238,11 +249,18 @@ describe('putUpdateAssignmentsAndVerify', () => {
   });
 
   /** The server's reply to a save: a new version, and the hash of `plan`. */
-  const serverSaves = (updatedAt: string, plan: Map<string, number | null>) =>
-    putUpdateDocument.mockImplementation((async () => ({
-      ok: true,
-      response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan)},
-    })) as any);
+  const serverSaves = (
+    updatedAt: string,
+    plan: Map<string, number | null>,
+    extra: Record<string, unknown> = {}
+  ) =>
+    putUpdateDocument.mockImplementation((async () => {
+      duringPut();
+      return {
+        ok: true,
+        response: {updated_at: updatedAt, assignments_hash: await hashAssignments(plan), ...extra},
+      };
+    }) as any);
 
   test('a save the server confirms by hash skips the download', async () => {
     serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
@@ -258,6 +276,57 @@ describe('putUpdateAssignmentsAndVerify', () => {
     serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
     expect((await save()).ok).toBe(false);
     expect(records.get('d1').clientLastUpdated).toBe('T2');
+  });
+
+  const openTuningView = () => {
+    // Another test file may have left the map in community mode.
+    useMapControlsStore.setState({mapMode: MAP_MODES.DISTRICTS});
+    useToolbarStore.setState({superDraw: true});
+    useChartStore.setState({
+      chartOptions: {...useChartStore.getState().chartOptions, popTuningView: true},
+    });
+  };
+  const seeded = () =>
+    queryClient.getQueryData(contiguityQueryKey({...doc, updated_at: SERVER_UPDATED_AT}));
+  const CONTIGUITY = {'1': 2};
+
+  test('asks for contiguity only in the tuning view', async () => {
+    await save();
+    expect(putUpdateDocument.mock.calls[0][0].include_contiguity).toBe(false);
+    openTuningView();
+    await save();
+    expect(putUpdateDocument.mock.calls[1][0].include_contiguity).toBe(true);
+    // Super Draw off: no tuning view, whatever the meters' toggle says.
+    useToolbarStore.setState({superDraw: false});
+    await save();
+    expect(putUpdateDocument.mock.calls[2][0].include_contiguity).toBe(false);
+  });
+
+  test("a save's contiguity is cached for the version it made", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]), {contiguity: CONTIGUITY});
+    let cachedWhenKeyTurned: unknown;
+    const unsub = useMapStore.subscribe(state => {
+      if (state.mapDocument?.updated_at === SERVER_UPDATED_AT) cachedWhenKeyTurned ??= seeded();
+    });
+    expect((await save()).ok).toBe(true);
+    unsub();
+    expect(seeded()).toEqual({ok: true, response: CONTIGUITY});
+    // Already there when the document's updated_at (the key) moved to it.
+    expect(cachedWhenKeyTurned).toEqual({ok: true, response: CONTIGUITY});
+  });
+
+  test("a save whose hash doesn't match caches no contiguity", async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]), {contiguity: CONTIGUITY});
+    expect((await save()).ok).toBe(false);
+    expect(seeded()).toBeUndefined();
+  });
+
+  test('a superseded save still caches its contiguity', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]), {contiguity: CONTIGUITY});
+    duringPut = () => useAssignmentsStore.setState({clientLastUpdated: 'T2-edit'});
+    const result = await save();
+    expect(result.ok && result.response.superseded).toBe(true);
+    expect(seeded()).toEqual({ok: true, response: CONTIGUITY});
   });
 });
 

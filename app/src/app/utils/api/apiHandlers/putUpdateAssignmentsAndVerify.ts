@@ -11,6 +11,9 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useCoiAssignmentsStore} from '@/app/store/coiAssignmentsStore';
 import {aliasesWithin, normalizeZoneOrder} from '../../zoneLabels';
+import {queryClient} from '../queryClient';
+import {contiguityQueryKey} from './getContiguity';
+import {isTuningViewOn} from '@/app/hooks/useTuningView';
 
 type PutUpdateAssignmentsAndVerifyResponse =
   | {
@@ -109,6 +112,9 @@ export const putUpdateAssignmentsAndVerify = async ({
         : [],
     },
     comments,
+    // The tuning view shows each district's contiguity; the save brings it
+    // back, so the verdict doesn't wait on a second request.
+    include_contiguity: isTuningViewOn(),
   });
   if (!assignmentsPostResponse.ok) {
     return {
@@ -155,6 +161,20 @@ export const putUpdateAssignmentsAndVerify = async ({
       };
     }
     savedAssignments = freshServerAssignments.response;
+  }
+  // The server's plan is now known to be the one sent, so its contiguity is the
+  // check for the new version. Cached before mutateMapDocument below turns the
+  // query key over to it, so no reader refetches it. Superseded saves too: the
+  // verdict is right for the server's version, and the map stays dirty.
+  const {contiguity} = assignmentsPostResponse.response;
+  if (contiguity) {
+    queryClient.setQueryData(
+      contiguityQueryKey({
+        ...mapDocument,
+        updated_at: assignmentsPostResponse.response.updated_at,
+      }),
+      {ok: true as const, response: contiguity}
+    );
   }
   // Refetch document to get server-assigned comment_ids for district comments
   const freshDoc = await getDocument(mapDocument.document_id);

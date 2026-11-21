@@ -24,6 +24,23 @@ def subgraph_number_connected_components(
     return G.number_connected_components(subgraph_nodes)
 
 
+def plan_number_connected_components(
+    G: DualLevelGraph, plan: dict[str, int | None]
+) -> dict[int, int]:
+    """Each district's number of connected pieces in ``plan`` ({geo_id: zone}),
+    counted as the contiguity endpoint counts a saved plan: unassigned units
+    left out, non-contiguous parents expanded to their blocks (as in
+    get_assigned_nodes), ids the graph doesn't have dropped."""
+    nodes_by_zone: dict[int, set[str]] = {}
+    for geo_id, zone in plan.items():
+        if zone is not None:
+            nodes_by_zone.setdefault(zone, set()).add(geo_id)
+    return {
+        zone: subgraph_number_connected_components(G, G.expand_non_contiguous(nodes))
+        for zone, nodes in nodes_by_zone.items()
+    }
+
+
 # db
 
 
