@@ -258,6 +258,16 @@ export const putUpdateAssignmentsAndVerify = async ({
   // futureStates, corrupting undo/redo history after a save.
   useAssignmentsStore.temporal.getState().pause();
   useCoiAssignmentsStore.temporal.getState().pause();
+  // What the server now has, for telling which contiguity verdicts an edit
+  // since has made stale (useDistrictContiguity).
+  useAssignmentsStore.setState({
+    checkedPlan: {
+      documentId: mapDocument.document_id,
+      updatedAt: updated_at,
+      zoneAssignments: sent,
+      childToParent: new Map(childToParent),
+    },
+  });
   // Checked again: the IndexedDB write above awaits. An edit IndexedDB saw but
   // the store's clock didn't (a color change, an undo back to an earlier stamp)
   // also keeps the map unsaved.

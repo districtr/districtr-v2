@@ -1,7 +1,7 @@
 /**
  * The district save's map lock: taken unless the save is unlocked (the tuning
- * view's autosaves), and an unlocked save leaves others' locks alone.
- * Run with `bun test`.
+ * view's autosaves), and an unlocked save leaves others' locks alone. And the
+ * checked plan a load records. Run with `bun test`.
  */
 import {afterEach, beforeEach, describe, expect, spyOn, test} from 'bun:test';
 import * as verifyModule from '@/app/utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
@@ -71,5 +71,39 @@ describe('handlePutAssignments map lock', () => {
     await autosave(true);
     expect(lockDuringSave).toEqual(BREAK_LOCK);
     expect(useMapStore.getState().mapLock).toEqual(BREAK_LOCK);
+  });
+});
+
+describe('ingestFromDocument checked plan', () => {
+  let spies: {mockRestore: () => void}[] = [];
+  beforeEach(() => {
+    useMapStore.setState({mapDocument: doc});
+    spies = [spyOn(idb, 'updateIdbAssignments').mockImplementation(() => {})];
+  });
+  afterEach(() => spies.forEach(spy => spy.mockRestore()));
+
+  const data = {
+    zoneAssignments: new Map([['a', 1]]),
+    shatterIds: {parents: new Set<string>(), children: new Set<string>()},
+    parentToChild: new Map(),
+    childToParent: new Map(),
+  };
+
+  test("a load with no local edits is the server's plan for its version", () => {
+    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
+    const {checkedPlan, zoneAssignments} = useAssignmentsStore.getState();
+    expect(checkedPlan?.updatedAt).toBe('T1');
+    expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
+    // Its own copy: a heal rewrites the store's map in place.
+    expect(checkedPlan?.zoneAssignments).not.toBe(zoneAssignments);
+  });
+
+  test('a load with local edits, or without its document, is not', () => {
+    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
+    useAssignmentsStore.getState().ingestFromDocument(data, doc, true);
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
+    useAssignmentsStore.getState().ingestFromDocument(data, doc, false);
+    useAssignmentsStore.getState().ingestFromDocument(data);
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
   });
 });

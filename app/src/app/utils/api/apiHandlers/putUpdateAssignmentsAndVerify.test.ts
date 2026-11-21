@@ -337,6 +337,39 @@ describe('putUpdateAssignmentsAndVerify', () => {
     expect(records.get('d1').clientLastUpdated).toBe('T2');
   });
 
+  test('a verified save records the plan it sent as the checked one', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    await save();
+    const {checkedPlan} = useAssignmentsStore.getState();
+    expect(checkedPlan?.documentId).toBe('d1');
+    expect(checkedPlan?.updatedAt).toBe(SERVER_UPDATED_AT);
+    expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test('a superseded save records what it sent, not the edit made since', async () => {
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () =>
+      useAssignmentsStore.setState({
+        zoneAssignments: new Map([['a', 2]]),
+        clientLastUpdated: 'T2-edit',
+      });
+    await save();
+    const {checkedPlan} = useAssignmentsStore.getState();
+    expect(checkedPlan?.updatedAt).toBe(SERVER_UPDATED_AT);
+    expect(checkedPlan?.zoneAssignments).toEqual(new Map([['a', 1]]));
+  });
+
+  test('a save that fails its check, or finishes after the user left, records nothing', async () => {
+    useAssignmentsStore.setState({checkedPlan: null});
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 9]]));
+    await save();
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
+    serverSaves(SERVER_UPDATED_AT, new Map([['a', 1]]));
+    duringPut = () => useMapStore.setState({mapDocument: {...doc, document_id: 'd2'}});
+    await save();
+    expect(useAssignmentsStore.getState().checkedPlan).toBeNull();
+  });
+
   const openTuningView = () => {
     // Another test file may have left the map in community mode.
     useMapControlsStore.setState({mapMode: MAP_MODES.DISTRICTS});
