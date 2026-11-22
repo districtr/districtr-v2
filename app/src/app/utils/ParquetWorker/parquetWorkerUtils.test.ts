@@ -9,6 +9,7 @@ import {
   prefetchAsyncBuffer,
   rowGroupsContaining,
   singleRangeUrls,
+  versionedParquetUrl,
 } from './parquetWorkerUtils';
 
 const bytes = new Uint8Array(300_000).map((_, i) => i);
@@ -155,5 +156,42 @@ describe('rowGroupsContaining', () => {
   test('selects only the row groups holding a value', () => {
     expect(rowGroupsContaining(metadata, 'path', ['02', '08'])).toEqual([0, 2]);
     expect(rowGroupsContaining(metadata, 'path', ['10'])).toEqual([]);
+  });
+});
+
+describe('versionedParquetUrl', () => {
+  const url = 'https://cdn.example/tabular/xx_districtr_view_v2.parquet';
+  const head = (headers: Record<string, string>) => {
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    globalThis.fetch = (async (input: string, init?: RequestInit) => {
+      calls.push([input, init]);
+      return new Response(null, {status: 200, headers});
+    }) as typeof fetch;
+    return calls;
+  };
+
+  test('tags the url with Last-Modified from a HEAD that skips the browser cache', async () => {
+    const calls = head({
+      'Content-Length': '1234',
+      'Last-Modified': 'Thu, 29 Oct 2026 21:32:13 GMT',
+    });
+    const result = await versionedParquetUrl(url);
+    expect(result).toEqual({
+      url: `${url}?v=${Date.UTC(2026, 9, 29, 21, 32, 13) / 1000}`,
+      byteLength: 1234,
+    });
+    expect(calls).toEqual([[url, {method: 'HEAD', cache: 'no-store'}]]);
+  });
+
+  test('a replaced file gets a different url', async () => {
+    head({'Content-Length': '1', 'Last-Modified': 'Wed, 15 Jul 2026 15:46:33 GMT'});
+    const before = await versionedParquetUrl(url);
+    head({'Content-Length': '1', 'Last-Modified': 'Thu, 29 Oct 2026 21:32:13 GMT'});
+    expect((await versionedParquetUrl(url)).url).not.toBe(before.url);
+  });
+
+  test('keeps the plain url when Last-Modified is missing', async () => {
+    head({'Content-Length': '1234'});
+    expect(await versionedParquetUrl(url)).toEqual({url, byteLength: 1234});
   });
 });
