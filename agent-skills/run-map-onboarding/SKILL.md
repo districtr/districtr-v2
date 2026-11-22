@@ -120,7 +120,7 @@ For new data on a state that is already onboarded, such as a new election. Exist
      -n <view> -n <parent-table> -n <child-table> [--dry-run]
    ```
 
-6. **Rebuild and upload the view's parquet**, which feeds the frontend's demography table (`tabular build-parquet --parent-layer … --child-layer … -o <view>.parquet -f --upload`), then invalidate `/tabular/<view>.parquet` on the CDN: it caches parquets for a year and leaves the query string out of its cache key, so it keeps serving the old file until invalidated. Browsers then pick up the new file on their own, because the frontend tags the parquet url with the file's `Last-Modified` time. Do this last: the CDN serves the parquet to every environment reading the bucket, so upload it only once every environment's database has the columns.
+6. **Rebuild and upload the view's parquet**, which feeds the frontend's demography table (`tabular build-parquet --parent-layer … --child-layer … -o <view>.parquet -f --upload`), then invalidate `/tabular/<view>.parquet*` on the CDN, which caches parquets for a year. Pages loaded after the invalidation read the new file, because the frontend tags the parquet url with the file's `Last-Modified` time; open tabs need a reload. Do this last: the CDN serves the parquet to every environment reading the bucket, so upload it only once every environment's database has the columns.
 
 No backend restart is needed: county data for the splits and Eguia metrics reloads itself when an evaluation asks for a new election. A correction to the values of an existing column shows in those metrics only after a restart.
 
