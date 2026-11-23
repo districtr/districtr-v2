@@ -64,9 +64,6 @@ const SAMPLE_ROWS = 3;
 const HOVER_OPEN_DELAY_MS = 150;
 // Long enough to cross the gap between two ranges without the sample closing.
 const HOVER_CLOSE_DELAY_MS = 120;
-const UNFOLD_MS = 150;
-// Room around the sample for its shadow, in the unfolding clip.
-const SHADOW_ROOM = 24;
 const SAMPLE_LINE_COLOR = 'var(--gray-a6)';
 
 const loadExemplars = async (): Promise<CompactnessExemplarData> =>
@@ -120,34 +117,24 @@ const ROW_LABEL_STYLE: React.CSSProperties = {
   flexDirection: 'column',
   textAlign: 'center',
 };
-// The open range's number becomes a tab on the sample's frame; a tab in the upper
-// row runs down through the cell below it. Every cell keeps the tab's border width,
-// so opening moves no text.
+// The number of the range whose sample is open becomes a tab on the sample's frame.
+// Every number cell keeps the tab's border width, so opening moves no text.
 const RANGE_CELL_STYLE: React.CSSProperties = {
   ...CELL_STYLE,
   borderStyle: 'solid',
   borderWidth: '1px 1px 0',
   borderColor: 'transparent',
+  borderRadius: 'var(--radius-3) var(--radius-3) 0 0',
 };
-const TAB_CELL_STYLE: React.CSSProperties = {
+const OPEN_RANGE_CELL_STYLE: React.CSSProperties = {
   ...RANGE_CELL_STYLE,
+  borderColor: SAMPLE_LINE_COLOR,
   backgroundColor: 'var(--color-panel-solid)',
   position: 'relative',
   zIndex: 11,
+  // Down over the row line and the sample's top line, so tab and sample are one shape.
+  marginBottom: -2,
 };
-const TAB_TOP_STYLE: React.CSSProperties = {
-  ...TAB_CELL_STYLE,
-  borderColor: SAMPLE_LINE_COLOR,
-  borderRadius: 'var(--radius-3) var(--radius-3) 0 0',
-};
-const TAB_THROUGH_STYLE: React.CSSProperties = {
-  ...TAB_CELL_STYLE,
-  borderColor: `transparent ${SAMPLE_LINE_COLOR}`,
-};
-// How far a tab cell reaches down: over its row's line and, in the row next to the
-// sample, over the sample's top line too, so tab and sample are one shape.
-const OVER_ROW_LINE = -1;
-const OVER_ROW_AND_SAMPLE_LINE = -2;
 const SHORT_NAME_STYLE: React.CSSProperties = {
   fontSize: 10,
   lineHeight: '12px',
@@ -160,78 +147,55 @@ interface SampleProps {
   geoids: string[];
   districtsById: Record<string, ExemplarDistrict>;
   perRow: number;
-  /** Column of the range the sample unfolds from. */
-  fromColumn: number;
+  /** Column of the sample's range, where the range's tab joins the sample. */
+  tabColumn: number;
   outlineSize: number;
 }
 
 /**
- * The sample of one range, laid over the content below the table, on the table's
- * columns, and unfolding from the column of its range. It ignores the pointer.
+ * The sample of one range, laid over the content below the range's row, on the
+ * table's columns. It ignores the pointer.
  */
 const Sample: React.FC<SampleProps> = ({
   label,
   geoids,
   districtsById,
   perRow,
-  fromColumn,
+  tabColumn,
   outlineSize,
-}) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const rows = Math.ceil(geoids.length / perRow);
-
-  useLayoutEffect(() => {
-    const sample = ref.current;
-    if (!sample?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const left = (fromColumn / perRow) * 100;
-    const right = ((perRow - 1 - fromColumn) / perRow) * 100;
-    const bottom = (1 - 1 / rows) * 100;
-    sample.animate(
-      [
-        {clipPath: `inset(0 ${right}% ${bottom}% ${left}%)`},
-        {clipPath: `inset(-${SHADOW_ROOM}px)`},
-      ],
-      {duration: UNFOLD_MS, easing: 'ease-out'}
-    );
-  }, [fromColumn, perRow, rows]);
-
-  return (
-    <div
-      ref={ref}
-      role="group"
-      aria-label={label}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: ROW_LABEL_WIDTH,
-        right: 0,
-        zIndex: 10,
-        pointerEvents: 'none',
-        display: 'grid',
-        gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
-        backgroundColor: 'var(--color-panel-solid)',
-        // Square where the range's tab meets a corner.
-        borderRadius: `${fromColumn === 0 ? 0 : 'var(--radius-3)'} ${
-          fromColumn === perRow - 1 ? 0 : 'var(--radius-3)'
-        } var(--radius-3) var(--radius-3)`,
-        boxShadow: `inset 0 0 0 1px ${SAMPLE_LINE_COLOR}, var(--shadow-4)`,
-      }}
-    >
-      {geoids.map(geoid => (
-        <figure
-          key={geoid}
-          className="m-0 flex flex-col items-center gap-1"
-          style={{padding: 'var(--space-2) 0'}}
-        >
-          <Outline district={districtsById[geoid]} size={outlineSize} />
-          <figcaption style={SHORT_NAME_STYLE}>
-            {districtShortName(districtsById[geoid])}
-          </figcaption>
-        </figure>
-      ))}
-    </div>
-  );
-};
+}) => (
+  <div
+    role="group"
+    aria-label={label}
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: ROW_LABEL_WIDTH,
+      right: 0,
+      zIndex: 10,
+      pointerEvents: 'none',
+      display: 'grid',
+      gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
+      backgroundColor: 'var(--color-panel-solid)',
+      // Square where the range's tab meets a corner.
+      borderRadius: `${tabColumn === 0 ? 0 : 'var(--radius-3)'} ${
+        tabColumn === perRow - 1 ? 0 : 'var(--radius-3)'
+      } var(--radius-3) var(--radius-3)`,
+      boxShadow: `inset 0 0 0 1px ${SAMPLE_LINE_COLOR}, var(--shadow-4)`,
+    }}
+  >
+    {geoids.map(geoid => (
+      <figure
+        key={geoid}
+        className="m-0 flex flex-col items-center gap-1"
+        style={{padding: 'var(--space-2) 0'}}
+      >
+        <Outline district={districtsById[geoid]} size={outlineSize} />
+        <figcaption style={SHORT_NAME_STYLE}>{districtShortName(districtsById[geoid])}</figcaption>
+      </figure>
+    ))}
+  </div>
+);
 
 interface OpenRange {
   scoreKey: CompactnessScoreKey;
@@ -240,8 +204,8 @@ interface OpenRange {
 
 /**
  * The score ranges of both scores, one row per score, so the same range of the two
- * scores stands in one column. Hovering or focusing a range unfolds that range's
- * sample below the table, each district with its short name, and the range's number
+ * scores stands in one column. Hovering or focusing a range opens that range's
+ * sample below its row, each district with its short name, and the range's number
  * becomes a tab on the sample's frame. The sample is the same for everyone.
  */
 const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
@@ -315,16 +279,6 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
   const isOpenAt = (scoreKey: CompactnessScoreKey, index: number) =>
     openRange?.scoreKey === scoreKey && openRange.index === index;
 
-  const rangeCellStyle = (scoreRow: number, index: number): React.CSSProperties => {
-    if (openRange?.index !== index) return RANGE_CELL_STYLE;
-    const openRow = SCORE_KEYS.indexOf(openRange.scoreKey);
-    if (scoreRow < openRow) return RANGE_CELL_STYLE;
-    return {
-      ...(scoreRow === openRow ? TAB_TOP_STYLE : TAB_THROUGH_STYLE),
-      marginBottom: scoreRow === SCORE_KEYS.length - 1 ? OVER_ROW_AND_SAMPLE_LINE : OVER_ROW_LINE,
-    };
-  };
-
   const triggerProps = (range: OpenRange) => ({
     type: 'button' as const,
     'data-exemplar-trigger': true,
@@ -353,54 +307,58 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
             : null;
         return (
           <div key={start}>
-            {SCORE_KEYS.map((scoreKey, scoreRow) => (
-              <div
-                key={scoreKey}
-                style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}
-              >
-                <div style={ROW_LABEL_STYLE}>
-                  <Text size="1">{SCORE_NAME[scoreKey]}</Text>
-                  <Text size="1" color="gray">
-                    hover to see examples
-                  </Text>
+            {SCORE_KEYS.map(scoreKey => (
+              <div key={scoreKey}>
+                <div
+                  style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}
+                >
+                  <div style={ROW_LABEL_STYLE}>
+                    <Text size="1">{SCORE_NAME[scoreKey]}</Text>
+                    <Text size="1" color="gray">
+                      hover to see examples
+                    </Text>
+                  </div>
+                  {data.buckets[scoreKey].slice(start, start + rangesPerRow).map((bucket, i) => {
+                    const index = start + i;
+                    const isOpenHere = isOpenAt(scoreKey, index);
+                    return (
+                      <div
+                        key={bucket.min}
+                        style={isOpenHere ? OPEN_RANGE_CELL_STYLE : RANGE_CELL_STYLE}
+                      >
+                        <button {...triggerProps({scoreKey, index})}>
+                          <Text
+                            size="2"
+                            weight={isOpenHere ? 'bold' : 'regular'}
+                            className="tabular-nums"
+                            style={{textDecoration: HOVER_BTN_STYLE.textDecoration}}
+                          >
+                            {rangeLabel(bucket)}
+                          </Text>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                {data.buckets[scoreKey].slice(start, start + rangesPerRow).map((bucket, i) => {
-                  const index = start + i;
-                  return (
-                    <div key={bucket.min} style={rangeCellStyle(scoreRow, index)}>
-                      <button {...triggerProps({scoreKey, index})}>
-                        <Text
-                          size="2"
-                          weight={isOpenAt(scoreKey, index) ? 'bold' : 'regular'}
-                          className="tabular-nums"
-                          style={{textDecoration: HOVER_BTN_STYLE.textDecoration}}
-                        >
-                          {rangeLabel(bucket)}
-                        </Text>
-                      </button>
-                    </div>
-                  );
-                })}
+                <div style={{position: 'relative'}}>
+                  {openHere?.scoreKey === scoreKey && (
+                    <Sample
+                      label={`Districts with a ${SCORE_NAME[scoreKey]} score of ${rangeLabel(
+                        data.buckets[scoreKey][openHere.index]
+                      )}`}
+                      geoids={data.buckets[scoreKey][openHere.index].districts.slice(
+                        0,
+                        rangesPerRow * SAMPLE_ROWS
+                      )}
+                      districtsById={data.districts}
+                      perRow={rangesPerRow}
+                      tabColumn={openHere.index - start}
+                      outlineSize={outlineSize}
+                    />
+                  )}
+                </div>
               </div>
             ))}
-            <div style={{position: 'relative'}}>
-              {openHere !== null && (
-                <Sample
-                  key={`${openHere.scoreKey}-${openHere.index}`}
-                  label={`Districts with a ${SCORE_NAME[openHere.scoreKey]} score of ${rangeLabel(
-                    data.buckets[openHere.scoreKey][openHere.index]
-                  )}`}
-                  geoids={data.buckets[openHere.scoreKey][openHere.index].districts.slice(
-                    0,
-                    rangesPerRow * SAMPLE_ROWS
-                  )}
-                  districtsById={data.districts}
-                  perRow={rangesPerRow}
-                  fromColumn={openHere.index - start}
-                  outlineSize={outlineSize}
-                />
-              )}
-            </div>
           </div>
         );
       })}
