@@ -1,3 +1,19 @@
+## v2.4.2
+
+**November 23, 2026**
+
+**Reliability and bug fixes**
+
+- Faster saves: the server compares the plan it receives with the stored one and writes only what changed, and the browser confirms the save without downloading the whole plan again
+- A save that would leave a broken-up unit inconsistent (a unit saved along with its blocks, or missing some of its blocks) is refused instead of stored, and the editor offers to repair the plan
+- Lowering the district count keeps a broken-up unit's blocks as unassigned instead of deleting them
+- Updated demography and point data now reaches browsers right away, instead of being mixed with cached ranges of the old file for up to a year
+
+**Developer and ops**
+
+- Plans are stored as one jsonb row each (about 30× smaller on disk); `document.assignments` is now a view, so existing readers are unchanged (ADR 0068)
+- The map onboarding runbook covers CDN invalidation after replacing a parquet, and the election column naming rules
+
 ## v2.4.1
 
 **November 20, 2026**

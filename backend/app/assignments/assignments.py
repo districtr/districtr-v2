@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
-from uuid import uuid4
+import json
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
 from app.core.db import get_session
-from sqlalchemy import cast, literal, text, Column, String, Integer, MetaData, Table
+from sqlalchemy import cast, literal, text
 from sqlmodel import Session, select
 from sqlalchemy.dialects.postgresql import insert, UUID as PG_UUID
 import logging
@@ -152,19 +152,14 @@ def duplicate_document_assignments(
         int | None: The number of assignments inserted into the receiving document, or
         None if the operation failed.
     """
-    prev_assignments = select(Assignments).where(
-        Assignments.document_id == from_document_id
+    session.connection().execute(
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "SELECT CAST(:to_id AS uuid), assignments "
+            "FROM document.document_assignments WHERE document_id = CAST(:from_id AS uuid)"
+        ),
+        {"to_id": str(to_document_id), "from_id": str(from_document_id)},
     )
-    prev_assignments = select(
-        Assignments.geo_id,
-        Assignments.zone,
-        cast(literal(to_document_id), PG_UUID).label("document_id"),
-    ).where(Assignments.document_id == from_document_id)
-
-    create_copy_stmt = insert(Assignments).from_select(
-        ["geo_id", "zone", "document_id"], prev_assignments
-    )
-    session.connection().execute(create_copy_stmt)
 
     inserted_assignments = session.exec(
         select(count()).where(Assignments.document_id == to_document_id)
@@ -354,25 +349,12 @@ def batch_insert_assignments(
     else:
         zone_by_geo = zone_by_geo_int
 
-    load_id, _ = str(uuid4()).split("-", maxsplit=1)
-    temp_table = f"temp_assignments_{load_id}"
-
     session.connection().execute(
-        text(f"CREATE TEMP TABLE {temp_table} (geo_id TEXT, zone INT) ON COMMIT DROP")
-    )
-    cursor = session.connection().connection.cursor()
-    with cursor.copy(f"COPY {temp_table} (geo_id, zone) FROM STDIN") as copy:
-        for geo_id, zone in zone_by_geo.items():
-            copy.write_row([geo_id, zone])
-
-    temp = Table(
-        temp_table, MetaData(), Column("geo_id", String), Column("zone", Integer)
-    )
-    session.connection().execute(
-        insert(Assignments).from_select(
-            ["geo_id", "zone", "document_id"],
-            select(temp.c.geo_id, temp.c.zone, cast(literal(document_id), PG_UUID)),
-        )
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "VALUES (CAST(:document_id AS uuid), CAST(:assignments AS jsonb))"
+        ),
+        {"document_id": str(document_id), "assignments": json.dumps(zone_by_geo)},
     )
     inserted = len(zone_by_geo)
     logger.info(f"Inserted {inserted} assignments to document `{document_id}`")
@@ -383,3 +365,146 @@ def batch_insert_assignments(
         zone_label_remapping=zone_label_remapping,
         max_assigned_zone=max(valid_zone_ids, default=None),
     )
+
+
+def parse_assignment_pairs(pairs: list[list]) -> dict[str, int | None]:
+    """[[geo_id, zone], ...] from a request -> {geo_id: zone}. A missing or null
+    zone is unassigned. Raises ValueError on a bad pair, DuplicateGeoIdError on a
+    repeated geo_id."""
+    out: dict[str, int | None] = {}
+    for pair in pairs:
+        geo_id = pair[0] if pair else None
+        zone = pair[1] if len(pair) > 1 else None
+        if not isinstance(geo_id, str) or not geo_id:
+            raise ValueError(f"Invalid geo_id {geo_id!r}")
+        if geo_id in out:
+            raise DuplicateGeoIdError(geo_id)
+        if zone is not None:
+            try:
+                zone = int(zone)
+            except ValueError:
+                zone = None
+            # The view casts zones to integer: one outside its range would save
+            # and then fail every read of the plan.
+            if zone is None or not _INT4_MIN <= zone <= _INT4_MAX:
+                raise ValueError(f"Invalid zone {pair[1]!r} for geo_id {geo_id!r}")
+        out[geo_id] = zone
+    return out
+
+
+_INT4_MIN, _INT4_MAX = -(2**31), 2**31 - 1
+_MISSING = object()
+
+
+def _dirty_zones(changed, old: dict, new: dict) -> set[int]:
+    """Zones whose membership changes when `changed` geo_ids go from old to new."""
+    zones = {old.get(g, _MISSING) for g in changed} | {
+        new.get(g, _MISSING) for g in changed
+    }
+    return {z for z in zones if isinstance(z, int)}
+
+
+def diff_district_assignments(
+    session: Session, document_id: str, plan: dict[str, int | None]
+) -> tuple[list[str], set[int]]:
+    """How `plan` differs from the document's stored plan.
+
+    Returns (geo_ids whose assignment differs, dirty zones) — the zones whose
+    district_unions rows go stale once `plan` is written.
+    """
+    old = (
+        session.connection()
+        .execute(
+            text(
+                "SELECT assignments FROM document.document_assignments "
+                "WHERE document_id = CAST(:doc AS uuid)"
+            ),
+            {"doc": str(document_id)},
+        )
+        .scalar()
+    ) or {}
+    changed = {
+        g
+        for g in old.keys() | plan.keys()
+        if old.get(g, _MISSING) != plan.get(g, _MISSING)
+    }
+    return sorted(changed), _dirty_zones(changed, old, plan)
+
+
+def write_district_assignments(
+    session: Session, document_id: str, plan: dict[str, int | None]
+) -> None:
+    """Replace a document's stored plan with `plan`."""
+    session.connection().execute(
+        text(
+            "INSERT INTO document.document_assignments (document_id, assignments) "
+            "VALUES (CAST(:doc AS uuid), CAST(:blob AS jsonb)) "
+            "ON CONFLICT (document_id) DO UPDATE SET assignments = EXCLUDED.assignments"
+        ),
+        {"doc": str(document_id), "blob": json.dumps(plan)},
+    )
+
+
+def assignments_count_and_hash(session: Session, document_id: str) -> tuple[int, str]:
+    """Number of stored geo_ids and the plan's SHA-256, for the client to check
+    its save against. Must match hashAssignments in the frontend: entries sorted
+    by geo_id (byte order), each "geo_id:zone" with an empty zone when
+    unassigned, joined by newlines, UTF-8."""
+    row = (
+        session.connection()
+        .execute(
+            text(
+                r"""SELECT count(e.key), encode(sha256(convert_to(coalesce(string_agg(
+                    e.key || ':' || coalesce(e.value #>> '{}', ''), E'\n'
+                    ORDER BY e.key COLLATE "C"), ''), 'UTF8')), 'hex')
+                FROM document.document_assignments a, jsonb_each(a.assignments) e
+                WHERE a.document_id = CAST(:doc AS uuid)"""
+            ),
+            {"doc": str(document_id)},
+        )
+        .one()
+    )
+    return row[0], row[1]
+
+
+MAX_REPORTED_PROBLEMS = 5
+
+
+def find_shatter_problems(
+    G: DualLevelGraph,
+    touched: list[str],
+    plan: dict[str, int | None],
+) -> list[str]:
+    """What a save leaves wrong in the parents it touches, one sentence each.
+
+    The shattered-parent contract: a shattered parent has no entry of its own,
+    and every one of its children has one (zone null when unpainted). Only
+    parents of `touched` geo_ids (and touched geo_ids that are parents) are
+    checked, so a plan already broken elsewhere can still save. Also reports
+    touched geo_ids that the map's graph doesn't have.
+    """
+    parents = {p for p in G.parents_of(touched) if p} | {
+        g for g in touched if G.num_children_of(g)
+    }
+    children_of = {parent: G.children_of(parent) for parent in parents}
+    present = plan.keys() & (
+        set(touched) | parents | {c for cs in children_of.values() for c in cs}
+    )
+
+    problems = []
+    unknown = sorted(g for g in touched if g in present and g not in G)
+    if unknown:
+        problems.append(
+            f"{len(unknown)} geo_id(s) aren't in this map (e.g. {', '.join(unknown[:3])})"
+        )
+    for parent in sorted(parents):
+        children = children_of[parent]
+        n_present = len(children & present)
+        if n_present and parent in present:
+            problems.append(f"{parent} is saved along with its blocks")
+        elif parent not in present and 0 < n_present < len(children):
+            problems.append(
+                f"{parent} is missing {len(children) - n_present} of its "
+                f"{len(children)} blocks"
+            )
+    return problems

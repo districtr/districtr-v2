@@ -6,15 +6,10 @@ import {
   PointParquetData,
 } from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
-import {
-  byteLengthFromUrl,
-  asyncBufferFromUrl,
-  parquetMetadataAsync,
-  parquetReadObjects,
-} from 'hyparquet';
+import {asyncBufferFromUrl, parquetMetadataAsync, parquetReadObjects} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
-import {prefetchAsyncBuffer, rowGroupsContaining} from './parquetWorkerUtils';
+import {prefetchAsyncBuffer, rowGroupsContaining, versionedParquetUrl} from './parquetWorkerUtils';
 
 const ParquetWorker: ParquetWorkerInternals = {
   _metaCache: {},
@@ -23,13 +18,13 @@ const ParquetWorker: ParquetWorkerInternals = {
     if (this._metaCache[url]) {
       return this._metaCache[url];
     }
-    const byteLength = await byteLengthFromUrl(url).then(Number);
-    const file = await asyncBufferFromUrl({url, byteLength});
+    const versioned = await versionedParquetUrl(url);
+    const file = await asyncBufferFromUrl(versioned);
     const metadata = await parquetMetadataAsync(file);
     this._metaCache[url] = {
       metadata,
-      url,
-      byteLength,
+      url: versioned.url,
+      byteLength: versioned.byteLength,
       file,
     };
     return this._metaCache[url];
@@ -158,7 +153,7 @@ const ParquetWorker: ParquetWorkerInternals = {
     const columns = ['parent_path', 'path', 'column_name', 'value'];
     const file = await prefetchAsyncBuffer(
       meta.file,
-      url,
+      meta.url,
       this.getByteRangesForRowGroups(meta, rowGroups, columns)
     );
     const data = (await parquetReadObjects({
@@ -181,7 +176,7 @@ const ParquetWorker: ParquetWorkerInternals = {
       metadata = {...metadata, row_groups: rowGroups.map(i => metadata.row_groups[i])};
       file = await prefetchAsyncBuffer(
         file,
-        url,
+        meta.url,
         this.getByteRangesForRowGroups(meta, rowGroups, columns)
       );
     }

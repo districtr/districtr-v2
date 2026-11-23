@@ -16,7 +16,7 @@ from sqlmodel import (
     Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON, ENUM, TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSON, JSONB, ENUM, TIMESTAMP
 from sqlalchemy import Float, SmallInteger, text
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -502,10 +502,26 @@ class DocumentCreatePublic(DocumentPublic):
 
 
 class Assignments(SQLModel, table=True):
+    """Read-only view: one row per (document, unit), expanded from
+    DocumentAssignments. Write to DocumentAssignments instead; alembic
+    ignores this name (env.py)."""
+
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
     zone: int | None
+
+
+class DocumentAssignments(SQLModel, table=True):
+    """A document's district assignments as one jsonb object, {geo_id: zone}
+    (zone null = unassigned). No row and {} both mean an empty plan."""
+
+    __tablename__ = "document_assignments"
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
+    assignments: dict = Field(
+        sa_column=Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    )
 
 
 class CommunityAssignments(SQLModel, table=True):
