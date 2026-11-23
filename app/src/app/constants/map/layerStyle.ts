@@ -14,15 +14,13 @@ export const SENTINEL_EMPTY_ARRAY: string[] = [SENTINEL_EMPTY_VALUE];
 export const HIGHLIGHT_LINE_COLOR = '#ff7a00';
 export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
-// Dims every non-hovered district while one is focused, so the
-// highlighted district reads clearly against the rest of the map —
-// same masking convention as the paint-mask overlay (CountyLayers.tsx).
+// While the evaluation panel highlights districts or a county, a white mask covers
+// the rest of the map so that it keeps only a trace of its color, and the district
+// labels outside the highlight fade with it — same masking convention as the
+// paint-mask overlay (CountyLayers.tsx).
 export const HIGHLIGHT_MASK_COLOR = '#FFFFFF';
-export const HIGHLIGHT_MASK_OPACITY = 0.45;
-// An isolating highlight (useDistrictHover's `isolate`): the other districts keep
-// only a trace of their color, and their labels fade with them.
-export const HIGHLIGHT_ISOLATE_MASK_OPACITY = 0.85;
-export const HIGHLIGHT_ISOLATE_LABEL_OPACITY = 0.25;
+export const HIGHLIGHT_MASK_OPACITY = 0.85;
+export const HIGHLIGHT_DIMMED_LABEL_OPACITY = 0.25;
 
 export const COMMUNITY_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
   const colorStyleBaseline: any[] = ['case'];
