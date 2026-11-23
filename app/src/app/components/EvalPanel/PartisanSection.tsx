@@ -344,6 +344,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <EvalTableTitle reportOnly>
                 Freedom-To-Vote Test by contest, {povName} point of view
               </EvalTableTitle>
+              <Flex mb="2" display={isReport ? 'none' : 'flex'}>
+                <PovSwitcher pov={pov} setPov={setPov} />
+              </Flex>
               <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
                 <Table.Root size="1" mb="2" variant="surface">
                   <Table.Header>
@@ -469,7 +472,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             ) : (
               '—'
             )}{' '}
-            over these elections.
+            over the {n} recent statewide election{n !== 1 ? 's' : ''}.
           </Text>
           <EvalTableTitle>
             Votes vs. Seats by Election (among the two major parties)
