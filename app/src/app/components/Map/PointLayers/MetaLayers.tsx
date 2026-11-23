@@ -342,8 +342,6 @@ const ZoneNumbersLayer: React.FC<{scale?: number}> = ({scale = 1}) => {
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
           'text-size': zoomStops(scale, 5, 12, 10, 16, 15, 20),
-          // ponytail: estimated as badge radius minus half a 2-digit box, not measured;
-          // 1-digit badges reserve a few px less horizontally. Raise if labels peek out.
           'text-padding': zoomStops(scale, 5, 5, 10, 8, 15, 10),
           'text-overlap': 'never',
         }}

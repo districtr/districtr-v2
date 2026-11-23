@@ -860,7 +860,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     renumber = new Map(),
     timestamp = new Date().toISOString()
   ) => {
-    const {zoneAssignments, zonesLastUpdated} = get();
+    const {zoneAssignments, zonesLastUpdated, shatterIds} = get();
     const {mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
 
@@ -877,7 +877,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         updatedZonesLastUpdated.set(assigned, timestamp).set(zone, timestamp);
       }
       if (zone !== null && zone > maxZone) {
-        updatedAssignments.delete(geoid);
+        // A block of a broken-up unit keeps its entry, unassigned: the server
+        // refuses a unit saved with only some of its blocks.
+        if (shatterIds.children.has(geoid)) updatedAssignments.set(geoid, null);
+        else updatedAssignments.delete(geoid);
         updatedZonesLastUpdated.set(zone, timestamp);
 
         // Track geoids to clear on map
@@ -1005,6 +1008,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           importance: 2,
           type: 'error',
         });
+        // The server refused the plan. The local pass before the save can't see a
+        // broken-up unit with blocks missing; the full check can, and offers the repair.
+        if (assignmentsPostResponse.status === 422) void checkAssignments('rejected');
         return {
           ok: false,
           error: {

@@ -60,8 +60,6 @@ export const Uploader: React.FC<{
     }
     setSelectionError(undefined);
     setUploads(files.map(file => ({filename: file.name})));
-    // ponytail: one file at a time so a batch of large plans doesn't hit the API at once;
-    // a small concurrency pool if batches feel slow.
     for (const [i, file] of files.entries()) {
       const result: Partial<Upload> = await processFile({file, availableMaps, documentMapType})
         .then(mapLink => ({mapLink}))
