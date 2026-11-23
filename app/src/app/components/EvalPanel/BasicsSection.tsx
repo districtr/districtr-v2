@@ -10,6 +10,7 @@ import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 import {HoverTrigger, hoverHandlers} from './HoverTrigger';
 import {districtHeading} from '@/app/utils/zoneLabels';
+import {isPlanComplete} from './planCompleteness';
 
 type DeviationView = 'top_to_bottom' | 'max_absolute' | 'both';
 
@@ -45,11 +46,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     : null;
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
-  const splitCount = assigned_units?.split_count ?? 0;
-  const isComplete =
-    assigned_units != null &&
-    assigned_units.assigned_count + splitCount === assigned_units.total_count &&
-    assigned_units.partially_assigned_count === 0;
+  const isComplete = isPlanComplete(assigned_units) === true;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
   const nonContiguousDistricts = contiguous
     ? Object.entries(contiguous)

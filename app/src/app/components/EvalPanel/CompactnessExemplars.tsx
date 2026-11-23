@@ -3,7 +3,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
-import {HOVER_BTN_STYLE} from './HoverTrigger';
+import {HOVER_CHIP_CLASS} from './HoverTrigger';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
 
@@ -50,7 +50,7 @@ const SCORE_KEYS: CompactnessScoreKey[] = ['polsby_popper', 'reock'];
 // Layout, in px. The ranges stand in one row per score when the panel has room for
 // the row's label and all of them, otherwise in rows of NARROW_RANGES_PER_ROW.
 const ROW_LABEL_WIDTH = 132;
-const RANGE_MIN_WIDTH = 76;
+const RANGE_MIN_WIDTH = 84;
 const NARROW_RANGES_PER_ROW = 3;
 // An outline takes this share of its column's width, so outlines and gaps grow
 // together with the panel. Past RANGE_MAX_WIDTH per range the table stops growing.
@@ -96,15 +96,10 @@ const Outline: React.FC<{district: ExemplarDistrict; size: number}> = ({district
   </svg>
 );
 
-// A trigger is as large as its content, so the space between two of them triggers nothing.
-const TRIGGER_STYLE: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  font: 'inherit',
-  cursor: 'default',
-  display: 'block',
-};
+// A trigger is a soft chip as large as its content, so the space between two of them
+// triggers nothing. The open one drops the chip's fill: its cell is the tab.
+const TRIGGER_STYLE: React.CSSProperties = {font: 'inherit', display: 'block'};
+const OPEN_TRIGGER_STYLE: React.CSSProperties = {...TRIGGER_STYLE, background: 'none'};
 const CELL_STYLE: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
@@ -283,7 +278,8 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
     type: 'button' as const,
     'data-exemplar-trigger': true,
     'aria-expanded': isOpenAt(range.scoreKey, range.index),
-    style: TRIGGER_STYLE,
+    className: HOVER_CHIP_CLASS,
+    style: isOpenAt(range.scoreKey, range.index) ? OPEN_TRIGGER_STYLE : TRIGGER_STYLE,
     onMouseEnter: () => onPointerOver(range),
     onMouseLeave: closeSoon,
     onFocus: () => open(range),
@@ -331,7 +327,6 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
                             size="2"
                             weight={isOpenHere ? 'bold' : 'regular'}
                             className="tabular-nums"
-                            style={{textDecoration: HOVER_BTN_STYLE.textDecoration}}
                           >
                             {rangeLabel(bucket)}
                           </Text>

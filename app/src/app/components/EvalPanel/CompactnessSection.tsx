@@ -76,8 +76,8 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
           <Text size="2" as="p" mb="2">
             The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of
             the smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1;
-            higher scores indicate more compact, circular districts. Reock is sensitive to map
-            projection and is computed on-demand when the evaluation view is opened.
+            higher scores indicate more compact, circular districts. Reock is also sensitive to map
+            projection.
           </Text>
           <CompactnessExemplars />
           {(ppStats || reockStats) && (
