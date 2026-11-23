@@ -325,6 +325,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     ). We check if the seat share would have been proportional to the vote share in
                     those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
                   </Text>
+                  <Flex mb="2">
+                    <PovSwitcher pov={pov} setPov={setPov} />
+                  </Flex>
                   <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
                     <Table.Root size="1" mb="2" variant="surface">
                       <Table.Header>
@@ -452,7 +455,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 ) : (
                   '—'
                 )}{' '}
-                over these elections.
+                over the {n} recent statewide election{n !== 1 ? 's' : ''}.
               </Text>
               <Text size="2" weight="bold" mb="2" as="p">
                 Votes vs. Seats by Election (among the two major parties)
