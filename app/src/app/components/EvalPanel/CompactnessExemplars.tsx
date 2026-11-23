@@ -3,11 +3,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {FIPS_TO_ABBR, FIPS_TO_NAME} from '@constants/meta/usStates';
-import {EvalTableTitle} from './EvalSection';
 import {HOVER_BTN_STYLE} from './HoverTrigger';
-import {useIsReport} from './evalMode';
-import {ReportNoteRef} from './ReportNotes';
-import {useReportPart} from './reportStatus';
 
 export type CompactnessScoreKey = 'polsby_popper' | 'reock';
 
@@ -49,10 +45,11 @@ const SCORE_NAME: Record<CompactnessScoreKey, string> = {
 
 const OUTLINE_FILL = 'steelblue';
 const ROW_LINE = '1px solid var(--gray-a5)';
+const SCORE_KEYS: CompactnessScoreKey[] = ['polsby_popper', 'reock'];
 
-// Layout, in px. The ranges stand in one row when the panel has room for the row's
-// label and all of them, otherwise in rows of NARROW_RANGES_PER_ROW.
-const ROW_LABEL_WIDTH = 104;
+// Layout, in px. The ranges stand in one row per score when the panel has room for
+// the row's label and all of them, otherwise in rows of NARROW_RANGES_PER_ROW.
+const ROW_LABEL_WIDTH = 132;
 const RANGE_MIN_WIDTH = 76;
 const NARROW_RANGES_PER_ROW = 3;
 // An outline takes this share of its column's width, so outlines and gaps grow
@@ -63,18 +60,14 @@ const RANGE_MAX_WIDTH = 132;
 // The sample of one range, shown while the range is hovered or focused: rows of as
 // many districts as there are ranges in a row.
 const SAMPLE_ROWS = 3;
-/** Districts of a range's sample that are shown at any panel width. */
-const ALWAYS_SHOWN = NARROW_RANGES_PER_ROW * SAMPLE_ROWS;
-// A pointer that only crosses the row on its way elsewhere opens nothing.
+// A pointer that only crosses the table on its way elsewhere opens nothing.
 const HOVER_OPEN_DELAY_MS = 150;
-// Long enough to cross the gap between two outlines without the sample closing.
+// Long enough to cross the gap between two ranges without the sample closing.
 const HOVER_CLOSE_DELAY_MS = 120;
 const UNFOLD_MS = 150;
 // Room around the sample for its shadow, in the unfolding clip.
 const SHADOW_ROOM = 24;
 const SAMPLE_LINE_COLOR = 'var(--gray-a6)';
-// The report's sheet has one width, so its outlines have one size.
-const REPORT_OUTLINE_SIZE = 64;
 
 const loadExemplars = async (): Promise<CompactnessExemplarData> =>
   (await import('@constants/compactnessExemplars.json')).default as CompactnessExemplarData;
@@ -122,50 +115,44 @@ const CELL_STYLE: React.CSSProperties = {
   padding: 'var(--space-2) 0',
   minWidth: 0,
 };
-const ROW_LABEL_STYLE: React.CSSProperties = {...CELL_STYLE, textAlign: 'center'};
-
-/** Label of the row of score ranges, on screen and in the report. */
-const RangesLabel: React.FC<{scoreName: string}> = ({scoreName}) => (
-  <Text size="1" style={ROW_LABEL_STYLE}>
-    A {scoreName} score of
-  </Text>
-);
-
-/** Label of the row of example districts, on screen and in the report. */
-const ExamplesLabel: React.FC = () => (
-  <Text size="1" style={ROW_LABEL_STYLE}>
-    …is exemplified by…
-  </Text>
-);
-// The number of the range whose sample is open becomes a tab on the sample's frame.
-// Every number cell keeps the tab's border width, so opening moves no text.
+const ROW_LABEL_STYLE: React.CSSProperties = {
+  ...CELL_STYLE,
+  flexDirection: 'column',
+  textAlign: 'center',
+};
+// The open range's number becomes a tab on the sample's frame; a tab in the upper
+// row runs down through the cell below it. Every cell keeps the tab's border width,
+// so opening moves no text.
 const RANGE_CELL_STYLE: React.CSSProperties = {
   ...CELL_STYLE,
   borderStyle: 'solid',
   borderWidth: '1px 1px 0',
   borderColor: 'transparent',
-  borderRadius: 'var(--radius-3) var(--radius-3) 0 0',
 };
-const OPEN_RANGE_CELL_STYLE: React.CSSProperties = {
+const TAB_CELL_STYLE: React.CSSProperties = {
   ...RANGE_CELL_STYLE,
-  borderColor: SAMPLE_LINE_COLOR,
   backgroundColor: 'var(--color-panel-solid)',
   position: 'relative',
   zIndex: 11,
-  // Down over the row line and the sample's top line, so tab and sample are one shape.
-  marginBottom: -2,
 };
+const TAB_TOP_STYLE: React.CSSProperties = {
+  ...TAB_CELL_STYLE,
+  borderColor: SAMPLE_LINE_COLOR,
+  borderRadius: 'var(--radius-3) var(--radius-3) 0 0',
+};
+const TAB_THROUGH_STYLE: React.CSSProperties = {
+  ...TAB_CELL_STYLE,
+  borderColor: `transparent ${SAMPLE_LINE_COLOR}`,
+};
+// How far a tab cell reaches down: over its row's line and, in the row next to the
+// sample, over the sample's top line too, so tab and sample are one shape.
+const OVER_ROW_LINE = -1;
+const OVER_ROW_AND_SAMPLE_LINE = -2;
 const SHORT_NAME_STYLE: React.CSSProperties = {
   fontSize: 10,
   lineHeight: '12px',
   color: 'var(--gray-9)',
 };
-
-/** One district of each range, drawn at random from the first `poolSize` of its sample. */
-const drawExamples = (buckets: ExemplarBucket[], poolSize: number): string[] =>
-  buckets.map(
-    ({districts}) => districts[Math.floor(Math.random() * Math.min(districts.length, poolSize))]
-  );
 
 interface SampleProps {
   label: string;
@@ -173,15 +160,14 @@ interface SampleProps {
   geoids: string[];
   districtsById: Record<string, ExemplarDistrict>;
   perRow: number;
-  /** Column of the cell the sample unfolds from, in its first row. */
+  /** Column of the range the sample unfolds from. */
   fromColumn: number;
   outlineSize: number;
 }
 
 /**
- * The sample of one range, laid over the examples, on their columns, and unfolding
- * from the cell of the range's own example. It ignores the pointer, so the examples
- * under it stay hoverable.
+ * The sample of one range, laid over the content below the table, on the table's
+ * columns, and unfolding from the column of its range. It ignores the pointer.
  */
 const Sample: React.FC<SampleProps> = ({
   label,
@@ -214,7 +200,6 @@ const Sample: React.FC<SampleProps> = ({
       ref={ref}
       role="group"
       aria-label={label}
-      className="print:hidden"
       style={{
         position: 'absolute',
         top: 0,
@@ -233,8 +218,6 @@ const Sample: React.FC<SampleProps> = ({
       }}
     >
       {geoids.map(geoid => (
-        // The padding above the outline equals the example row's, so the range's
-        // own example stands where it stood.
         <figure
           key={geoid}
           className="m-0 flex flex-col items-center gap-1"
@@ -250,29 +233,24 @@ const Sample: React.FC<SampleProps> = ({
   );
 };
 
-interface ExemplarRangesProps {
-  scoreName: string;
-  buckets: ExemplarBucket[];
-  districtsById: Record<string, ExemplarDistrict>;
+interface OpenRange {
+  scoreKey: CompactnessScoreKey;
+  index: number;
 }
 
 /**
- * The score ranges side by side, one example district under each. Hovering or
- * focusing a range's number or its example unfolds the range's sample over the
- * examples, each district with its short name; the range's own example keeps its
- * place in it, and the range's number becomes a tab on the sample's frame.
- *
- * The sample is the same for everyone. The one example shown before any hover is
- * drawn anew on each visit, from the first ALWAYS_SHOWN of the sample, so it is
- * among the districts the sample shows at any width.
+ * The score ranges of both scores, one row per score, so the same range of the two
+ * scores stands in one column. Hovering or focusing a range unfolds that range's
+ * sample below the table, each district with its short name, and the range's number
+ * becomes a tab on the sample's frame. The sample is the same for everyone.
  */
-const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, districtsById}) => {
+const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number | null>(null);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openRange, setOpenRange] = useState<OpenRange | null>(null);
   const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
-  const [shownByDefault] = useState(() => drawExamples(buckets, ALWAYS_SHOWN));
+  const rangeCount = data.buckets[SCORE_KEYS[0]].length;
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current;
@@ -288,22 +266,22 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
     window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
   };
-  const open = (index: number) => {
+  const open = (range: OpenRange) => {
     clearTimers();
-    setOpenIndex(index);
+    setOpenRange(range);
   };
   const close = () => {
     clearTimers();
-    setOpenIndex(null);
+    setOpenRange(null);
   };
-  const onPointerOver = (index: number) => {
-    if (openIndex !== null) return open(index);
+  const onPointerOver = (range: OpenRange) => {
+    if (openRange !== null) return open(range);
     clearTimers();
-    openTimer.current = window.setTimeout(() => setOpenIndex(index), HOVER_OPEN_DELAY_MS);
+    openTimer.current = window.setTimeout(() => setOpenRange(range), HOVER_OPEN_DELAY_MS);
   };
   const closeSoon = () => {
     clearTimers();
-    closeTimer.current = window.setTimeout(() => setOpenIndex(null), HOVER_CLOSE_DELAY_MS);
+    closeTimer.current = window.setTimeout(() => setOpenRange(null), HOVER_CLOSE_DELAY_MS);
   };
   useEffect(
     () => () => {
@@ -314,42 +292,49 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
   );
 
   // A tap elsewhere closes the sample: touch screens have no pointer to move away.
-  const isOpen = openIndex !== null;
+  const isOpen = openRange !== null;
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (event: PointerEvent) => {
       const onTrigger = (event.target as Element).closest?.('[data-exemplar-trigger]');
-      if (!onTrigger || !wrapperRef.current?.contains(onTrigger)) setOpenIndex(null);
+      if (!onTrigger || !wrapperRef.current?.contains(onTrigger)) setOpenRange(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isOpen]);
 
-  const allInOneRow = width === null || width >= ROW_LABEL_WIDTH + buckets.length * RANGE_MIN_WIDTH;
-  const rangesPerRow = allInOneRow ? buckets.length : NARROW_RANGES_PER_ROW;
+  const allInOneRow = width === null || width >= ROW_LABEL_WIDTH + rangeCount * RANGE_MIN_WIDTH;
+  const rangesPerRow = allInOneRow ? rangeCount : NARROW_RANGES_PER_ROW;
   const columnWidth = width === null ? 0 : (width - ROW_LABEL_WIDTH) / rangesPerRow;
   const outlineSize = Math.round(Math.max(OUTLINE_MIN_SIZE, columnWidth * OUTLINE_SHARE));
-  const rowStarts = buckets.map((_, i) => i).filter(i => i % rangesPerRow === 0);
+  const rowStarts = Array.from({length: rangeCount}, (_, i) => i).filter(
+    i => i % rangesPerRow === 0
+  );
   const columns = `${ROW_LABEL_WIDTH}px repeat(${rangesPerRow}, minmax(0, 1fr))`;
 
-  /** A range's sample with the range's own example moved to the given place. */
-  const sampleWithExampleAt = (index: number, place: number): string[] => {
-    const geoids = buckets[index].districts.slice(0, rangesPerRow * SAMPLE_ROWS);
-    const from = geoids.indexOf(shownByDefault[index]);
-    [geoids[from], geoids[place]] = [geoids[place], geoids[from]];
-    return geoids;
+  const isOpenAt = (scoreKey: CompactnessScoreKey, index: number) =>
+    openRange?.scoreKey === scoreKey && openRange.index === index;
+
+  const rangeCellStyle = (scoreRow: number, index: number): React.CSSProperties => {
+    if (openRange?.index !== index) return RANGE_CELL_STYLE;
+    const openRow = SCORE_KEYS.indexOf(openRange.scoreKey);
+    if (scoreRow < openRow) return RANGE_CELL_STYLE;
+    return {
+      ...(scoreRow === openRow ? TAB_TOP_STYLE : TAB_THROUGH_STYLE),
+      marginBottom: scoreRow === SCORE_KEYS.length - 1 ? OVER_ROW_AND_SAMPLE_LINE : OVER_ROW_LINE,
+    };
   };
 
-  const triggerProps = (index: number) => ({
+  const triggerProps = (range: OpenRange) => ({
     type: 'button' as const,
     'data-exemplar-trigger': true,
-    'aria-expanded': openIndex === index,
+    'aria-expanded': isOpenAt(range.scoreKey, range.index),
     style: TRIGGER_STYLE,
-    onMouseEnter: () => onPointerOver(index),
+    onMouseEnter: () => onPointerOver(range),
     onMouseLeave: closeSoon,
-    onFocus: () => open(index),
+    onFocus: () => open(range),
     onBlur: closeSoon,
-    onClick: () => open(index),
+    onClick: () => open(range),
     onKeyDown: (event: React.KeyboardEvent) => {
       if (event.key === 'Escape') close();
     },
@@ -359,58 +344,59 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
     <div
       ref={wrapperRef}
       className="mb-3"
-      style={{maxWidth: ROW_LABEL_WIDTH + buckets.length * RANGE_MAX_WIDTH}}
+      style={{maxWidth: ROW_LABEL_WIDTH + rangeCount * RANGE_MAX_WIDTH}}
     >
       {rowStarts.map(start => {
-        const row = buckets.slice(start, start + rangesPerRow).map((bucket, i) => ({
-          bucket,
-          index: start + i,
-        }));
         const openHere =
-          openIndex !== null && openIndex >= start && openIndex < start + rangesPerRow
-            ? openIndex
+          openRange !== null && openRange.index >= start && openRange.index < start + rangesPerRow
+            ? openRange
             : null;
         return (
           <div key={start}>
-            <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-              <RangesLabel scoreName={scoreName} />
-              {row.map(({bucket, index}) => (
-                <div
-                  key={bucket.min}
-                  style={openIndex === index ? OPEN_RANGE_CELL_STYLE : RANGE_CELL_STYLE}
-                >
-                  <button {...triggerProps(index)}>
-                    <Text
-                      size="2"
-                      weight={openIndex === index ? 'bold' : 'regular'}
-                      className="tabular-nums"
-                      style={{textDecoration: HOVER_BTN_STYLE.textDecoration}}
-                    >
-                      {rangeLabel(bucket)}
-                    </Text>
-                  </button>
+            {SCORE_KEYS.map((scoreKey, scoreRow) => (
+              <div
+                key={scoreKey}
+                style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}
+              >
+                <div style={ROW_LABEL_STYLE}>
+                  <Text size="1">{SCORE_NAME[scoreKey]}</Text>
+                  <Text size="1" color="gray">
+                    hover to see examples
+                  </Text>
                 </div>
-              ))}
-            </div>
-            <div style={{position: 'relative'}}>
-              <div style={{display: 'grid', gridTemplateColumns: columns, borderBottom: ROW_LINE}}>
-                <ExamplesLabel />
-                {row.map(({bucket, index}) => (
-                  <div key={bucket.min} style={CELL_STYLE}>
-                    <button {...triggerProps(index)}>
-                      <Outline district={districtsById[shownByDefault[index]]} size={outlineSize} />
-                    </button>
-                  </div>
-                ))}
+                {data.buckets[scoreKey].slice(start, start + rangesPerRow).map((bucket, i) => {
+                  const index = start + i;
+                  return (
+                    <div key={bucket.min} style={rangeCellStyle(scoreRow, index)}>
+                      <button {...triggerProps({scoreKey, index})}>
+                        <Text
+                          size="2"
+                          weight={isOpenAt(scoreKey, index) ? 'bold' : 'regular'}
+                          className="tabular-nums"
+                          style={{textDecoration: HOVER_BTN_STYLE.textDecoration}}
+                        >
+                          {rangeLabel(bucket)}
+                        </Text>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
+            ))}
+            <div style={{position: 'relative'}}>
               {openHere !== null && (
                 <Sample
-                  key={openHere}
-                  label={`Districts with a ${scoreName} score of ${rangeLabel(buckets[openHere])}`}
-                  geoids={sampleWithExampleAt(openHere, openHere - start)}
-                  districtsById={districtsById}
+                  key={`${openHere.scoreKey}-${openHere.index}`}
+                  label={`Districts with a ${SCORE_NAME[openHere.scoreKey]} score of ${rangeLabel(
+                    data.buckets[openHere.scoreKey][openHere.index]
+                  )}`}
+                  geoids={data.buckets[openHere.scoreKey][openHere.index].districts.slice(
+                    0,
+                    rangesPerRow * SAMPLE_ROWS
+                  )}
+                  districtsById={data.districts}
                   perRow={rangesPerRow}
-                  fromColumn={openHere - start}
+                  fromColumn={openHere.index - start}
                   outlineSize={outlineSize}
                 />
               )}
@@ -422,82 +408,16 @@ const ExemplarRanges: React.FC<ExemplarRangesProps> = ({scoreName, buckets, dist
   );
 };
 
-interface ReportExemplarRowProps {
-  scoreName: string;
-  buckets: ExemplarBucket[];
-  data: CompactnessExemplarData;
-}
-
 /**
- * The report's row of examples: the ranges side by side, one district under each
- * with its short name, drawn from the range's whole sample when the report opens.
- * Paper has no hover, so the sample itself is not shown; the caption points at a
- * note, shared by both scores' rows, that names the source and the draw.
+ * Shows what the two compactness scores look like: districts of a past Congress,
+ * grouped into score ranges, a fixed random sample of each range.
  */
-const ReportExemplarRow: React.FC<ReportExemplarRowProps> = ({scoreName, buckets, data}) => {
-  const [examples] = useState(() => drawExamples(buckets, data.sampleSize));
-  const columns = `${ROW_LABEL_WIDTH}px repeat(${buckets.length}, minmax(0, 1fr))`;
-  const rowStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: columns,
-    borderBottom: ROW_LINE,
-  };
-  const sourceNote =
-    `Congressional districts of the ${ordinal(data.congress)} Congress, used in the ` +
-    `${data.electionYear} election (${data.source}). Each example is drawn at random from a ` +
-    `sample of up to ${data.sampleSize} districts in its range when the report is opened, so ` +
-    `two reports of the same plan can show different examples.`;
-  return (
-    <div className="eval-report-exemplars">
-      <EvalTableTitle reportOnly>
-        {scoreName} score exemplars
-        <ReportNoteRef note="exampleDistricts" title="Example districts" text={sourceNote} />
-      </EvalTableTitle>
-      <div style={rowStyle}>
-        <RangesLabel scoreName={scoreName} />
-        {buckets.map(bucket => (
-          <div key={bucket.min} style={CELL_STYLE}>
-            <Text size="2" className="tabular-nums">
-              {rangeLabel(bucket)}
-            </Text>
-          </div>
-        ))}
-      </div>
-      <div style={{...rowStyle, marginBottom: 'var(--space-3)'}}>
-        <ExamplesLabel />
-        {buckets.map((bucket, i) => (
-          <figure
-            key={bucket.min}
-            className="m-0 flex flex-col items-center gap-1"
-            style={{padding: 'var(--space-2) 0'}}
-          >
-            <Outline district={data.districts[examples[i]]} size={REPORT_OUTLINE_SIZE} />
-            <figcaption style={SHORT_NAME_STYLE}>
-              {districtShortName(data.districts[examples[i]])}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-interface CompactnessExemplarsProps {
-  scoreKey: CompactnessScoreKey;
-}
-
-/**
- * Shows what a compactness score looks like: districts of a past Congress, grouped
- * into score ranges, a fixed random sample of each range.
- */
-export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({scoreKey}) => {
-  const isReport = useIsReport();
+export const CompactnessExemplars: React.FC = () => {
   const {data, isError} = useQuery({
     queryKey: ['compactness-exemplars'],
     queryFn: loadExemplars,
     staleTime: Infinity,
   });
-  useReportPart(`examples-${scoreKey}`, isError ? 'failed' : data ? 'ready' : 'loading');
 
   if (isError) {
     return (
@@ -508,27 +428,11 @@ export const CompactnessExemplars: React.FC<CompactnessExemplarsProps> = ({score
   }
   if (!data) {
     return (
-      <Flex justify="center" align="center" mb="3" style={{minHeight: 120}}>
+      <Flex justify="center" align="center" mb="3" style={{minHeight: 60}}>
         <Spinner />
       </Flex>
     );
   }
 
-  if (isReport) {
-    return (
-      <ReportExemplarRow
-        scoreName={SCORE_NAME[scoreKey]}
-        buckets={data.buckets[scoreKey]}
-        data={data}
-      />
-    );
-  }
-
-  return (
-    <ExemplarRanges
-      scoreName={SCORE_NAME[scoreKey]}
-      buckets={data.buckets[scoreKey]}
-      districtsById={data.districts}
-    />
-  );
+  return <ExemplarRanges data={data} />;
 };

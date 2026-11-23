@@ -445,8 +445,7 @@ body {
 }
 
 /* Report: a table is kept whole where it fits on a page. */
-.eval-report .rt-TableRoot,
-.eval-report-exemplars {
+.eval-report .rt-TableRoot {
   break-inside: avoid;
 }
 /* A table that can outgrow a page starts where it stands and continues on the next. */

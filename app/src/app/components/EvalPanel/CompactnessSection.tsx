@@ -5,6 +5,7 @@ import {Text} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {CompactnessExemplars} from './CompactnessExemplars';
 import {CompactnessScoreTable} from './CompactnessScoreTable';
+import {useIsReport} from './evalMode';
 
 interface CompactnessSectionProps {
   evaluation: DocumentEvaluation;
@@ -25,6 +26,7 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
   const {cut_edges, polsby_popper, reock} = evaluation;
   const ppStats = useMemo(() => scoreStats(polsby_popper), [polsby_popper]);
   const reockStats = useMemo(() => scoreStats(reock), [reock]);
+  const isReport = useIsReport();
 
   return (
     <EvalSection value="compactness" title="Compactness">
@@ -48,37 +50,39 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
         <Text size="2">Not available for this plan.</Text>
       )}
 
-      {/* Polsby-Popper */}
-      <EvalSubheading>Polsby-Popper Scores</EvalSubheading>
+      {/* Polsby-Popper and Reock */}
+      <EvalSubheading>Polsby-Popper and Reock Scores</EvalSubheading>
       <Text size="2" as="p" mb="2">
         The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its perimeter.
         Scores range from 0 to 1; higher scores indicate more compact districts. Unlike cut edges,
         this measure depends on map projection and boundary resolution rather than the choice of
         geographic units.
       </Text>
-      <CompactnessExemplars scoreKey="polsby_popper" />
-      {ppStats && (
-        <Text size="2" as="p" mb="3">
-          In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
-          <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of{' '}
-          <strong>{ppStats.mean.toFixed(3)}</strong>.
-        </Text>
-      )}
-
-      {/* Reock */}
-      <EvalSubheading>Reock Scores</EvalSubheading>
       <Text size="2" as="p" mb="2">
         The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of the
         smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1; higher
         scores indicate more compact, circular districts. Reock is sensitive to map projection and
         is computed on-demand when the evaluation view is opened.
       </Text>
-      <CompactnessExemplars scoreKey="reock" />
-      {reockStats && (
+      {!isReport && <CompactnessExemplars />}
+      {(ppStats || reockStats) && (
         <Text size="2" as="p" mb="3">
-          In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
-          <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of{' '}
-          <strong>{reockStats.mean.toFixed(3)}</strong>.
+          In your plan,{' '}
+          {ppStats && (
+            <>
+              Polsby-Popper scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
+              <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of{' '}
+              <strong>{ppStats.mean.toFixed(3)}</strong>
+              {reockStats ? '; ' : '.'}
+            </>
+          )}
+          {reockStats && (
+            <>
+              Reock scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
+              <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of{' '}
+              <strong>{reockStats.mean.toFixed(3)}</strong>.
+            </>
+          )}
         </Text>
       )}
 

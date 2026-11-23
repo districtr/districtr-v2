@@ -1,19 +1,13 @@
 'use client';
 import {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {Heading, Text} from '@radix-ui/themes';
-import {DEMOGRAPHICS_SOURCE, ELECTIONS_SOURCE} from '@components/sidebar/DataSourceCitation';
+import {DEMOGRAPHICS_SOURCE} from '@components/sidebar/DataSourceCitation';
 
 /**
  * The notes a report can carry, in the order the Notes section lists them: the
  * order in which the report first points at each.
  */
-const REPORT_NOTES = [
-  'geography',
-  'population',
-  'electionResults',
-  'freedomToVoteTest',
-  'exampleDistricts',
-] as const;
+const REPORT_NOTES = ['geography', 'population', 'electionResults', 'freedomToVoteTest'] as const;
 export type ReportNoteKey = (typeof REPORT_NOTES)[number];
 
 /** Where the report's data come from: one note per kind of data. */
@@ -33,7 +27,7 @@ export const DATA_SOURCE_NOTES = {
   electionResults: {
     note: 'electionResults',
     title: 'Election results',
-    text: `Election results are from ${ELECTIONS_SOURCE}.`,
+    text: "The sources of the election results are listed on Districtr's Data page, districtr.org/data.",
   },
 } as const satisfies Record<string, {note: ReportNoteKey; title: string; text: string}>;
 

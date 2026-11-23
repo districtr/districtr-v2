@@ -22,6 +22,7 @@ export const useIsReport = (): boolean => useContext(EvalModeContext) === 'repor
 export const EVAL_OPTION_VALUES = {
   deviationView: ['both', 'top_to_bottom', 'max_absolute'],
   countyShowMode: ['overly-split-only', 'all'],
+  ftvShowMode: ['ftv-only', 'all'],
   pov: ['dem', 'rep'],
   competitiveBand: ['2', '3', '5', '7', '10'],
 } as const;
@@ -38,6 +39,7 @@ export type EvalOptions = {
 export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
   deviationView: 'top_to_bottom',
   countyShowMode: 'overly-split-only',
+  ftvShowMode: 'ftv-only',
   pov: 'dem',
   competitiveBand: '3',
 };
