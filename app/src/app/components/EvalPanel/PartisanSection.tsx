@@ -4,7 +4,7 @@ import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
 import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
 import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
 import {helpTipContent} from '@components/HelpTip/helpTipContent';
-import {Flex, Text, Table, HoverCard, Select} from '@radix-ui/themes';
+import {Button, Flex, Text, Table, HoverCard, Select} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
@@ -12,7 +12,8 @@ import {NUMBER_FORMATS} from '@/app/constants/demography/format';
 import {PovSwitcher, type Pov} from '@components/Shared/PovSwitcher';
 import {getReadableTextColor} from '@/app/utils/colors';
 import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
-import {HOVER_BTN_STYLE, HoverTrigger, useHoverHandlers} from './HoverTrigger';
+import {HOVER_BTN_STYLE, HoverTrigger} from './HoverTrigger';
+import {isPlanComplete} from './planCompleteness';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 
 interface PartisanSectionProps {
@@ -49,9 +50,8 @@ const ELECTION_LIST_OPEN_DELAY_MS = 150;
 // isn't flipped by floating-point rounding.
 const FLOAT_TOLERANCE = 1e-9;
 
-// Outlines an election's cells in the tables of this section while that election, or
-// the count of passed FTV contests, is hovered, so the reader can see which contests
-// the FTV text is talking about.
+// Outlines an election's cells in the tables of this section while the count of
+// passed FTV contests is hovered, so the reader can see which contests passed.
 const ftvCellHighlight = (isFtvElection: boolean): React.CSSProperties =>
   isFtvElection ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
 
@@ -103,10 +103,10 @@ const FtvTestName: React.FC = () => {
   );
 };
 
-type FtvShowMode = EvalOptions['ftvShowMode'];
-const FTV_SHOW_MODE_LABEL: Record<FtvShowMode, string> = {
-  'ftv-only': 'FTV elections',
+type ElectionShowMode = EvalOptions['electionShowMode'];
+const ELECTION_SHOW_MODE_LABEL: Record<ElectionShowMode, string> = {
   all: 'all elections',
+  'ftv-only': 'FTV elections',
 };
 
 /** Seat share minus vote share as points towards a party, e.g. "6.0% D". */
@@ -138,22 +138,34 @@ function sortElections(keys: string[]): string[] {
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const isReport = useIsReport();
-  const hoverHandlers = useHoverHandlers();
-  // A count that highlights its districts on hover; plain bold text in the report.
-  const districtCountStyle: React.CSSProperties = isReport
-    ? {fontWeight: 'bold'}
-    : {...HOVER_BTN_STYLE, fontWeight: 'bold'};
   const [pov, setPov] = useEvalOption('pov');
   const povName = pov === 'dem' ? 'Democratic' : 'Republican';
-  const [ftvShowMode, setFtvShowMode] = useEvalOption('ftvShowMode');
+  const [electionShowMode, setElectionShowMode] = useEvalOption('electionShowMode');
   const [ftvPassHover, setFtvPassHover] = useState(false);
-  const [hoveredFtvKey, setHoveredFtvKey] = useState<string | null>(null);
   const [competitiveBand, setCompetitiveBand] = useEvalOption('competitiveBand');
+  const [unfinishedPartisan, setUnfinishedPartisan] = useEvalOption('unfinishedPartisan');
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
   if (!n && !competitiveness) return null;
+
+  // Vote and seat figures of a plan with unassigned units describe only its drawn
+  // part, so they stay hidden until the reader asks for them.
+  if (isPlanComplete(evaluation.assigned_units) === false && unfinishedPartisan === 'hidden') {
+    return (
+      <EvalSection value="partisan" title="Election Results and Partisanship">
+        <Flex align="center" gap="3" wrap="wrap">
+          <Text size="2">The partisan metrics are hidden for unfinished plans.</Text>
+          {!isReport && (
+            <Button size="1" variant="soft" onClick={() => setUnfinishedPartisan('shown')}>
+              Show anyway
+            </Button>
+          )}
+        </Flex>
+      </EvalSection>
+    );
+  }
 
   const povColor = pov === 'dem' ? DEM : REP;
   const povBg = pov === 'dem' ? demBg : repBg;
@@ -166,6 +178,12 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
   const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
   const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
+  // The Proportionality and Other Partisanship Metrics tables list every election or
+  // only the test's; the Freedom-To-Vote table always lists the test's.
+  const onlyFtvElections = ftv !== null && electionShowMode === 'ftv-only';
+  const tableElections = onlyFtvElections
+    ? elections.filter(key => ftvElections.includes(key))
+    : elections;
   // A missing disproportionality value (the backend metric raises on an
   // election with zero D+R votes, isolated per-metric) must not silently
   // score as a failed contest — treat it the same as "not enough data".
@@ -182,8 +200,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     : null;
   const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
-  const isFtvHighlighted = (key: string) =>
-    (ftvPassHover && !!ftvPassingKeys?.has(key)) || hoveredFtvKey === key;
+  const isFtvHighlighted = (key: string) => ftvPassHover && !!ftvPassingKeys?.has(key);
   // The bound is 1/k seats when that's looser than the flat 7% floor — state it
   // in whichever form is actually binding, rather than always the raw percentage.
   const ftvBoundPhrase =
@@ -196,7 +213,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   // FTV table's vote/seat share rows follow the pov toggle, same as the
   // Proportionality table. The difference and the "R tilt"/"D tilt" verdict
   // stay fixed either way: they name whichever party is actually favored.
-  const ftvTableElections = ftvShowMode === 'all' ? elections : ftvElections;
   const povVoteShare = (key: string) => {
     const dem = evaluation.vote_shares?.[key]?.dem;
     if (dem === undefined) return null;
@@ -240,6 +256,50 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     s => Math.abs(s - 0.5) <= competitiveBandFraction + FLOAT_TOLERANCE
   ).length;
 
+  // Shared by the two tables it governs; hidden when the plan has no test elections.
+  const electionSelector = ftv !== null && (
+    <Flex align="center" gap="1">
+      <Text size="1" color="gray">
+        Show
+      </Text>
+      <Select.Root
+        size="1"
+        value={electionShowMode}
+        onValueChange={v => setElectionShowMode(v as ElectionShowMode)}
+      >
+        <Select.Trigger />
+        <Select.Content>
+          {EVAL_OPTION_VALUES.electionShowMode.map(mode => (
+            <Select.Item key={mode} value={mode}>
+              {ELECTION_SHOW_MODE_LABEL[mode]}
+            </Select.Item>
+          ))}
+        </Select.Content>
+      </Select.Root>
+    </Flex>
+  );
+  const onlyFtvCaption = onlyFtvElections ? ', Freedom-To-Vote Test elections only' : '';
+  // Defines the abbreviation the election selector uses; the report has no selector.
+  const ftvAbbreviation = isReport ? '' : ' (FTV)';
+  // The third cell of a district row in the competitiveness table: the one trigger
+  // that highlights the row's districts on the map. The report has no such column.
+  const highlightCell = (districts: number[]) =>
+    !isReport && (
+      <Table.Cell>
+        {districts.length > 0 && (
+          <Text size="2">
+            <HoverTrigger
+              chip
+              onEnter={() => onDistrictEnter(districts, {isolate: true})}
+              onLeave={onDistrictLeave}
+            >
+              {districts.length === 1 ? 'highlight this district' : 'highlight these districts'}
+            </HoverTrigger>
+          </Text>
+        )}
+      </Table.Cell>
+    );
+
   return (
     <EvalSection value="partisan" title="Election Results and Partisanship">
       {n > 0 && (
@@ -278,40 +338,21 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {ftvPassCount === null && (
             <Text size="2" mb="3" as="p">
               Not enough recent Presidential and Senate election data is available to score this
-              plan against the <FtvTestName />.
+              plan against the <FtvTestName />
+              {ftvAbbreviation}.
             </Text>
           )}
           {ftvPassCount !== null && (
             <>
               <Text size="2" mb="2" as="p">
                 This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
-                <FtvTestName /> for partisan balance. To see why, we use the last two Senate races
+                <FtvTestName />
+                {ftvAbbreviation} for partisan balance. To see why, we use the last two Senate races
                 and the last two Presidential races as our test contests (
                 {joinWithAnd(ftvElections.map(formatElectionKey))}). We check if the seat share
                 would have been proportional to the vote share in those contests, up to an allowed
                 bound of <strong>{ftvBoundPhrase}</strong>.
               </Text>
-              {!isReport && (
-                <Flex align="center" gap="1" mb="2" justify="end">
-                  <Text size="1" color="gray">
-                    Show
-                  </Text>
-                  <Select.Root
-                    size="1"
-                    value={ftvShowMode}
-                    onValueChange={v => setFtvShowMode(v as FtvShowMode)}
-                  >
-                    <Select.Trigger />
-                    <Select.Content>
-                      {EVAL_OPTION_VALUES.ftvShowMode.map(mode => (
-                        <Select.Item key={mode} value={mode}>
-                          {FTV_SHOW_MODE_LABEL[mode]}
-                        </Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select.Root>
-                </Flex>
-              )}
               <EvalTableTitle reportOnly>
                 Freedom-To-Vote Test by contest, {povName} point of view
               </EvalTableTitle>
@@ -320,14 +361,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                   <Table.Header>
                     <Table.Row>
                       <Table.ColumnHeaderCell justify="center" />
-                      {ftvTableElections.map(key => (
+                      {ftvElections.map(key => (
                         <Table.ColumnHeaderCell key={key} justify="center">
-                          <HoverTrigger
-                            onEnter={() => setHoveredFtvKey(key)}
-                            onLeave={() => setHoveredFtvKey(null)}
-                          >
-                            {formatElectionKey(key)}
-                          </HoverTrigger>
+                          {formatElectionKey(key)}
                         </Table.ColumnHeaderCell>
                       ))}
                     </Table.Row>
@@ -339,7 +375,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           {pov === 'dem' ? 'D' : 'R'} vote share
                         </Text>
                       </Table.Cell>
-                      {ftvTableElections.map(key => (
+                      {ftvElections.map(key => (
                         <Table.Cell key={key} justify="center">
                           <Text size="2">
                             {povVoteShare(key) !== null
@@ -355,7 +391,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           {pov === 'dem' ? 'D' : 'R'} seat share
                         </Text>
                       </Table.Cell>
-                      {ftvTableElections.map(key => (
+                      {ftvElections.map(key => (
                         <Table.Cell key={key} justify="center">
                           <Text size="2">
                             {povSeatShare(key) !== null
@@ -371,10 +407,17 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           Diff
                         </Text>
                       </Table.Cell>
-                      {ftvTableElections.map(key => {
+                      {ftvElections.map(key => {
                         const disprop = evaluation.disproportionality?.[key];
                         return (
-                          <Table.Cell key={key} justify="center">
+                          <Table.Cell
+                            key={key}
+                            justify="center"
+                            style={{
+                              backgroundColor: scaledBg(disprop, METRIC_CUTOFF.disp),
+                              color: scaledTextColor(disprop, METRIC_CUTOFF.disp),
+                            }}
+                          >
                             <Text size="2">
                               {disprop !== undefined ? formatFtvDiff(disprop) : '—'}
                             </Text>
@@ -388,14 +431,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           Close enough ({formatThreshold(ftvThreshold!)} Threshold)
                         </Text>
                       </Table.Cell>
-                      {ftvTableElections.map(key => {
+                      {ftvElections.map(key => {
                         const verdict = ftvVerdict(key);
                         return (
-                          <Table.Cell
-                            key={key}
-                            justify="center"
-                            style={ftvCellHighlight(isFtvHighlighted(key))}
-                          >
+                          <Table.Cell key={key} justify="center">
                             <Text size="2">
                               {verdict === null ? (
                                 '—'
@@ -453,10 +492,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           </Text>
           <EvalTableTitle>
             Votes vs. Seats by Election (among the two major parties)
-            {isReport && `, ${povName} point of view`}
+            {isReport && `, ${povName} point of view${onlyFtvCaption}`}
           </EvalTableTitle>
-          <Flex mb="2" display={isReport ? 'none' : 'flex'}>
+          <Flex mb="2" gap="4" align="center" wrap="wrap" display={isReport ? 'none' : 'flex'}>
             <PovSwitcher pov={pov} setPov={setPov} />
+            {electionSelector}
           </Flex>
           <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
             <Table.Root size="1" mb="3" variant="surface">
@@ -489,7 +529,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {elections.map(key => {
+                {tableElections.map(key => {
                   const seats = evaluation.seats?.[key];
                   const seatTotal = seats?.total ?? null;
                   const partySeatCount = seats?.[pov] ?? null;
@@ -577,9 +617,11 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           <EvalSubheading>Other Partisanship Metrics</EvalSubheading>
           <EvalTableTitle reportOnly>
             Partisanship metrics by election, {povName} point of view
+            {onlyFtvCaption}
           </EvalTableTitle>
-          <Flex mb="2" display={isReport ? 'none' : 'flex'}>
+          <Flex mb="2" gap="4" align="center" wrap="wrap" display={isReport ? 'none' : 'flex'}>
             <PovSwitcher pov={pov} setPov={setPov} />
+            {electionSelector}
           </Flex>
           <div style={{overflowX: 'auto', maxWidth: '100%', width: 'fit-content'}}>
             <Table.Root
@@ -621,7 +663,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {elections.map(key => (
+                {tableElections.map(key => (
                   <Table.Row key={key}>
                     <Table.Cell justify="center">
                       <Text size="2" weight="bold">
@@ -772,6 +814,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       {nElectionsAnalyzed}
                     </Text>
                   </Table.Cell>
+                  {!isReport && <Table.Cell />}
                 </Table.Row>
                 <Table.Row>
                   <Table.Cell justify="center">
@@ -782,48 +825,40 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       {nCompetitiveContests} / {contestDemVoteShares.length}
                     </Text>
                   </Table.Cell>
+                  {!isReport && <Table.Cell />}
                 </Table.Row>
-                <Table.Row
-                  tabIndex={isReport ? undefined : 0}
-                  style={{cursor: 'default'}}
-                  {...hoverHandlers(() => onDistrictEnter(swingDistricts), onDistrictLeave)}
-                >
+                <Table.Row>
                   <Table.Cell justify="center">
                     <Text size="2">Swing districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={districtCountStyle}>
+                    <Text size="2" weight="bold">
                       {swingDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>
+                  {highlightCell(swingDistricts)}
                 </Table.Row>
-                <Table.Row
-                  tabIndex={isReport ? undefined : 0}
-                  style={{cursor: 'default'}}
-                  {...hoverHandlers(() => onDistrictEnter(demSweepDistricts), onDistrictLeave)}
-                >
+                <Table.Row>
                   <Table.Cell justify="center">
                     <Text size="2">D Sweep districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={districtCountStyle}>
+                    <Text size="2" weight="bold">
                       {demSweepDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>
+                  {highlightCell(demSweepDistricts)}
                 </Table.Row>
-                <Table.Row
-                  tabIndex={isReport ? undefined : 0}
-                  style={{cursor: 'default'}}
-                  {...hoverHandlers(() => onDistrictEnter(repSweepDistricts), onDistrictLeave)}
-                >
+                <Table.Row>
                   <Table.Cell justify="center">
                     <Text size="2">R Sweep districts</Text>
                   </Table.Cell>
                   <Table.Cell justify="center">
-                    <Text size="2" style={districtCountStyle}>
+                    <Text size="2" weight="bold">
                       {repSweepDistricts.length} / {nDistrictsTotal}
                     </Text>
                   </Table.Cell>
+                  {highlightCell(repSweepDistricts)}
                 </Table.Row>
               </Table.Body>
             </Table.Root>

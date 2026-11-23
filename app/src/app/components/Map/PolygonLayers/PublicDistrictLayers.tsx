@@ -9,6 +9,7 @@ import {
   HIGHLIGHT_LINE_WIDTH,
   HIGHLIGHT_MASK_COLOR,
   HIGHLIGHT_MASK_OPACITY,
+  HIGHLIGHT_ISOLATE_MASK_OPACITY,
 } from '@constants/map/layerStyle';
 import {DEFAULT_BLOCK_LAYER_ORDER} from '@constants/map/layerRenderConfig';
 import {useColorScheme} from '@/app/hooks/useColorScheme';
@@ -17,6 +18,7 @@ import {useMapStore} from '@store/mapStore';
 export const PublicDistrictLayers: React.FC = () => {
   const colorScheme = useColorScheme();
   const hoveredZones = useMapStore(state => state.hoveredPublicZones);
+  const isolate = useMapStore(state => state.isolateHoveredPublicZones);
 
   return (
     <>
@@ -51,7 +53,7 @@ export const PublicDistrictLayers: React.FC = () => {
               'case',
               ['boolean', ['feature-state', 'focused'], false],
               0,
-              HIGHLIGHT_MASK_OPACITY,
+              isolate ? HIGHLIGHT_ISOLATE_MASK_OPACITY : HIGHLIGHT_MASK_OPACITY,
             ],
           }}
           beforeId={DEFAULT_BLOCK_LAYER_ORDER.highlightBeforeId}
