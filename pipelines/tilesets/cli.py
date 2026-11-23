@@ -108,7 +108,12 @@ def merge_gerrydb_tilesets(
     default=None,
 )
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
-@click.option("--upload", "-u", help="Upload tileset results to S3", is_flag=True)
+@click.option(
+    "--upload",
+    "-u",
+    help="Upload tileset results to S3, and to R2 when the R2 settings are present",
+    is_flag=True,
+)
 def batch_create_tilesets(
     config_path: str, data_dir: str | None, replace: bool, upload: bool
 ) -> None:
