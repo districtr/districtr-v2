@@ -46,74 +46,61 @@ def share_districtr_plan(
     data: DocumentShareRequest,
     session: Session = Depends(get_session),
 ):
-    existing_token = session.execute(
+    # Insert-if-missing in one statement: overlapping share requests for a
+    # never-shared plan used to each insert a token row.
+    session.execute(
         text(
             """
-            SELECT
-                t.token_id,
-                t.document_id,
-                t.password_hash,
-                d.public_id
-            FROM document.map_document_token t
-            LEFT JOIN document.document d ON t.document_id = d.document_id
-            WHERE t.document_id = :doc_id
+            INSERT INTO document.map_document_token (token_id, document_id)
+            VALUES (gen_random_uuid(), :document_id)
+            ON CONFLICT (document_id) DO NOTHING
             """
         ),
-        {"doc_id": document.document_id},
-    ).fetchone()
-
-    if existing_token:
-        if data.password is not None and not existing_token.password_hash:
-            hashed_password = hash_password(data.password)
-            session.execute(
-                text(
-                    """
-                    UPDATE document.map_document_token
-                    SET password_hash = :password_hash
-                    WHERE document_id = :document_id
-                    """
-                ),
-                {
-                    "password_hash": hashed_password,
-                    "token_id": existing_token.token_id,
-                    "document_id": document.document_id,
-                },
-            )
-            session.commit()
-
-        payload = {
-            "token": existing_token.token_id,
-            "access": data.access_type,
-            "password_required": bool(existing_token.password_hash),
-        }
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-        return {"token": token, "public_id": existing_token.public_id}
-
-    else:
-        hashed_password = hash_password(data.password) if data.password else None
-
-        token_id = session.execute(
+        {"document_id": document.document_id},
+    )
+    token_row = session.execute(
+        text(
+            """
+            SELECT token_id, password_hash
+            FROM document.map_document_token
+            WHERE document_id = :document_id
+            """
+        ),
+        {"document_id": document.document_id},
+    ).one()
+    old_hash = token_row.password_hash
+    # Truthy, not `is not None`: the frontend sends "" when no password is set.
+    # Old code stored a hash of "" on a second share click; treat that as
+    # unset so the owner can still choose a real password.
+    password_required = bool(old_hash) and not (
+        data.password and verify_password("", old_hash)
+    )
+    if data.password and not password_required:
+        # First real password wins: the compare-and-set loses to a concurrent
+        # share that stored one first.
+        session.execute(
             text(
                 """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash)
-                VALUES (gen_random_uuid(), :document_id, :password_hash)
-                RETURNING token_id
+                UPDATE document.map_document_token
+                SET password_hash = :password_hash
+                WHERE document_id = :document_id
+                  AND password_hash IS NOT DISTINCT FROM :old_hash
                 """
             ),
             {
+                "password_hash": hash_password(data.password),
                 "document_id": document.document_id,
-                "password_hash": hashed_password,
+                "old_hash": old_hash,
             },
-        ).scalar_one()
-
-        session.commit()
+        )
+        password_required = True
+    session.commit()
 
     payload = {
-        "token": token_id,
+        "token": token_row.token_id,
         "access": data.access_type,
-        "password_required": bool(hashed_password),
+        "password_required": password_required,
     }
-
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token, "public_id": document.public_id}
 
@@ -138,9 +125,16 @@ def grant_edit_access_to_map_document(
             """
         ),
         {"document_id": protected_document.document_id},
-    ).one()
+    ).one_or_none()
 
-    if not verify_password(data.password, result.password_hash):
+    # An empty password must not unlock a plan holding a hash of "" (stored by
+    # old share code), and a plan with no password has nothing to unlock.
+    if (
+        not data.password
+        or result is None
+        or not result.password_hash
+        or not verify_password(data.password, result.password_hash)
+    ):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     return protected_document

@@ -6,6 +6,7 @@ from sqlmodel import (
     Column,
     String,
     MetaData,
+    UniqueConstraint,
 )
 from enum import Enum
 from app.constants import DOCUMENT_SCHEMA
@@ -56,6 +57,8 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
 
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     __tablename__ = "map_document_token"  # pyright: ignore
+    # Declared so autogenerate keeps it; 239ca64ca70d dropped it once already.
+    __table_args__ = (UniqueConstraint("document_id", name="unique_document"),)
     token_id: str = Field(
         UUIDType,
         primary_key=True,

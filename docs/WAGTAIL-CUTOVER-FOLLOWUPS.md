@@ -53,7 +53,7 @@ This file describes the cutover as merged. It covers what the merged code does, 
 - `content/0003_import_legacy_content` runs `migrate_tiptap` during `migrate` to import `cms.tags_content` and `cms.places_content`. If legacy rows exist and `MIGRATE_TIPTAP_OWNERS` is unset, the migration refuses to run.
 - The content API (`cms/content/api.py`) serves the types `portals`, `places` and `static`. It also accepts `tags` as a temporary alias for `portals`. The backend's `/api/documents/list` likewise accepts `tags` as an alias of `portal_ids`, so a frontend built before the cutover keeps its filtered galleries.
 - Two gallery blocks list plans. A **Curated gallery** (`curated_gallery`) shows up to 50 map IDs in the order entered, on any page. A **Submissions gallery** (`plan_gallery`) shows this portal's finished or in-progress submissions and only works on portal pages; the content API gives it `portalId` + `draftStatus` when serving, so the portal slug is never stored and a rename carries the gallery along. A portal page may carry any number of either. Every comment gallery on a portal page gets the portal's id the same way. `/api/documents/list` has no unfiltered listing: it takes either `ids` (max 50) or `portal_id` + `draft_status`.
-- The backend's `app/cms` package now only serves site settings (`/api/cms/site_settings`, the under-construction flag).
+- The backend's `app/cms` package now only serves site settings (`/api/cms/site_settings`: the maintenance flag and the site banner; see [ADR 0072](adr/0072-maintenance-mode-gates-the-api.md)).
 
 ### Tests
 
@@ -106,7 +106,7 @@ Infra supports AWS only. The CMS runs as its own Fargate service (`infra/cms.ts`
     - Sign in to the Wagtail admin with a provisioned account.
     - Edit and publish a page as an admin. Edit a page as a partner and submit it for moderation.
     - In the Portals hub, create a portal with the wizard as a partner. On a portal gallery, hide an entry and restore it. Toggle an entry's blur.
-    - Toggle under-construction mode (Settings, then Frontend settings) and turn it back off.
+    - Toggle maintenance mode (Settings, then Frontend settings) and turn it back off. While it's on, the API answers 503.
     - Regenerate a map module's thumbnail from its edit page.
     - Compose a throwaway module with Create map module. It is created hidden.
     - Load a portal page and a place page on the public site.

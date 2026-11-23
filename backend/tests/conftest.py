@@ -4,6 +4,7 @@ import pytest
 import msgpack
 from app.main import app
 from app.core.db import get_session
+from app.models import DocumentAssignments
 from app.core.security import auth
 from fastapi.testclient import TestClient
 from sqlalchemy.event import listens_for
@@ -12,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import app.evaluation.graph_loader as eval_graph_module
+import app.maintenance as maintenance
 from app.evaluation.graph_loader import get_graph as _get_graph_cached
 from app.evaluation.context import GerrydbTableName
 from app.evaluation.types import Election
@@ -79,6 +81,19 @@ class MsgpackAwareTestClient(TestClient):
 
 
 client = MsgpackAwareTestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def maintenance_isolated(monkeypatch):
+    """No real maintenance poller in tests (it reads DATABASE_URL's DB, not
+    the test DB, and never stops), and a clean flag for every test: the
+    settings PATCH sets process-wide state."""
+    monkeypatch.setattr("app.main.start_maintenance_poller", lambda: None)
+    monkeypatch.setattr(maintenance, "enabled", False)
+    monkeypatch.setattr(maintenance, "banner_message", None)
+    monkeypatch.setattr(maintenance, "downtime_at", None)
+    monkeypatch.setattr(maintenance, "feature_flags", {})
+    monkeypatch.setattr(maintenance, "loaded", False)
 
 
 @pytest.fixture(name="client")
@@ -776,6 +791,15 @@ def _block_geoid(r: int, c: int) -> str:
     """15-char block GEOID: 5-digit county FIPS + 10-digit within-county index."""
     county = (r // 2) * 2 + (c // 4)
     return f"{county:05d}{(r % 2) * 4 + (c % 4):010d}"
+
+
+def seed_assignments(session: Session, document_id, assignments) -> None:
+    """Store a plan directly, skipping PUT /api/assignments and its shatter
+    check: for tests of how readers handle plans saved before that check."""
+    session.add(
+        DocumentAssignments(document_id=str(document_id), assignments=dict(assignments))
+    )
+    session.commit()
 
 
 def _vtd_geoid(pr: int, pc: int) -> str:

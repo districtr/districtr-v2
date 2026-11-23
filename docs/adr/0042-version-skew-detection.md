@@ -4,7 +4,7 @@ Date: 2026-06-11 (recorded retrospectively 2026-09-08)
 
 ## Status
 
-Accepted.
+Accepted. Amended by [0072](0072-maintenance-mode-gates-the-api.md).
 
 ## Context
 

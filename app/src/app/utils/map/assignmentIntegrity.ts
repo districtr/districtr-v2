@@ -215,11 +215,13 @@ let checkSeq = 0;
  * Checks the open map for assignments that would corrupt its totals and shows what it
  * finds. Runs the cheap local pass; only if that finds something, fetches every
  * shattered parent's blocks, re-runs the check with them, and opens the repair modal.
+ * `rejected` (the server refused a save) always fetches: missing blocks only show
+ * against the server's list.
  * Returns false when anything needs fixing. Background triggers (`load`, `autosave`)
  * stay quiet after "Not now": still false, but no modal and no refetch.
  */
 export const checkAssignments = async (
-  trigger: 'load' | 'autosave' | 'save' | 'manual'
+  trigger: 'load' | 'autosave' | 'save' | 'manual' | 'rejected'
 ): Promise<boolean> => {
   const seq = ++checkSeq;
   const {mapDocument} = useMapStore.getState();
@@ -229,7 +231,10 @@ export const checkAssignments = async (
   }
 
   const before = readActiveSnapshot();
-  if (!hasIssues(findAssignmentIssues(before, demographyService.unmatchedPaths))) {
+  if (
+    trigger !== 'rejected' &&
+    !hasIssues(findAssignmentIssues(before, demographyService.unmatchedPaths))
+  ) {
     clearRepair();
     return true;
   }

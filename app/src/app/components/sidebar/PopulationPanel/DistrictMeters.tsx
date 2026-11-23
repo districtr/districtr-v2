@@ -28,6 +28,7 @@ import {
 } from '../ConditionalScrollArea';
 import {ShowAllDistrictsButton, useFocusFilter, useFocusedZones} from '../ShowAllDistrictsButton';
 import {FocusIcon} from '../FocusIcon';
+import {useFeatureFlag} from '@store/featureFlagStore';
 import {ContiguityCell, ContiguityNotes, useDistrictContiguity} from './DistrictContiguity';
 import {formatNumber, signedNumber, signedPercent} from '@utils/numbers';
 import {HelpTip, HELP_TIP_FAST_DELAY, HELP_TIP_HOVER_DELAY} from '@components/HelpTip/HelpTip';
@@ -157,6 +158,9 @@ export const DistrictMeters = () => {
   // can't open empty.
   const descriptionsEnabled = !!useMapStore(state => state.mapDocument?.comment_length_limit);
   const popTuningView = useChartStore(state => state.chartOptions.popTuningView);
+  const tuningFlag = useFeatureFlag('tuningView');
+  const focusFlag = useFeatureFlag('districtFocus');
+  const labelsFlag = useFeatureFlag('districtLabels');
   const setChartOptions = useChartStore(state => state.setChartOptions);
 
   // The tuning view turns population numbers on while it's open, then puts
@@ -168,6 +172,12 @@ export const DistrictMeters = () => {
     setChartOptions({popTuningView: on});
     setMapOptions({showPopulationNumbers: on || !!numbersBeforeTuning.current});
   };
+  // A console override turning the flag off mid-session closes the view,
+  // putting the numbers back. (CMS changes wait for the next page load.)
+  useEffect(() => {
+    if (!tuningFlag && useChartStore.getState().chartOptions.popTuningView) setTuningView(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tuningFlag]);
   // Plain Draw has no tuning view, so leaving Super Draw turns it off.
   useEffect(() => {
     if (superDraw) return;
@@ -212,7 +222,7 @@ export const DistrictMeters = () => {
     : populationData.length - visibleData.length;
   const nothingStarted = startedData.length === 0;
 
-  const tuningView = superDraw && popTuningView;
+  const tuningView = superDraw && tuningFlag && popTuningView;
   const contiguity = useDistrictContiguity(tuningView);
 
   const isReadOnly = access === ACCESS_STATES.READ;
@@ -268,8 +278,22 @@ export const DistrictMeters = () => {
   // Unfocused districts' focus buttons stay hidden until the row is hovered or
   // focused (opacity, not visibility, so they remain focusable); rows carry the
   // `group` class.
+  // Holds the focus button's place, so the icons stay aligned: in iconHeader,
+  // and in the rows while the districtFocus flag is off.
+  const focusTwin = (
+    <IconButton
+      variant="ghost"
+      size="1"
+      aria-hidden
+      tabIndex={-1}
+      style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
+    >
+      <FocusIcon />
+    </IconButton>
+  );
   const focusButton = (zone: number) => {
     const focused = focusedZones.includes(zone);
+    if (!focusFlag) return focusTwin;
     return (
       <HelpTip tip="districtFocus" text={focused ? 'Remove this district from focus.' : undefined}>
         <IconButton
@@ -333,15 +357,7 @@ export const DistrictMeters = () => {
   // quirks included).
   const iconHeader = (
     <Flex align="center" gap="1" style={{width: ICONS_WIDTH, flexShrink: 0}}>
-      <IconButton
-        variant="ghost"
-        size="1"
-        aria-hidden
-        tabIndex={-1}
-        style={{visibility: 'hidden', marginRight: FOCUS_TRAIL}}
-      >
-        <FocusIcon />
-      </IconButton>
+      {focusTwin}
       <IconButton
         variant="ghost"
         size="1"
@@ -386,7 +402,7 @@ export const DistrictMeters = () => {
   const labelWidth = labelPx ? `min(${labelPx}px, ${labelCh}ch)` : `${labelCh}ch`;
   const labelColWidth = `calc(${labelWidth} + 1ch)`;
   const showRowIcons = superDraw && isEditing;
-  const canRename = isEditing && !isReadOnly;
+  const canRename = isEditing && !isReadOnly && labelsFlag;
   const showCommentCol =
     !showRowIcons && descriptionsEnabled && (isEditing || (documentComments?.length ?? 0) > 0);
   const flatRows = useContext(FlatRowsContext);
@@ -404,7 +420,7 @@ export const DistrictMeters = () => {
           hiddenCount={hiddenCount}
         />
       )}
-      {superDraw && (
+      {superDraw && tuningFlag && (
         <Flex align="center" gap="1" style={{marginLeft: 'auto'}}>
           {/* Same toggle-button treatment as Show on map. */}
           <Button
