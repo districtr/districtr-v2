@@ -503,6 +503,30 @@ def test_invalidate_document_caches_covers_every_named_table(
     assert _cache_state(session, on_table) == (0, 0, False)
 
 
+def test_invalidate_document_caches_commits_per_batch(
+    client,
+    session: Session,
+    simple_shatterable_districtr_map,
+    ks_demo_view_census_blocks_districtrmap,
+    monkeypatch,
+):
+    """Each batch commits, so a run cut short keeps the batches it finished."""
+    on_view = _create_document(client, "simple_geos")
+    on_table = _create_document(client, GERRY_DB_FIXTURE_NAME)
+    _seed_caches(session, on_view)
+    _seed_caches(session, on_table)
+    monkeypatch.setattr(gerrydb_columns, "INVALIDATE_BATCH", 1)
+    commit = session.commit
+    commits = []
+    monkeypatch.setattr(session, "commit", lambda: (commits.append(1), commit())[1])
+
+    invalidate_document_caches(session, ["simple_geos", GERRY_DB_FIXTURE_NAME])
+
+    assert len(commits) == 2
+    assert _cache_state(session, on_view) == (0, 0, False)
+    assert _cache_state(session, on_table) == (0, 0, False)
+
+
 def test_invalidate_document_caches_refuses_names_no_map_reads(
     session: Session, simple_shatterable_districtr_map
 ):

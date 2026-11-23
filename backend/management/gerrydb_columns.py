@@ -39,6 +39,10 @@ REBUILD_PREFIX = "_rebuild_"
 # readers before the command gives up and rolls back; a re-run is safe.
 LOCK_TIMEOUT = "10s"
 
+# Documents per invalidation transaction. Their cached district geometries are
+# large, so one DELETE over a whole state's documents exceeds statement_timeout.
+INVALIDATE_BATCH = 250
+
 # Lowercase only: other queries name columns unquoted, which Postgres folds to
 # lowercase, so a quoted uppercase column would be invisible to them.
 _NEW_COLUMN_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
@@ -298,8 +302,10 @@ def invalidate_document_caches(
     republishes instead of redirecting to the published GeoJSON. Documents on
     other gerrydb tables keep all their rows. Returns the counts per name; with
     `dry_run`, only counts. A name no map reads counts zero, but at least one
-    name must have maps. County aggregates refresh themselves when an
-    evaluation asks for a new column (`CountyContext.eguia_ideal`).
+    name must have maps. Commits every `INVALIDATE_BATCH` documents, so a run
+    cut short keeps its progress and a re-run finishes it. County aggregates
+    refresh themselves when an evaluation asks for a new column
+    (`CountyContext.eguia_ideal`).
     """
 
     def count(model, condition) -> int:
@@ -338,8 +344,26 @@ def invalidate_document_caches(
     if dry_run:
         return counts
 
-    _, unions, evaluations, published = filters(all_slugs)
-    session.execute(delete(DistrictUnions).where(unions))
-    session.execute(delete(Evaluation).where(evaluations))
-    session.execute(update(Document).where(published).values(stats_published_at=None))
+    document_ids = session.exec(
+        select(Document.document_id)
+        .where(col(Document.districtr_map_slug).in_(all_slugs))
+        .order_by(Document.document_id)
+    ).all()
+    for start in range(0, len(document_ids), INVALIDATE_BATCH):
+        batch = document_ids[start : start + INVALIDATE_BATCH]
+        session.execute(
+            delete(DistrictUnions).where(col(DistrictUnions.document_id).in_(batch))
+        )
+        session.execute(
+            delete(Evaluation).where(col(Evaluation.document_id).in_(batch))
+        )
+        session.execute(
+            update(Document)
+            .where(
+                col(Document.document_id).in_(batch),
+                col(Document.stats_published_at).is_not(None),
+            )
+            .values(stats_published_at=None)
+        )
+        session.commit()
     return counts
