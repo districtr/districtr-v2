@@ -1,6 +1,6 @@
 import {
   EMPTY_FT_COLLECTION,
-  HIGHLIGHT_ISOLATE_LABEL_OPACITY,
+  HIGHLIGHT_DIMMED_LABEL_OPACITY,
   ZONE_LABEL_STYLE,
 } from '@/app/constants/map/layerStyle';
 import {
@@ -172,19 +172,21 @@ const ZoneNumbersLayer = () => {
   const editLocks = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const lockedAreas = canEdit && superDraw ? editLocks : [];
   const lockedFilter: ExpressionSpecification = ['in', ['get', 'zone'], ['literal', lockedAreas]];
-  // While an isolating highlight is on (useDistrictHover's `isolate`), the labels of
-  // the other districts fade with their fills.
+  // While the evaluation panel highlights districts, the labels of the other districts
+  // fade with their fills. A highlighted county fades every district label: a label
+  // belongs to a district, whichever county it stands in.
   const hoveredZones = useMapStore(state => state.hoveredPublicZones);
-  const isolateHovered = useMapStore(state => state.isolateHoveredPublicZones);
-  const labelOpacity = (opacity: number): number | ExpressionSpecification =>
-    isolateHovered
-      ? [
-          'case',
-          ['in', ['get', 'zone'], ['literal', hoveredZones.map(Number)]],
-          opacity,
-          opacity * HIGHLIGHT_ISOLATE_LABEL_OPACITY,
-        ]
-      : opacity;
+  const countyHovered = useMapControlsStore(state => state.hoveredCountyGeoid !== null);
+  const labelOpacity = (opacity: number): number | ExpressionSpecification => {
+    if (countyHovered) return opacity * HIGHLIGHT_DIMMED_LABEL_OPACITY;
+    if (!hoveredZones.length) return opacity;
+    return [
+      'case',
+      ['in', ['get', 'zone'], ['literal', hoveredZones.map(Number)]],
+      opacity,
+      opacity * HIGHLIGHT_DIMMED_LABEL_OPACITY,
+    ];
+  };
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);

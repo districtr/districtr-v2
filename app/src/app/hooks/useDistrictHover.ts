@@ -9,9 +9,7 @@ export function useDistrictHover() {
 
   // Accepts one or several districts — highlighting a single district is
   // just the one-element case, so callers pass an array either way.
-  // `isolate` fades the other districts and their labels almost to white, for a
-  // group whose members are spread over the map.
-  const onDistrictEnter = (zones: (number | string)[], {isolate = false} = {}) => {
+  const onDistrictEnter = (zones: (number | string)[]) => {
     const map = getMapRef();
     if (!map) return;
     prevRef.current.forEach(id =>
@@ -20,7 +18,7 @@ export function useDistrictHover() {
     const ids = zones.map(String);
     ids.forEach(id => map.setFeatureState({source: PUBLIC_SOURCE_ID, id}, {focused: true}));
     prevRef.current = ids;
-    setHoveredZones(ids, isolate);
+    setHoveredZones(ids);
   };
 
   const onDistrictLeave = useCallback(() => {

@@ -48,11 +48,6 @@ const ELECTION_LIST_OPEN_DELAY_MS = 150;
 // isn't flipped by floating-point rounding.
 const FLOAT_TOLERANCE = 1e-9;
 
-// Outlines an election's cells in the tables of this section while the count of
-// passed FTV contests is hovered, so the reader can see which contests passed.
-const ftvCellHighlight = (isFtvElection: boolean): React.CSSProperties =>
-  isFtvElection ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
-
 // All metrics are dem-POV: positive = dem advantage (blue), negative = rep advantage (red).
 const scaledBg = (value: number | undefined, cutoff: number) => {
   if (value == null) return undefined;
@@ -117,7 +112,6 @@ function sortElections(keys: string[]): string[] {
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
   const [electionShowMode, setElectionShowMode] = useState<ElectionShowMode>('all');
-  const [ftvPassHover, setFtvPassHover] = useState(false);
   const [competitiveBand, setCompetitiveBand] = useState('3');
   const [showUnfinished, setShowUnfinished] = useState(false);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
@@ -192,7 +186,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     : null;
   const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
-  const isFtvHighlighted = (key: string) => ftvPassHover && !!ftvPassingKeys?.has(key);
   // The bound is 1/k seats when that's looser than the flat 7% floor — state it
   // in whichever form is actually binding, rather than always the raw percentage.
   const ftvBoundPhrase =
@@ -274,11 +267,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     <Table.Cell>
       {districts.length > 0 && (
         <Text size="2">
-          <HoverTrigger
-            chip
-            onEnter={() => onDistrictEnter(districts, {isolate: true})}
-            onLeave={onDistrictLeave}
-          >
+          <HoverTrigger chip onEnter={() => onDistrictEnter(districts)} onLeave={onDistrictLeave}>
             {districts.length === 1 ? 'highlight this district' : 'highlight these districts'}
           </HoverTrigger>
         </Text>
@@ -438,16 +427,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                     </Table.Root>
                   </div>
                   <Text size="2" mb="3" as="p">
-                    This is close enough{' '}
-                    <HoverTrigger
-                      bold
-                      onEnter={() => setFtvPassHover(true)}
-                      onLeave={() => setFtvPassHover(false)}
-                    >
-                      {ftvPassCount} out of 4 times
-                    </HoverTrigger>
-                    , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
-                    needed to pass.)
+                    This is close enough <strong>{ftvPassCount} out of 4 times</strong>, so it{' '}
+                    {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are needed
+                    to pass.)
                   </Text>
                 </>
               )}
@@ -550,7 +532,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                                     ? povBg((voteShare - 0.5) * 1.5)
                                     : NEUTRAL
                                   : undefined,
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
                             <Text size="2">
@@ -573,7 +554,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                                       seatPct > 0.5 ? povBg((seatPct - 0.5) * 1.5) : NEUTRAL,
                                   }
                                 : {}),
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
                             <Text size="2">
@@ -585,7 +565,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             style={{
                               backgroundColor: scaledBg(rawDisp ?? undefined, METRIC_CUTOFF.disp),
                               color: scaledTextColor(rawDisp ?? undefined, METRIC_CUTOFF.disp),
-                              ...ftvCellHighlight(isFtvHighlighted(key)),
                             }}
                           >
                             <Text size="2">
@@ -671,7 +650,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                               evaluation.disproportionality?.[key],
                               METRIC_CUTOFF.disp
                             ),
-                            ...ftvCellHighlight(isFtvHighlighted(key)),
                           }}
                         >
                           <Text size="2">

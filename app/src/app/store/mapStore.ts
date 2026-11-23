@@ -270,12 +270,10 @@ export interface MapStore {
   editMapMetadata: (patch: Partial<DocumentMetadata>) => void;
 
   // PUBLIC-VIEW DISTRICT HOVER (evaluation panel stat rows -> map highlight)
-  /** Zone IDs currently focused via useDistrictHover, so PublicDistrictLayers
-   * can reactively dim every other district while one is hovered. */
+  /** Zone IDs currently focused via useDistrictHover, so the map can dim every
+   * other district and its label while one is hovered. */
   hoveredPublicZones: string[];
-  /** The hovered districts stand alone: the others, labels included, fade almost to white. */
-  isolateHoveredPublicZones: boolean;
-  setHoveredPublicZones: (zones: string[], isolate?: boolean) => void;
+  setHoveredPublicZones: (zones: string[]) => void;
 
   // SHATTERING
   /**
@@ -877,9 +875,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
 
     hoveredPublicZones: [],
-    isolateHoveredPublicZones: false,
-    setHoveredPublicZones: (zones, isolate = false) =>
-      set({hoveredPublicZones: zones, isolateHoveredPublicZones: isolate && zones.length > 0}),
+    setHoveredPublicZones: zones => set({hoveredPublicZones: zones}),
 
     mapStatus: null,
     setMapStatus: mapStatus => {
