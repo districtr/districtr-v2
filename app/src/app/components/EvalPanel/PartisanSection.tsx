@@ -1,7 +1,7 @@
 'use client';
-import {Fragment, useState} from 'react';
+import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import {Flex, Text, Table, Heading, Select} from '@radix-ui/themes';
+import {Flex, Text, Table, Heading, HoverCard, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
@@ -40,13 +40,16 @@ const METRIC_CUTOFF = {
 
 const MAX_ALPHA = 0.6;
 
+// A pointer that only crosses the election count on its way elsewhere opens nothing.
+const ELECTION_LIST_OPEN_DELAY_MS = 150;
+
 // Slack for threshold comparisons so a share sitting exactly on a cutoff
 // isn't flipped by floating-point rounding.
 const FLOAT_TOLERANCE = 1e-9;
 
-// Highlights a Disproportionality cell in either table above/below while the "4 recent
-// statewide elections" trigger is hovered, so the reader can see exactly which rows the
-// FTV verdict sentence is talking about.
+// Outlines an election's cells in the tables of this section while that election, or
+// the count of passed FTV contests, is hovered, so the reader can see which contests
+// the FTV text is talking about.
 const ftvCellHighlight = (isFtvElection: boolean): React.CSSProperties =>
   isFtvElection ? {boxShadow: 'inset 0 0 0 2px var(--accent-9)'} : {};
 
@@ -82,6 +85,22 @@ const ftvHelpTipTrigger = (
   </HelpTip>
 );
 
+type FtvShowMode = 'ftv-only' | 'all';
+
+/** Seat share minus vote share as points towards a party, e.g. "6.0% D". */
+const formatFtvDiff = (demDisproportionality: number): string => {
+  const points = (Math.abs(demDisproportionality) * 100).toFixed(1);
+  if (Number(points) === 0) return `${points}%`;
+  return `${points}% ${demDisproportionality > 0 ? 'D' : 'R'}`;
+};
+
+/** "a, b, and c". */
+const joinWithAnd = (items: string[]): string =>
+  items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+
+/** A share as a percentage with no trailing ".0", e.g. "7%" or "12.5%". */
+const formatThreshold = (share: number): string => `${Number((share * 100).toFixed(1))}%`;
+
 const LEVEL_ORDER: Record<string, number> = {pres: 0, sen: 1, gov: 2, ag: 3};
 
 function sortElections(keys: string[]): string[] {
@@ -97,7 +116,7 @@ function sortElections(keys: string[]): string[] {
 
 export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) => {
   const [pov, setPov] = useState<Pov>('dem');
-  const [ftvHover, setFtvHover] = useState(false);
+  const [ftvShowMode, setFtvShowMode] = useState<FtvShowMode>('ftv-only');
   const [ftvPassHover, setFtvPassHover] = useState(false);
   const [hoveredFtvKey, setHoveredFtvKey] = useState<string | null>(null);
   const [competitiveBand, setCompetitiveBand] = useState('3');
@@ -118,7 +137,6 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftv = selectFtvElections(Object.keys(evaluation.seats ?? {}));
   const ftvThreshold = ftv && numDistricts ? Math.max(0.07, 1 / numDistricts) : null;
   const ftvElections = ftv ? [...ftv.pres, ...ftv.sen] : [];
-  const ftvKeySet = ftv ? new Set(ftvElections) : null;
   // A missing disproportionality value (the backend metric raises on an
   // election with zero D+R votes, isolated per-metric) must not silently
   // score as a failed contest — treat it the same as "not enough data".
@@ -136,9 +154,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const ftvPassCount = ftvPassingKeys ? ftvPassingKeys.size : null;
   const ftvOverallPass = ftvPassCount !== null ? ftvPassCount >= 3 : null;
   const isFtvHighlighted = (key: string) =>
-    (ftvHover && !!ftvKeySet?.has(key)) ||
-    (ftvPassHover && !!ftvPassingKeys?.has(key)) ||
-    hoveredFtvKey === key;
+    (ftvPassHover && !!ftvPassingKeys?.has(key)) || hoveredFtvKey === key;
   // The bound is 1/k seats when that's looser than the flat 7% floor — state it
   // in whichever form is actually binding, rather than always the raw percentage.
   const ftvBoundPhrase =
@@ -148,10 +164,10 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
         : '7%'
       : null;
 
-  // FTV table's vote/seat share rows follow the pov toggle above, same as the
-  // Proportionality table. The "Repub tilt"/"Dem tilt" verdict wording stays
-  // fixed either way — it names whichever party is actually favored, not a
-  // POV-relative framing.
+  // FTV table's vote/seat share rows follow the pov toggle, same as the
+  // Proportionality table. The difference and the "R tilt"/"D tilt" verdict
+  // stay fixed either way: they name whichever party is actually favored.
+  const ftvTableElections = ftvShowMode === 'all' ? elections : ftvElections;
   const povVoteShare = (key: string) => {
     const dem = evaluation.vote_shares?.[key]?.dem;
     if (dem === undefined) return null;
@@ -212,11 +228,182 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {n > 0 && (
             <Text size="2" mb="3" as="p">
               Our current dataset contains{' '}
-              <strong>
-                {n} recent statewide election{n !== 1 ? 's' : ''}
-              </strong>
+              <HoverCard.Root openDelay={ELECTION_LIST_OPEN_DELAY_MS} closeDelay={0}>
+                <HoverCard.Trigger>
+                  <button type="button" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
+                    {n} recent statewide election{n !== 1 ? 's' : ''}
+                  </button>
+                </HoverCard.Trigger>
+                <HoverCard.Content size="1">
+                  <ul className="m-0 list-none p-0">
+                    {elections.map(key => (
+                      <Text key={key} size="2" asChild>
+                        <li>{formatElectionKey(key)}</li>
+                      </Text>
+                    ))}
+                  </ul>
+                </HoverCard.Content>
+              </HoverCard.Root>
               .{' '}
             </Text>
+          )}
+
+          {/* Freedom-To-Vote Test */}
+          {n > 0 && (
+            <>
+              <Heading size="3" align="center" mb="2" mt="4">
+                Freedom-To-Vote Test
+              </Heading>
+              {ftvPassCount === null && (
+                <Text size="2" mb="3" as="p">
+                  Not enough recent Presidential and Senate election data is available to score this
+                  plan against the {ftvHelpTipTrigger}.
+                </Text>
+              )}
+              {ftvPassCount !== null && (
+                <>
+                  <Text size="2" mb="2" as="p">
+                    This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
+                    {ftvHelpTipTrigger} for partisan balance. To see why, we use the last two Senate
+                    races and the last two Presidential races as our test contests (
+                    {joinWithAnd(ftvElections.map(formatElectionKey))}
+                    ). We check if the seat share would have been proportional to the vote share in
+                    those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
+                  </Text>
+                  <Flex align="center" gap="1" mb="2" justify="end">
+                    <Text size="1" color="gray">
+                      Show
+                    </Text>
+                    <Select.Root
+                      size="1"
+                      value={ftvShowMode}
+                      onValueChange={v => setFtvShowMode(v as FtvShowMode)}
+                    >
+                      <Select.Trigger />
+                      <Select.Content>
+                        <Select.Item value="ftv-only">FTV elections</Select.Item>
+                        <Select.Item value="all">all elections</Select.Item>
+                      </Select.Content>
+                    </Select.Root>
+                  </Flex>
+                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
+                    <Table.Root size="1" mb="2" variant="surface">
+                      <Table.Header>
+                        <Table.Row>
+                          <Table.ColumnHeaderCell justify="center" />
+                          {ftvTableElections.map(key => (
+                            <Table.ColumnHeaderCell key={key} justify="center">
+                              <HoverTrigger
+                                onEnter={() => setHoveredFtvKey(key)}
+                                onLeave={() => setHoveredFtvKey(null)}
+                              >
+                                {formatElectionKey(key)}
+                              </HoverTrigger>
+                            </Table.ColumnHeaderCell>
+                          ))}
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              {pov === 'dem' ? 'D' : 'R'} vote share
+                            </Text>
+                          </Table.Cell>
+                          {ftvTableElections.map(key => (
+                            <Table.Cell key={key} justify="center">
+                              <Text size="2">
+                                {povVoteShare(key) !== null
+                                  ? `${(povVoteShare(key)! * 100).toFixed(1)}%`
+                                  : '—'}
+                              </Text>
+                            </Table.Cell>
+                          ))}
+                        </Table.Row>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              {pov === 'dem' ? 'D' : 'R'} seat share
+                            </Text>
+                          </Table.Cell>
+                          {ftvTableElections.map(key => (
+                            <Table.Cell key={key} justify="center">
+                              <Text size="2">
+                                {povSeatShare(key) !== null
+                                  ? `${(povSeatShare(key)! * 100).toFixed(1)}%`
+                                  : '—'}
+                              </Text>
+                            </Table.Cell>
+                          ))}
+                        </Table.Row>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              Diff
+                            </Text>
+                          </Table.Cell>
+                          {ftvTableElections.map(key => {
+                            const disprop = evaluation.disproportionality?.[key];
+                            return (
+                              <Table.Cell key={key} justify="center">
+                                <Text size="2">
+                                  {disprop !== undefined ? formatFtvDiff(disprop) : '—'}
+                                </Text>
+                              </Table.Cell>
+                            );
+                          })}
+                        </Table.Row>
+                        <Table.Row>
+                          <Table.Cell>
+                            <Text size="2" weight="bold">
+                              Close enough ({formatThreshold(ftvThreshold!)} Threshold)
+                            </Text>
+                          </Table.Cell>
+                          {ftvTableElections.map(key => {
+                            const verdict = ftvVerdict(key);
+                            return (
+                              <Table.Cell
+                                key={key}
+                                justify="center"
+                                style={ftvCellHighlight(isFtvHighlighted(key))}
+                              >
+                                <Text size="2">
+                                  {verdict === null ? (
+                                    '—'
+                                  ) : verdict === 'pass' ? (
+                                    <span style={{color: 'var(--green-9)'}}>✓</span>
+                                  ) : (
+                                    <>
+                                      ✗ (
+                                      <span style={{color: verdict === 'dem' ? DEM : REP}}>
+                                        {verdict === 'dem' ? 'D' : 'R'} tilt
+                                      </span>
+                                      )
+                                    </>
+                                  )}
+                                </Text>
+                              </Table.Cell>
+                            );
+                          })}
+                        </Table.Row>
+                      </Table.Body>
+                    </Table.Root>
+                  </div>
+                  <Text size="2" mb="3" as="p">
+                    This is close enough{' '}
+                    <HoverTrigger
+                      bold
+                      onEnter={() => setFtvPassHover(true)}
+                      onLeave={() => setFtvPassHover(false)}
+                    >
+                      {ftvPassCount} out of 4 times
+                    </HoverTrigger>
+                    , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
+                    needed to pass.)
+                  </Text>
+                </>
+              )}
+            </>
           )}
 
           {/* Proportionality */}
@@ -257,7 +444,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Repub'} Vote
+                        {pov === 'dem' ? 'D' : 'R'} Vote
                         <br />
                         Share
                       </Table.ColumnHeaderCell>
@@ -265,7 +452,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Repub'}
+                        {pov === 'dem' ? 'D>R' : 'R>D'}
                         <br />
                         Districts
                       </Table.ColumnHeaderCell>
@@ -273,7 +460,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         justify="center"
                         style={{color: povColor, width: '8ch'}}
                       >
-                        {pov === 'dem' ? 'Dem' : 'Repub'} Seat
+                        {pov === 'dem' ? 'D' : 'R'} Seat
                         <br />
                         Share
                       </Table.ColumnHeaderCell>
@@ -367,145 +554,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
             </>
           )}
 
+          {/* Other Partisanship Metrics */}
           {n > 0 && (
             <>
-              <Heading size="3" align="center" mb="2" mt="4">
-                Freedom-To-Vote Test
-              </Heading>
-              {ftvPassCount === null && (
-                <Text size="2" mb="3" as="p">
-                  Not enough recent Presidential and Senate election data is available to score this
-                  plan against the {ftvHelpTipTrigger}.
-                </Text>
-              )}
-              {ftvPassCount !== null && (
-                <>
-                  <Text size="2" mb="2" as="p">
-                    This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
-                    {ftvHelpTipTrigger} for partisan balance. To see why, we use{' '}
-                    <HoverTrigger
-                      onEnter={() => setFtvHover(true)}
-                      onLeave={() => setFtvHover(false)}
-                    >
-                      the last two Senate races and the last two Presidential races
-                    </HoverTrigger>{' '}
-                    as our test contests (
-                    {ftvElections.map((key, i) => (
-                      <Fragment key={key}>
-                        {i > 0 && (i === ftvElections.length - 1 ? ', and ' : ', ')}
-                        <HoverTrigger
-                          onEnter={() => setHoveredFtvKey(key)}
-                          onLeave={() => setHoveredFtvKey(null)}
-                        >
-                          {formatElectionKey(key)}
-                        </HoverTrigger>
-                      </Fragment>
-                    ))}
-                    ). We check if the seat share would have been proportional to the vote share in
-                    those contests, up to an allowed bound of <strong>{ftvBoundPhrase}</strong>.
-                  </Text>
-                  <div style={{width: 'fit-content', overflowX: 'auto', maxWidth: '100%'}}>
-                    <Table.Root size="1" mb="2" variant="surface">
-                      <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell justify="center" />
-                          {ftvElections.map(key => (
-                            <Table.ColumnHeaderCell key={key} justify="center">
-                              <HoverTrigger
-                                onEnter={() => setHoveredFtvKey(key)}
-                                onLeave={() => setHoveredFtvKey(null)}
-                              >
-                                {formatElectionKey(key)}
-                              </HoverTrigger>
-                            </Table.ColumnHeaderCell>
-                          ))}
-                        </Table.Row>
-                      </Table.Header>
-                      <Table.Body>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              {pov === 'dem' ? 'D' : 'R'} vote share
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => (
-                            <Table.Cell key={key} justify="center">
-                              <Text size="2">
-                                {povVoteShare(key) !== null
-                                  ? `${(povVoteShare(key)! * 100).toFixed(1)}%`
-                                  : '—'}
-                              </Text>
-                            </Table.Cell>
-                          ))}
-                        </Table.Row>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              {pov === 'dem' ? 'D' : 'R'} seat share
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => (
-                            <Table.Cell key={key} justify="center">
-                              <Text size="2">
-                                {povSeatShare(key) !== null
-                                  ? `${(povSeatShare(key)! * 100).toFixed(1)}%`
-                                  : '—'}
-                              </Text>
-                            </Table.Cell>
-                          ))}
-                        </Table.Row>
-                        <Table.Row>
-                          <Table.Cell>
-                            <Text size="2" weight="bold">
-                              Close enough?
-                            </Text>
-                          </Table.Cell>
-                          {ftvElections.map(key => {
-                            const verdict = ftvVerdict(key);
-                            return (
-                              <Table.Cell key={key} justify="center">
-                                <Text
-                                  size="2"
-                                  style={{
-                                    color:
-                                      verdict === 'dem'
-                                        ? DEM
-                                        : verdict === 'rep'
-                                          ? REP
-                                          : 'var(--green-9)',
-                                  }}
-                                >
-                                  {verdict === 'pass'
-                                    ? '✓'
-                                    : verdict === 'dem'
-                                      ? 'Dem tilt'
-                                      : verdict === 'rep'
-                                        ? 'Repub tilt'
-                                        : '—'}
-                                </Text>
-                              </Table.Cell>
-                            );
-                          })}
-                        </Table.Row>
-                      </Table.Body>
-                    </Table.Root>
-                  </div>
-                  <Text size="2" mb="3" as="p">
-                    This is close enough{' '}
-                    <HoverTrigger
-                      bold
-                      onEnter={() => setFtvPassHover(true)}
-                      onLeave={() => setFtvPassHover(false)}
-                    >
-                      {ftvPassCount} out of 4 times
-                    </HoverTrigger>
-                    , so it {ftvOverallPass ? 'passes' : 'does not pass'} the test. (3 out of 4 are
-                    needed to pass.)
-                  </Text>
-                </>
-              )}
-
-              {/* Other Partisanship Metrics */}
               <Heading size="3" align="center" mb="2" mt="4">
                 Other Partisanship Metrics
               </Heading>
@@ -684,8 +735,8 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 </Select.Root>
                 . We call a district a <strong>swing</strong> district if each major party won it at
                 least once over the elections in our dataset. If it was always won by the same party
-                across those contests, we label it as <strong>Dem Sweep</strong> or{' '}
-                <strong>Repub Sweep</strong>.
+                across those contests, we label it as <strong>D Sweep</strong> or{' '}
+                <strong>R Sweep</strong>.
               </Text>
               <div style={{width: 'fit-content'}}>
                 <Table.Root size="1" variant="surface">
@@ -730,7 +781,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       {...hoverHandlers(() => onDistrictEnter(demSweepDistricts), onDistrictLeave)}
                     >
                       <Table.Cell justify="center">
-                        <Text size="2">Dem Sweep districts</Text>
+                        <Text size="2">D Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>
@@ -744,7 +795,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       {...hoverHandlers(() => onDistrictEnter(repSweepDistricts), onDistrictLeave)}
                     >
                       <Table.Cell justify="center">
-                        <Text size="2">Repub sweep districts</Text>
+                        <Text size="2">R Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
                         <Text size="2" style={{...HOVER_BTN_STYLE, fontWeight: 'bold'}}>

@@ -63,9 +63,9 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             <Text size="2">Not available for this plan.</Text>
           )}
 
-          {/* Polsby-Popper */}
+          {/* Polsby-Popper and Reock */}
           <Heading size="3" align="center" mb="2" mt="4">
-            Polsby-Popper Scores
+            Polsby-Popper and Reock Scores
           </Heading>
           <Text size="2" as="p" mb="2">
             The <strong>Polsby-Popper score</strong> compares a district&apos;s area to its
@@ -73,31 +73,31 @@ export const CompactnessSection: React.FC<CompactnessSectionProps> = ({evaluatio
             Unlike cut edges, this measure depends on map projection and boundary resolution rather
             than the choice of geographic units.
           </Text>
-          <CompactnessExemplars scoreKey="polsby_popper" />
-          {ppStats && (
-            <Text size="2" as="p" mb="3">
-              In your plan, scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
-              <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of{' '}
-              <strong>{ppStats.mean.toFixed(3)}</strong>.
-            </Text>
-          )}
-
-          {/* Reock */}
-          <Heading size="3" align="center" mb="2" mt="4">
-            Reock Scores
-          </Heading>
           <Text size="2" as="p" mb="2">
             The <strong>Reock score</strong> is the ratio of a district&apos;s area to the area of
             the smallest circle that contains it. Like Polsby-Popper, scores range from 0 to 1;
             higher scores indicate more compact, circular districts. Reock is sensitive to map
             projection and is computed on-demand when the evaluation view is opened.
           </Text>
-          <CompactnessExemplars scoreKey="reock" />
-          {reockStats && (
+          <CompactnessExemplars />
+          {(ppStats || reockStats) && (
             <Text size="2" as="p" mb="3">
-              In your plan, scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
-              <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of{' '}
-              <strong>{reockStats.mean.toFixed(3)}</strong>.
+              In your plan,{' '}
+              {ppStats && (
+                <>
+                  Polsby-Popper scores range from <strong>{ppStats.min.toFixed(3)}</strong> to{' '}
+                  <strong>{ppStats.max.toFixed(3)}</strong>, with a mean of{' '}
+                  <strong>{ppStats.mean.toFixed(3)}</strong>
+                  {reockStats ? '; ' : '.'}
+                </>
+              )}
+              {reockStats && (
+                <>
+                  Reock scores range from <strong>{reockStats.min.toFixed(3)}</strong> to{' '}
+                  <strong>{reockStats.max.toFixed(3)}</strong>, with a mean of{' '}
+                  <strong>{reockStats.mean.toFixed(3)}</strong>.
+                </>
+              )}
             </Text>
           )}
 
