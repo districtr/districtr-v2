@@ -46,7 +46,7 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
     : null;
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
-  const isComplete = isPlanComplete(assigned_units) === true;
+  const isComplete = isPlanComplete(evaluation, mapDocument?.num_districts) === true;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
   const nonContiguousDistricts = contiguous
     ? Object.entries(contiguous)
