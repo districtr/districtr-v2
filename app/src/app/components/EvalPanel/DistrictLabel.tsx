@@ -8,7 +8,7 @@ interface DistrictLabelProps {
   onClick?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
-  onFocus?: () => void;
+  onFocus?: React.FocusEventHandler;
   onBlur?: () => void;
 }
 
