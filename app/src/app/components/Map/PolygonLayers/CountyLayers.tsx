@@ -161,7 +161,13 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         )}
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}
-          beforeId={mapOptions.prominentCountyNames ? undefined : MAP_LAYER_ANCHOR_IDS.counties}
+          // Above the highlight mask while a county is highlighted, so the mask cuts
+          // through no county name.
+          beforeId={
+            mapOptions.prominentCountyNames || hoveredCountyGeoid
+              ? undefined
+              : MAP_LAYER_ANCHOR_IDS.counties
+          }
           type="symbol"
           source-layer="tl_2023_us_county_label"
           minzoom={6}

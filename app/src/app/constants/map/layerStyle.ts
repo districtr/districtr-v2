@@ -16,8 +16,7 @@ export const HIGHLIGHT_LINE_WIDTH = 3.5;
 
 // While the evaluation panel highlights districts or a county, a white mask covers
 // the rest of the map so that it keeps only a trace of its color, and the district
-// labels outside the highlight fade with it — same masking convention as the
-// paint-mask overlay (CountyLayers.tsx).
+// labels outside the highlight fade with it.
 export const HIGHLIGHT_MASK_COLOR = '#FFFFFF';
 export const HIGHLIGHT_MASK_OPACITY = 0.85;
 export const HIGHLIGHT_DIMMED_LABEL_OPACITY = 0.25;

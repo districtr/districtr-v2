@@ -4,6 +4,10 @@ import {Flex, Heading, Text} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
 import {useIsReport} from './evalMode';
 
+// On screen the panel has two heading styles: size 5 for its own title and the section
+// titles, and this size for subheadings and table titles.
+const MINOR_HEADING_SIZE = '3';
+
 interface EvalSectionProps {
   /** Accordion item id. */
   value: string;
@@ -57,7 +61,7 @@ export const EvalSubheading: React.FC<{children: React.ReactNode}> = ({children}
     );
   }
   return (
-    <Heading size="3" align="center" mb="2" mt="4">
+    <Heading size={MINOR_HEADING_SIZE} align="center" mb="2" mt="4">
       {children}
     </Heading>
   );
@@ -73,7 +77,7 @@ interface EvalTableTitleProps {
   inline?: boolean;
 }
 
-/** A table's title: bold text on screen, a numbered caption ("Table 3. …") in the report. */
+/** A table's title: a minor heading on screen, a numbered caption ("Table 3. …") in the report. */
 export const EvalTableTitle: React.FC<EvalTableTitleProps> = ({
   children,
   spaced,
@@ -81,24 +85,28 @@ export const EvalTableTitle: React.FC<EvalTableTitleProps> = ({
   inline,
 }) => {
   const isReport = useIsReport();
-  if (!isReport && reportOnly) return null;
-  const className = isReport ? 'eval-report-table-title' : undefined;
+  if (!isReport) {
+    if (reportOnly) return null;
+    return inline ? (
+      <Heading asChild size={MINOR_HEADING_SIZE}>
+        <span>{children}</span>
+      </Heading>
+    ) : (
+      <Heading as="h4" size={MINOR_HEADING_SIZE} mb="2" mt={spaced ? '4' : undefined}>
+        {children}
+      </Heading>
+    );
+  }
+  const className = 'eval-report-table-title';
   if (inline) {
     return (
-      <Text size="2" weight={isReport ? undefined : 'bold'} className={className}>
+      <Text size="2" className={className}>
         {children}
       </Text>
     );
   }
   return (
-    <Text
-      size="2"
-      weight={isReport ? undefined : 'bold'}
-      mb="2"
-      mt={spaced ? '4' : undefined}
-      as="p"
-      className={className}
-    >
+    <Text size="2" mb="2" mt={spaced ? '4' : undefined} as="p" className={className}>
       {children}
     </Text>
   );

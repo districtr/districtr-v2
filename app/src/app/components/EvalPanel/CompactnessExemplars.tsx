@@ -18,6 +18,7 @@ interface ExemplarDistrict {
   path: string;
 }
 
+/** A range holds the districts whose 3-decimal score is at least `min` and below `max`. */
 interface ExemplarBucket {
   min: number;
   max: number;
@@ -48,10 +49,13 @@ const ROW_LINE = '1px solid var(--gray-a5)';
 const SCORE_KEYS: CompactnessScoreKey[] = ['polsby_popper', 'reock'];
 
 // Layout, in px. The ranges stand in one row per score when the panel has room for
-// the row's label and all of them, otherwise in rows of NARROW_RANGES_PER_ROW.
+// the row's label and all of them, otherwise in rows of the first count of
+// NARROW_RANGES_PER_ROW that fits, or of the last one.
 const ROW_LABEL_WIDTH = 132;
 const RANGE_MIN_WIDTH = 84;
-const NARROW_RANGES_PER_ROW = 3;
+const NARROW_RANGES_PER_ROW = [3, 2];
+// Between the groups of rows that a narrow panel breaks the ranges into.
+const ROW_GROUP_GAP = 'var(--space-4)';
 // An outline takes this share of its column's width, so outlines and gaps grow
 // together with the panel. Past RANGE_MAX_WIDTH per range the table stops growing.
 const OUTLINE_SHARE = 0.72;
@@ -67,7 +71,7 @@ const HOVER_CLOSE_DELAY_MS = 120;
 const SAMPLE_LINE_COLOR = 'var(--gray-a6)';
 
 const loadExemplars = async (): Promise<CompactnessExemplarData> =>
-  (await import('@constants/compactnessExemplars.json')).default as CompactnessExemplarData;
+  (await import('@constants/compactnessExemplars.json')).default satisfies CompactnessExemplarData;
 
 const ordinal = (n: number): string => {
   const lastTwo = n % 100;
@@ -98,7 +102,11 @@ const Outline: React.FC<{district: ExemplarDistrict; size: number}> = ({district
 
 // A trigger is a soft chip as large as its content, so the space between two of them
 // triggers nothing. The open one drops the chip's fill: its cell is the tab.
-const TRIGGER_STYLE: React.CSSProperties = {font: 'inherit', display: 'block'};
+const TRIGGER_STYLE: React.CSSProperties = {
+  font: 'inherit',
+  display: 'block',
+  whiteSpace: 'nowrap',
+};
 const OPEN_TRIGGER_STYLE: React.CSSProperties = {...TRIGGER_STYLE, background: 'none'};
 const CELL_STYLE: React.CSSProperties = {
   display: 'flex',
@@ -177,12 +185,14 @@ interface SampleProps {
   source: string;
   /** Side of the range's row the sample lies on. */
   placement: Placement;
+  /** Whether the sample takes the pointer; see ExemplarRanges. */
+  takesPointer: boolean;
   containerRef: React.Ref<HTMLDivElement>;
 }
 
 /**
  * The sample of one range, laid over the content below or above the range's row,
- * on the table's columns. It ignores the pointer.
+ * on the table's columns.
  */
 const Sample: React.FC<SampleProps> = ({
   label,
@@ -193,6 +203,7 @@ const Sample: React.FC<SampleProps> = ({
   outlineSize,
   source,
   placement,
+  takesPointer,
   containerRef,
 }) => {
   // Square where the range's tab meets a corner.
@@ -209,7 +220,7 @@ const Sample: React.FC<SampleProps> = ({
         left: ROW_LABEL_WIDTH,
         right: 0,
         zIndex: 10,
-        pointerEvents: 'none',
+        pointerEvents: takesPointer ? 'auto' : 'none',
         display: 'grid',
         gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
         backgroundColor: 'var(--color-panel-solid)',
@@ -263,6 +274,9 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
   const [width, setWidth] = useState<number | null>(null);
   const [openRange, setOpenRange] = useState<OpenRange | null>(null);
   const [placement, setPlacement] = useState<Placement>('below');
+  // A mouse reaches the ranges under an open sample, so the sample lets the pointer
+  // through. A finger has no hover: its tap on the sample must stop at the sample.
+  const [byTouch, setByTouch] = useState(false);
   const sampleRef = useRef<HTMLDivElement>(null);
   const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
@@ -325,20 +339,23 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
     setPlacement(sample.offsetHeight <= roomBelow || roomBelow >= roomAbove ? 'below' : 'above');
   }, [openRange, width]);
 
-  // A tap elsewhere closes the sample: touch screens have no pointer to move away.
+  // A tap anywhere but on a range closes the sample: touch screens have no pointer to
+  // move away. A click, so that a swipe scrolls the panel and leaves the sample open.
   const isOpen = openRange !== null;
   useEffect(() => {
     if (!isOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
+    const onClick = (event: MouseEvent) => {
       const onTrigger = (event.target as Element).closest?.('[data-exemplar-trigger]');
       if (!onTrigger || !wrapperRef.current?.contains(onTrigger)) setOpenRange(null);
     };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, [isOpen]);
 
-  const allInOneRow = width === null || width >= ROW_LABEL_WIDTH + rangeCount * RANGE_MIN_WIDTH;
-  const rangesPerRow = allInOneRow ? rangeCount : NARROW_RANGES_PER_ROW;
+  const fits = (ranges: number) =>
+    width === null || width >= ROW_LABEL_WIDTH + ranges * RANGE_MIN_WIDTH;
+  const rangesPerRow =
+    [rangeCount, ...NARROW_RANGES_PER_ROW].find(fits) ?? NARROW_RANGES_PER_ROW.at(-1)!;
   const columnWidth = width === null ? 0 : (width - ROW_LABEL_WIDTH) / rangesPerRow;
   const outlineSize = Math.round(Math.max(OUTLINE_MIN_SIZE, columnWidth * OUTLINE_SHARE));
   const rowStarts = Array.from({length: rangeCount}, (_, i) => i).filter(
@@ -355,6 +372,7 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
     'aria-expanded': isOpenAt(range.scoreKey, range.index),
     className: HOVER_CHIP_CLASS,
     style: isOpenAt(range.scoreKey, range.index) ? OPEN_TRIGGER_STYLE : TRIGGER_STYLE,
+    onPointerEnter: (event: React.PointerEvent) => setByTouch(event.pointerType === 'touch'),
     onMouseEnter: () => onPointerOver(range),
     onMouseLeave: closeSoon,
     onFocus: () => open(range),
@@ -377,7 +395,7 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
             ? openRange
             : null;
         return (
-          <div key={start}>
+          <div key={start} style={start > 0 ? {marginTop: ROW_GROUP_GAP} : undefined}>
             {SCORE_KEYS.map(scoreKey => {
               const sample = openHere?.scoreKey === scoreKey && (
                 <Sample
@@ -394,6 +412,7 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
                   outlineSize={outlineSize}
                   source={source}
                   placement={placement}
+                  takesPointer={byTouch}
                   containerRef={sampleRef}
                 />
               );
@@ -406,7 +425,7 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
                     <div style={ROW_LABEL_STYLE}>
                       <Text size="1">{SCORE_NAME[scoreKey]}</Text>
                       <Text size="1" color="gray">
-                        hover to see examples
+                        Hover to see examples
                       </Text>
                     </div>
                     {data.buckets[scoreKey].slice(start, start + rangesPerRow).map((bucket, i) => {

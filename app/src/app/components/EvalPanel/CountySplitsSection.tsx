@@ -1,4 +1,5 @@
 'use client';
+import {useEffect} from 'react';
 import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
 import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
 import {Flex, Text, Table, Switch, Select} from '@radix-ui/themes';
@@ -20,9 +21,12 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
 
 type CountyShowMode = EvalOptions['countyShowMode'];
 const COUNTY_SHOW_MODE_LABEL: Record<CountyShowMode, string> = {
-  'overly-split-only': 'excessively split counties',
-  all: 'all counties',
+  'overly-split-only': 'Excessively split counties',
+  all: 'All counties',
 };
+
+// The row whose county the map highlights takes the hover chips' tint.
+const HOVERED_ROW_CLASS = 'hover:bg-[var(--accent-a3)] focus-visible:bg-[var(--accent-a3)]';
 
 interface CountySplitsSectionProps {
   evaluation: DocumentEvaluation;
@@ -38,6 +42,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const hoverHandlers = useHoverHandlers();
   const [showMode, setShowMode] = useEvalOption('countyShowMode');
 
+  // The hovered county lives in a store the map pages share, and leaving this page
+  // fires neither mouse-leave nor blur on the hovered row.
+  useEffect(() => () => setHoveredCountyGeoid(null), [setHoveredCountyGeoid]);
+
   const countyPieces = evaluation.county_pieces;
   const idealPop = evaluation.ideal_population ?? null;
   const assignedUnits = evaluation.assigned_units;
@@ -47,6 +55,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     ? GEO_UNIT_DESCRIPTIONS[mapDocument.parent_geo_unit_type]
     : null;
   if (!countyPieces) return null;
+
+  const zonesByCounty: Record<string, number[]> = {};
+  Object.entries(evaluation.district_county_membership ?? {}).forEach(([zone, counties]) =>
+    counties.forEach(county => (zonesByCounty[county] ??= []).push(Number(zone)))
+  );
 
   const allEntries = Object.entries(countyPieces)
     .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
@@ -314,9 +327,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                       key={geoid}
                       tabIndex={isReport ? undefined : 0}
                       {...hoverHandlers(
-                        () => setHoveredCountyGeoid(geoid),
+                        () => setHoveredCountyGeoid(geoid, zonesByCounty[geoid]),
                         () => setHoveredCountyGeoid(null)
                       )}
+                      className={isReport ? undefined : HOVERED_ROW_CLASS}
                       style={{cursor: 'default'}}
                     >
                       <Table.Cell justify="center">

@@ -8,8 +8,9 @@ export function useDistrictHover() {
   const prevRef = useRef<string[]>([]);
 
   // Accepts one or several districts — highlighting a single district is
-  // just the one-element case, so callers pass an array either way.
-  const onDistrictEnter = (zones: (number | string)[]) => {
+  // just the one-element case, so callers pass an array either way. A label
+  // names the group on the map (see DistrictHighlightLabel).
+  const onDistrictEnter = (zones: (number | string)[], label?: string) => {
     const map = getMapRef();
     if (!map) return;
     prevRef.current.forEach(id =>
@@ -18,7 +19,7 @@ export function useDistrictHover() {
     const ids = zones.map(String);
     ids.forEach(id => map.setFeatureState({source: PUBLIC_SOURCE_ID, id}, {focused: true}));
     prevRef.current = ids;
-    setHoveredZones(ids);
+    setHoveredZones(ids, label);
   };
 
   const onDistrictLeave = useCallback(() => {

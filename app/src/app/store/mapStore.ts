@@ -276,7 +276,9 @@ export interface MapStore {
   /** Zone IDs currently focused via useDistrictHover, so the map can dim every
    * other district and its label while one is hovered. */
   hoveredPublicZones: string[];
-  setHoveredPublicZones: (zones: string[]) => void;
+  /** What the focused districts have in common, shown on the map; null for none. */
+  hoveredPublicZonesLabel: string | null;
+  setHoveredPublicZones: (zones: string[], label?: string) => void;
 
   // SHATTERING
   /**
@@ -878,7 +880,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
 
     hoveredPublicZones: [],
-    setHoveredPublicZones: zones => set({hoveredPublicZones: zones}),
+    hoveredPublicZonesLabel: null,
+    setHoveredPublicZones: (zones, label) =>
+      set({hoveredPublicZones: zones, hoveredPublicZonesLabel: label ?? null}),
 
     mapStatus: null,
     setMapStatus: mapStatus => {
