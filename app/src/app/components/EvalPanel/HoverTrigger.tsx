@@ -1,4 +1,4 @@
-import type {CSSProperties, ReactNode} from 'react';
+import type {CSSProperties, FocusEvent, ReactNode} from 'react';
 
 /** Shared inline, underlined-dotted hover trigger style. `fontWeight`/wrap
  * behavior are layered on top per usage — a trigger naming a specific result
@@ -22,11 +22,15 @@ export const HOVER_CHIP_CLASS =
   'text-[var(--accent-a11)] hover:bg-[var(--accent-a5)] focus-visible:bg-[var(--accent-a5)]';
 
 /** The four handlers a hoverable element needs so the highlight it drives
- * follows keyboard focus as well as the pointer. Spread onto any element. */
+ * follows keyboard focus as well as the pointer. Spread onto any element.
+ * Only focus from the keyboard counts: a click also gives focus, and the browser
+ * returns that focus with the window, where no pointer holds the highlight. */
 export const hoverHandlers = (onEnter: () => void, onLeave: () => void) => ({
   onMouseEnter: onEnter,
   onMouseLeave: onLeave,
-  onFocus: onEnter,
+  onFocus: (event: FocusEvent) => {
+    if (event.target.matches(':focus-visible')) onEnter();
+  },
   onBlur: onLeave,
 });
 
