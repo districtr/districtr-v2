@@ -1,15 +1,12 @@
 'use client';
-import React from 'react';
 import {Box, Flex} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import {useMapControlsStore} from '@store/mapControlsStore';
-import {useMapStore} from '@/app/store/mapStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 import {KeyOptionToggles} from '@components/Toolbar/ToolControls/KeyOptionToggles';
-import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {MAP_MODES} from '@constants/map/mode';
 
 // Sidebar container width (it defaults to 35vw and is user-resizable) at which
@@ -45,30 +42,15 @@ const makeTwoColumnGrid = (breakpoint: number) =>
 const TwoColumnGrid = makeTwoColumnGrid(TWO_COLUMN_BREAKPOINT);
 const CoiTwoColumnGrid = makeTwoColumnGrid(COI_TWO_COLUMN_BREAKPOINT);
 
-const disabledSectionStyle = (disabled: boolean): React.CSSProperties =>
-  disabled ? {opacity: 0.5, pointerEvents: 'none'} : {};
-
 /** The one layout every paint-adjacent tool (pan, paint, erase, break) shares:
  * a county-brush + brush-size row on top, then a district/zone picker beside
- * a fixed column of map-display toggles. Which pieces are interactive varies
- * by tool — the structure never does, so nothing mounts or unmounts as the
- * active tool changes. Inspector is the one tool exempt from this: it keeps
- * its own, separate layout (see InspectorControls). */
+ * a fixed column of map-display toggles. The controls stay live under every
+ * tool, so the brush can be set up before it's picked; nothing mounts,
+ * unmounts or greys out as the active tool changes. Inspector is the one tool
+ * exempt from this: it keeps its own, separate layout (see InspectorControls). */
 export const ToolControlsScaffold = () => {
-  const activeTool = useMapControlsStore(state => state.activeTool);
   const mapMode = useMapControlsStore(state => state.mapMode);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
-  const inBlockView = useMapStore(state => state.captiveIds.size > 0);
-
-  // Before a unit is broken there's nothing to paint yet, so the whole
-  // paint-adjacent surface reads as inert — once broken, the controls go live
-  // so the zone can be set before switching to Paint.
-  const breakBeforeBlockView = activeTool === ACTIVE_TOOLS.SHATTER && !inBlockView;
-  const sliderDisabled = activeTool === ACTIVE_TOOLS.PAN || breakBeforeBlockView;
-  const zonePickerDisabled =
-    activeTool === ACTIVE_TOOLS.PAN ||
-    breakBeforeBlockView ||
-    (activeTool === ACTIVE_TOOLS.ERASER && mapMode === MAP_MODES.DISTRICTS);
   const Grid = mapMode === MAP_MODES.COI ? CoiTwoColumnGrid : TwoColumnGrid;
 
   return (
@@ -77,20 +59,18 @@ export const ToolControlsScaffold = () => {
         {paintCounties && (
           // mt centers the card on the slider track, offsetting the "Brush Size"
           // label above it (flex centering shifts content by half the margin).
-          // PaintByCounty manages its own disabled state (locked for the whole
-          // break tool session) — it isn't gated by sliderDisabled.
           <Box className="mt-3">
             <PaintByCounty />
           </Box>
         )}
-        <Box className="flex-grow" style={{flexGrow: 1, ...disabledSectionStyle(sliderDisabled)}}>
+        <Box className="flex-grow" style={{flexGrow: 1}}>
           <BrushSizeSelector />
         </Box>
       </Flex>
 
       <Grid>
-        <Box style={disabledSectionStyle(zonePickerDisabled)}>
-          <ZonePicker disabled={zonePickerDisabled} />
+        <Box>
+          <ZonePicker />
         </Box>
         <KeyOptionToggles />
       </Grid>
