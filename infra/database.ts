@@ -29,7 +29,9 @@ export function createDatabase(network: Network) {
     autoMinorVersionUpgrade: true,
     instanceClass: config.dbInstanceClass,
     allocatedStorage: config.dbAllocatedStorage,
-    maxAllocatedStorage: config.dbAllocatedStorage * 4,
+    // Autoscaling ceiling. Prod hit the old 4x (400 GiB) cap on 2026-11-23.
+    // Raising it is free: only allocated storage is billed.
+    maxAllocatedStorage: config.dbAllocatedStorage * 10,
     storageType: "gp3",
     storageEncrypted: true,
     dbName: DB_NAME,

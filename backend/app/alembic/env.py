@@ -147,7 +147,6 @@ def run_migrations_online():
     """
     configuration = config.get_section(config.config_ini_section)
     url = get_url()
-    print("URL", url)
     configuration["sqlalchemy.url"] = url
     connectable = engine_from_config(
         configuration,
