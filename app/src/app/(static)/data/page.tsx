@@ -34,11 +34,14 @@ export default function DataPage() {
         database, which stores all sorts of geospatial data.
       </Text>
       <Text size="3">
-        For most of our election results, we rely on the tabulations created by the team at{' '}
+        Our election results come from the precinct-level tabulations created by the team at{' '}
         <Link href="https://davesredistricting.org" target="_blank">
           Dave&apos;s Redistricting
         </Link>
-        .
+        . The district figures you see in Districtr are calculated by Districtr: as you draw, it
+        adds up those results for the units in each district, and shows each district&apos;s share
+        of the two-party vote (Democratic and Republican votes only). Those totals are ours, not
+        figures published by Dave&apos;s Redistricting.
       </Text>
       <CTA />
     </Flex>
