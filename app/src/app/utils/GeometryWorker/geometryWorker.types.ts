@@ -48,6 +48,14 @@ export type GeometryWorkerClass = {
   };
   getPointIndex: () => NonNullable<GeometryWorkerClass['pointIndex']>;
   /**
+   * Bbox [minLon, minLat, maxLon, maxLat] of a zone's unit centroids (blocks of
+   * broken units included), from the current client-side assignments; null when
+   * the zone has no units. `geoIds` is set only for a single-unit zone.
+   */
+  getZoneBounds: (
+    zone: number
+  ) => {bbox: [number, number, number, number]; geoIds?: string[]} | null;
+  /**
    * Point data for center of mass calculations.
    */
   pointData: GeoJSON.FeatureCollection<GeoJSON.Point>;
