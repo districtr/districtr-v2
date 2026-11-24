@@ -864,6 +864,7 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
     // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
     const featureStateCache = mapRef.style.tileManagers?.[BLOCK_SOURCE_ID]?.getState().state;
     if (!featureStateCache) return;
+    const childLayer = useMapStore.getState().mapDocument?.child_layer;
 
     const popChanges: Record<number, number> = {};
     const editTime = new Date().toISOString();
@@ -876,9 +877,13 @@ export const useCoiAssignmentsStore = createWithFullMiddlewares<CoiAssignmentsSt
       const currentFeatureState = featureStateCache[sourceLayer]?.[id] || {};
       // Never assign a shattered parent: its blocks carry the communities, and its own
       // assignment breaks the population join. Backstop for paint functions that miss the filter.
+      // Nor a block of a whole unit, for the same reason: paint sources still hold a
+      // just-healed unit's blocks (the rendered block layer until its filter reloads,
+      // the county brush's cached blocks), and saving one next to its unit duplicates it.
       if (
         nextAccumulatedAssignments.has(id) ||
         shatterIds.parents.has(id) ||
+        (sourceLayer === childLayer && !shatterIds.children.has(id)) ||
         currentFeatureState?.locked
       )
         return;

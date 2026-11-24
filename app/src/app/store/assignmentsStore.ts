@@ -421,6 +421,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   mutateZoneAssignments: (mapRef, features, zone) => {
     const {accumulatedAssignments, zonesLastUpdated, shatterIds} = get();
     const {setPaintedChanges} = useChartStore.getState();
+    const childLayer = useMapStore.getState().mapDocument?.child_layer;
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
     // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
     // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
@@ -443,9 +444,13 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       const prevAssignment = stateChanges?.zone || state?.zone || false;
       // Never zone a shattered parent: its blocks carry the zone, and its own assignment
       // breaks the population join. Backstop for paint functions that miss the filter.
+      // Nor a block of a whole unit, for the same reason: paint sources still hold a
+      // just-healed unit's blocks (the rendered block layer until its filter reloads,
+      // the county brush's cached blocks), and saving one next to its unit duplicates it.
       const shouldSkip =
         accumulatedAssignments.has(id) ||
         shatterIds.parents.has(id) ||
+        (sourceLayer === childLayer && !shatterIds.children.has(id)) ||
         state?.['locked'] ||
         prevAssignment === zone ||
         false;
