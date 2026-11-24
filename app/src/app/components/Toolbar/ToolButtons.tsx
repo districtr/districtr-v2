@@ -109,9 +109,14 @@ export const ToolButtons: React.FC = () => {
     // ToolUtils' combinationHelpKey / 'superdrawToolsCombination'), so its
     // hover card would describe every tool in the group rather than just
     // this button — text="" suppresses that description, leaving only the
-    // demonstration link.
+    // demonstration link (and a tool's own helpText, where it has one).
     return tool.helpKey ? (
-      <HelpTip key={tool.mode} tip={tool.helpKey} openDelay={HELP_TIP_HOVER_DELAY} text="">
+      <HelpTip
+        key={tool.mode}
+        tip={tool.helpKey}
+        openDelay={HELP_TIP_HOVER_DELAY}
+        text={tool.helpText ?? ''}
+      >
         {button}
       </HelpTip>
     ) : (

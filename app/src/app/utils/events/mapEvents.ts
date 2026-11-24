@@ -36,6 +36,7 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
 import {RENDERING_STATES} from '@constants/map/renderingState';
 import {ACCESS_STATES} from '@constants/document/state';
+import {boxAroundPoint} from '../map/bboxAroundPoint';
 
 export const AREA_SELECT_TOOLS: ActiveTool[] = [
   ACTIVE_TOOLS.BRUSH,
@@ -251,10 +252,16 @@ export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => 
 // middle-click can never stack a duplicate listener pair.
 let endMiddleMousePan: (() => void) | null = null;
 
+// True from a paint/erase mousedown that landed off the plan until mouseup:
+// that drag pans, so crossing onto a unit must not start painting
+// (handleMapMouseEnter).
+let offPlanPanning = false;
+
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapControls = useMapControlsStore.getState();
   const activeTool = mapControls.activeTool;
+  offPlanPanning = false;
 
   // A second finger means a pinch/two-finger gesture, never a paint stroke —
   // cancel any in-progress paint and let maplibre's touchZoomRotate handle it.
@@ -302,6 +309,25 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
       mapControls.setIsPainting(false);
       return;
     }
+    // With none of the plan's units under the brush (ocean, a neighboring
+    // state), the drag pans instead of painting nothing. Judged on the raw
+    // rendered units, not paintFunction's filtered result, so a locked or
+    // masked-out district still counts as the plan. Mouse only, and not in
+    // block view, whose camera is confined to the broken unit.
+    const {mapDocument, captiveIds} = useMapStore.getState();
+    if (
+      originalEvent &&
+      !captiveIds.size &&
+      !mapRef.queryRenderedFeatures(boxAroundPoint(e, mapControls.brushSize), {
+        layers: getLayerIdsToPaint(mapDocument?.child_layer, activeTool),
+      }).length
+    ) {
+      mapRef.dragPan.enable();
+      mapControls.setIsPainting(false);
+      offPlanPanning = true;
+      window.addEventListener('mouseup', () => (offPlanPanning = false), {once: true});
+      return;
+    }
     // disable drag pan
     mapRef.dragPan.disable();
     mapControls.setIsPainting(true);
@@ -312,7 +338,8 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   const {activeTool, setIsPainting} = useMapControlsStore.getState();
   if (
     (activeTool !== ACTIVE_TOOLS.BRUSH && activeTool !== ACTIVE_TOOLS.ERASER) ||
-    !canMutateAssignments()
+    !canMutateAssignments() ||
+    offPlanPanning
   )
     return;
   // check if mouse is down
