@@ -223,11 +223,14 @@ def test_empty_password_hash_is_treated_as_unset(client, session, private_docume
     assert response.status_code == 200, response.json()
     assert client.post(unlock, json={"password": "alpha"}).status_code == 200
 
-    # A real password is not overwritten by a later share.
-    client.post(
-        f"/api/document/{document_id}/share",
-        json={"password": "bravo", "access_type": "edit"},
-    )
+    # Re-sending the stored password (every Copy link does) is fine; a
+    # different one is refused rather than dropped behind a 200.
+    share = f"/api/document/{document_id}/share"
+    for password, status in (("alpha", 200), ("bravo", 409), ("", 200)):
+        response = client.post(
+            share, json={"password": password, "access_type": "edit"}
+        )
+        assert response.status_code == status, response.json()
     assert client.post(unlock, json={"password": "bravo"}).status_code == 401
     assert client.post(unlock, json={"password": "alpha"}).status_code == 200
 
