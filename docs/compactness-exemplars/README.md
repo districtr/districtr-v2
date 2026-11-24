@@ -1,6 +1,6 @@
 # Compactness exemplar scores
 
-`cd118_compactness_scores.csv` lists the Polsby-Popper and Reock score of each of the 427 districts that the evaluation panel's example districts are sampled from: the drawn districts of the 118th Congress, used in the 2022 election. [ADR 0071](../adr/0071-compactness-exemplars-sampled.md) records why this set was chosen.
+`cd118_compactness_scores.csv` lists the Polsby-Popper and Reock score of each of the 417 districts that the evaluation panel's example districts are sampled from: the drawn districts of the 118th Congress, used in the 2022 election, that are in one piece. [ADR 0071](../adr/0071-compactness-exemplars-sampled.md) records why this set was chosen.
 
 ## Use
 
@@ -21,7 +21,7 @@ The app does not read this file.
 
 ## Source
 
-Census TIGER/Line 2022 congressional district files (`tl_2022_<statefp>_cd118.zip`). States with one district, the delegate districts and Hawaii are left out.
+Census TIGER/Line 2022 congressional district files (`tl_2022_<statefp>_cd118.zip`). States with one district, the delegate districts, Hawaii and the 10 districts whose outline is in more than one piece are left out.
 
 ## Regenerating
 

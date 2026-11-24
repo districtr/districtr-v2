@@ -145,6 +145,8 @@ interface SampleProps {
   /** Column of the sample's range, where the range's tab joins the sample. */
   tabColumn: number;
   outlineSize: number;
+  /** Where the districts come from, in the short names' type below the outlines. */
+  source: string;
 }
 
 /**
@@ -158,6 +160,7 @@ const Sample: React.FC<SampleProps> = ({
   perRow,
   tabColumn,
   outlineSize,
+  source,
 }) => (
   <div
     role="group"
@@ -189,6 +192,16 @@ const Sample: React.FC<SampleProps> = ({
         <figcaption style={SHORT_NAME_STYLE}>{districtShortName(districtsById[geoid])}</figcaption>
       </figure>
     ))}
+    <p
+      className="m-0 text-center"
+      style={{
+        ...SHORT_NAME_STYLE,
+        gridColumn: '1 / -1',
+        padding: '0 var(--space-2) var(--space-2)',
+      }}
+    >
+      {source}
+    </p>
   </div>
 );
 
@@ -210,6 +223,9 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
   const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
   const rangeCount = data.buckets[SCORE_KEYS[0]].length;
+  const source =
+    `Congressional districts of the ${ordinal(data.congress)} Congress, used in the ` +
+    `${data.electionYear} election (${data.source}).`;
 
   useLayoutEffect(() => {
     const wrapper = wrapperRef.current;
@@ -349,6 +365,7 @@ const ExemplarRanges: React.FC<{data: CompactnessExemplarData}> = ({data}) => {
                       perRow={rangesPerRow}
                       tabColumn={openHere.index - start}
                       outlineSize={outlineSize}
+                      source={source}
                     />
                   )}
                 </div>

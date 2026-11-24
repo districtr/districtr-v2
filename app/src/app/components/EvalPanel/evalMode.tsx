@@ -17,8 +17,7 @@ export const useIsReport = (): boolean => useContext(EvalModeContext) === 'repor
 /**
  * The evaluation's selectors and the choices each offers, in the order a selector
  * lists them. The option type, the check on a report link and the selectors' items
- * all come from these lists. `competitiveBand` is in points either side of 50-50;
- * `unfinishedPartisan` is whether an unfinished plan shows its partisan metrics.
+ * all come from these lists. `competitiveBand` is in points either side of 50-50.
  */
 export const EVAL_OPTION_VALUES = {
   deviationView: ['both', 'top_to_bottom', 'max_absolute'],
@@ -26,7 +25,6 @@ export const EVAL_OPTION_VALUES = {
   electionShowMode: ['all', 'ftv-only'],
   pov: ['dem', 'rep'],
   competitiveBand: ['2', '3', '5', '7', '10'],
-  unfinishedPartisan: ['hidden', 'shown'],
 } as const;
 
 /**
@@ -44,7 +42,6 @@ export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
   electionShowMode: 'all',
   pov: 'dem',
   competitiveBand: '3',
-  unfinishedPartisan: 'hidden',
 };
 
 /** Options from a report link's query string; anything missing or unknown falls back to the default. */

@@ -3,7 +3,8 @@ import {EvalSection, EvalSubheading, EvalTableTitle} from './EvalSection';
 import {EVAL_OPTION_VALUES, type EvalOptions, useEvalOption, useIsReport} from './evalMode';
 import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
 import {helpTipContent} from '@components/HelpTip/helpTipContent';
-import {Button, Flex, Text, Table, HoverCard, Select} from '@radix-ui/themes';
+import NextLink from 'next/link';
+import {Flex, Link, Text, Table, HoverCard, Select} from '@radix-ui/themes';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
@@ -14,6 +15,10 @@ import {HelpTip, HELP_TIP_FAST_DELAY} from '@components/HelpTip/HelpTip';
 import {HOVER_BTN_STYLE, HoverTrigger} from './HoverTrigger';
 import {isPlanComplete} from './planCompleteness';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
+import {useEditableDocId} from '@/app/hooks/useEditableDocId';
+import {useMapStore} from '@store/mapStore';
+import {MAP_ROUTES} from '@constants/document/routes';
+import {editPath, readPath} from '@utils/map/editUrl';
 
 interface PartisanSectionProps {
   evaluation: DocumentEvaluation;
@@ -136,26 +141,39 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const povName = pov === 'dem' ? 'Democratic' : 'Republican';
   const [electionShowMode, setElectionShowMode] = useEvalOption('electionShowMode');
   const [competitiveBand, setCompetitiveBand] = useEvalOption('competitiveBand');
-  const [unfinishedPartisan, setUnfinishedPartisan] = useEvalOption('unfinishedPartisan');
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
+  const planDistricts = useMapStore(state => state.mapDocument?.num_districts);
+  const publicId = useMapStore(state => state.mapDocument?.public_id ?? null);
+  const editDocId = useEditableDocId();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
   const competitiveness = evaluation.competitiveness;
   if (!n && !competitiveness) return null;
 
-  // Vote and seat figures of a plan with unassigned units describe only its drawn
-  // part, so they stay hidden until the reader asks for them.
-  if (isPlanComplete(evaluation.assigned_units) === false && unfinishedPartisan === 'hidden') {
+  // Vote and seat figures of an unfinished plan describe only its drawn part, so the
+  // section points to where the plan is finished and where the drawn part's election
+  // results are: the sidebar of Draw mode, or of View mode for a reader who cannot edit.
+  if (isPlanComplete(evaluation, planDistricts) === false) {
+    const mapLink = editDocId
+      ? {href: editPath(MAP_ROUTES.DISTRICTS, editDocId, publicId), label: 'Go to Draw mode'}
+      : publicId !== null
+        ? {href: readPath(MAP_ROUTES.DISTRICTS, publicId), label: 'Go to View mode'}
+        : null;
     return (
       <EvalSection value="partisan" title="Election Results and Partisanship">
-        <Flex align="center" gap="3" wrap="wrap">
-          <Text size="2">The partisan metrics are hidden for unfinished plans.</Text>
-          {!isReport && (
-            <Button size="1" variant="soft" onClick={() => setUnfinishedPartisan('shown')}>
-              Show anyway
-            </Button>
+        <Text size="2" as="p">
+          The partisan metrics are hidden for unfinished plans.
+          {!isReport && mapLink && (
+            <>
+              {' '}
+              <Link asChild>
+                <NextLink href={mapLink.href}>{mapLink.label}</NextLink>
+              </Link>{' '}
+              {editDocId && 'to finish the plan, or '}to see the election results of the districts
+              drawn so far, under Stats → Elections.
+            </>
           )}
-        </Flex>
+        </Text>
       </EvalSection>
     );
   }
@@ -756,23 +774,15 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           <EvalSubheading>Competitiveness</EvalSubheading>
           <Text size="2" mb="3" as="p">
             A district is considered <strong>competitive</strong> in a particular vote pattern if
-            it&apos;s close to 50-50 within the major parties — more specifically, if its vote
-            shares deviate from even by an amount within{' '}
-            {isReport && <strong>±{competitiveBand} points</strong>}
-            <Select.Root
-              value={competitiveBand}
-              onValueChange={v => setCompetitiveBand(v as EvalOptions['competitiveBand'])}
-              size="1"
-            >
-              <Select.Trigger style={isReport ? {display: 'none'} : undefined} />
-              <Select.Content>
-                {EVAL_OPTION_VALUES.competitiveBand.map(band => (
-                  <Select.Item key={band} value={band}>
-                    ±{band} points
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
+            it&apos;s close to 50-50 within the major parties{' '}
+            {isReport ? (
+              <>
+                — more specifically, if its vote shares deviate from even by an amount within{' '}
+                <strong>±{competitiveBand} points</strong>
+              </>
+            ) : (
+              '(you may select the threshold for closeness below)'
+            )}
             . We call a district a <strong>swing</strong> district if each major party won it at
             least once over the elections in our dataset. If it was always won by the same party
             across those contests, we label it as <strong>D Sweep</strong> or{' '}
@@ -805,7 +815,31 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       {nCompetitiveContests} / {contestDemVoteShares.length}
                     </Text>
                   </Table.Cell>
-                  {!isReport && <Table.Cell />}
+                  {!isReport && (
+                    <Table.Cell>
+                      <Flex align="center" gap="1">
+                        <Text size="1" color="gray">
+                          Threshold
+                        </Text>
+                        <Select.Root
+                          value={competitiveBand}
+                          onValueChange={v =>
+                            setCompetitiveBand(v as EvalOptions['competitiveBand'])
+                          }
+                          size="1"
+                        >
+                          <Select.Trigger aria-label="Threshold" />
+                          <Select.Content>
+                            {EVAL_OPTION_VALUES.competitiveBand.map(band => (
+                              <Select.Item key={band} value={band}>
+                                ±{band} points
+                              </Select.Item>
+                            ))}
+                          </Select.Content>
+                        </Select.Root>
+                      </Flex>
+                    </Table.Cell>
+                  )}
                 </Table.Row>
                 <Table.Row>
                   <Table.Cell justify="center">
