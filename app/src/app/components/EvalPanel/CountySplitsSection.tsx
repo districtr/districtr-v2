@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import {Flex, Text, Table, Heading, Switch, Select} from '@radix-ui/themes';
 import {TriangleRightIcon} from '@radix-ui/react-icons';
@@ -19,6 +19,9 @@ const GEO_UNIT_DESCRIPTIONS: Record<GeoUnit, string> = {
     'Census blocks are the smallest Census geographic unit, corresponding roughly to city blocks.',
 };
 
+// The row whose county the map highlights takes the hover chips' tint.
+const HOVERED_ROW_CLASS = 'hover:bg-[var(--accent-a3)] focus-visible:bg-[var(--accent-a3)]';
+
 interface CountySplitsSectionProps {
   evaluation: DocumentEvaluation;
 }
@@ -31,6 +34,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
   const isSingleCounty = useIsSingleCounty();
   const [showMode, setShowMode] = useState<'overly-split-only' | 'all'>('overly-split-only');
 
+  // The hovered county lives in a store the map pages share, and leaving this page
+  // fires neither mouse-leave nor blur on the hovered row.
+  useEffect(() => () => setHoveredCountyGeoid(null), [setHoveredCountyGeoid]);
+
   const countyPieces = evaluation.county_pieces;
   const idealPop = evaluation.ideal_population ?? null;
   const assignedUnits = evaluation.assigned_units;
@@ -40,6 +47,11 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
     ? GEO_UNIT_DESCRIPTIONS[mapDocument.parent_geo_unit_type]
     : null;
   if (!countyPieces) return null;
+
+  const zonesByCounty: Record<string, number[]> = {};
+  Object.entries(evaluation.district_county_membership ?? {}).forEach(([zone, counties]) =>
+    counties.forEach(county => (zonesByCounty[county] ??= []).push(Number(zone)))
+  );
 
   const allEntries = Object.entries(countyPieces)
     .map(([geoid, {total_pop: pop, pieces: actual, name}]) => ({geoid, pop, actual, name}))
@@ -241,8 +253,8 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
               >
                 <Select.Trigger />
                 <Select.Content>
-                  <Select.Item value="overly-split-only">excessively split counties</Select.Item>
-                  <Select.Item value="all">all counties</Select.Item>
+                  <Select.Item value="overly-split-only">Excessively split counties</Select.Item>
+                  <Select.Item value="all">All counties</Select.Item>
                 </Select.Content>
               </Select.Root>
             </Flex>
@@ -316,9 +328,10 @@ export const CountySplitsSection: React.FC<CountySplitsSectionProps> = ({evaluat
                           key={geoid}
                           tabIndex={0}
                           {...hoverHandlers(
-                            () => setHoveredCountyGeoid(geoid),
+                            () => setHoveredCountyGeoid(geoid, zonesByCounty[geoid]),
                             () => setHoveredCountyGeoid(null)
                           )}
+                          className={HOVERED_ROW_CLASS}
                           style={{cursor: 'default'}}
                         >
                           <Table.Cell justify="center">

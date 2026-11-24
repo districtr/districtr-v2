@@ -173,16 +173,17 @@ const ZoneNumbersLayer = () => {
   const lockedAreas = canEdit && superDraw ? editLocks : [];
   const lockedFilter: ExpressionSpecification = ['in', ['get', 'zone'], ['literal', lockedAreas]];
   // While the evaluation panel highlights districts, the labels of the other districts
-  // fade with their fills. A highlighted county fades every district label: a label
-  // belongs to a district, whichever county it stands in.
+  // fade with their fills. A highlighted county keeps the labels of the districts that
+  // hold part of it, wherever in the district a label stands.
   const hoveredZones = useMapStore(state => state.hoveredPublicZones);
   const countyHovered = useMapControlsStore(state => state.hoveredCountyGeoid !== null);
+  const hoveredCountyZones = useMapControlsStore(state => state.hoveredCountyZones);
   const labelOpacity = (opacity: number): number | ExpressionSpecification => {
-    if (countyHovered) return opacity * HIGHLIGHT_DIMMED_LABEL_OPACITY;
-    if (!hoveredZones.length) return opacity;
+    if (!countyHovered && !hoveredZones.length) return opacity;
+    const fullStrengthZones = countyHovered ? hoveredCountyZones : hoveredZones.map(Number);
     return [
       'case',
-      ['in', ['get', 'zone'], ['literal', hoveredZones.map(Number)]],
+      ['in', ['get', 'zone'], ['literal', fullStrengthZones]],
       opacity,
       opacity * HIGHLIGHT_DIMMED_LABEL_OPACITY,
     ];

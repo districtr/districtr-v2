@@ -3,7 +3,7 @@ import {useState} from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import NextLink from 'next/link';
 import {Flex, Link, Text, Table, Heading, HoverCard, Select} from '@radix-ui/themes';
-import {TriangleRightIcon} from '@radix-ui/react-icons';
+import {CheckIcon, Cross2Icon, TriangleRightIcon} from '@radix-ui/react-icons';
 import {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 import {formatElectionKey, parseElectionKey, selectFtvElections} from '@/app/utils/elections';
 import {formatNumber} from '@/app/utils/numbers';
@@ -16,6 +16,7 @@ import {isPlanComplete} from './planCompleteness';
 import {useDistrictHover} from '@/app/hooks/useDistrictHover';
 import {useEditableDocId} from '@/app/hooks/useEditableDocId';
 import {useMapStore} from '@store/mapStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {MAP_ROUTES} from '@constants/document/routes';
 import {editPath} from '@utils/map/editUrl';
 
@@ -26,6 +27,8 @@ interface PartisanSectionProps {
 const DEM = '#2563eb';
 const REP = '#dc2626';
 const NEUTRAL = 'rgba(128, 128, 128, 0.08)';
+// An icon that stands in a line of text, like a character.
+const VERDICT_ICON_STYLE: React.CSSProperties = {display: 'inline', verticalAlign: 'text-bottom'};
 
 const demBg = (alpha: number) =>
   `color-mix(in srgb, ${DEM} ${(alpha * 100).toFixed(0)}%, transparent)`;
@@ -121,6 +124,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   const planDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const publicId = useMapStore(state => state.mapDocument?.public_id ?? null);
   const editDocId = useEditableDocId();
+  const setSuperDraw = useToolbarStore(state => state.setSuperDraw);
   const {onDistrictEnter, onDistrictLeave} = useDistrictHover();
   const elections = sortElections(Object.keys(evaluation.seats ?? {}));
   const n = elections.length;
@@ -144,10 +148,19 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   // section points to where the plan is finished and where the drawn part's election
   // results are: the sidebar of Draw mode, or of View mode for a reader who cannot edit.
   if (isPlanComplete(evaluation, planDistricts) === false) {
+    // Like the mode switcher's Draw entry, the link to Draw mode leaves Super Draw.
     const mapLink = editDocId
-      ? {href: editPath(MAP_ROUTES.DISTRICTS, editDocId, publicId), label: 'Go to Draw mode'}
+      ? {
+          href: editPath(MAP_ROUTES.DISTRICTS, editDocId, publicId),
+          label: 'Go to Draw mode',
+          onClick: () => setSuperDraw(false),
+        }
       : publicId !== null
-        ? {href: `/${MAP_ROUTES.DISTRICTS}/${publicId}`, label: 'Go to View mode'}
+        ? {
+            href: `/${MAP_ROUTES.DISTRICTS}/${publicId}`,
+            label: 'Go to View mode',
+            onClick: undefined,
+          }
         : null;
     return (
       <Accordion.Root type="single" collapsible>
@@ -160,7 +173,9 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                 <>
                   {' '}
                   <Link asChild>
-                    <NextLink href={mapLink.href}>{mapLink.label}</NextLink>
+                    <NextLink href={mapLink.href} onClick={mapLink.onClick}>
+                      {mapLink.label}
+                    </NextLink>
                   </Link>{' '}
                   {editDocId && 'to finish the plan, or '}to see the election results of the
                   districts drawn so far, under Stats → Elections.
@@ -274,7 +289,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
       >
         <Select.Trigger />
         <Select.Content>
-          <Select.Item value="all">all elections</Select.Item>
+          <Select.Item value="all">All elections</Select.Item>
           <Select.Item value="ftv-only">FTV elections</Select.Item>
         </Select.Content>
       </Select.Root>
@@ -282,13 +297,18 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
   );
 
   // The third cell of a district row in the competitiveness table: the one trigger
-  // that highlights the row's districts on the map.
-  const highlightCell = (districts: number[]) => (
+  // that highlights the row's districts on the map, where the row's name labels the
+  // highlight.
+  const highlightCell = (districts: number[], rowName: string) => (
     <Table.Cell>
       {districts.length > 0 && (
-        <Text size="2">
-          <HoverTrigger chip onEnter={() => onDistrictEnter(districts)} onLeave={onDistrictLeave}>
-            {districts.length === 1 ? 'highlight this district' : 'highlight these districts'}
+        <Text size="2" wrap="nowrap">
+          <HoverTrigger
+            chip
+            onEnter={() => onDistrictEnter(districts, rowName)}
+            onLeave={onDistrictLeave}
+          >
+            {districts.length === 1 ? 'Highlight this district' : 'Highlight these districts'}
           </HoverTrigger>
         </Text>
       )}
@@ -338,7 +358,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               {ftvPassCount !== null && (
                 <>
                   <Text size="2" mb="2" as="p">
-                    This plan <strong>{ftvOverallPass ? 'PASSES' : 'DOES NOT PASS'}</strong> the{' '}
+                    This plan <strong>{ftvOverallPass ? 'passes' : 'does not pass'}</strong> the{' '}
                     {ftvHelpTipTrigger} (FTV) for partisan balance. To see why, we use the last two
                     Senate races and the last two Presidential races as our test contests (
                     {joinWithAnd(ftvElections.map(formatElectionKey))}
@@ -362,7 +382,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                       </Table.Header>
                       <Table.Body>
                         <Table.Row>
-                          <Table.Cell>
+                          <Table.Cell justify="center">
                             <Text size="2" weight="bold">
                               {pov === 'dem' ? 'D' : 'R'} vote share
                             </Text>
@@ -378,7 +398,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           ))}
                         </Table.Row>
                         <Table.Row>
-                          <Table.Cell>
+                          <Table.Cell justify="center">
                             <Text size="2" weight="bold">
                               {pov === 'dem' ? 'D' : 'R'} seat share
                             </Text>
@@ -394,7 +414,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           ))}
                         </Table.Row>
                         <Table.Row>
-                          <Table.Cell>
+                          <Table.Cell justify="center">
                             <Text size="2" weight="bold">
                               Diff
                             </Text>
@@ -410,7 +430,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                                   color: scaledTextColor(disprop, METRIC_CUTOFF.disp),
                                 }}
                               >
-                                <Text size="2">
+                                <Text size="2" wrap="nowrap">
                                   {disprop !== undefined ? formatFtvDiff(disprop) : '—'}
                                 </Text>
                               </Table.Cell>
@@ -418,7 +438,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                           })}
                         </Table.Row>
                         <Table.Row>
-                          <Table.Cell>
+                          <Table.Cell justify="center">
                             <Text size="2" weight="bold">
                               Close enough ({formatThreshold(ftvThreshold!)} Threshold)
                             </Text>
@@ -427,14 +447,21 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                             const verdict = ftvVerdict(key);
                             return (
                               <Table.Cell key={key} justify="center">
-                                <Text size="2">
+                                <Text size="2" wrap="nowrap">
                                   {verdict === null ? (
                                     '—'
                                   ) : verdict === 'pass' ? (
-                                    <span style={{color: 'var(--green-9)'}}>✓</span>
+                                    <CheckIcon
+                                      aria-label="Close enough"
+                                      style={{...VERDICT_ICON_STYLE, color: 'var(--green-9)'}}
+                                    />
                                   ) : (
                                     <>
-                                      ✗ (
+                                      <Cross2Icon
+                                        aria-label="Not close enough"
+                                        style={VERDICT_ICON_STYLE}
+                                      />{' '}
+                                      (
                                       <span style={{color: verdict === 'dem' ? DEM : REP}}>
                                         {verdict === 'dem' ? 'D' : 'R'} tilt
                                       </span>
@@ -480,7 +507,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Text size="2" weight="bold" mb="2" as="p">
                 Votes vs. Seats by Election (among the two major parties)
               </Text>
-              <Flex mb="2" gap="4" align="center" wrap="wrap">
+              <Flex mb="2" gap="4" align="center" justify="between" wrap="wrap">
                 <PovSwitcher pov={pov} setPov={setPov} />
                 {electionSelector}
               </Flex>
@@ -611,7 +638,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
               <Heading size="3" align="center" mb="2" mt="4">
                 Other Partisanship Metrics
               </Heading>
-              <Flex mb="2" gap="4" align="center" wrap="wrap">
+              <Flex mb="2" gap="4" align="center" justify="between" wrap="wrap">
                 <PovSwitcher pov={pov} setPov={setPov} />
                 {electionSelector}
               </Flex>
@@ -797,7 +824,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Competitive contests</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
+                        <Text size="2" weight="bold" wrap="nowrap">
                           {nCompetitiveContests} / {contestDemVoteShares.length}
                         </Text>
                       </Table.Cell>
@@ -828,33 +855,33 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
                         <Text size="2">Swing districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
+                        <Text size="2" weight="bold" wrap="nowrap">
                           {swingDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
-                      {highlightCell(swingDistricts)}
+                      {highlightCell(swingDistricts, 'Swing districts')}
                     </Table.Row>
                     <Table.Row>
                       <Table.Cell justify="center">
                         <Text size="2">D Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
+                        <Text size="2" weight="bold" wrap="nowrap">
                           {demSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
-                      {highlightCell(demSweepDistricts)}
+                      {highlightCell(demSweepDistricts, 'D Sweep districts')}
                     </Table.Row>
                     <Table.Row>
                       <Table.Cell justify="center">
                         <Text size="2">R Sweep districts</Text>
                       </Table.Cell>
                       <Table.Cell justify="center">
-                        <Text size="2" weight="bold">
+                        <Text size="2" weight="bold" wrap="nowrap">
                           {repSweepDistricts.length} / {nDistrictsTotal}
                         </Text>
                       </Table.Cell>
-                      {highlightCell(repSweepDistricts)}
+                      {highlightCell(repSweepDistricts, 'R Sweep districts')}
                     </Table.Row>
                   </Table.Body>
                 </Table.Root>

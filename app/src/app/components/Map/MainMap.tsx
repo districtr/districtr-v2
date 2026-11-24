@@ -18,6 +18,7 @@ import {OverlayLayers} from './PolygonLayers/OverlayLayers';
 import {MapLayerAnchors} from './MapLayerAnchors';
 import {MapContainer} from './MapContainer';
 import {BlockModePill} from './BlockModePill';
+import {DistrictHighlightLabel} from './DistrictHighlightLabel';
 import {PaintConstraintPill} from './PaintConstraintPill';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {PointSource} from './GeoSources/PointSource';
@@ -109,6 +110,7 @@ export const MainMap: React.FC = () => {
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
           <BlockModePill />
           <PaintConstraintPill />
+          <DistrictHighlightLabel />
         </>
       )}
     </MapContainer>
