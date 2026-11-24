@@ -73,15 +73,22 @@ def upgrade() -> None:
         " document_id UUID PRIMARY KEY,"
         " assignments JSONB NOT NULL DEFAULT '{}'::jsonb)"
     )
-    # Group by streaming the PK in document order: hash aggregation would hold
-    # every document's partial object in memory at once.
+    # Group by sorting on document_id: hash aggregation would hold every
+    # document's partial object in memory at once. The planner sorts on disk
+    # rather than streaming the PK. On prod (41 GB, 588M rows) the default 4 MB
+    # work_mem made ~15,000 sorted runs and a multi-pass merge of 8 KB random
+    # reads at ~5 MB/s, hours per pass; 2 GB gives ~20 runs and one merge pass.
+    # ponytail: 2 GB fits a db.t4g.large (8 GiB) with no other traffic; lower it
+    # if this ever runs on a smaller instance.
     op.execute("SET LOCAL enable_hashagg = off")
+    op.execute("SET LOCAL work_mem = '2GB'")
     op.execute(
         "INSERT INTO document.document_assignments (document_id, assignments) "
         "SELECT document_id, jsonb_object_agg(geo_id, zone) "
         "FROM document.assignments GROUP BY document_id"
     )
     op.execute("SET LOCAL enable_hashagg = DEFAULT")
+    op.execute("SET LOCAL work_mem = DEFAULT")
     op.execute("ANALYZE document.document_assignments")
     op.execute("DROP TABLE document.assignments")
     op.execute(f"CREATE VIEW document.assignments AS {EXPAND_ROWS}")
