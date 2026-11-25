@@ -168,7 +168,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
           {sectionHeader}
           <Accordion.Content className="pl-8">
             <Text size="2" as="p">
-              The partisan metrics are hidden for unfinished plans.
+              The partisan metrics are hidden for incomplete plans.
               {mapLink && (
                 <>
                   {' '}
