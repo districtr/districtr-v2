@@ -22,6 +22,8 @@ import {
   TOOLTIP_TOOLS,
   getSelectingClickLayer,
   breakUnit,
+  breakClickedUnitFromBlockView,
+  updateBlockViewCursor,
   mapEventHandlers,
 } from '@/app/utils/events/mapEvents';
 
@@ -60,8 +62,8 @@ const handleCoiFeatureSelection = (
   switch (activeTool) {
     case ACTIVE_TOOLS.SHATTER: {
       const documentId = mapStore.mapDocument?.document_id;
-      if (documentId && selectedFeatures?.length && mapRef) {
-        breakUnit(selectedFeatures, mapRef);
+      if (documentId && selectedFeatures?.length) {
+        breakUnit(selectedFeatures);
       }
       return;
     }
@@ -111,9 +113,18 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
     }
     return;
   }
+  if (breakClickedUnitFromBlockView(e)) return;
 
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
-    selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
+    // Blocks too: a click on a broken unit's block reopens that unit.
+    selectedFeatures = paintFunction(
+      mapRef,
+      e,
+      0,
+      mapStore.mapDocument?.child_layer
+        ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+        : [BLOCK_HOVER_LAYER_ID]
+    );
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(
       mapStore.mapDocument?.child_layer,
@@ -134,6 +145,7 @@ export const handleCoiMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouch
 
 export const handleCoiMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
+  updateBlockViewCursor(e);
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
 

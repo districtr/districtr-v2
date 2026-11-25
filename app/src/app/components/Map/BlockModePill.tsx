@@ -6,6 +6,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {ACTIVE_TOOLS} from '@constants/map/tools';
 import {GEO_UNIT_SINGULAR_NAMES} from '@constants/document/geoUnits';
 import {MapPill} from './MapPill';
+import {type Bbox, padBbox, queryRenderedGeoIdBounds, widenBbox} from '@utils/map/fitBounds';
 
 /**
  * Guides the break-into-blocks flow: prompts for a unit while the break tool
@@ -18,30 +19,30 @@ export const BlockModePill = () => {
   const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const bounds = useMapControlsStore(state => state.mapOptions.bounds);
   const captiveIds = useMapStore(state => state.captiveIds);
+  const focusedParentId = useMapStore(state => state.focusFeatures[0]?.id?.toString());
   const parentGeoUnitType = useMapStore(state => state.mapDocument?.parent_geo_unit_type);
   const unitName = (parentGeoUnitType && GEO_UNIT_SINGULAR_NAMES[parentGeoUnitType]) || 'precinct';
   const exitBlockView = useMapStore(state => state.exitBlockView);
   const getMapRef = useMapStore(state => state.getMapRef);
   const inBlockView = captiveIds.size > 0;
 
-  // Constrain the viewport to the captured blocks (handleShatter fits the map
+  // Constrain the viewport to the captured blocks (enterBlockView fits the map
   // to their bbox via mapOptions.bounds; this keeps the user from wandering).
   useEffect(() => {
     const map = getMapRef();
     if (!inBlockView || !map) return;
-    if (Array.isArray(bounds) && bounds.length === 4 && bounds.every(n => typeof n === 'number')) {
-      const [west, south, east, north] = bounds as [number, number, number, number];
-      // Full-bbox padding on each side. Generous because the bbox comes from a
-      // tile-clipped geometry (handleShatter) and can underestimate the unit's
-      // true extent; the padded box also sets the minZoom floor below.
-      const padX = east - west;
-      const padY = north - south;
-      const maxBounds: [number, number, number, number] = [
-        west - padX,
-        south - padY,
-        east + padX,
-        north + padY,
-      ];
+    if (
+      !Array.isArray(bounds) ||
+      bounds.length !== 4 ||
+      !bounds.every(n => typeof n === 'number')
+    ) {
+      return;
+    }
+    let current = bounds as Bbox;
+    const constrain = () => {
+      // Full-bbox padding on each side, for context around the unit; the
+      // padded box also sets the minZoom floor below.
+      const maxBounds = padBbox(current, 1);
       map.setMaxBounds(maxBounds);
       // maxBounds only implicitly floors the zoom; the scroll handler keeps
       // accumulating its target below that floor, so zooming back in must pay
@@ -49,12 +50,35 @@ export const BlockModePill = () => {
       // clamps the scroll target too.
       const fitZoom = map.cameraForBounds(maxBounds)?.zoom;
       if (fitZoom !== undefined) map.setMinZoom(Math.max(0, fitZoom));
-    }
+    };
+    constrain();
+    // The bounds only count the unit's pieces in tiles loaded at entry. Once
+    // the camera settles and more tiles have loaded, loosen the limits to any
+    // part that reaches past them. Loosening never moves the camera, and
+    // mapOptions.bounds stays put so the map isn't re-fit.
+    const widen = () => {
+      if (!focusedParentId) return;
+      const seen = queryRenderedGeoIdBounds(map, useMapStore.getState().mapDocument, [
+        focusedParentId,
+      ]);
+      const next = seen && widenBbox(current, padBbox(seen, 0.3));
+      if (!next) return;
+      current = next;
+      constrain();
+    };
+    const widenWhenIdle = () => {
+      map.off('idle', widen);
+      map.once('idle', widen);
+    };
+    widenWhenIdle();
+    map.on('moveend', widenWhenIdle);
     return () => {
+      map.off('moveend', widenWhenIdle);
+      map.off('idle', widen);
       map.setMaxBounds(null);
       map.setMinZoom(null);
     };
-  }, [inBlockView, bounds, getMapRef]);
+  }, [inBlockView, bounds, focusedParentId, getMapRef]);
 
   if (inBlockView) {
     return (
@@ -66,6 +90,11 @@ export const BlockModePill = () => {
         {activeTool === ACTIVE_TOOLS.SHATTER ? (
           <>
             <b>Choose Paint</b> to paint these blocks, or another {unitName} to break
+          </>
+        ) : activeTool === ACTIVE_TOOLS.BRUSH || activeTool === ACTIVE_TOOLS.ERASER ? (
+          <>
+            {activeTool === ACTIVE_TOOLS.BRUSH ? 'Painting' : 'Erasing'} blocks ·{' '}
+            <b>click another {unitName}</b> to move to it
           </>
         ) : (
           'Painting blocks'

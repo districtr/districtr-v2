@@ -18,7 +18,6 @@ import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
-import bbox from '@turf/bbox';
 import {FALLBACK_NUM_COMMUNITIES} from '@/app/constants/document/limits';
 import {
   aliasesForCount,
@@ -31,6 +30,7 @@ import {
 } from '../utils/zoneLabels';
 import {MAP_TYPES} from '@constants/document/types';
 import {BLOCK_SOURCE_ID} from '../constants/map/layerIds';
+import {padBbox, queryRenderedGeoIdBounds} from '../utils/map/fitBounds';
 import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
@@ -288,9 +288,17 @@ export interface MapStore {
   captiveIds: Set<string>;
   /**
    * Leave the captive blocks view and return to the default painting mode.
+   * Heals every unit opened since block view was entered whose blocks share one
+   * zone (jumping between units leaves them broken until here).
    * @param {boolean} lock - On exit, optionally lock the features
    */
   exitBlockView: (lock?: boolean) => void;
+  /**
+   * Open the block view of an already-broken unit: its blocks become the
+   * captive IDs, and the map fits to and stays near the unit. Shared by a
+   * fresh break (handleShatter) and reopening a unit broken earlier.
+   */
+  enterBlockView: (parentId: string) => Promise<void>;
   /**
    * Handles the business logic of fetching the child edges from the backend,
    * breaking the parent into its children, and then entering a focused work mode
@@ -344,6 +352,10 @@ export interface MapStore {
   setPassword: (password: string | null | undefined) => void;
 }
 
+// Units opened in the current block view session, healed together on exit.
+// Not store state: nothing renders from it.
+const blockViewParents = new Set<string>();
+
 const initialLoadingState =
   typeof window !== 'undefined' &&
   (window.location.pathname.startsWith(`/${MAP_ROUTES.DISTRICTS}/`) ||
@@ -368,6 +380,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {healParentsIfAllChildrenInSameCommunities} = useCoiAssignmentsStore.getState();
       const {setMapOptions, mapMode} = useMapControlsStore.getState();
       const focusedParentId = focusFeatures?.[0]?.id?.toString();
+      const parentIds = new Set(blockViewParents);
+      if (focusedParentId) parentIds.add(focusedParentId);
+      blockViewParents.clear();
 
       // Commit any paint still staged in accumulatedAssignments before healing:
       // the heal below reads zoneAssignments and discards the staged map, so an
@@ -385,14 +400,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       setMapOptions({mode: 'default'});
 
       if (mapMode === MAP_MODES.COI) {
-        healParentsIfAllChildrenInSameCommunities(
-          focusedParentId ? new Set<string>([focusedParentId]) : undefined
-        );
+        healParentsIfAllChildrenInSameCommunities(parentIds.size ? parentIds : undefined);
       } else {
-        healParentsIfAllChildrenInSameZone(
-          focusedParentId ? {_parentIds: new Set<string>([focusedParentId])} : {},
-          'state'
-        );
+        healParentsIfAllChildrenInSameZone(parentIds.size ? {_parentIds: parentIds} : {}, 'state');
       }
       // Resume the temporal recorder regardless of mode.
       temporalManager.resume(mapMode);
@@ -574,6 +584,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
 
       useAssignmentsStore.getState().resetShatterState();
+      blockViewParents.clear();
 
       // Deduplicate zone descriptions — legacy docs may have >1 description per zone,
       // which causes save failures since the backend enforces a per-zone limit.
@@ -1332,7 +1343,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       if (mapLock || !mapDocument?.districtr_map_slug) {
         return;
       }
-      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      const {mapMode} = useMapControlsStore.getState();
       temporalManager.pause(mapMode);
       setMapLock({isLocked: true, reason: 'Breaking districts'});
       // set BLOCK_LAYER_ID based on features[0] to focused true
@@ -1358,8 +1369,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
         return;
       }
-      // TODO Need to return child edges even if the parent is already shattered
-      // currently returns nothing
       const {
         shatterIds,
         parentToChild: currentParentToChild,
@@ -1369,14 +1378,12 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         : useAssignmentsStore.getState();
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
-      let captiveIds = new Set<string>();
       let parentToChild = new Map(currentParentToChild);
       let childToParent = new Map(currentChildToParent);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
         children.add(edge.child_path);
-        captiveIds.add(edge.child_path);
         childToParent.set(edge.child_path, edge.parent_path);
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
@@ -1439,32 +1446,42 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         });
       }
 
-      const featureBbox = features[0].geometry && bbox(features[0].geometry);
-      // Pad the unit's bbox so the fitted block view has breathing room around
-      // the broken unit. Generous: the geometry is a queried tile feature, so
-      // it's clipped at tile boundaries and the bbox can undershoot the unit.
-      let mapBbox: maplibregl.LngLatBoundsLike | undefined = undefined;
-      if (featureBbox?.length && featureBbox.length >= 4) {
-        const [west, south, east, north] = featureBbox as [number, number, number, number];
-        const padX = (east - west) * 0.3;
-        const padY = (north - south) * 0.3;
-        mapBbox = [west - padX, south - padY, east + padX, north + padY];
-      }
+      setMapLock(null);
+      await get().enterBlockView(geoids[0]);
+    },
+    enterBlockView: async parentId => {
+      const {mapDocument, getMapRef} = get();
+      const {setMapOptions, mapMode} = useMapControlsStore.getState();
+      const {parentToChild} =
+        mapMode === MAP_MODES.COI
+          ? useCoiAssignmentsStore.getState()
+          : useAssignmentsStore.getState();
+      const children = parentToChild.get(parentId);
+      if (!children?.size) return;
+      blockViewParents.add(parentId);
+      // The whole unit's extent across loaded tiles: a clicked feature is only
+      // the piece in one tile. BlockModePill widens the view as more tiles load.
+      const unitBbox = queryRenderedGeoIdBounds(getMapRef(), mapDocument, [parentId]);
 
       set({
-        mapLock: null,
-        captiveIds,
+        captiveIds: new Set(children),
         focusFeatures: [
           {
-            id: features[0].id,
+            id: parentId,
             source: BLOCK_SOURCE_ID,
             sourceLayer: mapDocument?.parent_layer,
           },
         ],
       });
-      // Break stays armed so the user can pick a different unit; switching to
-      // Paint paints within this one. Other entry points (context menu) paint.
-      if (useMapControlsStore.getState().activeTool !== ACTIVE_TOOLS.SHATTER) {
+      // Break stays armed so the user can pick a different unit, and Paint or
+      // Erase stay so a click outside the unit moves on to the clicked one.
+      // Other entry points (context menu) paint.
+      const {activeTool} = useMapControlsStore.getState();
+      if (
+        activeTool !== ACTIVE_TOOLS.SHATTER &&
+        activeTool !== ACTIVE_TOOLS.BRUSH &&
+        activeTool !== ACTIVE_TOOLS.ERASER
+      ) {
         useMapControlsStore.setState({activeTool: ACTIVE_TOOLS.BRUSH});
       }
       // County painting makes no sense inside a broken unit. Dynamic import:
@@ -1476,7 +1493,8 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       }
       setMapOptions({
         mode: 'break',
-        bounds: mapBbox,
+        // Padded so the fitted block view has breathing room around the unit.
+        bounds: unitBbox ? padBbox(unitBbox, 0.3) : undefined,
       });
     },
     handleReset: async () => {
