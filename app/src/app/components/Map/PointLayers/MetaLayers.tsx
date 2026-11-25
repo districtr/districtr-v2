@@ -72,7 +72,26 @@ const useHidePlaceLabels = (hide: boolean) => {
   }, [hide, getMapRef]);
 };
 
-export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
+/**
+ * A size that grows with zoom: `stops` are zoom/value pairs, each value multiplied
+ * by `scale`. The scaling sits in the values because MapLibre takes `zoom` only at
+ * the top of an expression.
+ */
+const zoomStops = (scale: number, ...stops: number[]) =>
+  [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    ...stops.map((stop, i) => (i % 2 ? stop * scale : stop)),
+  ] as ExpressionSpecification;
+
+interface MetaLayersProps {
+  isDemographicMap?: boolean;
+  /** Size of the district labels relative to the interactive map's. */
+  zoneLabelScale?: number;
+}
+
+export const MetaLayers: React.FC<MetaLayersProps> = ({isDemographicMap, zoneLabelScale}) => {
   const showPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showPopulationNumbers
   );
@@ -80,7 +99,7 @@ export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographi
   useHidePlaceLabels(!!showPopulationNumbers);
   return (
     <>
-      {!isDemographicMap && <ZoneNumbersLayer />}
+      {!isDemographicMap && <ZoneNumbersLayer scale={zoneLabelScale} />}
       <PopulationTextLayer />
       <PopulationTextLayer child />
     </>
@@ -158,7 +177,7 @@ const labelProperties = (zone: number, aliases: ZoneAliases) => {
   return {label, short: fitsBadge(label)};
 };
 
-const ZoneNumbersLayer = () => {
+const ZoneNumbersLayer: React.FC<{scale?: number}> = ({scale = 1}) => {
   const showZoneNumbers = useMapControlsStore(state => state.mapOptions.showZoneNumbers);
   const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
   const zoneAssignments = useAssignmentsStore(state => state.zoneAssignments);
@@ -325,8 +344,8 @@ const ZoneNumbersLayer = () => {
           visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
-          'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 5, 10, 8, 15, 10],
+          'text-size': zoomStops(scale, 5, 12, 10, 16, 15, 20),
+          'text-padding': zoomStops(scale, 5, 5, 10, 8, 15, 10),
           'text-overlap': 'never',
         }}
         paint={{'text-opacity': 0}}
@@ -344,11 +363,11 @@ const ZoneNumbersLayer = () => {
         filter={['any', ['get', 'short'], lockedFilter]}
         paint={{
           'circle-color': '#fff',
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
+          'circle-radius': zoomStops(scale, 5, 10, 10, 15, 15, 18),
           'circle-opacity': labelOpacity(0.9),
           'circle-stroke-opacity': labelOpacity(1),
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
-          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 1.5, 15, 2.5],
+          'circle-stroke-width': zoomStops(scale, 5, 1.5, 15, 2.5),
         }}
       ></Layer>
       <Layer
@@ -360,7 +379,7 @@ const ZoneNumbersLayer = () => {
           visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 10, 16, 15, 20],
+          'text-size': zoomStops(scale, 5, 12, 10, 16, 15, 20),
           'text-anchor': 'center',
           'text-offset': [0, 0],
           'text-allow-overlap': true,
@@ -380,7 +399,7 @@ const ZoneNumbersLayer = () => {
         layout={{
           visibility: 'visible',
           'icon-image': 'lock',
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 1.0, 15, 1.2],
+          'icon-size': zoomStops(scale, 5, 0.8, 10, 1.0, 15, 1.2),
           'icon-allow-overlap': true,
         }}
         paint={{'icon-opacity': labelOpacity(1)}}
@@ -395,7 +414,7 @@ const ZoneNumbersLayer = () => {
           visibility: 'visible',
           'text-field': ['get', 'label'],
           'text-font': ['Barlow Bold'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 14, 15, 16],
+          'text-size': zoomStops(scale, 5, 11, 10, 14, 15, 16),
           // Centered on the district; under the lock badge when locked, whose
           // radius grows from 10 to 18px.
           'text-anchor': ['case', lockedFilter, 'top', 'center'],
@@ -431,11 +450,11 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            10 / 3, // matches general zone icon size at low zoom
+            (10 / 3) * scale, // matches general zone icon size at low zoom
             10,
-            10 / 3, // matches at medium zoom
+            (10 / 3) * scale, // matches at medium zoom
             15,
-            15 / 3, // matches at high zoom
+            (15 / 3) * scale, // matches at high zoom
           ],
           'circle-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': 2,
@@ -448,11 +467,11 @@ const ZoneNumbersLayer = () => {
             ['linear'],
             ['zoom'],
             5,
-            ['literal', [7, -7]],
+            ['literal', [7 * scale, -7 * scale]],
             10,
-            ['literal', [9, -9]],
+            ['literal', [9 * scale, -9 * scale]],
             15,
-            ['literal', [11, -11]],
+            ['literal', [11 * scale, -11 * scale]],
           ],
         }}
         layout={{

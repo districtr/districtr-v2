@@ -1,6 +1,7 @@
 'use client';
 import {useZoneColorGetter} from '@/app/hooks/useZoneColor';
 import {useZoneLabel} from '@/app/hooks/useZoneLabel';
+import {useIsReport} from './evalMode';
 
 interface DistrictLabelProps {
   zone: number;
@@ -22,6 +23,10 @@ export const DistrictLabel: React.FC<DistrictLabelProps> = ({
   const getZoneColor = useZoneColorGetter();
   const color = getZoneColor(zone);
   const label = useZoneLabel(zone);
+  const isReport = useIsReport();
+
+  // A document names a district in plain text.
+  if (isReport) return <span className="eval-report-district">{label}</span>;
 
   return (
     <div

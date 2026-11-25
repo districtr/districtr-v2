@@ -55,13 +55,24 @@ export const editPath = (
 export const evalPath = (routePrefix: string, public_id: number): string =>
   `/${routePrefix}/${public_id}/eval`;
 
+/** Path for a document's read-only map page: `/{route}/{public_id}`. */
+export const readPath = (routePrefix: string, public_id: number): string =>
+  `/${routePrefix}/${public_id}`;
+
+/**
+ * Path for a document's printable evaluation report: `/{route}/{public_id}/report`,
+ * with the evaluation's selector choices as its query string.
+ */
+export const reportPath = (routePrefix: string, public_id: number, query = ''): string =>
+  `/${routePrefix}/${public_id}/report${query ? `?${query}` : ''}`;
+
 /** The map routes a pasted link may point at: /map or /coi, then an optional
- * id segment, then an optional /edit or /eval. */
-const MAP_PATH = /^\/(?:map|coi)(?:\/([^/]+))?(?:\/(?:edit|eval))?\/?$/;
+ * id segment, then an optional /edit, /eval or /report. */
+const MAP_PATH = /^\/(?:map|coi)(?:\/([^/]+))?(?:\/(?:edit|eval|report))?\/?$/;
 
 /**
  * Extract a document reference (UUID or numeric public id) from a map link or
- * bare id a user might paste: edit links, read and eval links, legacy
+ * bare id a user might paste: edit links, read, eval and report links, legacy
  * `?document_id=` links, or the id itself. Null for anything else, including
  * classic districtr `/plan/<n>` links, which would otherwise name an
  * unrelated v2 map. The host isn't checked: dev, beta and prod links all

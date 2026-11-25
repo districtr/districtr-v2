@@ -1,4 +1,5 @@
 import type {CSSProperties, FocusEvent, ReactNode} from 'react';
+import {useIsReport} from './evalMode';
 
 /** Shared inline, underlined-dotted hover trigger style. `fontWeight`/wrap
  * behavior are layered on top per usage — a trigger naming a specific result
@@ -34,6 +35,18 @@ export const hoverHandlers = (onEnter: () => void, onLeave: () => void) => ({
   onBlur: onLeave,
 });
 
+type HoverHandlers = ReturnType<typeof hoverHandlers>;
+const noHandlers = (): Partial<HoverHandlers> => ({});
+
+/**
+ * `hoverHandlers` for the view the caller renders in. The report gets none: its
+ * map figure is a still image, and nothing on the page may change the map behind it.
+ */
+export const useHoverHandlers = (): ((
+  onEnter: () => void,
+  onLeave: () => void
+) => Partial<HoverHandlers>) => (useIsReport() ? noHandlers : hoverHandlers);
+
 interface HoverTriggerProps {
   onEnter: () => void;
   onLeave: () => void;
@@ -51,17 +64,23 @@ export const HoverTrigger: React.FC<HoverTriggerProps> = ({
   bold,
   chip,
   children,
-}) =>
-  chip ? (
-    <button
-      type="button"
-      className={HOVER_CHIP_CLASS}
-      style={{font: 'inherit', fontWeight: bold ? 'bold' : undefined}}
-      {...hoverHandlers(onEnter, onLeave)}
-    >
-      {children}
-    </button>
-  ) : (
+}) => {
+  const isReport = useIsReport();
+  // The report has nothing to highlight: the trigger is running text there.
+  if (isReport) return bold ? <strong>{children}</strong> : <>{children}</>;
+  if (chip) {
+    return (
+      <button
+        type="button"
+        className={HOVER_CHIP_CLASS}
+        style={{font: 'inherit', fontWeight: bold ? 'bold' : undefined}}
+        {...hoverHandlers(onEnter, onLeave)}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
     <button
       type="button"
       style={bold ? {...HOVER_BTN_STYLE, fontWeight: 'bold'} : HOVER_BTN_STYLE}
@@ -70,3 +89,4 @@ export const HoverTrigger: React.FC<HoverTriggerProps> = ({
       {children}
     </button>
   );
+};

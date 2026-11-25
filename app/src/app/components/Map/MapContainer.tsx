@@ -35,8 +35,10 @@ export const MapContainer: React.FC<{
   initialViewState: {latitude: number; longitude: number; zoom: number} | undefined;
   onMapLoad: (e: any) => void;
   borderLeft?: boolean;
+  /** Canvas pixels per CSS pixel; the screen's own ratio when left out. */
+  pixelRatio?: number;
   children: React.ReactNode;
-}> = ({mapRef, initialViewState, onMapLoad, borderLeft = false, children}) => {
+}> = ({mapRef, initialViewState, onMapLoad, borderLeft = false, pixelRatio, children}) => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
   const mapBounds = useMapControlsStore(state => state.mapOptions.bounds);
@@ -103,6 +105,7 @@ export const MapContainer: React.FC<{
         ref={mapRef}
         mapStyle={mapStyle}
         initialViewState={initialViewState}
+        pixelRatio={pixelRatio}
         maxZoom={MAP_OPTIONS.maxZoom || undefined}
         pitchWithRotate={false}
         maxPitch={0}

@@ -40,9 +40,10 @@ describe('parseMapRef', () => {
     ).toBe(UUID);
   });
 
-  test('read links, eval links and relative paths', () => {
+  test('read links, eval links, report links and relative paths', () => {
     expect(parseMapRef('https://districtr.org/map/1234', BASE)).toBe('1234');
     expect(parseMapRef('https://districtr.org/map/1234/eval', BASE)).toBe('1234');
+    expect(parseMapRef('https://districtr.org/map/1234/report?pov=rep', BASE)).toBe('1234');
     expect(parseMapRef('/map/1234?pw=true', BASE)).toBe('1234');
   });
 
