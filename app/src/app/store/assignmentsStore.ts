@@ -533,8 +533,14 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const state = get();
     const mapStoreState = useMapStore.getState();
     const parentIds = _parentIds ?? state.shatterIds.parents;
-    const shatterIds = _shatterIds ?? state.shatterIds;
-    const zoneAssignments = _zoneAssignments ?? state.zoneAssignments;
+    // Work on copies of the store's collections: the render subscribers and undo
+    // history hold the current ones as their "previous" state, and renderShatter
+    // only clears a healed parent's highlight if its previous parents still list it.
+    const shatterIds = _shatterIds ?? {
+      parents: new Set(state.shatterIds.parents),
+      children: new Set(state.shatterIds.children),
+    };
+    const zoneAssignments = _zoneAssignments ?? new Map(state.zoneAssignments);
     const parentToChild = _parentToChild ?? new Map(state.parentToChild);
     const childToParent = _childToParent ?? new Map(state.childToParent);
     const mapRef = _mapRef ?? mapStoreState.getMapRef();
