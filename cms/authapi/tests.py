@@ -186,3 +186,58 @@ class ProvisionUsersTests(TestCase):
         self.assertIn(
             "https://cms.districtr.org/admin/password_reset/confirm/", message.body
         )
+
+
+@override_settings(FRONTEND_URL="https://app.example/")
+class ExtractTokenTests(TestCase):
+    URL = "/api/extract-token/"
+
+    def _get(self, user=None):
+        if user is not None:
+            self.client.force_login(user)
+        return self.client.get(self.URL)
+
+    def assert_cors(self, response):
+        self.assertEqual(response["Access-Control-Allow-Origin"], "https://app.example")
+        self.assertEqual(response["Access-Control-Allow-Credentials"], "true")
+
+    def test_signed_out_is_401_with_cors(self):
+        # CORS headers on errors too, so the app can read why and show sign-in.
+        response = self._get()
+        self.assertEqual(response.status_code, 401)
+        self.assert_cors(response)
+
+    def test_partner_is_403(self):
+        self.assertEqual(self._get(make_user("partner")).status_code, 403)
+
+    def test_data_user_and_admin_get_a_purpose_token(self):
+        for i, group in enumerate(("data_user", "admin")):
+            response = self._get(make_user(group, f"{group}{i}@districtr.org"))
+            self.assertEqual(response.status_code, 200)
+            self.assert_cors(response)
+            token = response.json()["token"]
+            keys = {k["kid"]: k for k in all_jwks()}
+            key = pyjwt.algorithms.RSAAlgorithm.from_jwk(
+                json.dumps(keys[pyjwt.get_unverified_header(token)["kid"]])
+            )
+            claims = pyjwt.decode(
+                token,
+                key,
+                algorithms=["RS256"],
+                audience="districtr:extract",
+                issuer=settings.JWT_ISSUER,
+            )
+            self.assertEqual(claims["scope"], "create:extract")
+            # The FastAPI backend must reject it: the token reaches browser JS.
+            with self.assertRaises(pyjwt.InvalidAudienceError):
+                fastapi_style_verify(token)
+
+    def test_menu_and_dashboard_link_for_data_user_only(self):
+        self.client.force_login(make_user("data_user"))
+        html = self.client.get("/admin/").content.decode()
+        self.assertIn("https://app.example/extract", html)
+        self.assertNotIn("Portals", html)
+
+        self.client.force_login(make_user("partner", "p2@districtr.org"))
+        html = self.client.get("/admin/").content.decode()
+        self.assertNotIn("https://app.example/extract", html)
