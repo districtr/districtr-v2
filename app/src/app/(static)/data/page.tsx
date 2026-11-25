@@ -35,7 +35,10 @@ export default function DataPage() {
       </Text>
       <Text size="3">
         For most of our election results, we rely on the tabulations created by the team at{' '}
-        <Link href="https://davesredistricting.org" target="_blank">
+        <Link
+          href="https://davesredistricting.org/maps#aboutdata,section::aboutdata-electiondata"
+          target="_blank"
+        >
           Dave&apos;s Redistricting
         </Link>
         .

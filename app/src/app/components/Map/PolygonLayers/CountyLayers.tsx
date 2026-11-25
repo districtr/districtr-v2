@@ -11,6 +11,8 @@ import {
   SENTINEL_EMPTY_VALUE,
   HIGHLIGHT_LINE_COLOR,
   HIGHLIGHT_LINE_WIDTH,
+  HIGHLIGHT_MASK_COLOR,
+  HIGHLIGHT_MASK_OPACITY,
 } from '@/app/constants/map/layerStyle';
 import {HIGHLIGHT_FILL_COLOR, SELECTED_LINE_STYLE} from '@/app/constants/map/overlayLayerStyles';
 import {
@@ -80,6 +82,27 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
           }}
           filter={countyFilter}
         />
+        {/* Dims every county but the one highlighted from the evaluation panel. Always
+            mounted, and before the outline, so the outline stays on top of it. */}
+        <Layer
+          id={CANONICAL_LAYER_IDS.COUNTIES.HIGHLIGHT_MASK}
+          beforeId={MAP_LAYER_ANCHOR_IDS.hover}
+          type="fill"
+          source-layer="tl_2023_us_county"
+          paint={{
+            'fill-color': HIGHLIGHT_MASK_COLOR,
+            'fill-opacity': HIGHLIGHT_MASK_OPACITY,
+          }}
+          filter={
+            hoveredCountyGeoid
+              ? ([
+                  'all',
+                  countyFilter,
+                  ['!=', ['get', 'GEOID'], hoveredCountyGeoid],
+                ] as FilterSpecification)
+              : ['==', ['get', 'GEOID'], SENTINEL_EMPTY_VALUE]
+          }
+        />
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.HIGHLIGHT}
           beforeId={MAP_LAYER_ANCHOR_IDS.hover}
@@ -138,7 +161,13 @@ export const CountyLayers = ({layerBeforeId}: {layerBeforeId: string}) => {
         )}
         <Layer
           id={CANONICAL_LAYER_IDS.COUNTIES.LABELS}
-          beforeId={mapOptions.prominentCountyNames ? undefined : MAP_LAYER_ANCHOR_IDS.counties}
+          // Above the highlight mask while a county is highlighted, so the mask cuts
+          // through no county name.
+          beforeId={
+            mapOptions.prominentCountyNames || hoveredCountyGeoid
+              ? undefined
+              : MAP_LAYER_ANCHOR_IDS.counties
+          }
           type="symbol"
           source-layer="tl_2023_us_county_label"
           minzoom={6}

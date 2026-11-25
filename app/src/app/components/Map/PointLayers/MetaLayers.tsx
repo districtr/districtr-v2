@@ -1,4 +1,8 @@
-import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/map/layerStyle';
+import {
+  EMPTY_FT_COLLECTION,
+  HIGHLIGHT_DIMMED_LABEL_OPACITY,
+  ZONE_LABEL_STYLE,
+} from '@/app/constants/map/layerStyle';
 import {
   CANONICAL_LAYER_IDS,
   SELECTION_POINTS_SOURCE_ID,
@@ -168,6 +172,22 @@ const ZoneNumbersLayer = () => {
   const editLocks = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const lockedAreas = canEdit && superDraw ? editLocks : [];
   const lockedFilter: ExpressionSpecification = ['in', ['get', 'zone'], ['literal', lockedAreas]];
+  // While the evaluation panel highlights districts, the labels of the other districts
+  // fade with their fills. A highlighted county keeps the labels of the districts that
+  // hold part of it, wherever in the district a label stands.
+  const hoveredZones = useMapStore(state => state.hoveredPublicZones);
+  const countyHovered = useMapControlsStore(state => state.hoveredCountyGeoid !== null);
+  const hoveredCountyZones = useMapControlsStore(state => state.hoveredCountyZones);
+  const labelOpacity = (opacity: number): number | ExpressionSpecification => {
+    if (!countyHovered && !hoveredZones.length) return opacity;
+    const fullStrengthZones = countyHovered ? hoveredCountyZones : hoveredZones.map(Number);
+    return [
+      'case',
+      ['in', ['get', 'zone'], ['literal', fullStrengthZones]],
+      opacity,
+      opacity * HIGHLIGHT_DIMMED_LABEL_OPACITY,
+    ];
+  };
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
@@ -325,7 +345,8 @@ const ZoneNumbersLayer = () => {
         paint={{
           'circle-color': '#fff',
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 10, 10, 15, 15, 18],
-          'circle-opacity': 0.9,
+          'circle-opacity': labelOpacity(0.9),
+          'circle-stroke-opacity': labelOpacity(1),
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 1.5, 15, 2.5],
         }}
@@ -346,6 +367,7 @@ const ZoneNumbersLayer = () => {
         }}
         paint={{
           'text-color': '#000',
+          'text-opacity': labelOpacity(1),
         }}
         // Short labels of unlocked districts, in the badge.
         filter={['all', ['get', 'short'], ['!', lockedFilter]]}
@@ -361,6 +383,7 @@ const ZoneNumbersLayer = () => {
           'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 1.0, 15, 1.2],
           'icon-allow-overlap': true,
         }}
+        paint={{'icon-opacity': labelOpacity(1)}}
         filter={lockedFilter}
       ></Layer>
       <Layer
@@ -390,6 +413,7 @@ const ZoneNumbersLayer = () => {
         }}
         paint={{
           'text-color': '#000',
+          'text-opacity': labelOpacity(1),
           'text-halo-color': '#fff',
           'text-halo-width': 1.5,
         }}
@@ -417,7 +441,8 @@ const ZoneNumbersLayer = () => {
           'circle-stroke-width': 2,
           // offset
           'circle-stroke-color': '#fff', // white stroke for visibility
-          'circle-opacity': 1,
+          'circle-opacity': labelOpacity(1),
+          'circle-stroke-opacity': labelOpacity(1),
           'circle-translate': [
             'interpolate',
             ['linear'],

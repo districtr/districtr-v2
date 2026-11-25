@@ -18,6 +18,7 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 import {MAP_LAYER_ANCHOR_IDS} from '@/app/constants/map/layerIds';
 import {PublicSource} from './GeoSources/PublicSource';
 import {PublicDistrictLayers} from './PolygonLayers/PublicDistrictLayers';
+import {DistrictHighlightLabel} from './DistrictHighlightLabel';
 import {BlockDemographicLayers} from './PolygonLayers/BlockDemographicLayers';
 import {BlockSource} from './GeoSources/BlockSource';
 import type {FilterSpecification} from 'maplibre-gl';
@@ -89,6 +90,7 @@ export const PublicMap: React.FC = () => {
       <OverlayLayers layerBeforeId={MAP_LAYER_ANCHOR_IDS.overlays} />
       <MetaLayers isDemographicMap={false} />
       <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+      <DistrictHighlightLabel />
     </MapContainer>
   );
 };

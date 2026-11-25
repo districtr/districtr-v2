@@ -12,6 +12,9 @@ interface MapPillProps {
   // Fires on Escape whenever this pill is mounted; omit for pills with no
   // exit/cancel behavior of their own.
   onEscape?: () => void;
+  // The pills of a flow stand at the bottom center; a pill that only names what
+  // the map shows stands at the top center.
+  placement?: 'bottom' | 'top';
   testId?: string;
 }
 
@@ -28,6 +31,7 @@ export const MapPill: React.FC<MapPillProps> = ({
   action,
   extra,
   onEscape,
+  placement = 'bottom',
   testId,
 }) => {
   useEffect(() => {
@@ -44,7 +48,14 @@ export const MapPill: React.FC<MapPillProps> = ({
   }, [onEscape]);
 
   return (
-    <Flex align="center" gap="3" px="4" py="3" className="map-pill" data-testid={testId}>
+    <Flex
+      align="center"
+      gap="3"
+      px="4"
+      py="3"
+      className={placement === 'top' ? 'map-pill map-pill-top' : 'map-pill'}
+      data-testid={testId}
+    >
       {icon}
       <Text size="3">{children}</Text>
       {extra}

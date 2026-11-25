@@ -94,6 +94,22 @@ body {
   white-space: nowrap;
   animation: map-pill-in 0.25s ease-out;
 }
+/* The same pill at the top of the map, entering from above. */
+@keyframes map-pill-in-top {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.map-pill.map-pill-top {
+  top: 24px;
+  bottom: auto;
+  animation-name: map-pill-in-top;
+}
 
 /* Never let the browser treat map touches as page scroll/zoom gestures.
    Maplibre relaxes its own touch-action to `pan-x pan-y` whenever dragPan is

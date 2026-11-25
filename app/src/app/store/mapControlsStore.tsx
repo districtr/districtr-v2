@@ -67,7 +67,9 @@ export interface MapControlsStore {
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
   setStateFp: (stateFp: string) => void;
   hoveredCountyGeoid: string | null;
-  setHoveredCountyGeoid: (geoid: string | null) => void;
+  /** Districts that hold part of the hovered county; their labels stay at full strength. */
+  hoveredCountyZones: number[];
+  setHoveredCountyGeoid: (geoid: string | null, zones?: number[]) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
   /** Move the selection off a locked district (Super Draw only), since the brush
    * paints nothing there. Used where saved locks start applying again. */
@@ -187,7 +189,9 @@ export const useMapControlsStore = create<MapControlsStore>()(
       set(dropEditTool ? {mapOptions, activeTool: ACTIVE_TOOLS.PAN} : {mapOptions});
     },
     hoveredCountyGeoid: null,
-    setHoveredCountyGeoid: geoid => set({hoveredCountyGeoid: geoid}),
+    hoveredCountyZones: [],
+    setHoveredCountyGeoid: (geoid, zones = []) =>
+      set({hoveredCountyGeoid: geoid, hoveredCountyZones: geoid === null ? [] : zones}),
     setStateFp: stateFp => {
       const mapOptions = get().mapOptions;
       const stateFipsSet = mapOptions.stateFipsSet;

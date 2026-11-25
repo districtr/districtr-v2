@@ -100,5 +100,6 @@ What follows, including what a later change would have to undo.
 | [0067](0067-nightly-district-stats-refresh.md) | District stats publish nightly for idle plans, not on every save | 2026-11-06 | Accepted. Amends 0047. Amended by 0069 |
 | [0068](0068-jsonb-assignments-hash-checked-saves.md) | District assignments stored as one jsonb row; saves are checked by hash | 2026-11-07 | Accepted. Amends 0025 and 0046 |
 | [0069](0069-district-unions-eviction.md) | district_unions rows are evicted after two weeks | 2026-11-09 | Accepted. Amends 0024 and 0067 |
+| [0071](0071-compactness-exemplars-sampled.md) | Compactness exemplars are a seeded sample of the 118th Congress districts | 2026-11-12 | Accepted |
 | [0072](0072-maintenance-mode-gates-the-api.md) | Maintenance mode gates the API with a polled per-worker flag | 2026-11-18 | Accepted. Amends 0042. Amended by 0073 |
 | [0073](0073-cms-feature-flags.md) | CMS feature flags ride the site-settings snapshot and fail open | 2026-11-18 | Accepted. Amends 0072 |
