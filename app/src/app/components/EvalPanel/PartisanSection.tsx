@@ -176,7 +176,7 @@ export const PartisanSection: React.FC<PartisanSectionProps> = ({evaluation}) =>
     return (
       <EvalSection value="partisan" title="Election Results and Partisanship">
         <Text size="2" as="p">
-          The partisan metrics are hidden for unfinished plans.
+          The partisan metrics are hidden for incomplete plans.
           {!isReport && mapLink && (
             <>
               {' '}

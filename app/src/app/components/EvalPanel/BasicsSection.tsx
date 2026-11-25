@@ -10,7 +10,7 @@ import {useZoomToDistrict} from '@/app/hooks/useZoomToDistrict';
 import {HoverTrigger, useHoverHandlers} from './HoverTrigger';
 import {DATA_SOURCE_NOTES, ReportNoteRef} from './ReportNotes';
 import {districtHeading} from '@/app/utils/zoneLabels';
-import {isPlanComplete} from './planCompleteness';
+import {drawnDistrictCount, isPlanComplete} from './planCompleteness';
 
 type DeviationView = EvalOptions['deviationView'];
 const DEVIATION_VIEW_LABEL: Record<DeviationView, string> = {
@@ -54,6 +54,13 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
 
   const {assigned_units, unassigned_population, population_deviation, contiguous} = evaluation;
   const isComplete = isPlanComplete(evaluation, mapDocument?.num_districts) === true;
+  // The plan's districts that hold no unit; null when either count is unknown.
+  const planDistricts = mapDocument?.num_districts ?? null;
+  const drawnDistricts = drawnDistrictCount(evaluation);
+  const undrawnDistricts =
+    planDistricts !== null && drawnDistricts !== null
+      ? Math.max(0, planDistricts - drawnDistricts)
+      : null;
   const isContiguous = contiguous ? Object.values(contiguous).every(Boolean) : null;
   const nonContiguousDistricts = contiguous
     ? Object.entries(contiguous)
@@ -109,6 +116,12 @@ export const BasicsSection: React.FC<BasicsSectionProps> = ({evaluation}) => {
                 </>
               );
             })()}
+          {undrawnDistricts !== null && (
+            <>
+              <strong>{undrawnDistricts}</strong> of the <strong>{planDistricts}</strong> districts{' '}
+              {undrawnDistricts === 1 ? 'is' : 'are'} not drawn.{' '}
+            </>
+          )}
           This plan is <strong>{isComplete ? 'complete' : 'incomplete'}</strong>.
         </Text>
       )}

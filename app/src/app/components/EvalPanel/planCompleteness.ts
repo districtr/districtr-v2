@@ -1,7 +1,7 @@
 import type {DocumentEvaluation} from '@utils/api/apiHandlers/getEvaluation';
 
 /** Districts that hold at least one unit; null when no metric reports them. */
-const drawnDistrictCount = (evaluation: DocumentEvaluation): number | null =>
+export const drawnDistrictCount = (evaluation: DocumentEvaluation): number | null =>
   evaluation.competitiveness?.n_districts ??
   (evaluation.contiguous ? Object.keys(evaluation.contiguous).length : null);
 
