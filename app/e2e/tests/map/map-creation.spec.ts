@@ -1,7 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {testUrls, testTimeouts, skipConditions, testSelectors} from '../../fixtures/test-data';
-import {createMapDocument, navigateToMap, waitForHydration} from '../../fixtures/map-fixture';
-import {waitForNetworkIdle} from '../../utils/network-helpers';
+import {
+  createMapDocument,
+  navigateToMap,
+  waitForHydration,
+  waitForMapSettled,
+} from '../../fixtures/map-fixture';
 
 // Shared state for document ID created in beforeAll
 let sharedDocumentId: string | null = null;
@@ -35,7 +39,7 @@ test.describe('Map Creation', () => {
 
     await placeLinks.first().click();
 
-    const createButtons = page.locator('button[aria-label^="Create "]');
+    const createButtons = page.locator('button[aria-label^="Start a new district plan"]');
     await createButtons.first().waitFor({state: 'visible', timeout: testTimeouts.medium});
 
     const buttonCount = await createButtons.count();
@@ -49,7 +53,7 @@ test.describe('Map Creation', () => {
 
     // Wait for the route to actually change instead of a blanket 5s sleep.
     await page.waitForURL(/\/map\/[a-zA-Z0-9-]+\/edit/, {timeout: 15_000});
-    expect(page.url()).toMatch(/\/map\/[a-zA-Z0-9-]+\/edit/);
+    await waitForMapSettled(page);
   });
 });
 
@@ -77,8 +81,7 @@ test.describe('Map Loading', () => {
       return;
     }
 
-    const loaded = await navigateToMap(page, sharedDocumentId);
-    expect(loaded).toBe(true);
+    await navigateToMap(page, sharedDocumentId);
 
     await expect(page.locator(testSelectors.mapCanvas)).toBeVisible();
   });

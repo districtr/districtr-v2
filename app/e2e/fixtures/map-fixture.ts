@@ -1,4 +1,4 @@
-import {Page, APIRequestContext} from '@playwright/test';
+import {Page, APIRequestContext, expect} from '@playwright/test';
 import {testUrls, testSelectors, testTimeouts, testConfig} from './test-data';
 
 /**
@@ -33,165 +33,77 @@ export async function getRegionScreenshot(
 }
 
 /**
- * Create a map document via direct API call (faster than browser-based creation)
- * Returns the document ID
+ * Create a map document via direct API call (faster than browser-based creation).
+ * Map comes from TEST_MAP_SLUG (default al_congressional_districts).
+ * document_id is the edit capability; public_id is what a viewer gets.
  */
-export async function createMapDocument(request: APIRequestContext): Promise<string> {
-  const backendURL = testConfig.backendURL;
-
-  // 1. Fetch all views from the backend API
-  const viewsResponse = await request.get(`${backendURL}/api/gerrydb/views`);
-  if (!viewsResponse.ok()) {
-    throw new Error(`Failed to fetch views from backend: ${viewsResponse.status()}`);
-  }
-  const views = await viewsResponse.json();
-
-  if (!Array.isArray(views) || views.length === 0) {
-    throw new Error('No views returned from backend');
-  }
-  const viewToCreate = views.find(view => view.districtr_map_slug.includes('co'));
-  const firstView = views[0];
-  const slug = viewToCreate?.districtr_map_slug ?? firstView.districtr_map_slug;
-
-  if (!slug) {
-    throw new Error('No districtr_map_slug found on first view');
-  }
-
-  // 2. Create the document
-  const createResponse = await request.post(`${backendURL}/api/create_document`, {
-    data: {
-      districtr_map_slug: slug,
-    },
+export async function createMapDocumentRecord(
+  request: APIRequestContext
+): Promise<{document_id: string; public_id: number}> {
+  const response = await request.post(`${testConfig.backendURL}/api/create_document`, {
+    data: {districtr_map_slug: testConfig.testMapSlug},
   });
-
-  if (!createResponse.ok()) {
-    throw new Error(`Failed to create document: ${createResponse.status()}`);
+  if (!response.ok()) {
+    throw new Error(
+      `Failed to create ${testConfig.testMapSlug} document: ${response.status()} ${await response.text()}`
+    );
   }
+  return await response.json();
+}
 
-  const documentData = await createResponse.json();
+/** createMapDocumentRecord, returning just the document_id. */
+export async function createMapDocument(request: APIRequestContext): Promise<string> {
+  return (await createMapDocumentRecord(request)).document_id;
+}
 
-  if (!documentData.document_id) {
-    throw new Error('No document_id in response');
-  }
+// Readiness attributes set by MapContainer and the map's idle/render handlers.
+// Unlike window.__ZUSTAND_STORES__ these exist in production builds too.
+const SETTLED_MAP =
+  '[data-testid="map-container"][data-app-state="loaded"][data-render-state="loaded"] .maplibregl-map[data-idle="true"]';
 
-  return documentData.document_id;
+/** Wait until the document is loaded, tiles are rendered, and the map is idle. */
+export async function waitForMapSettled(page: Page, timeout = testTimeouts.mapLoad): Promise<void> {
+  await page.locator(SETTLED_MAP).first().waitFor({state: 'attached', timeout});
 }
 
 /**
- * Navigate to a map edit page using a document ID
+ * Run a map action (paint, zoom, pan) and wait for the repaint it causes.
+ * Clears data-idle first so a stale "true" from before the action can't satisfy the wait;
+ * the action must trigger a render or this times out.
  */
-export async function navigateToMap(page: Page, documentId: string): Promise<boolean> {
+export async function settleAfter(page: Page, action: () => Promise<unknown>): Promise<void> {
+  await page
+    .locator('.maplibregl-map')
+    .first()
+    .evaluate(el => ((el as HTMLElement).dataset.idle = 'false'));
+  await action();
+  await waitForMapSettled(page, testTimeouts.medium);
+}
+
+/**
+ * Make a toolbar tool active. Clicking an active tool toggles it back to pan, and a
+ * new map opens with the brush already active, so only click when it isn't pressed.
+ */
+export async function selectTool(page: Page, selector: string): Promise<void> {
+  const button = page.locator(selector);
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+}
+
+/** Seed the persisted toolbar store so the page opens in Super Draw (shatter, inspector). */
+export async function enableSuperDraw(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'toolbarStore',
+      JSON.stringify({state: {superDraw: true}, version: 3})
+    );
+  });
+}
+
+/** Navigate to a map edit page and wait for it to settle. Throws if it never does. */
+export async function navigateToMap(page: Page, documentId: string): Promise<void> {
   await page.goto(testUrls.mapEdit(documentId));
-
-  try {
-    await page.locator(testSelectors.mapCanvas).waitFor({
-      state: 'visible',
-      timeout: testTimeouts.mapLoad,
-    });
-    // Wait for the map store to report "loaded" (tiles + first render complete)
-    // instead of a fixed 1s sleep. Falls back to a short settle delay if the
-    // store isn't exposed.
-    await page
-      .waitForFunction(
-        () => window.__ZUSTAND_STORES__?.mapStore?.getState?.().appLoadingState === 'loaded',
-        undefined,
-        {timeout: 10_000}
-      )
-      .catch(async () => {
-        await page.waitForTimeout(500);
-      });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Shared helper to navigate to a map editing page via browser
- * Handles the places -> place -> create flow with proper waiting
- * @deprecated Use createMapDocument + navigateToMap for faster, more reliable tests
- */
-export async function navigateToNewMap(
-  page: Page
-): Promise<{success: boolean; skipReason?: string; documentId?: string}> {
-  // Navigate to places
-  await page.goto(testUrls.places);
-
-  // Wait for place links to appear
-  const placeLinks = page.locator('a[href*="/place/"]');
-  try {
-    await placeLinks.first().waitFor({state: 'visible', timeout: testTimeouts.medium});
-  } catch {
-    return {success: false, skipReason: 'No places available'};
-  }
-
-  const count = await placeLinks.count();
-  if (count === 0) {
-    return {success: false, skipReason: 'No places available'};
-  }
-
-  // Wait for hydration before clicking
-  await waitForHydration(page);
-
-  // Click first place
-  await placeLinks.first().click();
-
-  // Wait for place page to load - look for create buttons specifically
-  const createButtons = page.locator('button[aria-label^="Create "]');
-  try {
-    await createButtons.first().waitFor({state: 'visible', timeout: testTimeouts.medium});
-  } catch {
-    // Fallback to any button
-    const anyButtons = page.locator('button');
-    try {
-      await anyButtons.first().waitFor({state: 'visible', timeout: testTimeouts.medium});
-    } catch {
-      return {success: false, skipReason: 'No create buttons available'};
-    }
-  }
-
-  const buttonCount = await createButtons.count();
-  if (buttonCount === 0) {
-    // Try fallback to any button
-    const anyButtons = page.locator('button');
-    if ((await anyButtons.count()) === 0) {
-      return {success: false, skipReason: 'No create buttons available'};
-    }
-    // Wait for hydration and click
-    await waitForHydration(page);
-    await anyButtons.first().click();
-  } else {
-    // Wait for hydration before clicking create button
-    await waitForHydration(page);
-    await createButtons.first().click();
-  }
-
-  // Wait for navigation to edit page
-  try {
-    await page.waitForURL(/\/map\/[a-zA-Z0-9-]+\/edit/, {timeout: testTimeouts.long});
-  } catch {
-    return {success: false, skipReason: 'Failed to navigate to map edit page'};
-  }
-
-  // Extract document ID from URL
-  const url = page.url();
-  const match = url.match(/\/map\/([a-zA-Z0-9-]+)\/edit/);
-  const documentId = match ? match[1] : undefined;
-
-  // Wait for map canvas to be visible
-  try {
-    await page.locator(testSelectors.mapCanvas).waitFor({
-      state: 'visible',
-      timeout: testTimeouts.mapLoad,
-    });
-  } catch {
-    return {success: false, skipReason: 'Map canvas did not load'};
-  }
-
-  // Give tiles a moment to start loading
-  await page.waitForTimeout(1000);
-
-  return {success: true, documentId};
+  await waitForMapSettled(page);
 }
 
 /**

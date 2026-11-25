@@ -1,245 +1,60 @@
 import {test, expect} from '@playwright/test';
-import {testSelectors, testTimeouts, skipConditions} from '../../fixtures/test-data';
-import {createMapDocument, navigateToMap} from '../../fixtures/map-fixture';
+import {testSelectors, skipConditions} from '../../fixtures/test-data';
+import {createMapDocument, navigateToMap, selectTool} from '../../fixtures/map-fixture';
 
 // Shared document ID for all tests in this file
 let sharedDocumentId: string | null = null;
 
-test.describe('Sidebar Data Panels', () => {
+test.describe('Sidebar', () => {
   test.skip(skipConditions.requiresWriteAccess(), 'Requires write access');
 
   test.beforeAll(async ({request}) => {
-    try {
-      sharedDocumentId = await createMapDocument(request);
-      console.log(`Created document ID for sidebar tests: ${sharedDocumentId}`);
-    } catch (error) {
-      console.error('Failed to create document:', error);
-    }
+    sharedDocumentId = await createMapDocument(request);
   });
 
   test.beforeEach(async ({page}) => {
-    // Set desktop viewport to ensure sidebar is visible
+    // Desktop viewport so the sidebar is visible
     await page.setViewportSize({width: 1280, height: 720});
-
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-    await navigateToMap(page, sharedDocumentId);
+    await navigateToMap(page, sharedDocumentId!);
   });
 
-  test('should display the sidebar on desktop', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    // Check for sidebar
-    const sidebar = page.locator(testSelectors.sidebar);
-    await expect(sidebar).toBeVisible({timeout: testTimeouts.medium});
+  test('shows the workflow tabs, Population first', async ({page}) => {
+    const tabs = page.getByRole('navigation', {name: 'Sidebar panels'});
+    await expect(tabs.getByRole('button', {name: 'Population'})).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    await expect(page.locator('[data-testid="data-panel-population"]')).toBeVisible();
   });
 
-  test('should display data panels in sidebar', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const sidebar = page.locator(testSelectors.sidebar);
-    if (!(await sidebar.isVisible())) {
-      test.skip(true, 'Sidebar not visible');
-      return;
-    }
-
-    // Check for data panels container
-    const dataPanels = page.locator('[data-testid="data-panels"]');
-    await expect(dataPanels).toBeVisible({timeout: testTimeouts.medium});
-  });
-
-  test('should have population panel', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const sidebar = page.locator(testSelectors.sidebar);
-    if (!(await sidebar.isVisible())) {
-      test.skip(true, 'Sidebar not visible');
-      return;
-    }
-
-    // Look for population panel
-    const populationPanel = page.locator('[data-testid="data-panel-population"]');
-    await expect(populationPanel).toBeVisible({timeout: testTimeouts.medium});
-  });
-
-  test('should expand and collapse panels', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const sidebar = page.locator(testSelectors.sidebar);
-    if (!(await sidebar.isVisible())) {
-      test.skip(true, 'Sidebar not visible');
-      return;
-    }
-
-    // Find panel triggers (accordion headers)
-    const panelTriggers = sidebar.locator('.AccordionTrigger');
-    const count = await panelTriggers.count();
-
-    if (count === 0) {
-      test.skip(true, 'No panels found');
-      return;
-    }
-
-    const firstTrigger = panelTriggers.first();
-
-    // Click to toggle (could be open or closed)
-    await firstTrigger.click();
-    await page.waitForTimeout(300);
-
-    // Click again to toggle back
-    await firstTrigger.click();
-    await page.waitForTimeout(300);
-
-    // Panel should still be visible
-    await expect(firstTrigger).toBeVisible();
-  });
-
-  test('should display zone information in population panel', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const sidebar = page.locator(testSelectors.sidebar);
-    if (!(await sidebar.isVisible())) {
-      test.skip(true, 'Sidebar not visible');
-      return;
-    }
-
-    // Look for zone-related content in the sidebar
-    const panelContent = sidebar.locator('.AccordionContent');
-
-    if ((await panelContent.count()) > 0) {
-      const firstContent = panelContent.first();
-      // Content should have some text
-      const text = await firstContent.textContent();
-      expect(text?.length).toBeGreaterThan(0);
-    }
-  });
-});
-
-test.describe('Sidebar Toolbar', () => {
-  test.skip(skipConditions.requiresWriteAccess(), 'Requires write access');
-
-  test.beforeAll(async ({request}) => {
-    if (!sharedDocumentId) {
-      try {
-        sharedDocumentId = await createMapDocument(request);
-      } catch (error) {
-        console.error('Failed to create document:', error);
-      }
+  test('switches panels when a tab is clicked', async ({page}) => {
+    const tabs = page.getByRole('navigation', {name: 'Sidebar panels'});
+    for (const [label, key] of [
+      ['Stats', 'stats'],
+      ['Map Layers', 'mapLayers'],
+      ['Population', 'population'],
+    ]) {
+      await tabs.getByRole('button', {name: label}).click();
+      await expect(tabs.getByRole('button', {name: label})).toHaveAttribute('aria-current', 'true');
+      await expect(page.locator(`[data-testid="data-panel-${key}"]`)).toBeVisible();
     }
   });
 
-  test.beforeEach(async ({page}) => {
-    await page.setViewportSize({width: 1280, height: 720});
-
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-    await navigateToMap(page, sharedDocumentId);
-  });
-
-  test('should display zone picker in sidebar', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const sidebar = page.locator(testSelectors.sidebar);
-    if (!(await sidebar.isVisible())) {
-      test.skip(true, 'Sidebar not visible');
-      return;
-    }
-    // Turn on brush tool
-    const brushTool = page.locator(testSelectors.brushTool);
-    await brushTool.click();
-
-    // Look for zone picker
+  test('shows one zone button per district and selects on click', async ({page}) => {
+    await selectTool(page, testSelectors.brushTool);
     const zonePicker = page.locator(testSelectors.zonePicker);
-    await expect(zonePicker).toBeVisible({timeout: testTimeouts.medium});
-  });
+    await expect(zonePicker).toBeVisible();
+    expect(await zonePicker.locator('[data-testid^="zone-"]').count()).toBeGreaterThanOrEqual(2);
 
-  test('should allow selecting different zones', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-    // Turn on brush tool
-    const brushTool = page.locator(testSelectors.brushTool);
-    await brushTool.click();
-
-    const zonePicker = page.locator(testSelectors.zonePicker);
-    if (!(await zonePicker.isVisible())) {
-      test.skip(true, 'Zone picker not visible');
-      return;
-    }
-    // find getByRole('combobox')
-    const comboBox = page.getByRole('combobox');
-    if (!(await comboBox.isVisible())) {
-      test.skip(true, 'Combobox not visible');
-      return;
-    }
-    await comboBox.click();
-    // wait 3 seconds
-    await page.waitForTimeout(500);
-
-    // Try to select zone 2
-    const zone2 = page.getByRole('option', {name: '2', exact: true});
-    if (await zone2.isVisible()) {
-      await zone2.click();
-      await page.waitForTimeout(100);
-    }
-
-    // Try to select zone 3
-    const zone3 = page.getByRole('option', {name: '3', exact: true});
-    if (await zone3.isVisible()) {
-      await zone3.click();
-      await page.waitForTimeout(100);
-    }
-  });
-
-  test('should display all zone colors', async ({page}) => {
-    const mapCanvas = page.locator(testSelectors.mapCanvas);
-    if (!(await mapCanvas.isVisible())) {
-      test.skip(true, 'Map not available');
-      return;
-    }
-
-    const zonePicker = page.locator(testSelectors.zonePicker);
-    if (!(await zonePicker.isVisible())) {
-      test.skip(true, 'Zone picker not visible');
-      return;
-    }
-
-    // Count zone buttons
-    const zoneButtons = zonePicker.locator('[data-testid^="zone-"]');
-    const count = await zoneButtons.count();
-
-    // Should have at least 2 zones (most maps have more)
-    expect(count).toBeGreaterThanOrEqual(2);
+    await page.locator(testSelectors.zoneButton(2)).click();
+    await expect(page.locator(testSelectors.zoneButton(2))).toHaveAttribute(
+      'data-state',
+      'checked'
+    );
+    await expect(page.locator(testSelectors.zoneButton(1))).toHaveAttribute(
+      'data-state',
+      'unchecked'
+    );
   });
 });
 
@@ -247,63 +62,26 @@ test.describe('Sidebar Responsiveness', () => {
   test.skip(skipConditions.requiresWriteAccess(), 'Requires write access');
 
   test.beforeAll(async ({request}) => {
-    if (!sharedDocumentId) {
-      try {
-        sharedDocumentId = await createMapDocument(request);
-      } catch (error) {
-        console.error('Failed to create document:', error);
-      }
-    }
+    sharedDocumentId ??= await createMapDocument(request);
   });
 
-  test('should hide sidebar on mobile', async ({page}) => {
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-
-    // Create map first at desktop size
+  test.beforeEach(async ({page}) => {
     await page.setViewportSize({width: 1280, height: 720});
-    await navigateToMap(page, sharedDocumentId);
+    await navigateToMap(page, sharedDocumentId!);
+  });
 
-    // Now switch to mobile viewport
+  test('hides the sidebar on mobile and moves tools to the dock', async ({page}) => {
     await page.setViewportSize({width: 375, height: 667});
-    await page.waitForTimeout(500);
+    await expect(page.locator(testSelectors.sidebar)).not.toBeVisible();
+    await expect(page.locator(testSelectors.toolbar)).toBeVisible();
 
-    // Sidebar should be hidden on mobile
-    const sidebar = page.locator(testSelectors.sidebar);
-    await expect(sidebar).not.toBeVisible();
-
-    // ...but the drawing tools move to the mobile dock instead of vanishing.
-    const toolbar = page.locator('[data-testid="toolbar"]');
-    await expect(toolbar).toBeVisible();
-
-    // Selecting the paint tool reveals the brush controls (district picker).
-    const brushTool = page.locator(testSelectors.brushTool);
-    if (await brushTool.isVisible()) {
-      await brushTool.click();
-      await expect(page.getByText('Brush Size')).toBeVisible();
-    }
+    // Selecting the paint tool reveals the brush controls.
+    await selectTool(page, testSelectors.brushTool);
+    await expect(page.getByText('Brush Size')).toBeVisible();
   });
 
-  test('should show sidebar on landscape mobile/tablet', async ({page}) => {
-    if (!sharedDocumentId) {
-      test.skip(true, 'No document ID available');
-      return;
-    }
-
-    // Create map first at desktop size
-    await page.setViewportSize({width: 1280, height: 720});
-    await navigateToMap(page, sharedDocumentId);
-
-    // Switch to landscape tablet
+  test('shows the sidebar on landscape tablet', async ({page}) => {
     await page.setViewportSize({width: 1024, height: 768});
-    await page.waitForTimeout(500);
-
-    // Sidebar should be visible on larger screens
-    const sidebar = page.locator(testSelectors.sidebar);
-    await expect(page.locator(testSelectors.mapCanvas)).toBeVisible();
-    // Note: exact sidebar breakpoint can vary with CSS/layout changes.
-    await expect(sidebar).toBeVisible();
+    await expect(page.locator(testSelectors.sidebar)).toBeVisible();
   });
 });
